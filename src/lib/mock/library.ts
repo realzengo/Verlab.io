@@ -1,0 +1,68 @@
+import type { LibraryItem } from "@/lib/types";
+
+export const LIBRARY_ITEMS: LibraryItem[] = [
+  {
+    id: "lib-1",
+    type: "transcript",
+    title: "The $2.3M mistake surgeons hope you never learn about",
+    folder: "Medical Malpractice",
+    createdAt: "2026-05-28T08:00:00.000Z",
+    refId: "transcript-medmal-1",
+  },
+  {
+    id: "lib-2",
+    type: "transcript",
+    title: "The intern who leaked a decade of trade secrets",
+    folder: "Corporate Espionage",
+    createdAt: "2026-06-01T12:30:00.000Z",
+    refId: "transcript-corpespionage-1",
+  },
+  {
+    id: "lib-3",
+    type: "sop",
+    title: "Medical Malpractice → Corporate Fraud",
+    folder: "SOPs",
+    createdAt: "2026-06-02T10:00:00.000Z",
+    refId: "sop-medmal-to-corpfraud",
+  },
+  {
+    id: "lib-4",
+    type: "script",
+    title: "The $340M expense line",
+    folder: "Corporate Fraud",
+    createdAt: "2026-06-03T11:20:00.000Z",
+    refId: "script-cfo-expense",
+  },
+  {
+    id: "lib-5",
+    type: "script",
+    title: "How one auditor's question unraveled a decade",
+    folder: "Corporate Fraud",
+    createdAt: "2026-06-04T09:05:00.000Z",
+    refId: "script-auditor-question",
+  },
+  {
+    id: "lib-6",
+    type: "sop",
+    title: "Corporate Espionage → Financial Collapse",
+    folder: "SOPs",
+    createdAt: "2026-06-10T14:30:00.000Z",
+    refId: "sop-corpfraud-to-fincollapse",
+  },
+  {
+    id: "lib-7",
+    type: "transcript",
+    title: "The trade that erased a nation's pension fund",
+    folder: "Financial Collapse",
+    createdAt: "2026-06-08T15:45:00.000Z",
+    refId: "transcript-fincollapse-1",
+  },
+  {
+    id: "lib-8",
+    type: "download",
+    title: "medmal-1-source.mp4",
+    folder: "Downloads",
+    createdAt: "2026-05-29T07:10:00.000Z",
+    refId: "transcript-medmal-1",
+  },
+];

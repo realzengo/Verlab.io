@@ -1,65 +1,67 @@
-import Image from "next/image";
+import { NICHES, SCRIPTS } from "@/lib/mock-data";
+import { Nav } from "@/components/landing/Nav";
+import { Hero } from "@/components/landing/Hero";
+import { LoopSteps } from "@/components/landing/LoopSteps";
+import { NicheBendingSpotlight } from "@/components/landing/NicheBendingSpotlight";
+import { FeatureGrid } from "@/components/landing/FeatureGrid";
+import { FeatureRow } from "@/components/landing/FeatureRow";
+import { PricingSection } from "@/components/landing/PricingSection";
+import { DeveloperBand } from "@/components/landing/DeveloperBand";
+import { Faq } from "@/components/landing/Faq";
+import { Footer } from "@/components/landing/Footer";
+import { NicheCard } from "@/components/features/NicheCard";
+import { ScriptView } from "@/components/features/ScriptView";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex min-h-screen flex-col bg-white">
+      <Nav />
+      <main className="flex-1">
+        <Hero />
+        <LoopSteps />
+        <NicheBendingSpotlight />
+        <FeatureGrid />
+
+        <FeatureRow
+          eyebrow="Niche Finder"
+          title="Find the faceless niches blowing up right now"
+          description="Every niche is ranked by a live momentum score, so you know which ones are worth bending before you invest the time."
+          bullets={[
+            "Momentum score updated from real trending data",
+            "Sample videos so you can see the format instantly",
+            "One click to send a niche straight into Niche Bending",
+          ]}
+          preview={
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {NICHES.slice(0, 2).map((niche) => (
+                <NicheCard key={niche.id} niche={niche} />
+              ))}
+            </div>
+          }
+          ctaLabel="Explore Niche Finder"
+          ctaHref="/app/niches"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        <FeatureRow
+          reverse
+          eyebrow="Script Maker"
+          title="Turn a bent SOP into a ready-to-film script"
+          description="Pick a bent SOP, a reference transcript, and a topic — Clypa writes the hook, body, and CTA in the proven structure."
+          bullets={[
+            "Hook / body / CTA broken out clearly",
+            "Regenerate instantly if it's not quite right",
+            "Export to TXT, PDF, or XML for your editor",
+          ]}
+          preview={<ScriptView script={SCRIPTS[0]} />}
+          ctaLabel="Explore Script Maker"
+          ctaHref="/app/scripts"
+        />
+
+        <PricingSection />
+        <DeveloperBand />
+        <Faq />
       </main>
+      <Footer />
     </div>
   );
 }

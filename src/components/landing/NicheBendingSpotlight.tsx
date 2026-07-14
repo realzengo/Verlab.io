@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Inter } from "next/font/google";
-import { ArrowLeft, CheckCircle2, Coins, Lock, Search } from "lucide-react";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-inter",
-});
+import { CheckCircle2, Coins, Lock } from "lucide-react";
+import { BEND_RESULTS } from "@/lib/mock-data";
+import { LinkInput } from "@/components/ui/LinkInput";
+import { SopView } from "@/components/features/SopView";
+import { cn } from "@/lib/utils";
 
 type BendCard = {
   id: string;
@@ -117,15 +114,9 @@ function deriveName(raw: string): string {
   return words.join(" ") || "this creator";
 }
 
-function SocialProofBadge({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function SocialProofBadge({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-medium text-[#0b0f19] shadow-[0_1px_2px_rgba(11,15,25,0.04)]">
+    <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-heading shadow-card">
       {icon}
       <span>{children}</span>
     </div>
@@ -136,7 +127,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
   const avatar = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
   return (
-    <div className="relative flex flex-col gap-4 rounded-[20px] border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_2px_rgba(11,15,25,0.04)] transition-shadow hover:shadow-[0_8px_24px_rgba(11,15,25,0.08)]">
+    <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
       {card.locked && (
         <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full border border-[#fde68a] bg-[#fef3c7] px-2.5 py-1 text-[11px] font-semibold text-[#b45309] shadow-sm">
           <Lock className="h-3 w-3" strokeWidth={2.5} />
@@ -152,9 +143,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
           >
             {card.initials}
           </div>
-          <span className="text-sm font-semibold text-[#0b0f19]">
-            {card.creator}
-          </span>
+          <span className="text-sm font-semibold text-heading">{card.creator}</span>
         </div>
         <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
           +{card.structures}
@@ -162,20 +151,13 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">
-          Bent to
-        </span>
-        <span className="text-base font-semibold text-[#335cff]">
-          {card.niche}
-        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-body">Bent to</span>
+        <span className="text-base font-semibold text-primary">{card.niche}</span>
       </div>
 
-      <ul className="flex flex-col gap-2 border-t border-[#e5e7eb] pt-3">
+      <ul className="flex flex-col gap-2 border-t border-hairline pt-3">
         {card.bullets.map((bullet, i) => (
-          <li
-            key={i}
-            className="select-none text-sm leading-snug text-[#6b7280] blur-[3px]"
-          >
+          <li key={i} className="select-none text-sm leading-snug text-body blur-[3px]">
             {bullet}
           </li>
         ))}
@@ -184,7 +166,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
   );
 }
 
-export default function NicheBenderHero() {
+export function NicheBendingSpotlight() {
   const [query, setQuery] = useState("");
   const [submittedName, setSubmittedName] = useState<string | null>(null);
 
@@ -199,97 +181,46 @@ export default function NicheBenderHero() {
     setQuery("");
   };
 
-  return (
-    <div
-      className={`${inter.variable} w-full bg-white`}
-      style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-    >
-      <style>{`
-        @media (prefers-reduced-motion: no-preference) {
-          .bend-panel {
-            animation: bend-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-            transform-origin: top center;
-          }
-        }
-        @keyframes bend-in {
-          0% {
-            opacity: 0;
-            transform: perspective(1000px) rotateX(6deg) translateY(14px);
-          }
-          100% {
-            opacity: 1;
-            transform: perspective(1000px) rotateX(0deg) translateY(0);
-          }
-        }
-      `}</style>
+  const teaserResult = BEND_RESULTS[0];
 
-      <section className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-20 pt-20 text-center sm:px-6 sm:pt-28 lg:px-8">
-        <h1 className="text-4xl font-semibold tracking-tight text-[#0b0f19] sm:text-5xl md:text-6xl">
+  return (
+    <section id="niche-bending" className="w-full bg-white">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-6 lg:px-8">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">Niche Bending</span>
+        <h2 className="mt-2 text-4xl font-semibold tracking-tight text-heading sm:text-5xl">
           just niche bend it
-        </h1>
-        <p className="mt-4 max-w-lg text-base font-medium text-[#335cff] sm:text-lg">
-          paste a TikTok link, channel, or handle and we&rsquo;ll bend it for
-          you
+        </h2>
+        <p className="mt-4 max-w-lg text-base font-medium text-primary sm:text-lg">
+          paste a TikTok link, channel, or handle and we&rsquo;ll bend it for you
         </p>
 
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
-          <SocialProofBadge
-            icon={
-              <CheckCircle2
-                className="h-3.5 w-3.5 text-green-600"
-                strokeWidth={2.5}
-              />
-            }
-          >
+          <SocialProofBadge icon={<CheckCircle2 className="h-3.5 w-3.5 text-green-600" strokeWidth={2.5} />}>
             2,847 bends completed
           </SocialProofBadge>
-          <SocialProofBadge
-            icon={
-              <Coins className="h-3.5 w-3.5 text-amber-600" strokeWidth={2.5} />
-            }
-          >
+          <SocialProofBadge icon={<Coins className="h-3.5 w-3.5 text-amber-600" strokeWidth={2.5} />}>
             $1.2M in creator earnings
           </SocialProofBadge>
-          <SocialProofBadge
-            icon={
-              <Lock className="h-3.5 w-3.5 text-[#335cff]" strokeWidth={2.5} />
-            }
-          >
+          <SocialProofBadge icon={<Lock className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />}>
             Claimed niches stay private
           </SocialProofBadge>
         </div>
 
-        <form
+        <LinkInput
+          value={query}
+          onChange={setQuery}
           onSubmit={handleSubmit}
-          className="mt-10 flex w-full max-w-2xl items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white p-1.5 shadow-[0_2px_8px_rgba(11,15,25,0.06)] focus-within:ring-2 focus-within:ring-[#335cff]/30"
-        >
-          <div className="flex flex-1 items-center gap-2 pl-3.5">
-            <Search className="h-4.5 w-4.5 shrink-0 text-[#6b7280]" />
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search a creator or paste a link..."
-              aria-label="Search a creator or paste a link"
-              className="w-full min-w-0 bg-transparent py-2.5 text-sm text-[#0b0f19] placeholder:text-[#6b7280] focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="shrink-0 rounded-full bg-[#335cff] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2947d1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#335cff] focus-visible:ring-offset-2"
-          >
-            Bend it
-          </button>
-        </form>
+          placeholder="Search a creator or paste a link..."
+          submitLabel="Bend it"
+          className="mt-10 max-w-2xl"
+        />
 
         <div className="mt-16 w-full" style={{ perspective: "1000px" }}>
           {submittedName === null ? (
-            <div key="wall" className="bend-panel flex flex-col gap-5">
+            <div key="wall" className="animate-bend-in flex flex-col gap-5">
               <div className="flex items-center justify-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
-                  Real niche bends
-                </h2>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-body">Real niche bends</h3>
               </div>
               <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                 {BEND_WALL.map((card, i) => (
@@ -298,39 +229,31 @@ export default function NicheBenderHero() {
               </div>
             </div>
           ) : (
-            <div key="results" className="bend-panel flex flex-col gap-6">
+            <div key="results" className="animate-bend-in flex flex-col gap-8">
               <div className="flex flex-col items-center gap-3">
-                <h2 className="text-xl font-semibold text-[#0b0f19] sm:text-2xl">
+                <h3 className="text-xl font-semibold text-heading sm:text-2xl">
                   Niche bends for {submittedName}
-                </h2>
+                </h3>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="flex items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-medium text-[#6b7280] transition-colors hover:border-[#335cff]/40 hover:text-[#335cff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#335cff]"
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-body transition-colors hover:border-primary/40 hover:text-primary",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  )}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
                   Bend another link
                 </button>
               </div>
 
               <div className="grid grid-cols-1 gap-5 text-left md:grid-cols-3">
                 {RESULT_COLUMNS.map((column) => (
-                  <div
-                    key={column.title}
-                    className="flex flex-col gap-3 rounded-[20px] border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_2px_rgba(11,15,25,0.04)]"
-                  >
-                    <span className="text-sm font-semibold text-[#335cff]">
-                      {column.title}
-                    </span>
+                  <div key={column.title} className="flex flex-col gap-3 rounded-card border border-hairline bg-white p-5 shadow-card">
+                    <span className="text-sm font-semibold text-primary">{column.title}</span>
                     <ul className="flex flex-col gap-2.5">
                       {column.hooks.map((hook, i) => (
-                        <li
-                          key={i}
-                          className="rounded-2xl bg-[#eef0ff] px-3.5 py-2.5 text-sm leading-snug text-[#0b0f19]"
-                        >
-                          <span className="mr-1.5 font-semibold text-[#335cff]">
-                            &rarr;
-                          </span>
+                        <li key={i} className="rounded-2xl bg-accent px-3.5 py-2.5 text-sm leading-snug text-heading">
+                          <span className="mr-1.5 font-semibold text-primary">&rarr;</span>
                           {hook}
                         </li>
                       ))}
@@ -338,10 +261,19 @@ export default function NicheBenderHero() {
                   </div>
                 ))}
               </div>
+
+              <div className="text-left">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-body">
+                  Sample SOP for {submittedName}
+                </span>
+                <div className="mt-3">
+                  <SopView sop={teaserResult.sop} variant="compact" />
+                </div>
+              </div>
             </div>
           )}
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
