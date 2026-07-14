@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Star, TrendingUp, Wand2 } from "lucide-react";
+import { ArrowRight, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 const PLATFORM_CHIPS = ["TikTok", "Instagram Reels", "YouTube Shorts", "MCP for Claude & ChatGPT"];
@@ -24,17 +24,21 @@ export function Hero() {
         </span>
       </div>
 
-      <h1 className="max-w-4xl text-[44px] font-bold leading-[1.05] tracking-[-1.5px] text-heading sm:text-[56px] lg:text-[64px]">
-        Bend any viral niche{" "}
+      <h1 className="max-w-4xl text-[34px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[56px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[64px]">
+        Pick and Build
+        <br />
+        the{" "}
         <span className="inline-block -rotate-[1.2deg] rounded-2xl bg-primary px-3.5 py-0.5 leading-[1.05] text-white shadow-blue">
-          into your own
+          Perfect
         </span>{" "}
-        — and get the scripts to run it.
+        Niche
       </h1>
 
-      <p className="mt-6 max-w-xl text-lg leading-relaxed text-body">
-        Clypa finds the faceless niches blowing up on TikTok, reverse-engineers why they work, and
-        bends them into a repeatable system for your channel.
+      <p className="mt-6 max-w-xl text-lg leading-relaxed text-body sm:hidden">
+        Everything you need to grow and profit.
+      </p>
+      <p className="mt-6 hidden max-w-xl text-base leading-relaxed text-body sm:block">
+        Everything you need to make money with social media, all in one place.
       </p>
 
       <div className="mt-8 flex flex-col gap-3.5 sm:flex-row">
@@ -58,27 +62,6 @@ export function Hero() {
             {chip}
           </span>
         ))}
-      </div>
-
-      <div className="mt-14 flex w-full max-w-3xl flex-col items-center gap-4 rounded-card-lg border border-hairline bg-surface p-6 shadow-card sm:flex-row sm:justify-center sm:gap-6">
-        <div className="w-full max-w-[220px] rounded-card-sm border border-hairline bg-app p-4 text-left">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Source niche</span>
-          <p className="mt-1.5 text-sm font-semibold text-heading">Medical Malpractice</p>
-          <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-success">
-            <TrendingUp className="h-3.5 w-3.5" />
-            94 momentum
-          </span>
-        </div>
-
-        <div className="flex h-10 w-10 shrink-0 rotate-90 items-center justify-center rounded-full bg-primary text-white shadow-blue sm:rotate-0">
-          <Wand2 className="h-4 w-4" />
-        </div>
-
-        <div className="w-full max-w-[220px] rounded-card-sm border border-accent-line bg-accent p-4 text-left">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">Your niche</span>
-          <p className="mt-1.5 text-sm font-semibold text-heading">Corporate Fraud</p>
-          <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">Same formula, new topic</span>
-        </div>
       </div>
     </section>
   );
