@@ -29,10 +29,9 @@ npm run build    # production build
 npm run lint
 ```
 
-`src/app/api/bend/route.ts` (see below) calls Cloudflare Workers AI and needs
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local` to work. Without them,
-the Niche Bending flow (`/app/bend`) will show its error state — every other page works
-with no environment setup at all.
+`src/app/api/bend/route.ts` calls Cloudflare Workers AI and needs `CLOUDFLARE_ACCOUNT_ID`
+and `CLOUDFLARE_API_TOKEN` in `.env.local` to work, but no UI currently calls it (see
+"Wiring to a real API" below) — the app runs with no environment setup at all.
 
 ## Project structure
 
@@ -41,11 +40,11 @@ src/
 ├── app/
 │   ├── page.tsx                 # marketing landing page (/)
 │   ├── layout.tsx, globals.css  # root layout, fonts, design tokens
-│   ├── api/bend/route.ts        # real Cloudflare Workers AI route (used by /app/bend)
+│   ├── api/bend/route.ts        # real Cloudflare Workers AI route (not currently called by any UI)
 │   └── app/                     # nested route folder → URL prefix /app (dashboard)
 │       ├── layout.tsx           # Sidebar + TopBar shell
 │       ├── page.tsx             # dashboard home
-│       ├── bend/                # flagship Niche Bending flow
+│       ├── bend/                # flagship Niche Bending flow (mock-only, InteractiveNicheBender)
 │       ├── niches/, sops/, scripts/, transcripts/, library/,
 │       │   collections/, agents/, settings/ (+ settings/api/)
 │       └── */_components/       # page-only components used nowhere else
@@ -53,7 +52,7 @@ src/
 │   ├── ui/          # primitives: Button, Badge, Card, LinkInput, EmptyState, Avatar,
 │   │                  Accordion, CodeSnippet, Table, Tabs
 │   ├── features/    # NicheCard, SopView, ScriptView, TranscriptView, AgentCard,
-│   │                  and features/bend/ (BendFlow + its sub-steps)
+│   │                  and features/bend/InteractiveNicheBender (used by /app/bend)
 │   ├── pricing/      # PricingCard, PricingTable, PricingComparisonTable
 │   │                  (shared between the landing pricing section and /app/settings)
 │   ├── landing/      # Nav, Hero, LoopSteps, NicheBendingSpotlight, FeatureGrid,
@@ -105,28 +104,25 @@ Each domain file maps to a future REST resource: `niches.ts` → `GET /niches`,
 
 ## Wiring to a real API
 
-**`/app/bend` already calls a real backend.** `src/app/api/bend/route.ts` predates this
-build-out and calls Cloudflare Workers AI directly. `BendFlow`
-(`src/components/features/bend/BendFlow.tsx`) does a real
-`fetch("/api/bend", { method: "POST", body: { sourceNiche, targetNiche } })`, handles the
-loading and error states, and renders whatever comes back. The `NicheBendSOP` /
-`NicheBendResult` types in `src/lib/types.ts` intentionally mirror the route's response
-shape field-for-field.
+Every route, including `/app/bend`, currently renders from mock data — no page calls a
+real backend. `src/app/api/bend/route.ts` still exists and works (it calls Cloudflare
+Workers AI directly and returns a `NicheBendResult` shape: `analysis` / `sop` /
+`scriptIdeas` / `scripts`), but nothing in the UI calls it right now. An earlier version
+of `/app/bend` did call it via a `BendFlow` component; that flow was removed in favor of
+`InteractiveNicheBender` (`src/components/features/bend/InteractiveNicheBender.tsx`), a
+fully mocked "Bend Wall" experience. If you want `/app/bend` to hit the real API again,
+`POST` to `/api/bend` with `{ sourceNiche, targetNiche }` and note that the model's JSON
+output isn't schema-validated server-side — fields like `sop.structure` or `scripts` can
+come back as nested objects instead of plain strings, so normalize defensively before
+rendering.
 
-Because the underlying LLM call isn't schema-validated server-side, its JSON output
-doesn't always match the declared shape exactly (e.g. `structure` or `scripts` entries
-can come back as nested objects instead of plain strings). `normalizeBendResult.ts` in
-the same folder coerces whatever comes back into displayable strings before it hits the
-UI — keep that in place (or replace it with real server-side validation) if you swap the
-model or prompt.
+`NicheBendSOP` / `NicheBendResult` in `src/lib/types.ts` still mirror the route's response
+shape field-for-field, in case you wire it back up.
 
 Every other route is mock-only. To wire one up for real: replace the corresponding
 `lib/mock/*.ts` import with a `fetch` call (or a server-side data fetch in the page
 component), keeping the same TypeScript types from `lib/types.ts` so the components
-underneath don't need to change. The public landing page's Niche Bending spotlight
-(`NicheBendingSpotlight`, adapted from the original `NicheBenderHero` component) is
-deliberately kept fully mocked, even after wiring `/app/bend` — it's unauthenticated, and
-letting anonymous visitors trigger a real paid LLM call on every page load is out of scope.
+underneath don't need to change.
 
 ## Known gaps
 

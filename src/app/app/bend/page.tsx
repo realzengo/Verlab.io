@@ -1,4 +1,4 @@
-import { BendFlow } from "@/components/features/bend/BendFlow";
+import InteractiveNicheBender from "@/components/features/bend/InteractiveNicheBender";
 
 export default function BendPage() {
   return (
@@ -9,7 +9,7 @@ export default function BendPage() {
           Pick a proven viral niche, tell us your own topic, and Clypa maps the winning structure across.
         </p>
       </div>
-      <BendFlow />
+      <InteractiveNicheBender />
     </div>
   );
 }
