@@ -2,9 +2,12 @@ import { NICHES, SCRIPTS } from "@/lib/mock-data";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
 import { LoopSteps } from "@/components/landing/LoopSteps";
+import { WorkspaceShowcase } from "@/components/landing/WorkspaceShowcase";
 import { NicheBendingSpotlight } from "@/components/landing/NicheBendingSpotlight";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { FeatureRow } from "@/components/landing/FeatureRow";
+import { Testimonials } from "@/components/landing/Testimonials";
+import { CtaBand } from "@/components/landing/CtaBand";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { DeveloperBand } from "@/components/landing/DeveloperBand";
 import { Faq } from "@/components/landing/Faq";
@@ -14,11 +17,12 @@ import { ScriptView } from "@/components/features/ScriptView";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-surface">
       <Nav />
       <main className="flex-1">
         <Hero />
         <LoopSteps />
+        <WorkspaceShowcase />
         <NicheBendingSpotlight />
         <FeatureGrid />
 
@@ -57,6 +61,8 @@ export default function Home() {
           ctaHref="/app/scripts"
         />
 
+        <Testimonials />
+        <CtaBand />
         <PricingSection />
         <DeveloperBand />
         <Faq />

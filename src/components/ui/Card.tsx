@@ -12,8 +12,8 @@ export function Card({ children, padded = true, hoverLift = false, className, ..
     <div
       className={cn(
         "rounded-card border border-hairline bg-surface shadow-card",
-        padded && "p-5",
-        hoverLift && "transition-shadow hover:shadow-card-hover",
+        padded && "p-6",
+        hoverLift && "transition-[transform,box-shadow] hover:-translate-y-[3px] hover:shadow-card-hover",
         className
       )}
       {...rest}

@@ -45,7 +45,7 @@ export default function LibraryPage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Tabs items={TABS} active={tab} onChange={setTab} />
-        <div className="flex items-center gap-2 rounded-full border border-hairline bg-white px-3.5 py-2 sm:w-72">
+        <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-3.5 py-2 sm:w-72">
           <Search className="h-4 w-4 text-body" />
           <input
             type="text"

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function StreakBanner({ streak }: { streak: MockUser["streak"] }) {
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-hairline bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-card border border-hairline bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-heading">
         <span className="font-semibold">
           {streak.current}-day streak <span aria-hidden>🔥</span>

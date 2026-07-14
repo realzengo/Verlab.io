@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
 const TREND_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus };
-const TREND_COLOR = { up: "text-green-600", down: "text-red-600", flat: "text-body" };
+const TREND_COLOR = { up: "text-success", down: "text-danger", flat: "text-body" };
 
 interface NicheCardProps {
   niche: Niche;
@@ -27,7 +27,7 @@ export function NicheCard({ niche, variant = "default", selected, onSelect, onBe
         onClick={() => onSelect?.(niche)}
         className={cn(
           "flex w-full items-center justify-between gap-3 rounded-card-sm border px-4 py-3 text-left transition-colors",
-          selected ? "border-primary bg-accent" : "border-hairline bg-white hover:border-primary/40"
+          selected ? "border-primary bg-accent" : "border-hairline bg-surface hover:border-primary/40"
         )}
       >
         <div>

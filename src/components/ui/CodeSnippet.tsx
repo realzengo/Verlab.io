@@ -21,7 +21,7 @@ export function CodeSnippet({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-card-sm border border-hairline bg-heading">
+    <div className="relative overflow-hidden rounded-card-sm border border-hairline bg-ink">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{language}</span>
         {copyable && (

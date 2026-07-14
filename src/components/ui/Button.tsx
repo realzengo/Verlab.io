@@ -3,14 +3,15 @@ import type { LucideIcon } from "lucide-react";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "ghost" | "text";
+type Variant = "primary" | "secondary" | "ghost" | "text" | "white";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "bg-primary text-white hover:bg-primary-hover",
-  secondary: "bg-white text-heading border border-hairline hover:border-primary/40",
+  primary: "bg-primary text-white shadow-blue hover:bg-primary-hover hover:-translate-y-px",
+  secondary: "bg-surface text-heading border border-hairline hover:bg-app",
   ghost: "bg-transparent text-heading hover:bg-accent",
   text: "bg-transparent text-primary hover:underline underline-offset-4 px-0",
+  white: "bg-white text-primary shadow-[0_8px_24px_rgba(0,0,0,0.18)] hover:bg-[#f2f4ff] hover:-translate-y-px",
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
@@ -46,7 +47,7 @@ export function Button(props: ButtonProps | LinkProps) {
   } = props;
 
   const classes = cn(
-    "inline-flex items-center justify-center rounded-full font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+    "inline-flex items-center justify-center rounded-full font-semibold transition-[background-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
     variant !== "text" && "rounded-full",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],

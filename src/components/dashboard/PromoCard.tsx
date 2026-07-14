@@ -15,7 +15,7 @@ export function PromoCard({ title, description, previewSlot, href, size = "norma
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-card border border-hairline bg-white transition-shadow hover:shadow-card-hover",
+        "flex flex-col overflow-hidden rounded-card border border-hairline bg-surface transition-shadow hover:shadow-card-hover",
         size === "wide" && "sm:col-span-2"
       )}
     >

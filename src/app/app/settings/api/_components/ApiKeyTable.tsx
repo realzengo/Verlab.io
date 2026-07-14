@@ -40,7 +40,7 @@ export function ApiKeyTable() {
               </TableCell>
               <TableCell>
                 {!key.revoked && (
-                  <button type="button" aria-label={`Revoke ${key.label}`} className="text-body hover:text-red-500">
+                  <button type="button" aria-label={`Revoke ${key.label}`} className="text-body hover:text-danger">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}

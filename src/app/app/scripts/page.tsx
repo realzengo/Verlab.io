@@ -40,7 +40,7 @@ export default function ScriptsPage() {
             <select
               value={sopId}
               onChange={(event) => setSopId(event.target.value)}
-              className="rounded-card-sm border border-hairline bg-white px-3 py-2.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               {SOPS.map((sop) => (
                 <option key={sop.id} value={sop.id}>
@@ -55,7 +55,7 @@ export default function ScriptsPage() {
             <select
               value={transcriptId}
               onChange={(event) => setTranscriptId(event.target.value)}
-              className="rounded-card-sm border border-hairline bg-white px-3 py-2.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               {TRANSCRIPTS.map((transcript) => (
                 <option key={transcript.id} value={transcript.id}>
@@ -72,7 +72,7 @@ export default function ScriptsPage() {
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
               placeholder="e.g. The invoice that exposed the fraud"
-              className="rounded-card-sm border border-hairline bg-white px-3 py-2.5 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </label>
         </div>

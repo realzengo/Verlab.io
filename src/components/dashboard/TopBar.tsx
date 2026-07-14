@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, CreditCard, LogOut, Settings } from "lucide-react";
 import { MOCK_USER, SIDEBAR_NAV } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 function defaultHeading(pathname: string): string {
   if (pathname === "/app") return `Welcome back, ${MOCK_USER.name} 👋`;
@@ -26,15 +26,13 @@ export function TopBar({ heading }: { heading?: string }) {
       <h1 className="text-xl font-semibold text-heading sm:text-2xl">{resolvedHeading}</h1>
 
       <div className="flex shrink-0 items-center gap-3">
-        <Badge variant="success" className="hidden sm:inline-flex">
-          Earn $75+
-        </Badge>
+        <ThemeToggle />
 
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-full border border-hairline bg-white p-1 pr-2"
+            className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface p-1 pr-2"
             aria-label="Account menu"
           >
             <Avatar name={MOCK_USER.name} size="sm" />
@@ -42,7 +40,7 @@ export function TopBar({ heading }: { heading?: string }) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-52 rounded-card-sm border border-hairline bg-white p-1.5 shadow-card-hover">
+            <div className="absolute right-0 z-20 mt-2 w-52 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
               <div className="px-2.5 py-2">
                 <p className="text-sm font-semibold text-heading">{MOCK_USER.name}</p>
                 <p className="text-xs text-body">{MOCK_USER.email}</p>

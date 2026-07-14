@@ -8,7 +8,7 @@ import { StreakBanner } from "@/components/dashboard/StreakBanner";
 function BendPreview() {
   return (
     <div className="flex items-center gap-3">
-      <div className="rounded-card-sm border border-hairline bg-white px-3 py-2.5 text-left shadow-card">
+      <div className="rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left shadow-card">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Source</span>
         <p className="text-xs font-semibold text-heading">Medical Malpractice</p>
       </div>
@@ -25,7 +25,7 @@ function BendPreview() {
 
 function SopPreview() {
   return (
-    <div className="w-full max-w-[220px] rounded-card-sm border border-hairline bg-white p-3 text-left shadow-card">
+    <div className="w-full max-w-[220px] rounded-card-sm border border-hairline bg-surface p-3 text-left shadow-card">
       <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Hook formula</span>
       <p className="mt-1 text-xs text-heading">&ldquo;The $[X] mistake [industry] hoped you&rsquo;d never find&rdquo;</p>
       <div className="mt-2 flex flex-col gap-1">

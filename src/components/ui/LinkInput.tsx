@@ -32,7 +32,7 @@ export function LinkInput({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "flex w-full items-center gap-1.5 rounded-full border border-hairline bg-white p-1.5 shadow-card focus-within:ring-2 focus-within:ring-primary/30",
+        "flex w-full items-center gap-1.5 rounded-full border border-hairline bg-surface p-1.5 shadow-card focus-within:ring-2 focus-within:ring-primary/30",
         className
       )}
     >

@@ -116,7 +116,7 @@ function deriveName(raw: string): string {
 
 function SocialProofBadge({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-heading shadow-card">
+    <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-heading shadow-card">
       {icon}
       <span>{children}</span>
     </div>
@@ -127,7 +127,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
   const avatar = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
   return (
-    <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-surface p-5 shadow-card transition-shadow hover:shadow-card-hover">
       {card.locked && (
         <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full border border-[#fde68a] bg-[#fef3c7] px-2.5 py-1 text-[11px] font-semibold text-[#b45309] shadow-sm">
           <Lock className="h-3 w-3" strokeWidth={2.5} />
@@ -145,7 +145,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
           </div>
           <span className="text-sm font-semibold text-heading">{card.creator}</span>
         </div>
-        <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+        <span className="rounded-full border border-success/20 bg-success-tint px-2 py-0.5 text-[11px] font-semibold text-success">
           +{card.structures}
         </span>
       </div>
@@ -184,7 +184,7 @@ export function NicheBendingSpotlight() {
   const teaserResult = BEND_RESULTS[0];
 
   return (
-    <section id="niche-bending" className="w-full bg-white">
+    <section id="niche-bending" className="w-full bg-surface">
       <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-6 lg:px-8">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">Niche Bending</span>
         <h2 className="mt-2 text-4xl font-semibold tracking-tight text-heading sm:text-5xl">
@@ -195,10 +195,10 @@ export function NicheBendingSpotlight() {
         </p>
 
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
-          <SocialProofBadge icon={<CheckCircle2 className="h-3.5 w-3.5 text-green-600" strokeWidth={2.5} />}>
+          <SocialProofBadge icon={<CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={2.5} />}>
             2,847 bends completed
           </SocialProofBadge>
-          <SocialProofBadge icon={<Coins className="h-3.5 w-3.5 text-amber-600" strokeWidth={2.5} />}>
+          <SocialProofBadge icon={<Coins className="h-3.5 w-3.5 text-warning" strokeWidth={2.5} />}>
             $1.2M in creator earnings
           </SocialProofBadge>
           <SocialProofBadge icon={<Lock className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />}>
@@ -219,7 +219,7 @@ export function NicheBendingSpotlight() {
           {submittedName === null ? (
             <div key="wall" className="animate-bend-in flex flex-col gap-5">
               <div className="flex items-center justify-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-body">Real niche bends</h3>
               </div>
               <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -238,7 +238,7 @@ export function NicheBendingSpotlight() {
                   type="button"
                   onClick={handleReset}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-body transition-colors hover:border-primary/40 hover:text-primary",
+                    "flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-body transition-colors hover:border-primary/40 hover:text-primary",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   )}
                 >
@@ -248,7 +248,7 @@ export function NicheBendingSpotlight() {
 
               <div className="grid grid-cols-1 gap-5 text-left md:grid-cols-3">
                 {RESULT_COLUMNS.map((column) => (
-                  <div key={column.title} className="flex flex-col gap-3 rounded-card border border-hairline bg-white p-5 shadow-card">
+                  <div key={column.title} className="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-5 shadow-card">
                     <span className="text-sm font-semibold text-primary">{column.title}</span>
                     <ul className="flex flex-col gap-2.5">
                       {column.hooks.map((hook, i) => (

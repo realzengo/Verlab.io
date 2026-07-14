@@ -112,24 +112,24 @@ function deriveName(raw: string): string {
 function BendWallCard({ card }: { card: WallCard }) {
   if (card.locked) {
     return (
-      <div className="relative overflow-hidden rounded-lg border-2 border-dashed border-yellow-400 bg-white p-5">
+      <div className="relative overflow-hidden rounded-lg border-2 border-dashed border-warning bg-surface p-5">
         <div aria-hidden className="pointer-events-none select-none blur-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef0ff] text-xs font-semibold text-[#335cff]">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-primary">
                 {card.initials}
               </div>
-              <span className="text-sm font-semibold text-[#335cff]">{card.creator}</span>
+              <span className="text-sm font-semibold text-primary">{card.creator}</span>
             </div>
-            <span className="text-xs font-semibold text-green-600">{card.delta}</span>
+            <span className="text-xs font-semibold text-success">{card.delta}</span>
           </div>
           <div className="mt-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">Bent to:</span>
-            <p className="mt-1 text-base font-bold text-[#0b0f19]">{card.niche}</p>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-body">Bent to:</span>
+            <p className="mt-1 text-base font-bold text-heading">{card.niche}</p>
           </div>
-          <div className="mt-4 flex flex-col gap-1.5 border-t border-dashed border-[#e5e7eb] pt-3">
+          <div className="mt-4 flex flex-col gap-1.5 border-t border-dashed border-hairline pt-3">
             {card.bullets.map((bullet, i) => (
-              <p key={i} className="text-sm leading-snug text-[#6b7280]">
+              <p key={i} className="text-sm leading-snug text-body">
                 {bullet}
               </p>
             ))}
@@ -137,8 +137,8 @@ function BendWallCard({ card }: { card: WallCard }) {
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md">
-            <Lock className="h-6 w-6 text-yellow-500" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface shadow-md">
+            <Lock className="h-6 w-6 text-warning" />
           </div>
         </div>
       </div>
@@ -146,25 +146,25 @@ function BendWallCard({ card }: { card: WallCard }) {
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-[#e5e7eb] bg-white p-5">
+    <div className="rounded-lg border border-dashed border-hairline bg-surface p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eef0ff] text-xs font-semibold text-[#335cff]">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-primary">
             {card.initials}
           </div>
-          <span className="text-sm font-semibold text-[#335cff]">{card.creator}</span>
+          <span className="text-sm font-semibold text-primary">{card.creator}</span>
         </div>
-        <span className="text-xs font-semibold text-green-600">{card.delta}</span>
+        <span className="text-xs font-semibold text-success">{card.delta}</span>
       </div>
 
       <div className="mt-4">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6b7280]">Bent to:</span>
-        <p className="mt-1 text-base font-bold text-[#0b0f19]">{card.niche}</p>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-body">Bent to:</span>
+        <p className="mt-1 text-base font-bold text-heading">{card.niche}</p>
       </div>
 
-      <div className="mt-4 flex flex-col gap-1.5 border-t border-dashed border-[#e5e7eb] pt-3">
+      <div className="mt-4 flex flex-col gap-1.5 border-t border-dashed border-hairline pt-3">
         {card.bullets.map((bullet, i) => (
-          <p key={i} className="select-none text-sm leading-snug text-gray-300 blur-sm">
+          <p key={i} className="select-none text-sm leading-snug text-body blur-sm">
             {bullet}
           </p>
         ))}
@@ -175,13 +175,13 @@ function BendWallCard({ card }: { card: WallCard }) {
 
 function ResultCard({ column }: { column: ResultColumn }) {
   return (
-    <div className="group relative overflow-hidden rounded-lg border border-dashed border-[#e5e7eb] bg-white p-5 transition-colors duration-200 hover:border-[#335cff] hover:bg-[#eef0ff]">
+    <div className="group relative overflow-hidden rounded-lg border border-dashed border-hairline bg-surface p-5 transition-colors duration-200 hover:border-primary hover:bg-accent">
       <div className="transition-opacity duration-200 group-hover:pointer-events-none group-hover:opacity-0">
-        <h3 className="text-base font-bold text-[#0b0f19]">{column.title}</h3>
+        <h3 className="text-base font-bold text-heading">{column.title}</h3>
         <ul className="mt-3 flex flex-col gap-2">
           {column.hooks.map((hook, i) => (
-            <li key={i} className="flex gap-1.5 text-sm leading-snug text-[#6b7280]">
-              <span className="shrink-0 font-semibold text-[#335cff]">&rarr;</span>
+            <li key={i} className="flex gap-1.5 text-sm leading-snug text-body">
+              <span className="shrink-0 font-semibold text-primary">&rarr;</span>
               {hook}
             </li>
           ))}
@@ -189,11 +189,11 @@ function ResultCard({ column }: { column: ResultColumn }) {
       </div>
 
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-8 opacity-0 transition-opacity duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
-        <button type="button" className="flex flex-col items-center gap-1.5 text-[#335cff]">
+        <button type="button" className="flex flex-col items-center gap-1.5 text-primary">
           <Bookmark className="h-5 w-5" />
           <span className="text-xs font-semibold">Save</span>
         </button>
-        <button type="button" className="flex flex-col items-center gap-1.5 text-[#335cff]">
+        <button type="button" className="flex flex-col items-center gap-1.5 text-primary">
           <RefreshCcw className="h-5 w-5" />
           <span className="text-xs font-semibold">Regenerate</span>
         </button>
@@ -214,24 +214,24 @@ export default function InteractiveNicheBender() {
   };
 
   return (
-    <div className="w-full bg-white">
-      <div className="border-y border-dashed border-[#e5e7eb] py-10">
+    <div className="w-full bg-surface">
+      <div className="border-y border-dashed border-hairline py-10">
         <form
           onSubmit={handleSubmit}
-          className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-lg border-2 border-dashed border-[#335cff] bg-white px-4 py-2.5"
+          className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-lg border-2 border-dashed border-primary bg-surface px-4 py-2.5"
         >
-          <Search className="h-5 w-5 shrink-0 text-[#6b7280]" />
+          <Search className="h-5 w-5 shrink-0 text-body" />
           <input
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search up a channel or paste the link"
             aria-label="Search up a channel or paste the link"
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[#0b0f19] placeholder:text-[#6b7280] outline-none focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-heading placeholder:text-body outline-none focus:outline-none"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-lg bg-[#335cff] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2947d1]"
+            className="shrink-0 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Bend it
           </button>
@@ -241,8 +241,8 @@ export default function InteractiveNicheBender() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         {!isBending ? (
           <>
-            <h2 className="text-xl font-bold text-[#0b0f19]">Bend Wall</h2>
-            <p className="mt-1 text-sm text-[#6b7280]">Real niche bends from real users</p>
+            <h2 className="text-xl font-bold text-heading">Bend Wall</h2>
+            <p className="mt-1 text-sm text-body">Real niche bends from real users</p>
 
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
               {WALL_CARDS.map((card) => (
@@ -252,7 +252,7 @@ export default function InteractiveNicheBender() {
           </>
         ) : (
           <>
-            <h2 className="text-left text-xl font-bold text-[#0b0f19]">
+            <h2 className="text-left text-xl font-bold text-heading">
               Niche bends for {creatorName}
             </h2>
 

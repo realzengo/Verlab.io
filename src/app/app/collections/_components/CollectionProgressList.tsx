@@ -10,11 +10,11 @@ const STATUS_LABEL: Record<Collection["status"], string> = {
   failed: "Failed",
 };
 
-const STATUS_VARIANT: Record<Collection["status"], "default" | "success"> = {
+const STATUS_VARIANT: Record<Collection["status"], "default" | "success" | "danger"> = {
   queued: "default",
   processing: "default",
   complete: "success",
-  failed: "default",
+  failed: "danger",
 };
 
 export function CollectionProgressList({ collections }: { collections: Collection[] }) {
@@ -31,7 +31,7 @@ export function CollectionProgressList({ collections }: { collections: Collectio
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-app">
             <div
-              className={cn("h-full rounded-full", collection.status === "failed" ? "bg-red-400" : "bg-primary")}
+              className={cn("h-full rounded-full", collection.status === "failed" ? "bg-danger" : "bg-primary")}
               style={{ width: `${collection.progress}%` }}
             />
           </div>

@@ -18,7 +18,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         <h2 className="text-lg font-semibold text-heading">Settings</h2>
       </div>
 
-      <div className="inline-flex w-fit items-center gap-1 rounded-full border border-hairline bg-white p-1">
+      <div className="inline-flex w-fit items-center gap-1 rounded-full border border-hairline bg-surface p-1">
         {TABS.map((tab) => {
           const active = pathname === tab.href;
           return (

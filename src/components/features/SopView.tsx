@@ -44,7 +44,7 @@ export function SopView({ sop, title, variant = "full" }: SopViewProps) {
             <ul className="mt-1.5 flex flex-col gap-1.5">
               {sop.dos.map((item, i) => (
                 <li key={i} className="flex gap-2 text-sm leading-snug text-heading">
-                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" />
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
                   {item}
                 </li>
               ))}
@@ -55,7 +55,7 @@ export function SopView({ sop, title, variant = "full" }: SopViewProps) {
             <ul className="mt-1.5 flex flex-col gap-1.5">
               {sop.donts.map((item, i) => (
                 <li key={i} className="flex gap-2 text-sm leading-snug text-heading">
-                  <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                  <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-danger" />
                   {item}
                 </li>
               ))}

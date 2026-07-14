@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "success" | "new";
+type Variant = "default" | "success" | "warning" | "danger" | "new";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   default: "bg-accent text-primary",
-  success: "bg-green-50 text-green-700 border border-green-200",
-  new: "bg-heading text-white",
+  success: "bg-success-tint text-success border border-success/20",
+  warning: "bg-warning-tint text-warning border border-warning/20",
+  danger: "bg-danger-tint text-danger border border-danger/20",
+  new: "bg-ink text-white",
 };
 
 export function Badge({

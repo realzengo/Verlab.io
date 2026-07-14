@@ -33,8 +33,10 @@ export function FeatureRow({
         )}
       >
         <div>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">{eyebrow}</span>
-          <h2 className="mt-2 text-2xl font-semibold text-heading sm:text-3xl">{title}</h2>
+          <span className="text-[13px] font-bold uppercase tracking-[1.4px] text-primary">{eyebrow}</span>
+          <h2 className="mt-3 text-[26px] font-bold leading-[1.1] tracking-[-0.5px] text-slate sm:text-[32px]">
+            {title}
+          </h2>
           <p className="mt-4 text-sm leading-relaxed text-body sm:text-base">{description}</p>
 
           {bullets && (

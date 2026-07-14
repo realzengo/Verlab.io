@@ -43,7 +43,7 @@ export default function SopsPage() {
                 onClick={() => setSelectedId(sop.id)}
                 className={cn(
                   "rounded-card-sm border px-4 py-3 text-left transition-colors",
-                  sop.id === selectedId ? "border-primary bg-accent" : "border-hairline bg-white hover:border-primary/40"
+                  sop.id === selectedId ? "border-primary bg-accent" : "border-hairline bg-surface hover:border-primary/40"
                 )}
               >
                 <p className="text-sm font-semibold text-heading">{sop.title}</p>

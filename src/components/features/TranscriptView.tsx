@@ -34,7 +34,7 @@ export function TranscriptView({
   if (variant === "compact") {
     return (
       <Card className="flex gap-3 p-4">
-        <div className="flex h-16 w-10 shrink-0 items-center justify-center rounded-lg bg-heading text-white">
+        <div className="flex h-16 w-10 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
           <PlayCircle className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -48,7 +48,7 @@ export function TranscriptView({
   return (
     <Card padded={false} className="grid grid-cols-1 gap-0 overflow-hidden md:grid-cols-[220px_1fr]">
       <div className="flex flex-col gap-3 border-b border-hairline bg-app p-5 md:border-b-0 md:border-r">
-        <div className="flex aspect-[9/16] w-full items-center justify-center rounded-card-sm bg-heading">
+        <div className="flex aspect-[9/16] w-full items-center justify-center rounded-card-sm bg-ink">
           <PlayCircle className="h-10 w-10 text-white/70" />
         </div>
         <Badge className="self-start capitalize">{transcript.platform}</Badge>
@@ -77,7 +77,7 @@ export function TranscriptView({
                 Run AI agent
               </Button>
               {agentMenuOpen && (
-                <div className="absolute right-0 z-10 mt-2 w-56 rounded-card-sm border border-hairline bg-white p-1.5 shadow-card-hover">
+                <div className="absolute right-0 z-10 mt-2 w-56 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
                   {AGENTS.map((agent) => (
                     <button
                       key={agent.id}

@@ -17,7 +17,7 @@ export function Tabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div role="tablist" className="inline-flex items-center gap-1 rounded-full border border-hairline bg-white p-1">
+    <div role="tablist" className="inline-flex items-center gap-1 rounded-full border border-hairline bg-surface p-1">
       {items.map((item) => {
         const isActive = item.id === active;
         return (

@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils";
 type Variant = "dark" | "primary" | "light";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  dark: "bg-heading text-white",
+  dark: "bg-ink text-white",
   primary: "bg-primary text-white",
-  light: "bg-white text-heading border border-hairline",
+  light: "bg-surface text-heading border border-hairline",
 };
 
 const SUBTITLE_CLASSES: Record<Variant, string> = {
