@@ -1,13 +1,11 @@
 import {
   Bot,
   Captions,
-  ClipboardList,
   Code2,
   Compass,
   FolderKanban,
   Home,
   Library,
-  PenSquare,
   Wand2,
 } from "lucide-react";
 import type { NavItem } from "@/lib/types";
@@ -16,8 +14,6 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Home", href: "/app", icon: Home },
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
-  { label: "SOP Builder", href: "/app/sops", icon: ClipboardList },
-  { label: "Script Maker", href: "/app/scripts", icon: PenSquare },
   { label: "Transcripts", href: "/app/transcripts", icon: Captions },
   { label: "Library", href: "/app/library", icon: Library },
   { label: "Collections", href: "/app/collections", icon: FolderKanban },

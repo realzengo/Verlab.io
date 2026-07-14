@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Star } from "lucide-react";
+import { Star, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 const PLATFORM_CHIPS = ["TikTok", "Instagram Reels", "YouTube Shorts", "MCP for Claude & ChatGPT"];
@@ -24,14 +24,13 @@ export function Hero() {
         </span>
       </div>
 
-      <h1 className="max-w-4xl text-[34px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[56px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[64px]">
-        Pick and Build
+      <h1 className="max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
+        Build a{" "}
+        <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
+          Non-Competitive
+        </span>
         <br />
-        the{" "}
-        <span className="inline-block -rotate-[1.2deg] rounded-2xl bg-primary px-3.5 py-0.5 leading-[1.05] text-white shadow-blue">
-          Perfect
-        </span>{" "}
-        Niche
+        Faceless Page
       </h1>
 
       <p className="mt-6 max-w-xl text-lg leading-relaxed text-body sm:hidden">
@@ -41,12 +40,9 @@ export function Hero() {
         Everything you need to make money with social media, all in one place.
       </p>
 
-      <div className="mt-8 flex flex-col gap-3.5 sm:flex-row">
-        <Button href="/app" size="lg" icon={Sparkles}>
+      <div className="mt-8 flex justify-center">
+        <Button href="/app" size="lg" icon={Zap} className="px-8 py-4 text-lg">
           Get started free
-        </Button>
-        <Button href="#niche-bending" variant="secondary" size="lg" icon={ArrowRight} iconPosition="right">
-          See how bending works
         </Button>
       </div>
 

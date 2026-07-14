@@ -83,8 +83,6 @@ export const FEATURE_GRID_ITEMS: FeatureGridItem[] = [
 export const DASHBOARD_TOOLS: ToolTileData[] = [
   { label: "Transcript Extractor", href: "/app/transcripts", icon: Captions },
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
-  { label: "SOP Builder", href: "/app/sops", icon: ClipboardList },
-  { label: "Script Maker", href: "/app/scripts", icon: PenSquare },
   { label: "Hook Generator", href: "/app/agents", icon: Flame },
   { label: "Niche Bender", href: "/app/bend", icon: Wand2 },
   { label: "Media Downloader", href: "/app/library", icon: Download },

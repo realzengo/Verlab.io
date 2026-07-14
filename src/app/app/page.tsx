@@ -23,20 +23,6 @@ function BendPreview() {
   );
 }
 
-function SopPreview() {
-  return (
-    <div className="w-full max-w-[220px] rounded-card-sm border border-hairline bg-surface p-3 text-left shadow-card">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Hook formula</span>
-      <p className="mt-1 text-xs text-heading">&ldquo;The $[X] mistake [industry] hoped you&rsquo;d never find&rdquo;</p>
-      <div className="mt-2 flex flex-col gap-1">
-        <span className="h-1.5 w-full rounded-full bg-app" />
-        <span className="h-1.5 w-4/5 rounded-full bg-app" />
-        <span className="h-1.5 w-3/5 rounded-full bg-app" />
-      </div>
-    </div>
-  );
-}
-
 function ScriptPreview() {
   return (
     <div className="w-full max-w-[220px] rounded-card-sm bg-accent p-3 text-left">
@@ -111,12 +97,6 @@ export default function AppHome() {
             description="Transfer a viral niche's winning structure into your own."
             previewSlot={<BendPreview />}
             href="/app/bend"
-          />
-          <PromoCard
-            title="SOP Builder"
-            description="Reverse-engineer any niche's script structure into a repeatable SOP."
-            previewSlot={<SopPreview />}
-            href="/app/sops"
           />
         </div>
 

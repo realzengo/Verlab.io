@@ -178,3 +178,137 @@ export interface FeatureGridItem {
   icon: LucideIcon;
   badge?: string;
 }
+
+export type NicheBendPlatform = "youtube" | "tiktok";
+
+export type NicheBendVideoType = "shorts" | "long-form";
+
+export interface NicheBendVideo {
+  title: string;
+  views: string;
+}
+
+export interface NicheBendChannelAnalysis {
+  channelName: string;
+  platform: NicheBendPlatform;
+  detectedNiche: string;
+  format: string;
+  topVideos: NicheBendVideo[];
+}
+
+export type NicheBendAngle = "Ranking" | "Timeline" | "Conflict";
+
+export interface NicheBendCandidate {
+  id: 1 | 2 | 3;
+  nicheName: string;
+  angle: NicheBendAngle;
+  exampleTitles: string[];
+}
+
+export type NicheBendJobStatus =
+  | "opening_channel"
+  | "reading_videos"
+  | "identifying_format"
+  | "generating_bends"
+  | "ready"
+  | "generating_sop"
+  | "sop_ready"
+  | "failed";
+
+export interface NicheBendHookFormula {
+  template: string;
+  usedInVideos: string[];
+  psychology: string;
+  whenToUse: string;
+  forYourChannelExamples: string[];
+}
+
+export interface NicheBendScriptBeat {
+  beat: string;
+  timing: string;
+  function: string;
+}
+
+export interface NicheBendStorytellingFramework {
+  name: string;
+  howItWorks: string;
+  usedInVideos: string[];
+  steps: string[];
+  signaturePhrases: string[];
+  yourChannelMoat: string;
+}
+
+export interface NicheBendRehook {
+  phrase: string;
+  whenToUse: string;
+}
+
+export interface NicheBendRetentionMechanics {
+  rehookCatalog: NicheBendRehook[];
+  patternInterrupts: string[];
+  openLoopsRule: string;
+  specificitySpikesRule: string;
+  specificityExamples: string[];
+}
+
+export interface NicheBendOpeningClosingPatterns {
+  first30SecondsTemplate: string[];
+  hardRules: string[];
+  howVideosEnd: string;
+  signatureClosingPhrases: string[];
+}
+
+export interface NicheBendQuickReferenceCard {
+  hookFormulaPicks: string[];
+  beatStructureOneLine: string;
+  topRehooks: string[];
+  dos: string[];
+  donts: string[];
+}
+
+export interface NicheBendChannelOverview {
+  channel: string;
+  niche: string;
+  format: string;
+  narrationPov: string;
+  avgLength: string;
+  recurringThemes: string[];
+  yourChannelNote: string;
+}
+
+export interface NicheBendSopContent {
+  title: string;
+  subtitle: string;
+  onelinePromise: string;
+  channelOverview: NicheBendChannelOverview;
+  hookPlaybook: NicheBendHookFormula[];
+  scriptStructureBeats: NicheBendScriptBeat[];
+  storytellingFrameworks: NicheBendStorytellingFramework[];
+  retentionMechanics: NicheBendRetentionMechanics;
+  openingClosingPatterns: NicheBendOpeningClosingPatterns;
+  quickReferenceCard: NicheBendQuickReferenceCard;
+}
+
+export interface NicheBendSopResult {
+  id: string;
+  jobId: string;
+  chosenBend: NicheBendCandidate;
+  originalChannel: NicheBendChannelAnalysis;
+  content: NicheBendSopContent;
+  downloads: {
+    docxUrl: string;
+    pdfUrl: string;
+  };
+  createdAt: string;
+}
+
+export interface NicheBendJobStatusResponse {
+  jobId: string;
+  status: NicheBendJobStatus;
+  statusText: string;
+  progress: number;
+  analysis?: NicheBendChannelAnalysis;
+  candidates?: NicheBendCandidate[];
+  sop?: NicheBendSopResult;
+  error?: { message: string };
+}
