@@ -1,0 +1,223 @@
+"use client";
+
+import { Suspense, useState, type FormEvent } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Compass,
+  Download,
+  Eye,
+  EyeOff,
+  FileText,
+  Loader2,
+  Lock,
+  Mail,
+  Star,
+  TriangleAlert,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { createClient } from "@/lib/supabase/client";
+
+const INPUT_CLASSES =
+  "w-full rounded-xl border border-hairline bg-surface py-3 pl-10 pr-3.5 text-sm text-heading placeholder:text-subtle transition-colors focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15";
+
+const FEATURES = [
+  { icon: Compass, label: "Niche Finder", desc: "Spot non-competitive niches before they blow up." },
+  { icon: FileText, label: "Transcript Extractor", desc: "Pull clean captions from any video in seconds." },
+  { icon: Download, label: "Clip Downloader", desc: "Grab TikTok, Reels & Shorts, no watermark." },
+];
+
+function BrandPanel() {
+  return (
+    <div className="relative hidden w-[42%] shrink-0 overflow-hidden bg-[#05070f] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:w-[38%] xl:p-14">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-primary/40 blur-[100px]" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-blue-500/20 blur-[120px]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
+
+      <div className="relative z-10 flex items-center justify-between">
+        <Image src="/logo/clypa-logo-dark.png" alt="Clypa" width={104} height={26} priority className="h-6 w-auto" />
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to site
+        </Link>
+      </div>
+
+      <div className="relative z-10 max-w-sm">
+        <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.5px] text-white xl:text-[32px]">
+          Build a faceless page that actually prints.
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-white/60">
+          Everything you need to research, clip, and grow — all in one place.
+        </p>
+
+        <div className="mt-9 flex flex-col gap-4">
+          {FEATURES.map(({ icon: Icon, label, desc }) => (
+            <div key={label} className="flex items-start gap-3.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary-hover">
+                <Icon className="h-[18px] w-[18px]" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">{label}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-white/50">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative z-10 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+        <span className="inline-flex gap-0.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star key={i} className="h-3 w-3 fill-star text-star" />
+          ))}
+        </span>
+        <span className="text-[11px] text-white/60">
+          <span className="font-semibold text-white">4.8</span> from 500+ creators
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "/app";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+      setError(signInError.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.push(next);
+    router.refresh();
+  }
+
+  return (
+    <div className="w-full max-w-sm animate-bend-in">
+      <div className="mb-8 flex justify-center lg:hidden">
+        <Logo height={22} />
+      </div>
+
+      <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Welcome back</h1>
+      <p className="mt-1.5 text-sm text-body">Log in to keep building your faceless page.</p>
+
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+          Email
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={INPUT_CLASSES}
+            />
+          </div>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+          Password
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={`${INPUT_CLASSES} pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </label>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="mt-2 justify-center">
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              Log in
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+
+        <p className="text-center text-sm text-body">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="font-semibold text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="relative flex min-h-screen w-full bg-app">
+      <div className="absolute right-4 top-4 z-10 lg:right-6 lg:top-6">
+        <ThemeToggle />
+      </div>
+
+      <BrandPanel />
+
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-16 sm:px-8">
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl dark:opacity-10" />
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
+      </div>
+    </div>
+  );
+}

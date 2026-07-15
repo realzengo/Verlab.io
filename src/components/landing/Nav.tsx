@@ -46,7 +46,7 @@ export function Nav() {
         <div className="hidden md:flex">
           <Link href="/app" className={CTA_CLASSES}>
             <Zap className="h-4 w-4" />
-            Dashboard
+            Try Clypo
           </Link>
         </div>
 
@@ -77,7 +77,7 @@ export function Nav() {
             ))}
             <Link href="/app" onClick={() => setMobileOpen(false)} className={`${CTA_CLASSES} mt-2 justify-center`}>
               <Zap className="h-4 w-4" />
-              Dashboard
+              Try Clypo
             </Link>
           </div>
         </div>

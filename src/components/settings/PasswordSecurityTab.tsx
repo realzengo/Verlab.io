@@ -1,25 +1,33 @@
+import { Lock, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SettingsCardHeader } from "@/components/settings/SettingsCardHeader";
 
 export function PasswordSecurityTab() {
   return (
-    <Card className="max-w-xl">
-      <h2 className="text-lg font-semibold text-heading">Password &amp; Security</h2>
-      <div className="mt-4 border-b border-hairline" />
+    <Card className="max-w-2xl">
+      <SettingsCardHeader
+        icon={ShieldCheck}
+        title="Password & security"
+        description="Keep your account protected with a strong password."
+      />
 
       <div className="mt-6 flex flex-col gap-2">
         <label htmlFor="password" className="text-sm font-medium text-body">
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          value="********"
-          disabled
-          readOnly
-          className="w-full max-w-sm rounded-md border border-hairline bg-app px-3 py-2 text-sm text-heading"
-        />
-        <button type="button" className="w-fit text-sm text-primary hover:underline">
+        <div className="relative max-w-sm">
+          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+          <input
+            id="password"
+            type="password"
+            value="********"
+            disabled
+            readOnly
+            className="w-full rounded-xl border border-hairline bg-app py-2.5 pl-10 pr-3.5 text-sm text-heading"
+          />
+        </div>
+        <button type="button" className="mt-1 w-fit text-sm font-medium text-primary hover:underline">
           Set a password
         </button>
       </div>

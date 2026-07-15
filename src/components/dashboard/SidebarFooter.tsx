@@ -1,7 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
 import { ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { MOCK_USER, PRICING_PLANS } from "@/lib/mock-data";
+import { PRICING_PLANS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export function SidebarFooter({
   collapsed,
@@ -12,8 +17,23 @@ export function SidebarFooter({
   onToggleCollapse: () => void;
   onNavigate?: () => void;
 }) {
-  const initial = MOCK_USER.email.charAt(0).toUpperCase();
-  const planName = PRICING_PLANS.find((plan) => plan.id === MOCK_USER.plan)?.name ?? "Free";
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  const email = user?.email ?? "";
+  const initial = email ? email.charAt(0).toUpperCase() : "?";
+  const planId = user?.user_metadata?.plan as string | undefined;
+  const planName = PRICING_PLANS.find((plan) => plan.id === planId)?.name ?? "Free";
 
   return (
     <div className="border-t border-hairline p-3">
@@ -41,7 +61,7 @@ export function SidebarFooter({
 
         <div className={cn("flex flex-col ml-3 flex-1 min-w-0", collapsed && "md:hidden")}>
           <span className="text-sm font-semibold text-heading truncate w-full">
-            {MOCK_USER.email}
+            {email}
           </span>
           <span className="text-[10px] md:text-[10px] uppercase tracking-wider text-subtle font-medium truncate w-full">
             {planName}

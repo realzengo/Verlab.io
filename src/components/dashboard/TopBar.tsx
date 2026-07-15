@@ -2,14 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { ChevronDown, CreditCard, LogOut, Menu, Settings } from "lucide-react";
-import { MOCK_USER, SIDEBAR_NAV } from "@/lib/mock-data";
+import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/Avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { createClient } from "@/lib/supabase/client";
 
-function defaultHeading(pathname: string): string {
-  if (pathname === "/app") return `Welcome back, ${MOCK_USER.name} 👋`;
+function displayName(user: User | null): string {
+  return user?.email?.split("@")[0] ?? "";
+}
+
+function defaultHeading(pathname: string, user: User | null): string {
+  if (pathname === "/app") return `Welcome back, ${displayName(user)} 👋`;
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
   if (match) return match.label;
   if (pathname.startsWith("/app/settings")) return "Settings";
@@ -24,9 +30,29 @@ export function TopBar({
   onMenuClick: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const resolvedHeading = heading ?? defaultHeading(pathname);
+  const router = useRouter();
+  const resolvedHeading = heading ?? defaultHeading(pathname, user);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -67,15 +93,15 @@ export function TopBar({
             className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface p-1 pr-2"
             aria-label="Account menu"
           >
-            <Avatar name={MOCK_USER.name} size="sm" />
+            <Avatar name={displayName(user)} size="sm" />
             <ChevronDown className="h-3.5 w-3.5 text-body" />
           </button>
 
           {menuOpen && (
             <div className="absolute right-0 z-50 mt-2 w-52 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
               <div className="px-2.5 py-2">
-                <p className="text-sm font-semibold text-heading">{MOCK_USER.name}</p>
-                <p className="text-xs text-body">{MOCK_USER.email}</p>
+                <p className="text-sm font-semibold text-heading">{displayName(user)}</p>
+                <p className="text-xs text-body">{user?.email}</p>
               </div>
               <div className="my-1 border-t border-hairline" />
               <Link
@@ -92,13 +118,14 @@ export function TopBar({
                 <CreditCard className="h-4 w-4 text-body" />
                 Billing
               </Link>
-              <Link
-                href="/"
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-heading hover:bg-accent"
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
               >
                 <LogOut className="h-4 w-4 text-body" />
                 Log out
-              </Link>
+              </button>
             </div>
           )}
         </div>
