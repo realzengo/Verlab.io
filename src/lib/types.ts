@@ -300,3 +300,120 @@ export interface NicheBendJobStatusResponse {
   sop?: NicheBendSopResult;
   error?: { message: string };
 }
+
+// ---------------------------------------------------------------------------
+// Admin dashboard
+// ---------------------------------------------------------------------------
+
+export type AdminUserStatus = "active" | "trialing" | "past_due" | "canceled" | "suspended";
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  plan: "core" | "pro" | "scale";
+  status: AdminUserStatus;
+  mrr: number;
+  signupDate: string;
+  lastActiveAt: string;
+  country: string;
+  usage: {
+    bends: number;
+    transcripts: number;
+    downloads: number;
+    apiCalls: number;
+  };
+}
+
+export type TransactionStatus = "paid" | "failed" | "refunded";
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  userName: string;
+  plan: "core" | "pro" | "scale";
+  amount: number;
+  status: TransactionStatus;
+  method: "card" | "paypal";
+  date: string;
+}
+
+export interface RevenuePoint {
+  date: string;
+  mrr: number;
+  newMrr: number;
+  churnedMrr: number;
+}
+
+export interface SignupPoint {
+  date: string;
+  signups: number;
+  trials: number;
+}
+
+export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp";
+
+export type UsagePoint = { date: string } & Record<AdminToolKey, number>;
+
+export interface ToolUsageShare {
+  tool: AdminToolKey;
+  label: string;
+  count: number;
+  tone: ToolTone;
+}
+
+export type ActivityType = "billing" | "user" | "system" | "content";
+
+export interface ActivityLogEntry {
+  id: string;
+  type: ActivityType;
+  message: string;
+  actor: string;
+  timestamp: string;
+}
+
+export type SystemJobStatus = "queued" | "running" | "success" | "failed";
+export type SystemJobType = "niche-bend" | "sop-generation" | "transcript" | "download";
+
+export interface SystemJob {
+  id: string;
+  type: SystemJobType;
+  status: SystemJobStatus;
+  userEmail: string;
+  startedAt: string;
+  durationMs?: number;
+}
+
+export interface ApiEndpointHealth {
+  endpoint: string;
+  method: "GET" | "POST";
+  callsToday: number;
+  p50Ms: number;
+  p95Ms: number;
+  errorRatePct: number;
+}
+
+export interface FeatureFlag {
+  id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  rolloutPct: number;
+}
+
+export type AdminRole = "owner" | "admin" | "support";
+
+export interface AdminTeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: AdminRole;
+  lastLogin: string;
+}
+
+export interface PlanDistribution {
+  plan: "core" | "pro" | "scale";
+  label: string;
+  count: number;
+  tone: ToolTone;
+}

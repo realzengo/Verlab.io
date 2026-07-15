@@ -4,7 +4,7 @@ import { NicheFinder } from "@/components/features/NicheFinder";
 
 export default function NichesPage() {
   return (
-    <div className="flex flex-col gap-10 pt-2">
+    <div className="flex flex-col gap-10 mt-16">
       <NicheFinder />
 
       <div id="all-niches" className="flex flex-col gap-6 scroll-mt-6">

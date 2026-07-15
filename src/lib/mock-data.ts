@@ -11,3 +11,4 @@ export * from "./mock/api-keys";
 export * from "./mock/faq";
 export * from "./mock/nav";
 export * from "./mock/tools";
+export * from "./mock/admin";

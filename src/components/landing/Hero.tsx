@@ -1,36 +1,30 @@
-import { Star, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { TrustBadge } from "@/components/landing/TrustBadge";
+import { InstagramIcon, TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 
-const PLATFORM_CHIPS = ["TikTok", "Instagram Reels", "YouTube Shorts", "MCP for Claude & ChatGPT"];
+const PLATFORM_CHIPS = [
+  { label: "TikTok", icon: TikTokIcon },
+  { label: "Instagram Reels", icon: InstagramIcon },
+  { label: "YouTube Shorts", icon: YouTubeIcon },
+];
 
 export function Hero() {
   return (
-    <section className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-10 pt-[74px] text-center sm:px-6 lg:px-8">
-      <div className="mb-6 inline-flex items-center gap-2.5">
-        <span className="inline-flex gap-0.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className="h-4 w-4 fill-star text-star" />
-          ))}
-        </span>
-        <span className="text-[11px] font-medium text-subtle sm:text-[13px]">Loved by faceless creators</span>
-        <span className="ml-1 inline-flex">
-          {["#c7d2fe,#a5b4fc", "#fbcfe8,#f9a8d4", "#bbf7d0,#86efac"].map((grad, i) => (
-            <span
-              key={i}
-              className="-ml-1.5 h-[22px] w-[22px] rounded-full border-2 border-surface"
-              style={{ background: `linear-gradient(135deg, ${grad.split(",")[0]}, ${grad.split(",")[1]})` }}
-            />
-          ))}
-        </span>
-      </div>
+    <section className="relative isolate mx-auto flex max-w-6xl flex-col items-center px-4 pb-10 pt-28 text-center sm:px-6 lg:px-8 md:pt-40">
+      <TrustBadge />
 
-      <div className="relative">
+      <div className="relative flex w-full justify-center">
         <div
           aria-hidden
-          className="absolute left-1/2 top-1/2 -z-10 h-64 w-3/4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500 opacity-30 blur-3xl"
+          className="pointer-events-none absolute left-0 top-1/2 -z-10 h-64 w-1/2 -translate-x-1/4 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-1/2 -z-10 h-64 w-1/2 translate-x-1/4 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
         />
 
-        <h1 className="relative z-10 max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
+        <h1 className="relative max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
           Build a{" "}
           <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
             Non-Competitive
@@ -48,19 +42,19 @@ export function Hero() {
       </p>
 
       <div className="mt-8 flex justify-center">
-        <Button href="/app" size="lg" icon={Zap} className="px-8 py-4 text-lg">
-          Get started free
+        <Button href="/app" size="lg" icon={Zap} className="px-6 py-3.5 text-base font-bold! sm:px-8 sm:py-4 sm:text-lg">
+          Try Clypo Now
         </Button>
       </div>
 
-      <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
-        {PLATFORM_CHIPS.map((chip) => (
+      <div className="mt-7 flex w-full -mx-4 snap-x snap-mandatory gap-1.5 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:w-auto sm:flex-wrap sm:items-center sm:justify-center sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
+        {PLATFORM_CHIPS.map(({ label, icon: Icon }) => (
           <span
-            key={chip}
-            className="inline-flex items-center gap-1.5 rounded-full border border-accent-line bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-body"
+            key={label}
+            className="inline-flex shrink-0 snap-start items-center gap-1 rounded-full border border-hairline bg-surface px-2 py-1 text-[10px] font-semibold text-heading shadow-card first:ml-auto last:mr-auto sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:first:ml-0 sm:last:mr-0"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            {chip}
+            <Icon className="h-3 w-3 shrink-0 text-subtle sm:h-3.5 sm:w-3.5" />
+            {label}
           </span>
         ))}
       </div>

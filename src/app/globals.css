@@ -131,4 +131,33 @@ body {
     animation: bend-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
     transform-origin: top center;
   }
+
+  @keyframes glow-click {
+    0% {
+      transform: scale(0.94);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .glow-btn[data-state="clicked"] {
+    animation: glow-click 0.2s ease-out;
+  }
+
+  @keyframes tooltip-bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+  .animate-tooltip-bounce {
+    animation: tooltip-bounce 1.6s ease-in-out infinite;
+  }
+}
+
+.btn-glow,
+.glow-btn {
+  box-shadow: var(--shadow-blue);
 }

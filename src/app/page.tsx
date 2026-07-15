@@ -1,6 +1,7 @@
 import { NICHES, SCRIPTS } from "@/lib/mock-data";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
+import { InteractiveDemo } from "@/components/landing/InteractiveDemo";
 import { LoopSteps } from "@/components/landing/LoopSteps";
 import { WorkspaceShowcase } from "@/components/landing/WorkspaceShowcase";
 import { NicheBendingSpotlight } from "@/components/landing/NicheBendingSpotlight";
@@ -20,6 +21,7 @@ export default function Home() {
       <Nav />
       <main className="flex-1">
         <Hero />
+        <InteractiveDemo />
         <LoopSteps />
         <WorkspaceShowcase />
         <NicheBendingSpotlight />

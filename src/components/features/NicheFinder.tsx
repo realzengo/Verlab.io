@@ -62,10 +62,6 @@ const TIMEFRAME_OPTIONS: { id: NicheFinderTimeframe; label: string }[] = [
   { id: "30d", label: "Last 30 Days" },
 ];
 
-const VIEWS_OPTIONS = ["All views", "100K - 1M", "1M - 10M", "10M+"];
-const FOLLOWERS_OPTIONS = ["Any size", "<100K", "100K - 500K", "500K - 1M", "1M+"];
-const POSTING_OPTIONS = ["Any frequency", "3+ videos/week", "1-2 videos/week", "Daily"];
-
 const VELOCITY_LABEL: Record<NicheVelocity, string> = {
   high: "High velocity",
   rising: "Rising fast",
@@ -302,38 +298,6 @@ function TimeframeToggle({
   );
 }
 
-function FilterSelect({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="flex flex-1 flex-col gap-1.5">
-      <span className="text-xs font-semibold text-body">{label}</span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="w-full appearance-none rounded-lg border border-hairline bg-app px-3 py-2 pr-8 text-sm font-medium text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-body" />
-      </div>
-    </label>
-  );
-}
-
 function ScoreBreakdownRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center gap-3">
@@ -501,9 +465,6 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
 export function NicheFinder() {
   const [platform, setPlatform] = useState<NicheFinderPlatform>("tiktok");
   const [timeframe, setTimeframe] = useState<NicheFinderTimeframe>("7d");
-  const [viewsFilter, setViewsFilter] = useState(VIEWS_OPTIONS[0]);
-  const [followersFilter, setFollowersFilter] = useState(FOLLOWERS_OPTIONS[0]);
-  const [postingFilter, setPostingFilter] = useState(POSTING_OPTIONS[0]);
   const [search, setSearch] = useState("");
 
   const filteredNiches = useMemo(() => {
@@ -545,21 +506,6 @@ export function NicheFinder() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <PlatformToggle value={platform} onChange={setPlatform} />
             <TimeframeToggle value={timeframe} onChange={setTimeframe} />
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 border-t border-hairline pt-4 sm:grid-cols-3">
-            <FilterSelect label="Views" options={VIEWS_OPTIONS} value={viewsFilter} onChange={setViewsFilter} />
-            <FilterSelect
-              label="Followers"
-              options={FOLLOWERS_OPTIONS}
-              value={followersFilter}
-              onChange={setFollowersFilter}
-            />
-            <FilterSelect
-              label="Posting Window"
-              options={POSTING_OPTIONS}
-              value={postingFilter}
-              onChange={setPostingFilter}
-            />
           </div>
         </div>
 
