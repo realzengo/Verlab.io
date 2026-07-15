@@ -12,7 +12,7 @@ export function Hero() {
             <Star key={i} className="h-4 w-4 fill-star text-star" />
           ))}
         </span>
-        <span className="text-[13px] font-medium text-subtle">Loved by faceless creators</span>
+        <span className="text-[11px] font-medium text-subtle sm:text-[13px]">Loved by faceless creators</span>
         <span className="ml-1 inline-flex">
           {["#c7d2fe,#a5b4fc", "#fbcfe8,#f9a8d4", "#bbf7d0,#86efac"].map((grad, i) => (
             <span
@@ -40,7 +40,7 @@ export function Hero() {
         </h1>
       </div>
 
-      <p className="mt-6 max-w-xl text-lg leading-relaxed text-body sm:hidden">
+      <p className="mt-6 max-w-xl text-sm leading-relaxed text-body sm:hidden">
         Everything you need to grow and profit.
       </p>
       <p className="mt-6 hidden max-w-xl text-base leading-relaxed text-body sm:block">
