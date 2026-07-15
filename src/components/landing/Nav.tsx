@@ -6,7 +6,6 @@ import { Menu, Sparkles, X } from "lucide-react";
 import { LANDING_NAV_LINKS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export function Nav() {
   const [open, setOpen] = useState(false);
@@ -14,7 +13,7 @@ export function Nav() {
   return (
     <header className="sticky top-3 z-50 px-3 sm:px-6">
       <div className="relative mx-auto max-w-6xl">
-        <div className="overflow-hidden rounded-xl border border-hairline/60 bg-surface/30 shadow-card backdrop-blur-xl backdrop-saturate-150">
+        <div className="overflow-hidden rounded-xl bg-surface/70 shadow-card backdrop-blur-xl backdrop-saturate-150">
           <div className="flex h-16 items-center justify-between px-4 sm:px-5">
             <Link href="/" className="flex items-center">
               <Logo height={22} />
@@ -33,8 +32,6 @@ export function Nav() {
             </nav>
 
             <div className="hidden items-center gap-3 md:flex">
-              <ThemeToggle />
-              <span className="h-5 w-px bg-hairline" />
               <Button href="/app" variant="ghost" size="sm" className="px-4 py-2 text-[13px]">
                 Log in
               </Button>
@@ -44,7 +41,6 @@ export function Nav() {
             </div>
 
             <div className="flex items-center gap-2 md:hidden">
-              <ThemeToggle />
               <button
                 type="button"
                 aria-label="Toggle menu"

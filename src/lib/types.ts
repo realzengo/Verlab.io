@@ -108,14 +108,6 @@ export interface DownloadItem {
   createdAt: string;
 }
 
-export interface Agent {
-  id: string;
-  name: string;
-  category: "hooks" | "rewrite" | "virality";
-  description: string;
-  icon: LucideIcon;
-}
-
 export type PricingFrequency = "monthly" | "yearly";
 
 export interface PricingPlan {
@@ -159,10 +151,13 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
+export type ToolTone = "blue" | "violet" | "amber" | "green" | "rose" | "sky";
+
 export interface ToolTileData {
   label: string;
   href: string;
   icon: LucideIcon;
+  tone?: ToolTone;
 }
 
 export interface FeatureGridItem {

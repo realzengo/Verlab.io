@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Star, Wand2 } from "lucide-react";
+import { ArrowRight, Star, Wand2 } from "lucide-react";
 import { MOCK_USER, DASHBOARD_TOOLS } from "@/lib/mock-data";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { PromoCard } from "@/components/dashboard/PromoCard";
@@ -47,19 +47,6 @@ function TranscriptPreview() {
   );
 }
 
-function AgentsPreview() {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex h-9 w-9 items-center justify-center rounded-chip bg-accent">
-        <Sparkles className="h-4 w-4 text-primary" />
-      </div>
-      <div className="flex h-9 w-9 items-center justify-center rounded-chip bg-accent">
-        <Wand2 className="h-4 w-4 text-primary" />
-      </div>
-    </div>
-  );
-}
-
 export default function AppHome() {
   return (
     <div className="flex flex-col gap-10 pt-2">
@@ -97,27 +84,24 @@ export default function AppHome() {
             description="Transfer a viral niche's winning structure into your own."
             previewSlot={<BendPreview />}
             href="/app/bend"
+            tone="violet"
           />
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
           <PromoCard
             title="Script Maker"
             description="Generate ready-to-film scripts from a bent SOP."
             previewSlot={<ScriptPreview />}
             href="/app/scripts"
+            tone="blue"
           />
           <PromoCard
             title="Transcript Extractor"
             description="Pull clean, timestamped transcripts from any short."
             previewSlot={<TranscriptPreview />}
             href="/app/transcripts"
-          />
-          <PromoCard
-            title="Viral AI Agents"
-            description="Hooks, rewrites, and virality breakdowns."
-            previewSlot={<AgentsPreview />}
-            href="/app/agents"
+            tone="amber"
           />
         </div>
       </section>

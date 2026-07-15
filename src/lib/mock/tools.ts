@@ -6,8 +6,6 @@ import {
   Compass,
   Download,
   FileDown,
-  Flame,
-  Gauge,
   PenSquare,
   Plug,
   Wand2,
@@ -75,11 +73,9 @@ export const FEATURE_GRID_ITEMS: FeatureGridItem[] = [
 ];
 
 export const DASHBOARD_TOOLS: ToolTileData[] = [
-  { label: "Transcript Extractor", href: "/app/transcripts", icon: Captions },
-  { label: "Niche Finder", href: "/app/niches", icon: Compass },
-  { label: "Hook Generator", href: "/app/agents", icon: Flame },
-  { label: "Niche Bender", href: "/app/bend", icon: Wand2 },
-  { label: "Media Downloader", href: "/app/downloader", icon: Download },
-  { label: "Virality Analyzer", href: "/app/agents", icon: Gauge },
-  { label: "Caption Export", href: "/app/transcripts", icon: FileDown },
+  { label: "Transcript Extractor", href: "/app/transcripts", icon: Captions, tone: "blue" },
+  { label: "Niche Finder", href: "/app/niches", icon: Compass, tone: "violet" },
+  { label: "Niche Bender", href: "/app/bend", icon: Wand2, tone: "blue" },
+  { label: "Media Downloader", href: "/app/downloader", icon: Download, tone: "green" },
+  { label: "Caption Export", href: "/app/transcripts", icon: FileDown, tone: "sky" },
 ];

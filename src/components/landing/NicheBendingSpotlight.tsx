@@ -127,7 +127,7 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
   const avatar = AVATAR_COLORS[index % AVATAR_COLORS.length];
 
   return (
-    <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-surface p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-surface p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5">
       {card.locked && (
         <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full border border-[#fde68a] bg-[#fef3c7] px-2.5 py-1 text-[11px] font-semibold text-[#b45309] shadow-sm">
           <Lock className="h-3 w-3" strokeWidth={2.5} />
@@ -185,16 +185,16 @@ export function NicheBendingSpotlight() {
 
   return (
     <section id="niche-bending" className="w-full bg-surface">
-      <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-5xl flex-col items-center px-4 pb-14 pt-10 text-center sm:px-6 sm:pb-20 sm:pt-12 lg:px-8">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">Niche Bending</span>
-        <h2 className="mt-2 text-4xl font-semibold tracking-tight text-heading sm:text-5xl">
+        <h2 className="mt-2 text-[30px] font-semibold tracking-tight text-heading sm:text-4xl lg:text-5xl">
           just niche bend it
         </h2>
-        <p className="mt-4 max-w-lg text-base font-medium text-primary sm:text-lg">
+        <p className="mt-3 max-w-lg text-sm font-medium text-primary sm:mt-4 sm:text-base lg:text-lg">
           paste a TikTok link, channel, or handle and we&rsquo;ll bend it for you
         </p>
 
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:mt-7 sm:gap-2.5">
           <SocialProofBadge icon={<CheckCircle2 className="h-3.5 w-3.5 text-success" strokeWidth={2.5} />}>
             2,847 bends completed
           </SocialProofBadge>
@@ -212,10 +212,10 @@ export function NicheBendingSpotlight() {
           onSubmit={handleSubmit}
           placeholder="Search a creator or paste a link..."
           submitLabel="Bend it"
-          className="mt-10 max-w-2xl"
+          className="mt-8 max-w-2xl sm:mt-10"
         />
 
-        <div className="mt-16 w-full" style={{ perspective: "1000px" }}>
+        <div className="mt-10 w-full sm:mt-16" style={{ perspective: "1000px" }}>
           {submittedName === null ? (
             <div key="wall" className="animate-bend-in flex flex-col gap-5">
               <div className="flex items-center justify-center gap-2">

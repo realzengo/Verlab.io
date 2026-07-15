@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Copy, Download, PlayCircle } from "lucide-react";
+import { Check, Copy, Download, PlayCircle } from "lucide-react";
 import type { Transcript } from "@/lib/types";
-import { AGENTS } from "@/lib/mock-data";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +21,6 @@ export function TranscriptView({
   variant?: "full" | "compact";
 }) {
   const [copied, setCopied] = useState(false);
-  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const fullText = transcript.lines.map((line) => `[${line.timestamp}] ${line.text}`).join("\n");
 
   const handleCopy = async () => {
@@ -66,32 +64,6 @@ export function TranscriptView({
             <Button variant="secondary" size="sm" icon={Download}>
               Export
             </Button>
-            <div className="relative">
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={ChevronDown}
-                iconPosition="right"
-                onClick={() => setAgentMenuOpen((open) => !open)}
-              >
-                Run AI agent
-              </Button>
-              {agentMenuOpen && (
-                <div className="absolute right-0 z-10 mt-2 w-56 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
-                  {AGENTS.map((agent) => (
-                    <button
-                      key={agent.id}
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
-                      onClick={() => setAgentMenuOpen(false)}
-                    >
-                      <agent.icon className="h-4 w-4 text-primary" />
-                      {agent.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 

@@ -36,7 +36,7 @@ export function CodeSnippet({
           </button>
         )}
       </div>
-      <pre className="overflow-x-auto px-4 py-4 text-xs leading-relaxed text-white/90">
+      <pre className="overflow-x-auto whitespace-pre-wrap break-words px-4 py-4 text-xs leading-relaxed text-white/90 sm:whitespace-pre sm:break-normal">
         <code>{code}</code>
       </pre>
     </div>

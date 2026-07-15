@@ -6,7 +6,6 @@ export * from "./mock/bend-results";
 export * from "./mock/scripts";
 export * from "./mock/transcripts";
 export * from "./mock/downloads";
-export * from "./mock/agents";
 export * from "./mock/pricing";
 export * from "./mock/api-keys";
 export * from "./mock/faq";

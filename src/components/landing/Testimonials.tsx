@@ -23,20 +23,20 @@ const TESTIMONIALS = [
 export function Testimonials() {
   return (
     <section className="border-y border-hairline bg-gradient-to-b from-app to-surface">
-      <div className="mx-auto max-w-6xl px-4 py-[90px] sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-[90px] lg:px-8">
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="text-[32px] font-semibold leading-[1.05] tracking-[-1px] text-slate sm:text-[45px]">
+          <h2 className="text-[28px] font-semibold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
             Built for creators who bend at scale
           </h2>
-          <p className="mt-3.5 text-[17px] text-body">
+          <p className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]">
             Faceless channels, agencies and solo clippers use Clypa to reverse-engineer what&rsquo;s already
             working.
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-[18px] sm:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-[18px]">
           {TESTIMONIALS.map((t) => (
-            <div key={t.name} className="rounded-card-sm border border-hairline bg-surface p-5">
+            <div key={t.name} className="rounded-card-sm border border-hairline bg-surface p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2.5">
                 <span className="h-[38px] w-[38px] shrink-0 rounded-full" style={{ background: t.gradient }} />
                 <div>

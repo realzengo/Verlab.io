@@ -24,14 +24,21 @@ export function Hero() {
         </span>
       </div>
 
-      <h1 className="max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
-        Build a{" "}
-        <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
-          Non-Competitive
-        </span>
-        <br />
-        Faceless Page
-      </h1>
+      <div className="relative">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-1/2 -z-10 h-64 w-3/4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500 opacity-30 blur-3xl"
+        />
+
+        <h1 className="relative z-10 max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
+          Build a{" "}
+          <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
+            Non-Competitive
+          </span>
+          <br />
+          Faceless Page
+        </h1>
+      </div>
 
       <p className="mt-6 max-w-xl text-lg leading-relaxed text-body sm:hidden">
         Everything you need to grow and profit.
@@ -45,8 +52,6 @@ export function Hero() {
           Get started free
         </Button>
       </div>
-
-      <p className="mt-3.5 text-[13px] text-subtle">Free plan · 5 transcripts a day · No card required</p>
 
       <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
         {PLATFORM_CHIPS.map((chip) => (

@@ -1,10 +1,9 @@
 import {
-  Bot,
   Captions,
-  Code2,
   Compass,
   Download,
   Home,
+  Plug,
   Wand2,
 } from "lucide-react";
 import type { NavItem } from "@/lib/types";
@@ -15,8 +14,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
   { label: "Transcripts", href: "/app/transcripts", icon: Captions },
   { label: "Downloader", href: "/app/downloader", icon: Download },
-  { label: "AI Agents", href: "/app/agents", icon: Bot },
-  { label: "Developer API", href: "/app/settings/api", icon: Code2 },
+  { label: "MCP", href: "/app/mcp", icon: Plug },
 ];
 
 export const LANDING_NAV_LINKS: { label: string; href: string }[] = [

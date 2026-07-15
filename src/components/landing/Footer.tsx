@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Wand2 } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const COLUMNS = [
   {
@@ -42,14 +43,11 @@ const COLUMNS = [
 export function Footer() {
   return (
     <footer className="border-t border-hairline bg-app">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-5">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-5 sm:gap-8">
           <div className="col-span-2 sm:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-chip bg-primary text-white">
-                <Wand2 className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-sm font-semibold text-heading">Clypa</span>
+            <Link href="/" className="flex items-center">
+              <Logo height={22} />
             </Link>
             <p className="mt-3 max-w-[220px] text-[13px] leading-[1.6] text-subtle">
               Bend any viral niche into your own — TikTok, Reels &amp; Shorts.
@@ -74,7 +72,8 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center gap-4 border-t border-hairline pt-[22px] text-[13px] text-subtle sm:flex-row sm:justify-between">
           <span>© {new Date().getFullYear()} Clypa. All rights reserved.</span>
-          <div className="flex gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle className="h-8 w-8" />
             <a
               href="#"
               aria-label="X"
