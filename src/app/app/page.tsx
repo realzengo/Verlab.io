@@ -125,9 +125,6 @@ export default function AppHome() {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-body">Clypa tools</h2>
-          <a href="/app/library" className="text-sm font-semibold text-primary hover:underline underline-offset-4">
-            View all tools →
-          </a>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
           {DASHBOARD_TOOLS.map((tool) => (

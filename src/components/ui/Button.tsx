@@ -7,11 +7,11 @@ type Variant = "primary" | "secondary" | "ghost" | "text" | "white";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "bg-primary text-white shadow-blue hover:bg-primary-hover hover:-translate-y-px",
+  primary: "bg-primary text-white hover:bg-primary-hover hover:-translate-y-px",
   secondary: "bg-surface text-heading border border-hairline hover:bg-app",
   ghost: "bg-transparent text-heading hover:bg-accent",
   text: "bg-transparent text-primary hover:underline underline-offset-4 px-0",
-  white: "bg-white text-primary shadow-[0_8px_24px_rgba(0,0,0,0.18)] hover:bg-[#f2f4ff] hover:-translate-y-px",
+  white: "bg-white text-primary hover:bg-[#f2f4ff] hover:-translate-y-px",
 };
 
 const SIZE_CLASSES: Record<Size, string> = {

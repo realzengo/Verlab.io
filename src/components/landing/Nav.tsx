@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Sparkles, Wand2, X } from "lucide-react";
+import { Menu, Sparkles, X } from "lucide-react";
 import { LANDING_NAV_LINKS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export function Nav() {
@@ -13,13 +14,10 @@ export function Nav() {
   return (
     <header className="sticky top-3 z-50 px-3 sm:px-6">
       <div className="relative mx-auto max-w-6xl">
-        <div className="overflow-hidden rounded-[28px] border border-hairline/60 bg-surface/30 shadow-card backdrop-blur-xl backdrop-saturate-150">
+        <div className="overflow-hidden rounded-xl border border-hairline/60 bg-surface/30 shadow-card backdrop-blur-xl backdrop-saturate-150">
           <div className="flex h-16 items-center justify-between px-4 sm:px-5">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-blue">
-                <Wand2 className="h-4 w-4" />
-              </span>
-              <span className="text-lg font-extrabold tracking-tight text-heading">Clypa</span>
+            <Link href="/" className="flex items-center">
+              <Logo height={22} />
             </Link>
 
             <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-7 md:flex">
@@ -60,7 +58,7 @@ export function Nav() {
         </div>
 
         {open && (
-          <div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-[24px] border border-hairline bg-surface/95 p-4 shadow-card-hover backdrop-blur-xl md:hidden">
+          <div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-hairline bg-surface/95 p-4 shadow-card-hover backdrop-blur-xl md:hidden">
             <nav className="flex flex-col gap-3">
               {LANDING_NAV_LINKS.map((link) => (
                 <a

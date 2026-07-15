@@ -3,9 +3,8 @@ import {
   Captions,
   Code2,
   Compass,
-  FolderKanban,
+  Download,
   Home,
-  Library,
   Wand2,
 } from "lucide-react";
 import type { NavItem } from "@/lib/types";
@@ -15,8 +14,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
   { label: "Transcripts", href: "/app/transcripts", icon: Captions },
-  { label: "Library", href: "/app/library", icon: Library },
-  { label: "Collections", href: "/app/collections", icon: FolderKanban },
+  { label: "Downloader", href: "/app/downloader", icon: Download },
   { label: "AI Agents", href: "/app/agents", icon: Bot },
   { label: "Developer API", href: "/app/settings/api", icon: Code2 },
 ];

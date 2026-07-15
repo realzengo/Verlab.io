@@ -26,9 +26,9 @@ export function PricingComparisonTable({ plans, rows }: { plans: PricingPlan[]; 
         {rows.map((row) => (
           <TableRow key={row.feature}>
             <TableCell className="font-medium">{row.feature}</TableCell>
-            <Cell value={row.free} />
-            <Cell value={row.monthly} />
-            <Cell value={row.annual} />
+            <Cell value={row.core} />
+            <Cell value={row.pro} />
+            <Cell value={row.scale} />
           </TableRow>
         ))}
       </tbody>

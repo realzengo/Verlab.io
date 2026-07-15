@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, CreditCard, LogOut, Settings } from "lucide-react";
@@ -18,8 +18,22 @@ function defaultHeading(pathname: string): string {
 
 export function TopBar({ heading }: { heading?: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const resolvedHeading = heading ?? defaultHeading(pathname);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-6 sm:px-8">
@@ -28,7 +42,7 @@ export function TopBar({ heading }: { heading?: string }) {
       <div className="flex shrink-0 items-center gap-3">
         <ThemeToggle />
 
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -40,7 +54,7 @@ export function TopBar({ heading }: { heading?: string }) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 z-20 mt-2 w-52 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
+            <div className="absolute right-0 z-50 mt-2 w-52 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
               <div className="px-2.5 py-2">
                 <p className="text-sm font-semibold text-heading">{MOCK_USER.name}</p>
                 <p className="text-xs text-body">{MOCK_USER.email}</p>

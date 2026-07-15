@@ -7,7 +7,6 @@ import {
   Download,
   FileDown,
   Flame,
-  FolderKanban,
   Gauge,
   PenSquare,
   Plug,
@@ -58,11 +57,6 @@ export const FEATURE_GRID_ITEMS: FeatureGridItem[] = [
     icon: Download,
   },
   {
-    title: "Collections & playlists",
-    description: "Import a full collection and bulk transcribe up to 50 videos at once.",
-    icon: FolderKanban,
-  },
-  {
     title: "Cloud library",
     description: "Every transcript, SOP, and script saved and searchable in one place.",
     icon: CloudCog,
@@ -85,7 +79,7 @@ export const DASHBOARD_TOOLS: ToolTileData[] = [
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
   { label: "Hook Generator", href: "/app/agents", icon: Flame },
   { label: "Niche Bender", href: "/app/bend", icon: Wand2 },
-  { label: "Media Downloader", href: "/app/library", icon: Download },
+  { label: "Media Downloader", href: "/app/downloader", icon: Download },
   { label: "Virality Analyzer", href: "/app/agents", icon: Gauge },
   { label: "Caption Export", href: "/app/transcripts", icon: FileDown },
 ];

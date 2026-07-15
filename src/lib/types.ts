@@ -7,7 +7,7 @@ export interface MockUser {
   name: string;
   email: string;
   avatarUrl?: string;
-  plan: "free" | "monthly" | "annual";
+  plan: "core" | "pro" | "scale";
   streak: {
     current: number;
     goal: number;
@@ -96,24 +96,15 @@ export interface Transcript {
   createdAt: string;
 }
 
-export type LibraryItemType = "transcript" | "sop" | "script" | "download";
+export type DownloadPlatform = "tiktok" | "youtube" | "instagram";
+export type DownloadFormat = "mp4" | "mp3";
 
-export interface LibraryItem {
+export interface DownloadItem {
   id: string;
-  type: LibraryItemType;
   title: string;
-  folder?: string;
-  createdAt: string;
-  refId: string;
-}
-
-export interface Collection {
-  id: string;
-  name: string;
   sourceUrl: string;
-  itemCount: number;
-  status: "queued" | "processing" | "complete" | "failed";
-  progress: number;
+  platform: DownloadPlatform;
+  format: DownloadFormat;
   createdAt: string;
 }
 
@@ -125,23 +116,25 @@ export interface Agent {
   icon: LucideIcon;
 }
 
+export type PricingFrequency = "monthly" | "yearly";
+
 export interface PricingPlan {
-  id: "free" | "monthly" | "annual";
+  id: "core" | "pro" | "scale";
   name: string;
-  price: number;
-  billingPeriod: "forever" | "mo" | "yr";
-  priceNote?: string;
+  info: string;
+  price: Record<PricingFrequency, number>;
   recommended?: boolean;
+  monthlyOnly?: boolean;
   cta: string;
-  features: string[];
+  features: { text: string; tooltip?: string }[];
   limits?: string;
 }
 
 export interface ComparisonRow {
   feature: string;
-  free: boolean | string;
-  monthly: boolean | string;
-  annual: boolean | string;
+  core: boolean | string;
+  pro: boolean | string;
+  scale: boolean | string;
 }
 
 export interface ApiKey {

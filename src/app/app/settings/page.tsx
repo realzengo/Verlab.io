@@ -1,48 +1,40 @@
-import { CreditCard } from "lucide-react";
-import { MOCK_USER, PRICING_PLANS } from "@/lib/mock-data";
+"use client";
+
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { PricingTable } from "@/components/pricing/PricingTable";
+import { MOCK_USER } from "@/lib/mock-data";
 
-const PLAN_LABEL: Record<typeof MOCK_USER.plan, string> = {
-  free: "Free",
-  monthly: "Monthly",
-  annual: "Annual",
-};
-
-export default function SettingsPage() {
-  const currentPlan = PRICING_PLANS.find((plan) => plan.id === MOCK_USER.plan);
-
+export default function AccountSettingsPage() {
   return (
-    <div className="flex flex-col gap-8">
-      <Card className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-chip bg-accent">
-            <CreditCard className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-heading">
-              {PLAN_LABEL[MOCK_USER.plan]} plan
-              {currentPlan && <span className="ml-2 text-body">${currentPlan.price}/{currentPlan.billingPeriod}</span>}
-            </p>
-            <p className="text-xs text-body">Billed via Whop · renews Aug 14, 2026</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="success">Active</Badge>
-          <Button variant="secondary" size="sm">
-            Manage billing
+    <Card className="max-w-xl">
+      <h2 className="text-lg font-semibold text-heading">Account</h2>
+      <div className="mt-4 border-b border-hairline" />
+
+      <form className="mt-6 flex flex-col gap-5">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+          Full name
+          <input
+            type="text"
+            defaultValue={MOCK_USER.name}
+            className="rounded-lg border border-hairline bg-surface px-3.5 py-2.5 text-sm text-heading placeholder:text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+          Email
+          <input
+            type="email"
+            defaultValue={MOCK_USER.email}
+            className="rounded-lg border border-hairline bg-surface px-3.5 py-2.5 text-sm text-heading placeholder:text-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </label>
+
+        <div>
+          <Button type="submit" variant="primary" size="md">
+            Save
           </Button>
         </div>
-      </Card>
-
-      <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-body">Change plan</h3>
-        <div className="mt-4">
-          <PricingTable plans={PRICING_PLANS} ctaHrefFor={() => "/app/settings"} />
-        </div>
-      </div>
-    </div>
+      </form>
+    </Card>
   );
 }

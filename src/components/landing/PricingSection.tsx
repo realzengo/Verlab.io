@@ -11,12 +11,12 @@ export function PricingSection() {
           Simple pricing
         </h2>
         <p className="mt-3.5 text-[17px] text-body">
-          Start free with transcripts. Upgrade when you&rsquo;re ready to bend.
+          Pick a plan and start bending niches today.
         </p>
       </div>
 
       <div className="mt-10">
-        <PricingTable plans={PRICING_PLANS} ctaHrefFor={() => "/app"} />
+        <PricingTable plans={PRICING_PLANS} ctaHref="/app" />
       </div>
 
       <div className="mt-12 overflow-x-auto">

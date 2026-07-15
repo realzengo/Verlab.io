@@ -2,19 +2,33 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, Play, TrendingUp, Wand2 } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
+import { ArrowRight, ArrowUp, Eye, Heart, Play, SlidersHorizontal, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
-interface TrendingNiche {
+type NicheFinderPlatform = "tiktok" | "yt-shorts" | "yt-long";
+type NicheFinderTimeframe = "7d" | "30d";
+type NicheVelocity = "high" | "rising" | "cooling";
+
+interface NicheScoreBreakdown {
+  trend: number;
+  engagement: number;
+  viewsPerHr: number;
+  competition: number;
+  freshness: number;
+}
+
+interface NicheScore {
   rank: number;
   id: string;
   name: string;
-  weeklyChange: string;
-  momentum: number;
-  videos: string;
-  avgViews: string;
-  rpm: string;
+  velocity: NicheVelocity;
+  viewsPerHour: string;
+  clypaScore: number;
+  risingPercent: number;
+  engagement: number;
+  competition: string;
+  breakdown: NicheScoreBreakdown;
 }
 
 interface TrendingVideo {
@@ -27,56 +41,101 @@ interface TrendingVideo {
   gradient: string;
 }
 
-const TRENDING_NICHES: TrendingNiche[] = [
+const PLATFORM_OPTIONS: { id: NicheFinderPlatform; label: string }[] = [
+  { id: "tiktok", label: "TikTok" },
+  { id: "yt-shorts", label: "YT Shorts" },
+  { id: "yt-long", label: "YT Long Form" },
+];
+
+const TIMEFRAME_OPTIONS: { id: NicheFinderTimeframe; label: string }[] = [
+  { id: "7d", label: "Last 7 Days" },
+  { id: "30d", label: "Last 30 Days" },
+];
+
+const VELOCITY_LABEL: Record<NicheVelocity, string> = {
+  high: "High velocity",
+  rising: "Rising fast",
+  cooling: "Cooling off",
+};
+
+const VELOCITY_CLASSES: Record<NicheVelocity, string> = {
+  high: "bg-success-tint text-success border border-success/20",
+  rising: "bg-accent text-primary border border-accent-line",
+  cooling: "bg-app text-subtle border border-hairline",
+};
+
+const NICHE_SCORES: NicheScore[] = [
   {
     rank: 1,
-    id: "medical-malpractice",
-    name: "Medical Malpractice",
-    weeklyChange: "+34%",
-    momentum: 94,
-    videos: "1.2k",
-    avgViews: "150k",
-    rpm: "$4.50",
+    id: "motivational",
+    name: "Motivational",
+    velocity: "high",
+    viewsPerHour: "73.5M",
+    clypaScore: 89,
+    risingPercent: 95,
+    engagement: 100,
+    competition: "3/10",
+    breakdown: { trend: 95.0, engagement: 100.0, viewsPerHr: 100.0, competition: 93.2, freshness: 44.2 },
   },
   {
     rank: 2,
-    id: "corporate-espionage",
-    name: "Corporate Espionage",
-    weeklyChange: "+28%",
-    momentum: 88,
-    videos: "860",
-    avgViews: "132k",
-    rpm: "$3.90",
+    id: "medical-malpractice",
+    name: "Medical Malpractice",
+    velocity: "high",
+    viewsPerHour: "41.2M",
+    clypaScore: 82,
+    risingPercent: 61,
+    engagement: 88,
+    competition: "5/10",
+    breakdown: { trend: 84.0, engagement: 88.5, viewsPerHr: 91.0, competition: 78.4, freshness: 62.0 },
   },
   {
     rank: 3,
-    id: "financial-collapse",
-    name: "Financial Collapse",
-    weeklyChange: "+11%",
-    momentum: 81,
-    videos: "740",
-    avgViews: "121k",
-    rpm: "High",
+    id: "cult-breakdowns",
+    name: "Cult Breakdowns",
+    velocity: "high",
+    viewsPerHour: "34.7M",
+    clypaScore: 80,
+    risingPercent: 73,
+    engagement: 92,
+    competition: "4/10",
+    breakdown: { trend: 88.0, engagement: 92.0, viewsPerHr: 85.0, competition: 81.6, freshness: 70.3 },
   },
   {
     rank: 4,
-    id: "military-disasters",
-    name: "Military Disasters",
-    weeklyChange: "+19%",
-    momentum: 76,
-    videos: "610",
-    avgViews: "98k",
-    rpm: "$3.20",
+    id: "corporate-espionage",
+    name: "Corporate Espionage",
+    velocity: "rising",
+    viewsPerHour: "28.9M",
+    clypaScore: 77,
+    risingPercent: 44,
+    engagement: 79,
+    competition: "6/10",
+    breakdown: { trend: 76.5, engagement: 79.0, viewsPerHr: 83.2, competition: 68.0, freshness: 55.5 },
   },
   {
     rank: 5,
-    id: "cult-breakdowns",
-    name: "Cult Breakdowns",
-    weeklyChange: "+9%",
-    momentum: 72,
-    videos: "540",
-    avgViews: "87k",
-    rpm: "High",
+    id: "military-disasters",
+    name: "Military Disasters",
+    velocity: "rising",
+    viewsPerHour: "22.1M",
+    clypaScore: 73,
+    risingPercent: 38,
+    engagement: 80,
+    competition: "5/10",
+    breakdown: { trend: 70.0, engagement: 80.0, viewsPerHr: 74.8, competition: 62.9, freshness: 51.0 },
+  },
+  {
+    rank: 6,
+    id: "financial-collapse",
+    name: "Financial Collapse",
+    velocity: "cooling",
+    viewsPerHour: "19.4M",
+    clypaScore: 68,
+    risingPercent: 12,
+    engagement: 71,
+    competition: "7/10",
+    breakdown: { trend: 58.0, engagement: 71.0, viewsPerHr: 66.5, competition: 54.2, freshness: 48.0 },
   },
 ];
 
@@ -161,44 +220,142 @@ const PLATFORM_COLOR: Record<TrendingVideo["platform"], string> = {
   Shorts: "bg-primary",
 };
 
-function NicheMetricCard({ niche }: { niche: TrendingNiche }) {
+function PlatformToggle({
+  value,
+  onChange,
+}: {
+  value: NicheFinderPlatform;
+  onChange: (value: NicheFinderPlatform) => void;
+}) {
   return (
-    <Link
-      href="/app/bend"
-      className="flex flex-col gap-4 rounded-card border border-hairline bg-surface p-4 shadow-card transition-shadow hover:shadow-card-hover"
-    >
+    <div role="tablist" aria-label="Platform" className="inline-flex items-center gap-1 rounded-full bg-app p-1">
+      {PLATFORM_OPTIONS.map((option) => {
+        const isActive = option.id === value;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              "whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-[background-color,box-shadow] sm:px-4",
+              isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimeframeToggle({
+  value,
+  onChange,
+}: {
+  value: NicheFinderTimeframe;
+  onChange: (value: NicheFinderTimeframe) => void;
+}) {
+  return (
+    <div role="tablist" aria-label="Timeframe" className="inline-flex items-center gap-1 rounded-full bg-app p-1">
+      {TIMEFRAME_OPTIONS.map((option) => {
+        const isActive = option.id === value;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              "whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-[background-color,box-shadow]",
+              isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScoreBreakdownRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-[72px] shrink-0 text-xs text-body">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-app">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(value, 100)}%` }} />
+      </div>
+      <span className="w-9 shrink-0 text-right text-xs font-semibold text-heading">{value.toFixed(1)}</span>
+    </div>
+  );
+}
+
+function NicheScoreCard({ niche }: { niche: NicheScore }) {
+  return (
+    <div className="flex flex-col rounded-card-lg border border-hairline bg-surface p-6 shadow-card transition-shadow hover:shadow-card-hover">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-bold leading-snug text-heading">
-          <span className="text-primary">#{niche.rank}</span> {niche.name}
-        </p>
-        <Badge variant="success" className="shrink-0 whitespace-nowrap">
-          <TrendingUp className="h-3 w-3" />
-          {niche.weeklyChange} this week
-        </Badge>
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+            #{niche.rank}
+          </span>
+          <h3 className="text-xl font-bold text-heading">{niche.name}</h3>
+        </div>
+        <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold", VELOCITY_CLASSES[niche.velocity])}>
+          {VELOCITY_LABEL[niche.velocity]}
+        </span>
       </div>
 
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-app">
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${niche.momentum}%` }}
-        />
+      <div className="mt-4 flex items-center gap-1.5">
+        <Eye className="h-3.5 w-3.5 text-body" />
+        <span className="text-xs text-body">Views/hr</span>
+        <span className="ml-auto text-2xl font-bold text-heading">{niche.viewsPerHour}</span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t border-hairline pt-3 text-center">
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-body">Videos</p>
-          <p className="mt-0.5 text-sm font-semibold text-heading">{niche.videos}</p>
-        </div>
-        <div className="border-x border-hairline">
-          <p className="text-[10px] uppercase tracking-wide text-body">Avg views</p>
-          <p className="mt-0.5 text-sm font-semibold text-heading">{niche.avgViews}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-body">RPM</p>
-          <p className="mt-0.5 text-sm font-semibold text-heading">{niche.rpm}</p>
+      <div className="my-4 rounded-lg bg-accent p-4">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Clypa Score</p>
+            <p className="mt-1 text-4xl font-extrabold text-heading">{niche.clypaScore}</p>
+          </div>
+          <span className="flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-success">
+            <ArrowUp className="h-3.5 w-3.5" />
+            Rising {niche.risingPercent}%
+          </span>
         </div>
       </div>
-    </Link>
+
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-body">
+          Engagement <span className="font-semibold text-heading">{niche.engagement}%</span>
+        </span>
+        <span className="text-body">
+          Competition <span className="font-semibold text-heading">{niche.competition}</span>
+        </span>
+      </div>
+
+      <div className="mt-5 border-t border-hairline pt-4">
+        <p className="text-sm font-medium text-heading">Score Breakdown</p>
+        <div className="mt-3 flex flex-col gap-2.5">
+          <ScoreBreakdownRow label="Trend" value={niche.breakdown.trend} />
+          <ScoreBreakdownRow label="Engagement" value={niche.breakdown.engagement} />
+          <ScoreBreakdownRow label="Views/Hr" value={niche.breakdown.viewsPerHr} />
+          <ScoreBreakdownRow label="Competition" value={niche.breakdown.competition} />
+          <ScoreBreakdownRow label="Freshness" value={niche.breakdown.freshness} />
+        </div>
+      </div>
+
+      <Link
+        href="/app/bend"
+        className="mt-5 inline-flex items-center justify-center gap-1.5 self-start rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] hover:-translate-y-px hover:bg-primary-hover"
+      >
+        <Wand2 className="h-4 w-4" />
+        Bend this niche
+      </Link>
+    </div>
   );
 }
 
@@ -267,6 +424,9 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
 }
 
 export function NicheFinder() {
+  const [platform, setPlatform] = useState<NicheFinderPlatform>("tiktok");
+  const [timeframe, setTimeframe] = useState<NicheFinderTimeframe>("7d");
+
   return (
     <div className="flex flex-col gap-10">
       <section>
@@ -281,9 +441,19 @@ export function NicheFinder() {
           </a>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {TRENDING_NICHES.map((niche) => (
-            <NicheMetricCard key={niche.id} niche={niche} />
+        <div className="mt-5 flex flex-col gap-3 rounded-card border border-hairline bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <PlatformToggle value={platform} onChange={setPlatform} />
+            <TimeframeToggle value={timeframe} onChange={setTimeframe} />
+          </div>
+          <Button variant="secondary" size="sm" icon={SlidersHorizontal} className="self-start sm:self-auto">
+            Filters
+          </Button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {NICHE_SCORES.map((niche) => (
+            <NicheScoreCard key={niche.id} niche={niche} />
           ))}
         </div>
       </section>

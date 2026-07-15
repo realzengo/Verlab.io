@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, ChevronsRight, Search, Wand2 } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Search } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
+import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -18,11 +19,8 @@ export function Sidebar() {
         collapsed ? "w-[76px]" : "w-64"
       )}
     >
-      <div className={cn("flex items-center gap-2 px-4 py-5", collapsed && "justify-center px-0")}>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-primary text-white">
-          <Wand2 className="h-4 w-4" />
-        </span>
-        {!collapsed && <span className="text-base font-semibold text-heading">Clypa</span>}
+      <div className={cn("flex items-center px-4 py-5", collapsed && "justify-center px-0")}>
+        <Logo height={collapsed ? 16 : 22} />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">

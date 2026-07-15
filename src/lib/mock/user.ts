@@ -4,7 +4,7 @@ export const MOCK_USER: MockUser = {
   id: "user_zengo",
   name: "Zengo",
   email: "zengo@clypa.io",
-  plan: "monthly",
+  plan: "pro",
   streak: {
     current: 1,
     goal: 30,
