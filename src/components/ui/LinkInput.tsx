@@ -32,11 +32,11 @@ export function LinkInput({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "flex w-full items-center gap-1.5 rounded-full border border-hairline bg-surface p-1.5 shadow-card focus-within:ring-2 focus-within:ring-primary/30",
+        "flex w-full flex-col gap-2 rounded-2xl border border-hairline bg-surface p-2 shadow-card focus-within:ring-2 focus-within:ring-primary/30 sm:flex-row sm:items-center sm:gap-1.5 sm:rounded-full sm:p-1.5",
         className
       )}
     >
-      <div className="flex flex-1 items-center gap-2 pl-3.5">
+      <div className="flex flex-1 items-center gap-2 pl-2 sm:pl-3.5">
         <Icon className="h-4 w-4 shrink-0 text-body" />
         <input
           type="text"
@@ -50,7 +50,7 @@ export function LinkInput({
       <button
         type="submit"
         disabled={loading}
-        className="shrink-0 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
+        className="flex w-full shrink-0 items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 sm:w-auto"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
       </button>

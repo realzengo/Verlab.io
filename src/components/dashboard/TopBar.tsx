@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, CreditCard, LogOut, Settings } from "lucide-react";
+import { ChevronDown, CreditCard, LogOut, Menu, Settings } from "lucide-react";
 import { MOCK_USER, SIDEBAR_NAV } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/Avatar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -16,7 +16,13 @@ function defaultHeading(pathname: string): string {
   return "Clypa";
 }
 
-export function TopBar({ heading }: { heading?: string }) {
+export function TopBar({
+  heading,
+  onMenuClick,
+}: {
+  heading?: string;
+  onMenuClick: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -37,7 +43,19 @@ export function TopBar({ heading }: { heading?: string }) {
 
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-6 sm:px-8">
-      <h1 className="text-xl font-semibold text-heading sm:text-2xl">{resolvedHeading}</h1>
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="shrink-0 rounded-lg p-1 text-body hover:bg-accent md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <h1 className="truncate text-xl font-semibold text-heading sm:text-2xl">
+          {resolvedHeading}
+        </h1>
+      </div>
 
       <div className="flex shrink-0 items-center gap-3">
         <ThemeToggle />

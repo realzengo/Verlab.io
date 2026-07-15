@@ -3,24 +3,45 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, ChevronsRight, Search } from "lucide-react";
+import { X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Logo } from "@/components/ui/Logo";
+import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { cn } from "@/lib/utils";
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen,
+  onCloseMobile,
+}: {
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
   return (
     <aside
       className={cn(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-r border-hairline bg-surface transition-[width] duration-200",
-        collapsed ? "w-[76px]" : "w-64"
+        "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-hairline bg-surface transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0 md:shrink-0 md:transition-[width]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        collapsed ? "md:w-[76px]" : "md:w-64"
       )}
     >
-      <div className={cn("flex items-center px-4 py-5", collapsed && "justify-center px-0")}>
+      <div
+        className={cn(
+          "flex items-center justify-between px-4 py-5",
+          collapsed && "md:justify-center md:px-0"
+        )}
+      >
         <Logo height={collapsed ? 16 : 22} />
+        <button
+          type="button"
+          onClick={onCloseMobile}
+          aria-label="Close menu"
+          className="text-subtle hover:text-body md:hidden"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
@@ -30,55 +51,27 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onCloseMobile}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                collapsed && "justify-center px-0",
+                collapsed && "md:justify-center md:px-0",
                 active ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
               )}
               title={collapsed ? item.label : undefined}
             >
               <item.icon className="h-4.5 w-4.5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="flex flex-col gap-3 border-t border-hairline p-3">
-        {collapsed ? (
-          <button
-            type="button"
-            aria-label="Search"
-            className="flex h-9 w-9 items-center justify-center self-center rounded-lg border border-hairline text-body hover:text-heading"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="flex items-center justify-between gap-2 rounded-lg border border-hairline px-3 py-2 text-sm text-body hover:text-heading"
-          >
-            <span className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Search
-            </span>
-            <span className="rounded border border-hairline bg-app px-1.5 py-0.5 text-[10px] font-semibold text-body">
-              ⌘K
-            </span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setCollapsed((v) => !v)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-body hover:bg-app hover:text-heading"
-        >
-          {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-          {!collapsed && "Collapse"}
-        </button>
-      </div>
+      <SidebarFooter
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((v) => !v)}
+        onNavigate={onCloseMobile}
+      />
     </aside>
   );
 }

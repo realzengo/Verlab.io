@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUp, Eye, Heart, Play, SlidersHorizontal, Wand2 } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUp,
+  ChevronDown,
+  Download,
+  Eye,
+  Heart,
+  Play,
+  Search,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -43,8 +53,8 @@ interface TrendingVideo {
 
 const PLATFORM_OPTIONS: { id: NicheFinderPlatform; label: string }[] = [
   { id: "tiktok", label: "TikTok" },
-  { id: "yt-shorts", label: "YT Shorts" },
-  { id: "yt-long", label: "YT Long Form" },
+  { id: "yt-shorts", label: "YouTube Shorts" },
+  { id: "yt-long", label: "Long Form" },
 ];
 
 const TIMEFRAME_OPTIONS: { id: NicheFinderTimeframe; label: string }[] = [
@@ -52,16 +62,26 @@ const TIMEFRAME_OPTIONS: { id: NicheFinderTimeframe; label: string }[] = [
   { id: "30d", label: "Last 30 Days" },
 ];
 
+const VIEWS_OPTIONS = ["All views", "100K - 1M", "1M - 10M", "10M+"];
+const FOLLOWERS_OPTIONS = ["Any size", "<100K", "100K - 500K", "500K - 1M", "1M+"];
+const POSTING_OPTIONS = ["Any frequency", "3+ videos/week", "1-2 videos/week", "Daily"];
+
 const VELOCITY_LABEL: Record<NicheVelocity, string> = {
   high: "High velocity",
   rising: "Rising fast",
   cooling: "Cooling off",
 };
 
-const VELOCITY_CLASSES: Record<NicheVelocity, string> = {
+const GROWTH_LABEL: Record<NicheVelocity, string> = {
+  high: "Actively growing",
+  rising: "Actively growing",
+  cooling: "Cooling down",
+};
+
+const GROWTH_CLASSES: Record<NicheVelocity, string> = {
   high: "bg-success-tint text-success border border-success/20",
-  rising: "bg-accent text-primary border border-accent-line",
-  cooling: "bg-app text-subtle border border-hairline",
+  rising: "bg-success-tint text-success border border-success/20",
+  cooling: "bg-warning-tint text-warning border border-warning/20",
 };
 
 const NICHE_SCORES: NicheScore[] = [
@@ -239,7 +259,7 @@ function PlatformToggle({
             aria-selected={isActive}
             onClick={() => onChange(option.id)}
             className={cn(
-              "whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-[background-color,box-shadow] sm:px-4",
+              "whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-[background-color,box-shadow] sm:px-4 sm:text-sm",
               isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
             )}
           >
@@ -270,7 +290,7 @@ function TimeframeToggle({
             aria-selected={isActive}
             onClick={() => onChange(option.id)}
             className={cn(
-              "whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-[background-color,box-shadow]",
+              "whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-[background-color,box-shadow] sm:px-3.5 sm:text-sm",
               isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
             )}
           >
@@ -279,6 +299,38 @@ function TimeframeToggle({
         );
       })}
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-1 flex-col gap-1.5">
+      <span className="text-xs font-semibold text-body">{label}</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full appearance-none rounded-lg border border-hairline bg-app px-3 py-2 pr-8 text-sm font-medium text-heading focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-body" />
+      </div>
+    </label>
   );
 }
 
@@ -295,62 +347,85 @@ function ScoreBreakdownRow({ label, value }: { label: string; value: number }) {
 }
 
 function NicheScoreCard({ niche }: { niche: NicheScore }) {
+  const [breakdownOpen, setBreakdownOpen] = useState(true);
+
   return (
-    <div className="flex flex-col rounded-card-lg border border-hairline bg-surface p-6 shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="flex flex-col rounded-card-lg border border-hairline bg-surface p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-            #{niche.rank}
-          </span>
-          <h3 className="text-xl font-bold text-heading">{niche.name}</h3>
-        </div>
-        <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold", VELOCITY_CLASSES[niche.velocity])}>
-          {VELOCITY_LABEL[niche.velocity]}
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-center gap-1.5">
-        <Eye className="h-3.5 w-3.5 text-body" />
-        <span className="text-xs text-body">Views/hr</span>
-        <span className="ml-auto text-2xl font-bold text-heading">{niche.viewsPerHour}</span>
-      </div>
-
-      <div className="my-4 rounded-lg bg-accent p-4">
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Clypa Score</p>
-            <p className="mt-1 text-4xl font-extrabold text-heading">{niche.clypaScore}</p>
+        <div className="min-w-0">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+              #{niche.rank}
+            </span>
+            <h3 className="text-lg font-bold leading-snug text-heading">{niche.name}</h3>
           </div>
-          <span className="flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-success">
-            <ArrowUp className="h-3.5 w-3.5" />
+          <p className="mt-1 text-xs text-body">
+            {VELOCITY_LABEL[niche.velocity]} · {niche.viewsPerHour} views/hr
+          </p>
+        </div>
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            GROWTH_CLASSES[niche.velocity]
+          )}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          {GROWTH_LABEL[niche.velocity]}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-accent-line bg-accent p-3 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Clypa Score</p>
+          <p className="mt-1 text-3xl font-extrabold text-heading">{niche.clypaScore}</p>
+          <p className="mt-1 flex items-center justify-center gap-0.5 text-[11px] font-semibold text-success">
+            <ArrowUp className="h-3 w-3" />
             Rising {niche.risingPercent}%
-          </span>
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-1 text-center">
+          <Eye className="h-3.5 w-3.5 text-body" />
+          <p className="text-2xl font-bold text-heading">{niche.viewsPerHour}</p>
+          <p className="text-[11px] text-body">Views/hr</p>
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-2.5 text-center">
+          <div>
+            <p className="text-sm font-semibold text-heading">{niche.engagement}%</p>
+            <p className="text-[11px] text-body">Engagement</p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-heading">{niche.competition}</p>
+            <p className="text-[11px] text-body">Competition</p>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-body">
-          Engagement <span className="font-semibold text-heading">{niche.engagement}%</span>
-        </span>
-        <span className="text-body">
-          Competition <span className="font-semibold text-heading">{niche.competition}</span>
-        </span>
-      </div>
-
-      <div className="mt-5 border-t border-hairline pt-4">
-        <p className="text-sm font-medium text-heading">Score Breakdown</p>
-        <div className="mt-3 flex flex-col gap-2.5">
-          <ScoreBreakdownRow label="Trend" value={niche.breakdown.trend} />
-          <ScoreBreakdownRow label="Engagement" value={niche.breakdown.engagement} />
-          <ScoreBreakdownRow label="Views/Hr" value={niche.breakdown.viewsPerHr} />
-          <ScoreBreakdownRow label="Competition" value={niche.breakdown.competition} />
-          <ScoreBreakdownRow label="Freshness" value={niche.breakdown.freshness} />
-        </div>
+      <div className="mt-4 border-t border-hairline pt-3">
+        <button
+          type="button"
+          onClick={() => setBreakdownOpen((prev) => !prev)}
+          aria-expanded={breakdownOpen}
+          className="flex w-full items-center justify-between"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-body">Score Breakdown</span>
+          <ChevronDown className={cn("h-4 w-4 text-body transition-transform", breakdownOpen && "rotate-180")} />
+        </button>
+        {breakdownOpen && (
+          <div className="mt-3 flex flex-col gap-2.5">
+            <ScoreBreakdownRow label="Trend" value={niche.breakdown.trend} />
+            <ScoreBreakdownRow label="Engagement" value={niche.breakdown.engagement} />
+            <ScoreBreakdownRow label="Views/Hr" value={niche.breakdown.viewsPerHr} />
+            <ScoreBreakdownRow label="Competition" value={niche.breakdown.competition} />
+            <ScoreBreakdownRow label="Freshness" value={niche.breakdown.freshness} />
+          </div>
+        )}
       </div>
 
       <Link
         href="/app/bend"
-        className="mt-5 inline-flex items-center justify-center gap-1.5 self-start rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] hover:-translate-y-px hover:bg-primary-hover"
+        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] hover:-translate-y-px hover:bg-primary-hover sm:inline-flex sm:w-auto sm:self-start"
       >
         <Wand2 className="h-4 w-4" />
         Bend this niche
@@ -426,12 +501,70 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
 export function NicheFinder() {
   const [platform, setPlatform] = useState<NicheFinderPlatform>("tiktok");
   const [timeframe, setTimeframe] = useState<NicheFinderTimeframe>("7d");
+  const [viewsFilter, setViewsFilter] = useState(VIEWS_OPTIONS[0]);
+  const [followersFilter, setFollowersFilter] = useState(FOLLOWERS_OPTIONS[0]);
+  const [postingFilter, setPostingFilter] = useState(POSTING_OPTIONS[0]);
+  const [search, setSearch] = useState("");
+
+  const filteredNiches = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return NICHE_SCORES;
+    return NICHE_SCORES.filter((niche) => niche.name.toLowerCase().includes(query));
+  }, [search]);
 
   return (
     <div className="flex flex-col gap-10">
       <section>
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-bold text-heading">Top Trending Niches</h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-heading">Niche Finder</h2>
+            <p className="mt-1 max-w-xl text-sm text-body">
+              Discover explosive social media trends, reverse-engineer viral frameworks, and identify
+              high-revenue gaps.
+            </p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-body" />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search niches or topics..."
+                aria-label="Search niches or topics"
+                className="w-full rounded-full border border-hairline bg-surface py-2.5 pl-9 pr-4 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <Button variant="secondary" size="md" icon={Download} className="shrink-0">
+              Export
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-hairline bg-surface p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <PlatformToggle value={platform} onChange={setPlatform} />
+            <TimeframeToggle value={timeframe} onChange={setTimeframe} />
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 border-t border-hairline pt-4 sm:grid-cols-3">
+            <FilterSelect label="Views" options={VIEWS_OPTIONS} value={viewsFilter} onChange={setViewsFilter} />
+            <FilterSelect
+              label="Followers"
+              options={FOLLOWERS_OPTIONS}
+              value={followersFilter}
+              onChange={setFollowersFilter}
+            />
+            <FilterSelect
+              label="Posting Window"
+              options={POSTING_OPTIONS}
+              value={postingFilter}
+              onChange={setPostingFilter}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-heading">Trending Niches</h3>
           <a
             href="#all-niches"
             className="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline underline-offset-4"
@@ -441,21 +574,17 @@ export function NicheFinder() {
           </a>
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 rounded-card border border-hairline bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <PlatformToggle value={platform} onChange={setPlatform} />
-            <TimeframeToggle value={timeframe} onChange={setTimeframe} />
+        {filteredNiches.length > 0 ? (
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+            {filteredNiches.map((niche) => (
+              <NicheScoreCard key={niche.id} niche={niche} />
+            ))}
           </div>
-          <Button variant="secondary" size="sm" icon={SlidersHorizontal} className="self-start sm:self-auto">
-            Filters
-          </Button>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {NICHE_SCORES.map((niche) => (
-            <NicheScoreCard key={niche.id} niche={niche} />
-          ))}
-        </div>
+        ) : (
+          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+            No niches match &ldquo;{search}&rdquo;.
+          </div>
+        )}
       </section>
 
       <section>
