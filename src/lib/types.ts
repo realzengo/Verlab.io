@@ -23,6 +23,23 @@ export interface SampleVideo {
   views: string;
 }
 
+export interface TrendingVideo {
+  id: string;
+  title: string;
+  views: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+  followerCount: number;
+  coverUrl: string;
+  videoUrl: string;
+  author: string;
+  avatarUrl: string;
+  hashtag: string;
+  postedAt: string | null;
+}
+
 export interface Niche {
   id: string;
   name: string;
@@ -32,10 +49,10 @@ export interface Niche {
   description: string;
   faceless: boolean;
   tags: string[];
+  platform: "tiktok" | "youtube" | "instagram" | "mixed";
   sampleVideos: SampleVideo[];
 }
 
-/** Mirrors NicheBendSOP in src/app/api/bend/route.ts field-for-field. */
 export interface NicheBendSOP {
   hookFormula: string;
   structure: string[];
@@ -53,7 +70,6 @@ export interface Sop extends NicheBendSOP {
   savedByUser?: boolean;
 }
 
-/** Mirrors NicheBendResult in src/app/api/bend/route.ts field-for-field. */
 export interface NicheBendResult {
   analysis: string;
   sop: NicheBendSOP;

@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Link as LinkIcon, Music, Video } from "lucide-react";
-import type { DownloadFormat } from "@/lib/types";
-import { RECENT_DOWNLOADS } from "@/lib/mock-data";
+import { useEffect, useState } from "react";
+import { Download, Link as LinkIcon, Loader2, Music, Video } from "lucide-react";
+import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn, formatDate } from "@/lib/utils";
+
+interface DownloadRow {
+  id: string;
+  source_url: string;
+  platform: DownloadPlatform;
+  format: DownloadFormat;
+  status: "queued" | "processing" | "complete" | "failed";
+  title: string | null;
+  file_path: string | null;
+  created_at: string;
+}
 
 const FORMAT_OPTIONS: { value: DownloadFormat; label: string; icon: typeof Video }[] = [
   { value: "mp4", label: "Video (MP4)", icon: Video },
@@ -40,6 +50,56 @@ function formatDownloadedAt(iso: string): string {
 export default function DownloaderPage() {
   const [url, setUrl] = useState("");
   const [format, setFormat] = useState<DownloadFormat>("mp4");
+  const [downloads, setDownloads] = useState<DownloadRow[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDownloads();
+  }, []);
+
+  async function fetchDownloads() {
+    const res = await fetch("/api/downloads");
+    if (res.ok) {
+      const data = await res.json();
+      setDownloads(data.downloads);
+    }
+  }
+
+  function pollUntilSettled(id: string) {
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/downloads/status/${id}`);
+      if (!res.ok) return;
+      const { download } = await res.json();
+      setDownloads((prev) => prev.map((d) => (d.id === id ? download : d)));
+      if (download.status === "complete" || download.status === "failed") {
+        clearInterval(interval);
+      }
+    }, 1500);
+  }
+
+  async function handleDownload() {
+    if (!url.trim()) return;
+    setSubmitting(true);
+    setError(null);
+
+    const res = await fetch("/api/downloads/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim(), format }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Could not start download");
+      return;
+    }
+
+    setUrl("");
+    await fetchDownloads();
+    pollUntilSettled(data.id);
+  }
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -61,6 +121,8 @@ export default function DownloaderPage() {
             className="w-full rounded-card-sm border border-hairline bg-app py-3 pl-11 pr-4 text-[13px] text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30 sm:text-sm"
           />
         </div>
+
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
@@ -87,11 +149,12 @@ export default function DownloaderPage() {
 
           <Button
             variant="primary"
-            icon={Download}
-            disabled={!url.trim()}
+            icon={submitting ? Loader2 : Download}
+            disabled={!url.trim() || submitting}
+            onClick={handleDownload}
             className="w-full sm:w-auto"
           >
-            Download
+            {submitting ? "Starting…" : "Download"}
           </Button>
         </div>
       </Card>
@@ -99,37 +162,59 @@ export default function DownloaderPage() {
       <div className="flex flex-col gap-3">
         <h3 className="text-lg font-medium text-heading">Recent Downloads</h3>
 
-        <Card padded={false}>
-          {RECENT_DOWNLOADS.map((item, index) => (
-            <div
-              key={item.id}
-              className={cn(
-                "flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6",
-                index !== RECENT_DOWNLOADS.length - 1 && "border-b border-hairline"
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-accent text-primary sm:h-11 sm:w-11">
-                  {item.format === "mp4" ? <Video className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <Music className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
-                </div>
+        {downloads.length === 0 ? (
+          <Card className="py-10 text-center text-sm text-body">No downloads yet.</Card>
+        ) : (
+          <Card padded={false}>
+            {downloads.map((item, index) => (
+              <div
+                key={item.id}
+                className={cn(
+                  "flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6",
+                  index !== downloads.length - 1 && "border-b border-hairline"
+                )}
+              >
+                <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip bg-accent text-primary sm:h-11 sm:w-11">
+                    {item.format === "mp4" ? <Video className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <Music className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
+                  </div>
 
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="truncate text-[13px] font-medium text-heading sm:text-sm">{item.title}</p>
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-body sm:gap-2 sm:text-xs">
-                    <Badge>{PLATFORM_LABEL[item.platform]}</Badge>
-                    <span className="truncate">
-                      {item.format.toUpperCase()} &middot; {formatDownloadedAt(item.createdAt)}
-                    </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <p className="truncate text-[13px] font-medium text-heading sm:text-sm">
+                      {item.title ?? item.source_url}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-body sm:gap-2 sm:text-xs">
+                      <Badge>{PLATFORM_LABEL[item.platform]}</Badge>
+                      {item.status !== "complete" && (
+                        <Badge variant={item.status === "failed" ? "danger" : "warning"}>{item.status}</Badge>
+                      )}
+                      <span className="truncate">
+                        {item.format.toUpperCase()} &middot; {formatDownloadedAt(item.created_at)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <Button variant="secondary" size="sm" icon={Download} className="w-full shrink-0 sm:w-auto">
-                Download Again
-              </Button>
-            </div>
-          ))}
-        </Card>
+                {item.status === "complete" && item.file_path ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Download}
+                    href={item.file_path}
+                    target="_blank"
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    Download
+                  </Button>
+                ) : (
+                  <Button variant="secondary" size="sm" icon={Download} disabled className="w-full shrink-0 sm:w-auto">
+                    Download
+                  </Button>
+                )}
+              </div>
+            ))}
+          </Card>
+        )}
       </div>
     </div>
   );

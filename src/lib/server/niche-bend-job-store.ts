@@ -1,4 +1,5 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import type { ModelMessage } from "ai";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   NicheBendAiError,
   generateSopContent,
@@ -6,6 +7,7 @@ import {
   researchChannel,
   researchFromManualVideos,
 } from "./niche-bend-ai";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
@@ -17,53 +19,60 @@ import type {
   NicheBendVideoType,
 } from "@/lib/types";
 
-type MessageParam = Anthropic.Messages.MessageParam;
+type MessageParam = ModelMessage;
 
-// In-memory, per-process job store. Fine for a single `next dev` process; a
-// real deployment would replace this module's exports with a DB/queue
-// without touching any of its callers.
+// Postgres-backed job store (niche_bend_jobs table) — survives serverless
+// cold starts / multiple instances, unlike the in-memory Map this replaced.
+// Row updates go through the caller's request-scoped (cookie-based) Supabase
+// client so RLS keeps every read/write owner-scoped automatically.
 
-interface NicheBendJobRecord {
+export interface NicheBendJobRow {
   id: string;
-  sourceUrl: string;
+  source_url: string;
   platform: NicheBendPlatform;
-  videoType: NicheBendVideoType;
-  manualVideos?: NicheBendVideo[];
-  phase: NicheBendJobStatus;
-  errorMessage?: string;
-  analysis?: NicheBendChannelAnalysis;
-  candidates?: NicheBendCandidate[];
-  conversation?: MessageParam[];
-  chosenBend?: NicheBendCandidate;
-  sop?: NicheBendSopResult;
+  video_type: NicheBendVideoType;
+  manual_videos: NicheBendVideo[] | null;
+  status: NicheBendJobStatus;
+  error_message: string | null;
+  analysis: NicheBendChannelAnalysis | null;
+  candidates: NicheBendCandidate[] | null;
+  conversation: MessageParam[] | null;
+  chosen_bend: NicheBendCandidate | null;
+  sop: NicheBendSopResult | null;
 }
+
+const JOB_COLUMNS =
+  "id, source_url, platform, video_type, manual_videos, status, error_message, analysis, candidates, conversation, chosen_bend, sop";
 
 interface ResearchCacheEntry {
   analysis: NicheBendChannelAnalysis;
   conversation: MessageParam[];
 }
 
-// Next dev's Fast Refresh re-executes this module (resetting module-level
-// state) whenever a file it depends on changes, even though the server
-// process itself is still running. Stash the maps on `globalThis` so an
-// in-flight job survives that reload instead of turning into a spurious
-// 404 "Job not found" the next time the client polls or submits.
-declare global {
-  var __nicheBendJobs: Map<string, NicheBendJobRecord> | undefined;
-  var __nicheBendResearchCache: Map<string, ResearchCacheEntry> | undefined;
-}
-
-const jobs = globalThis.__nicheBendJobs ?? new Map<string, NicheBendJobRecord>();
-globalThis.__nicheBendJobs = jobs;
-
-// Avoids re-running (paid) web search when the same channel is analyzed
-// again in the same process — "Regenerate bends" reuses the research and
-// only asks Claude for a fresh set of candidates.
-const researchCache = globalThis.__nicheBendResearchCache ?? new Map<string, ResearchCacheEntry>();
-globalThis.__nicheBendResearchCache = researchCache;
-
 function researchCacheKey(sourceUrl: string, platform: NicheBendPlatform, videoType: NicheBendVideoType): string {
   return `${platform}|${videoType}|${sourceUrl.trim().toLowerCase()}`;
+}
+
+// Internal dedup cache is cross-user infra (not RLS'd user data), so it goes
+// through the service-role client rather than the caller's session client.
+async function getCachedResearch(cacheKey: string): Promise<ResearchCacheEntry | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("niche_bend_research_cache")
+    .select("analysis, conversation")
+    .eq("cache_key", cacheKey)
+    .maybeSingle();
+  return data ? { analysis: data.analysis, conversation: data.conversation } : null;
+}
+
+async function setCachedResearch(cacheKey: string, entry: ResearchCacheEntry): Promise<void> {
+  const admin = createAdminClient();
+  await admin.from("niche_bend_research_cache").upsert({
+    cache_key: cacheKey,
+    analysis: entry.analysis,
+    conversation: entry.conversation,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 const PHASE_TEXT: Record<NicheBendJobStatus, { statusText: string; progress: number }> = {
@@ -95,102 +104,129 @@ function humanizeError(error: unknown): string {
   return "Something went wrong while analyzing this channel. Try again or paste your videos manually.";
 }
 
-async function runPipeline(job: NicheBendJobRecord): Promise<void> {
-  try {
-    const hasManualVideos = Boolean(job.manualVideos && job.manualVideos.length > 0);
+async function updateJob(
+  supabase: SupabaseClient,
+  id: string,
+  patch: Partial<Omit<NicheBendJobRow, "id">>
+): Promise<void> {
+  await supabase.from("niche_bend_jobs").update(patch).eq("id", id);
+}
 
-    if (!hasManualVideos && isFailureTrigger(job.sourceUrl)) {
+async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Promise<void> {
+  try {
+    const hasManualVideos = Boolean(job.manual_videos && job.manual_videos.length > 0);
+
+    if (!hasManualVideos && isFailureTrigger(job.source_url)) {
       await sleep(1500);
-      job.phase = "failed";
-      job.errorMessage = "We couldn't read that channel. Try again or paste your videos manually.";
+      await updateJob(supabase, job.id, {
+        status: "failed",
+        error_message: "We couldn't read that channel. Try again or paste your videos manually.",
+      });
       return;
     }
 
     if (hasManualVideos) {
-      job.phase = "identifying_format";
+      await updateJob(supabase, job.id, { status: "identifying_format" });
       const outcome = await researchFromManualVideos(
-        job.sourceUrl || undefined,
+        job.source_url || undefined,
         job.platform,
-        job.videoType,
-        job.manualVideos!
+        job.video_type,
+        job.manual_videos!
       );
-      job.phase = "generating_bends";
-      job.analysis = outcome.analysis;
-      job.candidates = outcome.candidates;
-      job.conversation = outcome.conversation;
-      job.phase = "ready";
+      await updateJob(supabase, job.id, {
+        status: "ready",
+        analysis: outcome.analysis,
+        candidates: outcome.candidates,
+        conversation: outcome.conversation,
+      });
       return;
     }
 
-    const cacheKey = researchCacheKey(job.sourceUrl, job.platform, job.videoType);
-    const cached = researchCache.get(cacheKey);
+    const cacheKey = researchCacheKey(job.source_url, job.platform, job.video_type);
+    const cached = await getCachedResearch(cacheKey);
 
     if (cached) {
-      job.phase = "generating_bends";
+      await updateJob(supabase, job.id, { status: "generating_bends" });
       const outcome = await regenerateCandidates(cached.conversation, cached.analysis);
-      job.analysis = cached.analysis;
-      job.candidates = outcome.candidates;
-      job.conversation = outcome.conversation;
-      researchCache.set(cacheKey, { analysis: cached.analysis, conversation: outcome.conversation });
-      job.phase = "ready";
+      await setCachedResearch(cacheKey, { analysis: cached.analysis, conversation: outcome.conversation });
+      await updateJob(supabase, job.id, {
+        status: "ready",
+        analysis: cached.analysis,
+        candidates: outcome.candidates,
+        conversation: outcome.conversation,
+      });
       return;
     }
 
-    job.phase = "reading_videos";
-    const outcome = await researchChannel(job.sourceUrl, job.platform, job.videoType);
-    job.phase = "generating_bends";
-    job.analysis = outcome.analysis;
-    job.candidates = outcome.candidates;
-    job.conversation = outcome.conversation;
-    researchCache.set(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
-    job.phase = "ready";
+    await updateJob(supabase, job.id, { status: "reading_videos" });
+    const outcome = await researchChannel(job.source_url, job.platform, job.video_type);
+    await updateJob(supabase, job.id, { status: "generating_bends" });
+    await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
+    await updateJob(supabase, job.id, {
+      status: "ready",
+      analysis: outcome.analysis,
+      candidates: outcome.candidates,
+      conversation: outcome.conversation,
+    });
   } catch (error) {
     console.error("[niche-bend] Analysis pipeline failed:", error);
-    job.phase = "failed";
-    job.errorMessage = humanizeError(error);
+    await updateJob(supabase, job.id, { status: "failed", error_message: humanizeError(error) });
   }
 }
 
-export function createJob(input: {
-  sourceUrl: string;
-  platform: NicheBendPlatform;
-  videoType: NicheBendVideoType;
-  manualVideos?: NicheBendVideo[];
-}): NicheBendJobRecord {
-  const id = crypto.randomUUID();
-  const job: NicheBendJobRecord = {
-    id,
-    sourceUrl: input.sourceUrl,
-    platform: input.platform,
-    videoType: input.videoType,
-    manualVideos: input.manualVideos,
-    phase: "opening_channel",
-  };
-  jobs.set(id, job);
-  void runPipeline(job);
+export async function createJob(
+  supabase: SupabaseClient,
+  userId: string,
+  input: {
+    sourceUrl: string;
+    platform: NicheBendPlatform;
+    videoType: NicheBendVideoType;
+    manualVideos?: NicheBendVideo[];
+  }
+): Promise<NicheBendJobRow> {
+  const { data, error } = await supabase
+    .from("niche_bend_jobs")
+    .insert({
+      user_id: userId,
+      source_url: input.sourceUrl,
+      platform: input.platform,
+      video_type: input.videoType,
+      manual_videos: input.manualVideos ?? null,
+      status: "opening_channel",
+    })
+    .select(JOB_COLUMNS)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Could not create job");
+  }
+
+  const job = data as NicheBendJobRow;
+  void runPipeline(supabase, job);
   return job;
 }
 
-export function getJob(id: string): NicheBendJobRecord | undefined {
-  return jobs.get(id);
+export async function getJob(supabase: SupabaseClient, id: string): Promise<NicheBendJobRow | null> {
+  const { data } = await supabase.from("niche_bend_jobs").select(JOB_COLUMNS).eq("id", id).maybeSingle();
+  return (data as NicheBendJobRow) ?? null;
 }
 
-export function resolveStatus(job: NicheBendJobRecord): NicheBendJobStatusResponse {
-  const { statusText, progress } = PHASE_TEXT[job.phase];
+export function resolveStatus(job: NicheBendJobRow): NicheBendJobStatusResponse {
+  const { statusText, progress } = PHASE_TEXT[job.status];
 
-  if (job.phase === "failed") {
+  if (job.status === "failed") {
     return {
       jobId: job.id,
       status: "failed",
       statusText,
       progress,
-      error: { message: job.errorMessage ?? "Something went wrong." },
+      error: { message: job.error_message ?? "Something went wrong." },
     };
   }
 
   const response: NicheBendJobStatusResponse = {
     jobId: job.id,
-    status: job.phase,
+    status: job.status,
     statusText,
     progress,
   };
@@ -203,7 +239,8 @@ export function resolveStatus(job: NicheBendJobRecord): NicheBendJobStatusRespon
 }
 
 export async function setChosenBendAndGenerateSop(
-  job: NicheBendJobRecord,
+  supabase: SupabaseClient,
+  job: NicheBendJobRow,
   chosenBendId: 1 | 2 | 3
 ): Promise<NicheBendSopResult> {
   if (job.sop) return job.sop;
@@ -219,15 +256,14 @@ export async function setChosenBendAndGenerateSop(
     throw new Error("Invalid chosenBend id");
   }
 
-  job.chosenBend = chosen;
-  job.phase = "generating_sop";
+  await updateJob(supabase, job.id, { chosen_bend: chosen, status: "generating_sop" });
 
   let content;
   try {
     content = await generateSopContent(job.conversation ?? [], analysis, chosen);
   } catch (error) {
     console.error("[niche-bend] SOP generation failed:", error);
-    job.phase = "ready";
+    await updateJob(supabase, job.id, { status: "ready" });
     throw new Error(humanizeError(error));
   }
 
@@ -238,13 +274,13 @@ export async function setChosenBendAndGenerateSop(
     originalChannel: analysis,
     content,
     downloads: {
+      // Real DOCX/PDF generation + storage isn't built yet — still a placeholder.
       docxUrl: `/mock/niche-bend/${job.id}.docx`,
       pdfUrl: `/mock/niche-bend/${job.id}.pdf`,
     },
     createdAt: new Date().toISOString(),
   };
 
-  job.sop = sop;
-  job.phase = "sop_ready";
+  await updateJob(supabase, job.id, { sop, status: "sop_ready" });
   return sop;
 }

@@ -1,6 +1,5 @@
 export * from "./types";
 export * from "./mock/user";
-export * from "./mock/niches";
 export * from "./mock/sops";
 export * from "./mock/bend-results";
 export * from "./mock/scripts";

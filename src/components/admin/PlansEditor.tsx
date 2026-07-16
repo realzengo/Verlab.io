@@ -24,6 +24,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
   const [activeId, setActiveId] = useState(initialPlans[0].id);
   const [frequency, setFrequency] = useState<PricingFrequency>("monthly");
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const activeIndex = plans.findIndex((p) => p.id === activeId);
   const active = plans[activeIndex];
@@ -60,9 +61,15 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
     setSavedAt(null);
   }
 
-  function save() {
-    // Mock-only: persists to local state for this session (no backend wired up yet).
-    setSavedAt(Date.now());
+  async function save() {
+    setIsSaving(true);
+    const res = await fetch("/api/admin/plan-definitions", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plans }),
+    });
+    setIsSaving(false);
+    if (res.ok) setSavedAt(Date.now());
   }
 
   return (
@@ -245,9 +252,9 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
             Reset all plans
           </Button>
           <div className="flex items-center gap-3">
-            {savedAt && <span className="text-xs text-subtle">Saved for this session</span>}
-            <Button icon={Save} onClick={save}>
-              Save changes
+            {savedAt && <span className="text-xs text-subtle">Saved</span>}
+            <Button icon={Save} onClick={save} disabled={isSaving}>
+              {isSaving ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </div>

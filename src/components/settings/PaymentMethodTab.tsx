@@ -2,34 +2,65 @@
 
 import { useEffect, useState } from "react";
 import { Crown, FileText, Gauge, Sparkles, Wallet, Zap } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SettingsCardHeader } from "@/components/settings/SettingsCardHeader";
-import { PRICING_PLANS } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
 
+interface PlanDefinition {
+  id: string;
+  name: string;
+  info: string;
+  price_monthly: number;
+}
+
 export function PaymentMethodTab() {
-  const [user, setUser] = useState<User | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<PlanDefinition | null>(null);
+  const [transcriptsThisMonth, setTranscriptsThisMonth] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoaded(true);
-    });
-  }, []);
 
-  const planId = user?.user_metadata?.plan as string | undefined;
-  const currentPlan = PRICING_PLANS.find((plan) => plan.id === planId);
+    async function load() {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (authUser) {
+        const [{ data: profile }, { count }] = await Promise.all([
+          supabase.from("profiles").select("plan").eq("id", authUser.id).single(),
+          supabase
+            .from("transcripts")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", authUser.id)
+            .gte("created_at", new Date(new Date().setDate(1)).toISOString()),
+        ]);
+
+        setTranscriptsThisMonth(count ?? 0);
+
+        if (profile?.plan) {
+          const { data: planDef } = await supabase
+            .from("plan_definitions")
+            .select("id, name, info, price_monthly")
+            .eq("id", profile.plan)
+            .single();
+          setCurrentPlan(planDef);
+        }
+      }
+
+      setLoaded(true);
+    }
+
+    load();
+  }, []);
 
   return (
     <Card className="max-w-2xl">
       <SettingsCardHeader
         icon={Wallet}
         title="Payment methods"
-        description="Your plan, usage, and billing at a glance."
+        description="Your plan and usage at a glance."
       />
 
       <div className="mt-6 flex items-center justify-between">
@@ -66,43 +97,21 @@ export function PaymentMethodTab() {
             aria-hidden
             className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-primary/30 blur-3xl"
           />
-          <div className="relative flex items-center justify-between">
-            <span className="text-sm text-white/70">Subscription end date</span>
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white">
-              07/27/26
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg">
+              <Crown className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">{currentPlan.name}</p>
+              <p className="text-sm text-white/70">{currentPlan.info}</p>
+            </div>
+          </div>
+
+          <div className="relative mt-6 flex items-center justify-between">
+            <span className="text-sm text-white/70">Price</span>
+            <span className="text-lg font-bold">
+              ${currentPlan.price_monthly} <span className="text-sm font-normal text-white/70">/month</span>
             </span>
-          </div>
-
-          <div className="relative mt-6 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg">
-                <Crown className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-lg font-bold">{currentPlan.name}</p>
-                <p className="text-sm text-white/70">{currentPlan.info}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold">
-                ${currentPlan.price.monthly} <span className="text-sm font-normal text-white/70">/month</span>
-              </p>
-              <p className="text-sm text-white/70">Renews on 7/27/2026</p>
-            </div>
-          </div>
-
-          <div className="relative mt-6">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Subscription status</span>
-              <span className="text-white/70">12 days remaining</span>
-            </div>
-            <div className="mt-2 h-1.5 w-full rounded-full bg-white/15">
-              <div className="h-1.5 rounded-full bg-gradient-to-r from-primary to-primary-hover" style={{ width: "60%" }} />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-white/60">
-              <span>Start date: 06/27/26</span>
-              <span>End date: 07/27/26</span>
-            </div>
           </div>
         </div>
       )}
@@ -125,12 +134,12 @@ export function PaymentMethodTab() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-primary">
               <FileText className="h-4 w-4" />
             </span>
-            <p className="text-sm font-medium text-heading">Transcripts count</p>
+            <p className="text-sm font-medium text-heading">Transcripts this month</p>
           </div>
           <div className="mt-3 h-1.5 w-full rounded-full bg-hairline">
-            <div className="h-1.5 rounded-full bg-gradient-to-r from-primary to-primary-hover" style={{ width: "57%" }} />
+            <div className="h-1.5 rounded-full bg-gradient-to-r from-primary to-primary-hover" style={{ width: "100%" }} />
           </div>
-          <p className="mt-2 text-sm font-semibold text-heading">57</p>
+          <p className="mt-2 text-sm font-semibold text-heading">{transcriptsThisMonth ?? "—"}</p>
         </div>
       </div>
     </Card>

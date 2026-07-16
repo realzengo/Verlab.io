@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJob, resolveStatus, setChosenBendAndGenerateSop } from "@/lib/server/niche-bend-job-store";
+import { createClient } from "@/lib/supabase/server";
 
 interface SopRequestBody {
   jobId?: string;
@@ -7,6 +8,15 @@ interface SopRequestBody {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   let body: SopRequestBody;
   try {
     body = await request.json();
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "chosenBend must be 1, 2, or 3" }, { status: 400 });
   }
 
-  const job = getJob(jobId);
+  const job = await getJob(supabase, jobId);
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
@@ -35,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    await setChosenBendAndGenerateSop(job, chosenBend);
+    await setChosenBendAndGenerateSop(supabase, job, chosenBend);
   } catch (error) {
     if (error instanceof Error && error.message === "Invalid chosenBend id") {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -44,5 +54,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
-  return NextResponse.json(resolveStatus(job));
+  const updatedJob = await getJob(supabase, jobId);
+  return NextResponse.json(resolveStatus(updatedJob!));
 }

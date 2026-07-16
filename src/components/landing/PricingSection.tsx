@@ -1,8 +1,13 @@
-import { PRICING_PLANS, COMPARISON_ROWS } from "@/lib/mock-data";
+import { COMPARISON_ROWS } from "@/lib/mock-data";
+import { getPlanDefinitions } from "@/lib/server/admin-queries";
+import { createClient } from "@/lib/supabase/server";
 import { PricingTable } from "@/components/pricing/PricingTable";
 import { PricingComparisonTable } from "@/components/pricing/PricingComparisonTable";
 
-export function PricingSection() {
+export async function PricingSection() {
+  const supabase = await createClient();
+  const plans = await getPlanDefinitions(supabase);
+
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-28 sm:px-6 sm:pb-[90px] sm:pt-40 lg:px-8">
       <div className="mx-auto max-w-xl text-center">
@@ -18,11 +23,11 @@ export function PricingSection() {
       </div>
 
       <div className="mt-8 sm:mt-10">
-        <PricingTable plans={PRICING_PLANS} ctaHref="/app" />
+        <PricingTable plans={plans} ctaHref="/app" />
       </div>
 
       <div className="mt-8 overflow-x-auto sm:mt-12">
-        <PricingComparisonTable plans={PRICING_PLANS} rows={COMPARISON_ROWS} />
+        <PricingComparisonTable plans={plans} rows={COMPARISON_ROWS} />
       </div>
     </section>
   );

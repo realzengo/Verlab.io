@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { generateObject, type ModelMessage } from "ai";
 import { z } from "zod";
-import { anthropic, NICHE_BEND_MODEL } from "./anthropic-client";
+import { ApifyScraperError, scrapeChannelVideos } from "./apify-client";
+import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "./gemini-client";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
@@ -11,90 +11,52 @@ import type {
   NicheBendVideoType,
 } from "@/lib/types";
 
-type MessageParam = Anthropic.Messages.MessageParam;
-type ContentBlockParam = Anthropic.Messages.ContentBlockParam;
-
 export class NicheBendAiError extends Error {}
 
 const SYSTEM_PROMPT = `You are Clypa's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work — hooks, structure, pacing, retention devices — and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
 
-const WEB_SEARCH_TOOL: Anthropic.Messages.WebSearchTool20260209 = {
-  type: "web_search_20260209",
-  name: "web_search",
-  max_uses: 6,
-};
-
-function systemBlocks(): Anthropic.Messages.TextBlockParam[] {
-  return [
-    {
-      type: "text",
-      text: SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral", ttl: "1h" },
-    },
-  ];
+function wrapProviderError(error: unknown): never {
+  if (error instanceof NicheBendAiError) throw error;
+  const message = error instanceof Error ? error.message : String(error);
+  throw new NicheBendAiError(`Gemini request failed: ${message}`);
 }
 
-function toContentBlockParams(content: Anthropic.Messages.ContentBlock[]): ContentBlockParam[] {
-  return content as unknown as ContentBlockParam[];
-}
-
-type MessageWithParsedOutput = Anthropic.Messages.Message & { parsed_output?: unknown };
-
-async function runStream(
-  messages: MessageParam[],
-  opts: {
-    maxTokens: number;
-    format?: Anthropic.Messages.JSONOutputFormat;
-    effort?: "high" | "xhigh";
-    wallClockTimeoutMs?: number;
-    includeSearchTool?: boolean;
-  }
-): Promise<MessageWithParsedOutput> {
-  // Structured output formats compile to a constrained-decoding grammar;
-  // combining a large schema with an additional strict tool (web_search) can
-  // exceed Claude's compiled-grammar size limit ("Simplify your tool schemas
-  // or reduce the number of strict tools"). Calls that don't need to search
-  // again (they're just formatting/writing from prior context) omit the tool.
-  const includeSearchTool = opts.includeSearchTool ?? true;
-
-  const stream = anthropic.messages.stream({
-    model: NICHE_BEND_MODEL,
-    max_tokens: opts.maxTokens,
-    thinking: { type: "adaptive" },
-    output_config: {
-      effort: opts.effort ?? "high",
-      format: opts.format,
-    },
-    system: systemBlocks(),
-    ...(includeSearchTool ? { tools: [WEB_SEARCH_TOOL] } : {}),
-    messages,
-  });
-
-  // The SDK's per-request `timeout` resets on every received chunk (it's an
-  // idle timeout, not a wall-clock cap), so a request that keeps streaming
-  // search rounds can run indefinitely. Enforce a hard wall-clock ceiling
-  // ourselves and abort the stream if it's exceeded.
-  const wallClockTimeoutMs = opts.wallClockTimeoutMs ?? 240_000;
+async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      stream.abort();
-      reject(new NicheBendAiError(`Claude took too long to respond (over ${Math.round(wallClockTimeoutMs / 1000)}s). Try again.`));
-    }, wallClockTimeoutMs);
+    timer = setTimeout(() => reject(new NicheBendAiError(timeoutMessage)), ms);
   });
-
   try {
-    return await Promise.race([stream.finalMessage(), timeout]);
-  } catch (error) {
-    if (error instanceof NicheBendAiError) {
-      throw error;
-    }
-    if (error instanceof Anthropic.APIError) {
-      throw new NicheBendAiError(`Claude request failed: ${error.message}`);
-    }
-    throw error;
+    return await Promise.race([promise, timeout]);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function runExtract<Schema extends z.ZodTypeAny>(
+  messages: ModelMessage[],
+  schema: Schema,
+  opts: { maxOutputTokens: number; wallClockTimeoutMs?: number }
+): Promise<{ object: z.infer<Schema>; messages: ModelMessage[] }> {
+  const wallClockTimeoutMs = opts.wallClockTimeoutMs ?? 200_000;
+  try {
+    const { object } = await withTimeout(
+      generateObject({
+        model: geminiModel,
+        system: SYSTEM_PROMPT,
+        messages,
+        schema,
+        maxOutputTokens: Math.min(opts.maxOutputTokens, GEMINI_MAX_OUTPUT_TOKENS),
+      }),
+      wallClockTimeoutMs,
+      `Gemini took too long to respond (over ${Math.round(wallClockTimeoutMs / 1000)}s). Try again.`
+    );
+    return {
+      object: object as z.infer<Schema>,
+      messages: [...messages, { role: "assistant", content: JSON.stringify(object) }],
+    };
+  } catch (error) {
+    wrapProviderError(error);
   }
 }
 
@@ -181,7 +143,7 @@ const ChannelOverviewSchema = z.object({
 
 // Split across two structured-output calls: a single schema covering the
 // whole SOP compiles to a constrained-decoding grammar large enough to hit
-// Claude's "compiled grammar is too large" limit.
+// the model's structured-output/grammar limits.
 const SopPartASchema = z.object({
   title: z.string(),
   subtitle: z.string(),
@@ -212,64 +174,53 @@ function candidatesFromParsed(
 interface ResearchOutcome {
   analysis: NicheBendChannelAnalysis;
   candidates: NicheBendCandidate[];
-  conversation: MessageParam[];
+  conversation: ModelMessage[];
 }
 
 const CandidatesOnlySchema = z.object({ candidates: z.array(CandidateSchema) });
 
 export async function regenerateCandidates(
-  conversation: MessageParam[],
+  conversation: ModelMessage[],
   analysis: NicheBendChannelAnalysis
-): Promise<{ candidates: NicheBendCandidate[]; conversation: MessageParam[] }> {
+): Promise<{ candidates: NicheBendCandidate[]; conversation: ModelMessage[] }> {
   const prompt = `Give 3 NEW strategic "niche bend" candidates for this same channel — different niches than any you've already proposed earlier in this conversation, and still different from the channel's own detected niche ("${analysis.detectedNiche}"). Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
 
-  const messages: MessageParam[] = [...conversation, { role: "user", content: prompt }];
-  const message = await runStream(messages, {
-    maxTokens: 2000,
-    format: zodOutputFormat(CandidatesOnlySchema),
+  const messages: ModelMessage[] = [...conversation, { role: "user", content: prompt }];
+  const { object, messages: nextMessages } = await runExtract(messages, CandidatesOnlySchema, {
+    maxOutputTokens: 2000,
     wallClockTimeoutMs: 120_000,
   });
-  const parsed = message.parsed_output as z.infer<typeof CandidatesOnlySchema> | undefined;
-  if (!parsed) {
-    throw new NicheBendAiError("Claude did not return new candidates.");
-  }
 
   return {
-    candidates: candidatesFromParsed(parsed.candidates),
-    conversation: [...messages, { role: "assistant", content: toContentBlockParams(message.content) }],
+    candidates: candidatesFromParsed(object.candidates),
+    conversation: nextMessages,
   };
 }
 
 async function extractAnalysisAndCandidates(
-  conversation: MessageParam[],
+  conversation: ModelMessage[],
   platform: NicheBendPlatform,
   extractionPrompt: string
 ): Promise<ResearchOutcome> {
-  const messages: MessageParam[] = [...conversation, { role: "user", content: extractionPrompt }];
+  const messages: ModelMessage[] = [...conversation, { role: "user", content: extractionPrompt }];
 
-  const message = await runStream(messages, {
-    maxTokens: 8000,
-    format: zodOutputFormat(AnalysisAndCandidatesSchema),
+  const { object, messages: nextMessages } = await runExtract(messages, AnalysisAndCandidatesSchema, {
+    maxOutputTokens: 8000,
     wallClockTimeoutMs: 200_000,
   });
 
-  const parsed = message.parsed_output as z.infer<typeof AnalysisAndCandidatesSchema> | undefined;
-  if (!parsed) {
-    throw new NicheBendAiError("Claude did not return a structured channel analysis.");
-  }
-
   const analysis: NicheBendChannelAnalysis = {
-    channelName: parsed.analysis.channelName,
+    channelName: object.analysis.channelName,
     platform,
-    detectedNiche: parsed.analysis.detectedNiche,
-    format: parsed.analysis.format,
-    topVideos: parsed.analysis.topVideos,
+    detectedNiche: object.analysis.detectedNiche,
+    format: object.analysis.format,
+    topVideos: object.analysis.topVideos,
   };
 
   return {
     analysis,
-    candidates: candidatesFromParsed(parsed.candidates),
-    conversation: [...messages, { role: "assistant", content: toContentBlockParams(message.content) }],
+    candidates: candidatesFromParsed(object.candidates),
+    conversation: nextMessages,
   };
 }
 
@@ -281,36 +232,29 @@ export async function researchChannel(
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
   const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
 
-  const researchPrompt = `Research the ${platformLabel} channel at this URL using web search: ${url}
+  let scraped;
+  try {
+    scraped = await scrapeChannelVideos(url, platform, videoType);
+  } catch (error) {
+    if (error instanceof ApifyScraperError) {
+      throw new NicheBendAiError(error.message);
+    }
+    throw error;
+  }
 
-This channel primarily posts ${formatLabel}.
+  const videoList = scraped.videos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
 
-Find:
-1. The channel's actual name/handle.
-2. Its most-viewed videos (aim for 10) — for each, the exact title and view count if you can find it (search results, thumbnails, third-party stats sites, etc.). If you can't confirm an exact view count, give your best estimate and say it's an estimate rather than inventing false precision.
-3. The niche/topic category this channel covers.
-4. The proven scripting format: video length range, narration point of view (first person / narrator / voiceover-only / etc.), and recurring structural or thematic patterns across the top videos.
+  const extractionPrompt = `We scraped the real top ${formatLabel} from the ${platformLabel} channel "${scraped.channelName}" (${url}), sorted by view count:
 
-Use at most 4-5 searches — be efficient, don't exhaustively re-search. Do not fabricate video titles or view counts. If the channel is hard to find or has very few view-count signals available, say so plainly. End with a clear plain-text summary of everything you found.`;
+${videoList}
 
-  const message = await runStream([{ role: "user", content: researchPrompt }], {
-    maxTokens: 6000,
-    wallClockTimeoutMs: 240_000,
-  });
-
-  const conversation: MessageParam[] = [
-    { role: "user", content: researchPrompt },
-    { role: "assistant", content: toContentBlockParams(message.content) },
-  ];
-
-  const extractionPrompt = `Based on your research above, produce:
-
-1. A structured channel analysis (channelName, detectedNiche, format — one paragraph covering length range, narration POV, and recurring themes — and topVideos: the real top videos you found, titled, with view counts as strings like "4.2M" or "~4.2M" if estimated).
+From this real data, produce:
+1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
 2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself. Each candidate needs: a bold niche name (max 3 words), an angle tag — exactly one of Ranking, Timeline, or Conflict — describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
 
 Respond only in the required structured format.`;
 
-  return extractAnalysisAndCandidates(conversation, platform, extractionPrompt);
+  return extractAnalysisAndCandidates([], platform, extractionPrompt);
 }
 
 export async function researchFromManualVideos(
@@ -337,13 +281,13 @@ Respond only in the required structured format.`;
 }
 
 export async function generateSopContent(
-  conversation: MessageParam[],
+  conversation: ModelMessage[],
   analysis: NicheBendChannelAnalysis,
   chosenBend: NicheBendCandidate
 ): Promise<NicheBendSopContent> {
   const groundingRule = `Ground everything in the real videos you found or were given earlier — cite specific source videos by their actual titles wherever you make a claim (in every "usedInVideos" field, reference real titles, not placeholders like "Video 1"). Do not invent details unrelated to the real channel.`;
 
-  const baseConversation: MessageParam[] =
+  const baseConversation: ModelMessage[] =
     conversation.length > 0
       ? conversation
       : [
@@ -367,25 +311,12 @@ Header — title: "${analysis.channelName} — Scripting SOP". subtitle: a one-l
 
 Respond only in the required structured format.`;
 
-  const messagesA: MessageParam[] = [...baseConversation, { role: "user", content: promptA }];
+  const messagesA: ModelMessage[] = [...baseConversation, { role: "user", content: promptA }];
 
-  const messageA = await runStream(messagesA, {
-    maxTokens: 12000,
-    effort: "xhigh",
-    format: zodOutputFormat(SopPartASchema),
+  const { object: parsedA, messages: messagesAfterA } = await runExtract(messagesA, SopPartASchema, {
+    maxOutputTokens: 12000,
     wallClockTimeoutMs: 200_000,
-    includeSearchTool: false,
   });
-
-  const parsedA = messageA.parsed_output as z.infer<typeof SopPartASchema> | undefined;
-  if (!parsedA) {
-    throw new NicheBendAiError("Claude did not return the first half of the structured SOP.");
-  }
-
-  const messagesAfterA: MessageParam[] = [
-    ...messagesA,
-    { role: "assistant", content: toContentBlockParams(messageA.content) },
-  ];
 
   const promptB = `Now write the second half of the same Scripting SOP for ${chosenBend.nicheName}. ${groundingRule}
 
@@ -399,20 +330,12 @@ Respond only in the required structured format.`;
 
 Respond only in the required structured format.`;
 
-  const messagesB: MessageParam[] = [...messagesAfterA, { role: "user", content: promptB }];
+  const messagesB: ModelMessage[] = [...messagesAfterA, { role: "user", content: promptB }];
 
-  const messageB = await runStream(messagesB, {
-    maxTokens: 16000,
-    effort: "xhigh",
-    format: zodOutputFormat(SopPartBSchema),
+  const { object: parsedB } = await runExtract(messagesB, SopPartBSchema, {
+    maxOutputTokens: 16000,
     wallClockTimeoutMs: 220_000,
-    includeSearchTool: false,
   });
-
-  const parsedB = messageB.parsed_output as z.infer<typeof SopPartBSchema> | undefined;
-  if (!parsedB) {
-    throw new NicheBendAiError("Claude did not return the second half of the structured SOP.");
-  }
 
   return { ...parsedA, ...parsedB };
 }

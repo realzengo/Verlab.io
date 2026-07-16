@@ -1,15 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-// Comma-separated list of emails allowed into /admin, e.g. "a@x.com,b@x.com"
-function isAdminEmail(email: string | undefined) {
-  if (!email) return false;
-  const allowlist = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowlist.includes(email.toLowerCase());
-}
+import { isAdminEmail } from "@/lib/server/admin";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

@@ -1,6 +1,5 @@
 import { CreditCard, Cog, FileText, UserRound } from "lucide-react";
 import type { ActivityLogEntry, ActivityType } from "@/lib/types";
-import { NOW_ISO } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const TYPE_ICON: Record<ActivityType, typeof UserRound> = {
@@ -18,7 +17,7 @@ const TYPE_CLASSES: Record<ActivityType, string> = {
 };
 
 function timeAgo(iso: string): string {
-  const diffMs = new Date(NOW_ISO).getTime() - new Date(iso).getTime();
+  const diffMs = Date.now() - new Date(iso).getTime();
   const hours = Math.round(diffMs / 3_600_000);
   if (hours < 1) return "just now";
   if (hours < 24) return `${hours}h ago`;

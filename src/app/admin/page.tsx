@@ -1,21 +1,5 @@
 import { Activity, DollarSign, TrendingDown, UserPlus, Users, Wand2 } from "lucide-react";
-import {
-  ACTIVITY_LOG,
-  CHURN_RATE_PCT,
-  CURRENT_MRR,
-  JOB_SUCCESS_RATE_PCT,
-  MRR_GROWTH_PCT,
-  PLAN_DISTRIBUTION,
-  PREVIOUS_CHURN_RATE_PCT,
-  PREVIOUS_MRR,
-  REVENUE_SERIES,
-  SIGNUP_SERIES,
-  SYSTEM_JOBS,
-  TOOL_USAGE_SHARE,
-  USAGE_SERIES,
-  ACTIVE_TRIALS_COUNT,
-  TOTAL_USERS_COUNT,
-} from "@/lib/mock-data";
+import { getOverviewData } from "@/lib/server/admin-queries";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -28,7 +12,27 @@ import { StackedShareBar } from "@/components/charts/StackedShareBar";
 import { formatChartDate } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 
-export default function AdminOverviewPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminOverviewPage() {
+  const {
+    totalUsers: TOTAL_USERS_COUNT,
+    activeTrials: ACTIVE_TRIALS_COUNT,
+    currentMrr: CURRENT_MRR,
+    previousMrr: PREVIOUS_MRR,
+    mrrGrowthPct: MRR_GROWTH_PCT,
+    churnRatePct: CHURN_RATE_PCT,
+    previousChurnRatePct: PREVIOUS_CHURN_RATE_PCT,
+    revenueSeries: REVENUE_SERIES,
+    signupSeries: SIGNUP_SERIES,
+    usageSeries: USAGE_SERIES,
+    toolUsageShare: TOOL_USAGE_SHARE,
+    planDistribution: PLAN_DISTRIBUTION,
+    activityLog: ACTIVITY_LOG,
+    systemJobs: SYSTEM_JOBS,
+    jobSuccessRatePct: JOB_SUCCESS_RATE_PCT,
+  } = await getOverviewData();
+
   const signupLabels = SIGNUP_SERIES.map((p) => p.date);
   const latestUsage = USAGE_SERIES[USAGE_SERIES.length - 1];
   const toolRunsToday = latestUsage.bend + latestUsage.niches + latestUsage.transcripts + latestUsage.downloader + latestUsage.mcp;

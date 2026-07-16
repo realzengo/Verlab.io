@@ -1,27 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
-  Bookmark,
   Check,
   CheckCircle2,
   ChevronDown,
   Copy,
   Download,
   FileText,
-  Image as ImageIcon,
   Languages,
   ListChecks,
-  MoreHorizontal,
+  Loader2,
   PlayCircle,
   Search,
   Sparkles,
   Wand2,
   XCircle,
 } from "lucide-react";
-import type { Transcript } from "@/lib/types";
-import { TRANSCRIPTS } from "@/lib/mock-data";
+import type { TranscriptLine } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -30,81 +27,26 @@ import { ExportModal } from "@/components/transcripts/ExportModal";
 import { cn, formatDate } from "@/lib/utils";
 
 type PageView = "history" | "result";
-type RowStatus = "complete" | "processing" | "failed";
+type RowStatus = "queued" | "processing" | "complete" | "failed";
 
-interface HistoryRow {
+interface TranscriptRow {
   id: string;
-  title: string;
-  sourceUrl: string;
-  folder: string;
+  source_url: string;
   platform: "tiktok" | "reels" | "shorts";
-  date: string;
-  duration: string;
   status: RowStatus;
-  bookmarked: boolean;
+  title: string | null;
+  cover_url: string | null;
+  duration_seconds: number | null;
+  video_url: string | null;
+  embed_url: string | null;
+  lines: TranscriptLine[] | null;
+  created_at: string;
 }
 
-const HISTORY_ROWS: HistoryRow[] = [
-  {
-    id: "row-1",
-    title: "The $2.3M mistake surgeons hope you never learn about",
-    sourceUrl: "tiktok.com/@crayoncapital",
-    folder: "Medical Drama",
-    platform: "tiktok",
-    date: "2026-05-28T08:00:00.000Z",
-    duration: "0:58",
-    status: "complete",
-    bookmarked: true,
-  },
-  {
-    id: "row-2",
-    title: "The intern who leaked a decade of trade secrets",
-    sourceUrl: "tiktok.com/@bensbusinessbreakdown",
-    folder: "Corporate Fraud",
-    platform: "tiktok",
-    date: "2026-06-01T12:30:00.000Z",
-    duration: "1:01",
-    status: "complete",
-    bookmarked: false,
-  },
-  {
-    id: "row-3",
-    title: "The trade that erased a nation's pension fund",
-    sourceUrl: "instagram.com/reel/C8xYzabcdEf",
-    folder: "Financial Collapse",
-    platform: "reels",
-    date: "2026-06-08T15:45:00.000Z",
-    duration: "0:52",
-    status: "complete",
-    bookmarked: false,
-  },
-  {
-    id: "row-4",
-    title: "Inside the courtroom that changed maritime law forever",
-    sourceUrl: "youtube.com/shorts/x92kLp0",
-    folder: "Legal Drama",
-    platform: "shorts",
-    date: "2026-06-10T09:15:00.000Z",
-    duration: "1:14",
-    status: "processing",
-    bookmarked: false,
-  },
-  {
-    id: "row-5",
-    title: "The audit that took down a Fortune 500 CFO",
-    sourceUrl: "tiktok.com/@bensbusinessbreakdown",
-    folder: "Corporate Fraud",
-    platform: "tiktok",
-    date: "2026-06-11T18:05:00.000Z",
-    duration: "0:47",
-    status: "failed",
-    bookmarked: false,
-  },
-];
-
-const STATUS_BADGE: Record<RowStatus, { label: string; variant: "success" | "warning" | "danger" }> = {
+const STATUS_BADGE: Record<RowStatus, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
   complete: { label: "Complete", variant: "success" },
   processing: { label: "Processing", variant: "warning" },
+  queued: { label: "Queued", variant: "default" },
   failed: { label: "Failed", variant: "danger" },
 };
 
@@ -202,41 +144,102 @@ function StatCard({
   );
 }
 
+function firstUrl(input: string): string | null {
+  const line = input
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .find(Boolean);
+  return line ?? null;
+}
+
 export default function TranscriptsPage() {
   const [view, setView] = useState<PageView>("history");
+  const [rows, setRows] = useState<TranscriptRow[]>([]);
   const [bulkInput, setBulkInput] = useState("");
   const [translateTo, setTranslateTo] = useState("Original");
   const [retranslateTo, setRetranslateTo] = useState("Original");
-  const [activeTranscript, setActiveTranscript] = useState<Transcript | null>(null);
+  const [activeRow, setActiveRow] = useState<TranscriptRow | null>(null);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
-  const allSelected = selectedRows.length === HISTORY_ROWS.length;
-  const exportCount = selectedRows.length > 0 ? selectedRows.length : HISTORY_ROWS.length;
+  useEffect(() => {
+    fetchRows();
+  }, []);
+
+  async function fetchRows() {
+    const res = await fetch("/api/transcripts");
+    if (res.ok) {
+      const data = await res.json();
+      setRows(data.transcripts);
+    }
+  }
+
+  function pollUntilSettled(id: string) {
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/transcripts/status/${id}`);
+      if (!res.ok) return;
+      const { transcript } = await res.json();
+      setRows((prev) => prev.map((r) => (r.id === id ? transcript : r)));
+      setActiveRow((prev) => (prev?.id === id ? transcript : prev));
+      if (transcript.status === "complete" || transcript.status === "failed") {
+        clearInterval(interval);
+      }
+    }, 1500);
+  }
+
   const stats = {
-    total: HISTORY_ROWS.length,
-    complete: HISTORY_ROWS.filter((r) => r.status === "complete").length,
-    processing: HISTORY_ROWS.filter((r) => r.status === "processing").length,
-    failed: HISTORY_ROWS.filter((r) => r.status === "failed").length,
+    total: rows.length,
+    complete: rows.filter((r) => r.status === "complete").length,
+    processing: rows.filter((r) => r.status === "processing" || r.status === "queued").length,
+    failed: rows.filter((r) => r.status === "failed").length,
   };
 
-  const toggleAllRows = () => setSelectedRows(allSelected ? [] : HISTORY_ROWS.map((r) => r.id));
-  const toggleRow = (id: string) =>
-    setSelectedRows((prev) => (prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]));
+  const handleExtract = async () => {
+    const url = firstUrl(bulkInput);
+    if (!url) return;
 
-  const handleExtract = () => {
-    if (!bulkInput.trim()) return;
-    setActiveTranscript(TRANSCRIPTS[0] ?? null);
-    setShowTimestamps(true);
-    setView("result");
+    setSubmitting(true);
+    setError(null);
+
+    const res = await fetch("/api/transcripts/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Could not start extraction");
+      return;
+    }
+
     setBulkInput("");
+    setShowTimestamps(true);
+    await fetchRows();
+    setActiveRow({
+      id: data.id,
+      source_url: url,
+      platform: "tiktok",
+      status: "queued",
+      title: null,
+      cover_url: null,
+      duration_seconds: null,
+      video_url: null,
+      embed_url: null,
+      lines: null,
+      created_at: new Date().toISOString(),
+    });
+    setView("result");
+    pollUntilSettled(data.id);
   };
 
   const handleCopy = async () => {
-    if (!activeTranscript) return;
-    const fullText = activeTranscript.lines
+    if (!activeRow?.lines) return;
+    const fullText = activeRow.lines
       .map((line) => (showTimestamps ? `[${line.timestamp}] ${line.text}` : line.text))
       .join("\n");
     await navigator.clipboard.writeText(fullText);
@@ -253,7 +256,6 @@ export default function TranscriptsPage() {
         </p>
       </div>
 
-      {/* Component 1: Bulk Input Hero — visible in both states */}
       <Card className="flex flex-col gap-4">
         <div>
           <h3 className="text-base font-semibold text-heading">Paste your video link here</h3>
@@ -265,22 +267,28 @@ export default function TranscriptsPage() {
         <textarea
           value={bulkInput}
           onChange={(event) => setBulkInput(event.target.value)}
-          placeholder="Paste up to 50 video links here (or tiktok collection)"
+          placeholder="Paste a video link here"
           rows={4}
           className="w-full resize-none rounded-card-sm border border-hairline bg-app p-4 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
 
+        {error && <p className="text-sm text-danger">{error}</p>}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Dropdown label="Translate" icon={Languages} value={translateTo} onChange={setTranslateTo} />
-          <Button variant="primary" disabled={!bulkInput.trim()} onClick={handleExtract}>
-            Extract
+          <Button
+            variant="primary"
+            icon={submitting ? Loader2 : undefined}
+            disabled={!bulkInput.trim() || submitting}
+            onClick={handleExtract}
+          >
+            {submitting ? "Extracting…" : "Extract"}
           </Button>
         </div>
       </Card>
 
       {view === "history" ? (
         <>
-          {/* Component 2: Transcript History Dashboard */}
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-heading">Transcript History</h3>
             <Button variant="secondary" size="sm" icon={Download} onClick={() => setExportModalOpen(true)}>
@@ -295,8 +303,10 @@ export default function TranscriptsPage() {
             <StatCard label="Failed / Errors" value={stats.failed} icon={XCircle} tone="danger" />
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          {rows.length === 0 ? (
+            <Card className="py-10 text-center text-sm text-body">No transcripts yet — paste a link above to get started.</Card>
+          ) : (
+            <div className="flex flex-col gap-3">
               <div className="flex w-full max-w-xs items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2">
                 <Search className="h-4 w-4 shrink-0 text-body" />
                 <input
@@ -305,174 +315,165 @@ export default function TranscriptsPage() {
                   className="w-full min-w-0 bg-transparent text-sm text-heading placeholder:text-body focus:outline-none"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="secondary" size="sm" icon={ChevronDown} iconPosition="right">
-                  All Folders
-                </Button>
-                <Button variant="secondary" size="sm" icon={ChevronDown} iconPosition="right">
-                  Status
-                </Button>
-                <Button variant="secondary" size="sm" icon={ChevronDown} iconPosition="right">
-                  Platform
-                </Button>
-                <Button variant="secondary" size="sm" icon={Bookmark}>
-                  Bookmarked
-                </Button>
-              </div>
-            </div>
 
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeaderCell className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAllRows}
-                      className="h-4 w-4 rounded border-hairline accent-primary"
-                      aria-label="Select all rows"
-                    />
-                  </TableHeaderCell>
-                  <TableHeaderCell>Content</TableHeaderCell>
-                  <TableHeaderCell>Source</TableHeaderCell>
-                  <TableHeaderCell>Folder</TableHeaderCell>
-                  <TableHeaderCell>Platform</TableHeaderCell>
-                  <TableHeaderCell>Date</TableHeaderCell>
-                  <TableHeaderCell>Duration</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Actions</TableHeaderCell>
-                </TableRow>
-              </TableHead>
-              <tbody>
-                {HISTORY_ROWS.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.includes(row.id)}
-                        onChange={() => toggleRow(row.id)}
-                        className="h-4 w-4 rounded border-hairline accent-primary"
-                        aria-label={`Select ${row.title}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
-                          <PlayCircle className="h-4 w-4" />
-                        </div>
-                        <span className="line-clamp-2 max-w-xs text-sm font-medium text-heading">{row.title}</span>
-                        {row.bookmarked && <Bookmark className="h-3.5 w-3.5 shrink-0 fill-star text-star" />}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-body">{row.sourceUrl}</span>
-                    </TableCell>
-                    <TableCell>{row.folder}</TableCell>
-                    <TableCell>
-                      <Badge className="capitalize">{row.platform}</Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-body">{formatDate(row.date)}</TableCell>
-                    <TableCell>{row.duration}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_BADGE[row.status].variant}>{STATUS_BADGE[row.status].label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <button
-                        type="button"
-                        aria-label="Row actions"
-                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-body hover:bg-app"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </TableCell>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Content</TableHeaderCell>
+                    <TableHeaderCell>Source</TableHeaderCell>
+                    <TableHeaderCell>Platform</TableHeaderCell>
+                    <TableHeaderCell>Date</TableHeaderCell>
+                    <TableHeaderCell>Duration</TableHeaderCell>
+                    <TableHeaderCell>Status</TableHeaderCell>
                   </TableRow>
-                ))}
-              </tbody>
-            </Table>
-          </div>
+                </TableHead>
+                <tbody>
+                  {rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className={row.status === "complete" ? "cursor-pointer" : undefined}
+                      onClick={() => {
+                        if (row.status === "complete") {
+                          setActiveRow(row);
+                          setView("result");
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
+                            <PlayCircle className="h-4 w-4" />
+                          </div>
+                          <span className="line-clamp-2 max-w-xs text-sm font-medium text-heading">
+                            {row.title ?? row.source_url}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-body">{row.source_url}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="capitalize">{row.platform}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-body">{formatDate(row.created_at)}</TableCell>
+                      <TableCell>{row.duration_seconds ? `0:${String(row.duration_seconds).padStart(2, "0")}` : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_BADGE[row.status].variant}>{STATUS_BADGE[row.status].label}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
         </>
       ) : (
-        activeTranscript && (
+        activeRow && (
           <>
-            {/* Component 3: Extracted Result View */}
             <Button variant="text" icon={ArrowLeft} onClick={() => setView("history")} className="self-start">
               Back to history
             </Button>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
-              <div className="flex flex-col gap-3">
-                <div className="flex aspect-[9/16] w-full items-center justify-center rounded-card border border-hairline bg-ink">
-                  <PlayCircle className="h-12 w-12 text-white/70" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="secondary" size="sm" icon={ImageIcon}>
-                    Save cover image
-                  </Button>
-                  <Button variant="secondary" size="sm" icon={Download}>
-                    Download video
-                  </Button>
-                </div>
-              </div>
-
-              <Card className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2.5">
-                  <p className="text-sm text-body">
-                    You can do more with <span className="font-semibold text-primary">Clypa AI</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" icon={Sparkles}>
-                      Write hooks
-                    </Button>
-                    <Button variant="secondary" size="sm" icon={Wand2}>
-                      Rewrite scripts
-                    </Button>
-                    <Button variant="secondary" size="sm" icon={ListChecks}>
-                      Get framework
-                    </Button>
+            {activeRow.status !== "complete" && activeRow.status !== "failed" ? (
+              <Card className="flex flex-col items-center gap-3 py-16 text-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="text-sm text-body">Extracting transcript…</p>
+              </Card>
+            ) : activeRow.status === "failed" ? (
+              <Card className="flex flex-col items-center gap-3 py-16 text-center">
+                <XCircle className="h-6 w-6 text-danger" />
+                <p className="text-sm text-body">Couldn&apos;t extract that transcript. Try a different link.</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
+                <div className="flex flex-col gap-3">
+                  <div className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-card border border-hairline bg-ink">
+                    {activeRow.video_url ? (
+                      <video
+                        key={activeRow.video_url}
+                        src={activeRow.video_url}
+                        poster={activeRow.cover_url ?? undefined}
+                        controls
+                        playsInline
+                        className="h-full w-full object-cover"
+                      />
+                    ) : activeRow.embed_url ? (
+                      <iframe
+                        key={activeRow.embed_url}
+                        src={activeRow.embed_url}
+                        title={activeRow.title ?? "Video"}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="h-full w-full"
+                      />
+                    ) : (
+                      <PlayCircle className="h-12 w-12 text-white/70" />
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowTimestamps((v) => !v)}
-                    className="flex items-center gap-2 text-sm text-heading"
-                  >
-                    <span
-                      className={cn(
-                        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-                        showTimestamps ? "bg-primary" : "bg-hairline"
-                      )}
+                <Card className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2.5">
+                    <p className="text-sm text-body">
+                      You can do more with <span className="font-semibold text-primary">Clypa AI</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="secondary" size="sm" icon={Sparkles}>
+                        Write hooks
+                      </Button>
+                      <Button variant="secondary" size="sm" icon={Wand2}>
+                        Rewrite scripts
+                      </Button>
+                      <Button variant="secondary" size="sm" icon={ListChecks}>
+                        Get framework
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowTimestamps((v) => !v)}
+                      className="flex items-center gap-2 text-sm text-heading"
                     >
                       <span
                         className={cn(
-                          "inline-block h-4 w-4 transform rounded-full bg-white shadow-card transition-transform",
-                          showTimestamps ? "translate-x-4" : "translate-x-0.5"
+                          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+                          showTimestamps ? "bg-primary" : "bg-hairline"
                         )}
-                      />
-                    </span>
-                    Show timestamp
-                  </button>
+                      >
+                        <span
+                          className={cn(
+                            "inline-block h-4 w-4 transform rounded-full bg-white shadow-card transition-transform",
+                            showTimestamps ? "translate-x-4" : "translate-x-0.5"
+                          )}
+                        />
+                      </span>
+                      Show timestamp
+                    </button>
 
-                  <div className="flex items-center gap-2">
-                    <Dropdown label="Retranslate" icon={Languages} value={retranslateTo} onChange={setRetranslateTo} />
-                    <IconButton icon={copied ? Check : Copy} label="Copy transcript" onClick={handleCopy} />
-                    <IconButton icon={Download} label="Download transcript" />
-                  </div>
-                </div>
-
-                <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
-                  {activeTranscript.lines.map((line, i) => (
-                    <div key={i} className="flex gap-3 text-sm">
-                      {showTimestamps && (
-                        <span className="w-10 shrink-0 font-mono text-xs text-body">{line.timestamp}</span>
-                      )}
-                      <p className="leading-relaxed text-heading">{line.text}</p>
+                    <div className="flex items-center gap-2">
+                      <Dropdown label="Retranslate" icon={Languages} value={retranslateTo} onChange={setRetranslateTo} />
+                      <IconButton icon={copied ? Check : Copy} label="Copy transcript" onClick={handleCopy} />
                     </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
+                  </div>
+
+                  <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
+                    {(activeRow.lines ?? []).map((line, i) => (
+                      <div key={i} className="flex gap-3 text-sm">
+                        {showTimestamps && (
+                          <span className="w-10 shrink-0 font-mono text-xs text-body">{line.timestamp}</span>
+                        )}
+                        <p className="leading-relaxed text-heading">{line.text}</p>
+                      </div>
+                    ))}
+                    {activeRow.lines?.length === 0 && (
+                      <p className="text-sm text-body">No captions were found for this video.</p>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
           </>
         )
       )}
@@ -480,9 +481,10 @@ export default function TranscriptsPage() {
       <ExportModal
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
-        count={exportCount}
+        count={rows.length}
         onExport={() => setExportModalOpen(false)}
       />
     </div>
   );
 }
+

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ChevronsLeft, ChevronsRight, ShieldCheck, X } from "lucide-react";
-import { ADMIN_NAV, ADMIN_TEAM } from "@/lib/mock-data";
+import { ADMIN_NAV } from "@/lib/mock-data";
 import { Logo } from "@/components/ui/Logo";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 export function AdminSidebar({
   mobileOpen,
@@ -18,7 +19,13 @@ export function AdminSidebar({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const admin = ADMIN_TEAM[0];
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setEmail(data.user?.email ?? ""));
+  }, []);
 
   return (
     <aside
@@ -94,10 +101,9 @@ export function AdminSidebar({
         </Link>
 
         <div className={cn("flex items-center gap-2.5 rounded-xl px-2 py-1.5", collapsed && "md:justify-center md:px-0")}>
-          <Avatar name={admin.name} size="sm" />
+          <Avatar name={email || "Admin"} size="sm" />
           <div className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
-            <p className="truncate text-xs font-semibold text-heading">{admin.name}</p>
-            <p className="truncate text-[10px] uppercase tracking-wide text-subtle">{admin.role}</p>
+            <p className="truncate text-xs font-semibold text-heading">{email || "Admin"}</p>
           </div>
         </div>
       </div>

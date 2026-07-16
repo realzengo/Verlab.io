@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createJob } from "@/lib/server/niche-bend-job-store";
+import { recordUsageEvent } from "@/lib/server/usage";
+import { createClient } from "@/lib/supabase/server";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
 interface AnalyzeRequestBody {
@@ -10,6 +12,15 @@ interface AnalyzeRequestBody {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   let body: AnalyzeRequestBody;
   try {
     body = await request.json();
@@ -33,12 +44,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Provide at least 3 manually pasted videos" }, { status: 400 });
   }
 
-  const job = createJob({
+  const job = await createJob(supabase, user.id, {
     sourceUrl: url ?? "",
     platform,
     videoType: videoType === "shorts" || videoType === "long-form" ? videoType : "long-form",
     manualVideos: hasManualVideos ? manualVideos : undefined,
   });
+
+  void recordUsageEvent("bend", user.id, { jobId: job.id });
 
   return NextResponse.json({ jobId: job.id });
 }

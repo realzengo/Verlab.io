@@ -96,10 +96,29 @@ const FAQ_ITEMS = [
 function WaitlistForm() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const res = await fetch("/api/affiliates/waitlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    setSubmitting(false);
+
+    if (!res.ok) {
+      setError("Something went wrong. Try again.");
+      return;
+    }
+
     setSubmitted(true);
   }
 
@@ -113,18 +132,21 @@ function WaitlistForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto flex max-w-md flex-col gap-3 sm:flex-row">
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Enter your email address"
-        className="flex-1 appearance-none rounded-full border border-hairline bg-surface px-5 py-3 text-sm text-heading placeholder-subtle shadow-card focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-      <Button type="submit" icon={ArrowRight} iconPosition="right" size="lg" className="shrink-0">
-        Join Waitlist
-      </Button>
+    <form onSubmit={handleSubmit} className="mx-auto flex max-w-md flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email address"
+          className="flex-1 appearance-none rounded-full border border-hairline bg-surface px-5 py-3 text-sm text-heading placeholder-subtle shadow-card focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <Button type="submit" icon={ArrowRight} iconPosition="right" size="lg" disabled={submitting} className="shrink-0">
+          {submitting ? "Joining…" : "Join Waitlist"}
+        </Button>
+      </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
     </form>
   );
 }

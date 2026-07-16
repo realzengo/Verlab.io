@@ -6,9 +6,27 @@ import { Switch } from "@/components/ui/Switch";
 
 export function FeatureFlagsList({ flags }: { flags: FeatureFlag[] }) {
   const [state, setState] = useState(flags);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  function toggle(id: string) {
-    setState((prev) => prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled, rolloutPct: !f.enabled ? 100 : 0 } : f)));
+  async function toggle(flag: FeatureFlag) {
+    const nextEnabled = !flag.enabled;
+    const nextRolloutPct = nextEnabled ? 100 : 0;
+
+    setState((prev) => prev.map((f) => (f.id === flag.id ? { ...f, enabled: nextEnabled, rolloutPct: nextRolloutPct } : f)));
+    setSavingId(flag.id);
+
+    const res = await fetch("/api/admin/feature-flags", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: flag.id, enabled: nextEnabled, rolloutPct: nextRolloutPct }),
+    });
+
+    setSavingId(null);
+
+    if (!res.ok) {
+      // Revert on failure.
+      setState((prev) => prev.map((f) => (f.id === flag.id ? flag : f)));
+    }
   }
 
   return (
@@ -20,7 +38,12 @@ export function FeatureFlagsList({ flags }: { flags: FeatureFlag[] }) {
             <p className="mt-0.5 text-xs text-body">{flag.description}</p>
             <p className="mt-1 text-[11px] font-medium text-subtle">{flag.rolloutPct}% rollout</p>
           </div>
-          <Switch checked={flag.enabled} onChange={() => toggle(flag.id)} label={`Toggle ${flag.label}`} />
+          <Switch
+            checked={flag.enabled}
+            onChange={() => toggle(flag)}
+            disabled={savingId === flag.id}
+            label={`Toggle ${flag.label}`}
+          />
         </div>
       ))}
     </div>

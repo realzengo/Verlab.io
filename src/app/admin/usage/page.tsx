@@ -1,5 +1,5 @@
 import { Activity, Flame, Plug, Wand2 } from "lucide-react";
-import { ADMIN_USERS, TOOL_USAGE_SHARE, USAGE_SERIES } from "@/lib/mock-data";
+import { getAdminUsers, getUsageData } from "@/lib/server/admin-queries";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/admin/StatTile";
 import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
@@ -9,7 +9,13 @@ import { Avatar } from "@/components/ui/Avatar";
 import { formatChartDate } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 
-export default function AdminUsagePage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminUsagePage() {
+  const [{ series: USAGE_SERIES, share: TOOL_USAGE_SHARE }, { users: ADMIN_USERS }] = await Promise.all([
+    getUsageData(),
+    getAdminUsers(),
+  ]);
   const totalRuns = TOOL_USAGE_SHARE.reduce((s, t) => s + t.count, 0);
   const topTool = [...TOOL_USAGE_SHARE].sort((a, b) => b.count - a.count)[0];
   const mcpTotal = TOOL_USAGE_SHARE.find((t) => t.tool === "mcp")?.count ?? 0;

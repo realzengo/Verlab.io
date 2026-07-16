@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { PRICING_PLANS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -18,22 +17,31 @@ export function SidebarFooter({
   onNavigate?: () => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
+  const [planName, setPlanName] = useState("Core");
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) fetchPlan(data.user.id);
+    });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) fetchPlan(session.user.id);
     });
+
+    async function fetchPlan(userId: string) {
+      const { data } = await supabase.from("profiles").select("plan").eq("id", userId).single();
+      if (data?.plan) setPlanName(data.plan.charAt(0).toUpperCase() + data.plan.slice(1));
+    }
 
     return () => subscription.subscription.unsubscribe();
   }, []);
 
   const email = user?.email ?? "";
   const initial = email ? email.charAt(0).toUpperCase() : "?";
-  const planId = user?.user_metadata?.plan as string | undefined;
-  const planName = PRICING_PLANS.find((plan) => plan.id === planId)?.name ?? "Free";
 
   return (
     <div className="border-t border-hairline p-3">

@@ -13,8 +13,20 @@ export function TableHead({ children }: { children: ReactNode }) {
   return <thead className="border-b border-hairline bg-app">{children}</thead>;
 }
 
-export function TableRow({ children, className }: { children: ReactNode; className?: string }) {
-  return <tr className={cn("border-b border-hairline last:border-0", className)}>{children}</tr>;
+export function TableRow({
+  children,
+  className,
+  onClick,
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <tr className={cn("border-b border-hairline last:border-0", className)} onClick={onClick}>
+      {children}
+    </tr>
+  );
 }
 
 export function TableHeaderCell({ children, className }: { children?: ReactNode; className?: string }) {
@@ -25,6 +37,18 @@ export function TableHeaderCell({ children, className }: { children?: ReactNode;
   );
 }
 
-export function TableCell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn("px-4 py-3.5 text-sm text-heading", className)}>{children}</td>;
+export function TableCell({
+  children,
+  className,
+  colSpan,
+}: {
+  children: ReactNode;
+  className?: string;
+  colSpan?: number;
+}) {
+  return (
+    <td colSpan={colSpan} className={cn("px-4 py-3.5 text-sm text-heading", className)}>
+      {children}
+    </td>
+  );
 }
