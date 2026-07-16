@@ -76,20 +76,22 @@ export function Footer() {
             <ThemeToggle className="h-8 w-8" />
             <a
               href="#"
-              aria-label="X"
+              aria-label="Instagram"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-surface"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-subtle">
-                <path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H3l8-9L3 2h6l4 6 5-6z" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-subtle">
+                <rect x="2" y="2" width="20" height="20" rx="5" />
+                <circle cx="12" cy="12" r="4.5" />
+                <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none" />
               </svg>
             </a>
             <a
               href="#"
-              aria-label="TikTok"
+              aria-label="YouTube"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-surface"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-subtle">
-                <path d="M16 3c.3 2 1.6 3.7 4 4v3c-1.5 0-2.9-.4-4-1v6.5A5.5 5.5 0 1 1 10.5 10c.5 0 1 .1 1.5.2V13a2.5 2.5 0 1 0 2 2.4V3h2z" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-subtle">
+                <path d="M22 8.7s-.2-1.6-.8-2.3c-.8-.9-1.7-.9-2.1-1C16.4 5.2 12 5.2 12 5.2h0s-4.4 0-7.1.2c-.4 0-1.3.1-2.1 1-.6.7-.8 2.3-.8 2.3S1.8 10.6 1.8 12.5v1.8c0 1.9.2 3.8.2 3.8s.2 1.6.8 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.3.2 7.3.2s4.4 0 7.1-.2c.4 0 1.3-.1 2.1-1 .6-.7.8-2.3.8-2.3s.2-1.9.2-3.8v-1.8c0-1.9-.2-3.8-.2-3.8zM9.7 15.5v-6l5.8 3-5.8 3z" />
               </svg>
             </a>
           </div>
