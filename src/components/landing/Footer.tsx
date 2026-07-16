@@ -10,7 +10,7 @@ const COLUMNS = [
       { label: "Niche Finder", href: "#features" },
       { label: "SOP Builder", href: "#features" },
       { label: "Script Maker", href: "#features" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
@@ -24,7 +24,7 @@ const COLUMNS = [
   {
     title: "Company",
     links: [
-      { label: "Pricing", href: "#pricing" },
+      { label: "Pricing", href: "/pricing" },
       { label: "Developer API", href: "/app/settings/api" },
       { label: "Log in", href: "/app" },
       { label: "Get started", href: "/app" },
@@ -33,9 +33,9 @@ const COLUMNS = [
   {
     title: "Legal",
     links: [
-      { label: "Terms", href: "#" },
-      { label: "Privacy", href: "#" },
-      { label: "Refunds", href: "#" },
+      { label: "Terms", href: "/legal/terms" },
+      { label: "Privacy", href: "/legal/privacy" },
+      { label: "Refunds", href: "/legal/refunds" },
     ],
   },
 ];

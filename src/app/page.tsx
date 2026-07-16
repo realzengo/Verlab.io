@@ -9,7 +9,6 @@ import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { FeatureRow } from "@/components/landing/FeatureRow";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { CtaBand } from "@/components/landing/CtaBand";
-import { PricingSection } from "@/components/landing/PricingSection";
 import { Faq } from "@/components/landing/Faq";
 import { Footer } from "@/components/landing/Footer";
 import { NicheCard } from "@/components/features/NicheCard";
@@ -64,7 +63,6 @@ export default function Home() {
 
         <Testimonials />
         <CtaBand />
-        <PricingSection />
         <Faq />
       </main>
       <Footer />

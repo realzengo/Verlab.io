@@ -27,6 +27,29 @@ import { createClient } from "@/lib/supabase/client";
 const INPUT_CLASSES =
   "w-full rounded-xl border border-hairline bg-surface py-3 pl-10 pr-3.5 text-sm text-heading placeholder:text-subtle transition-colors focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15";
 
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden>
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4-3.11Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.76 0 3.34.61 4.59 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4 3.11C6.22 6.88 8.87 4.77 12 4.77Z"
+      />
+    </svg>
+  );
+}
+
 const FEATURES = [
   { icon: Compass, label: "Niche Finder", desc: "Spot non-competitive niches before they blow up." },
   { icon: FileText, label: "Transcript Extractor", desc: "Pull clean captions from any video in seconds." },
@@ -107,6 +130,25 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setIsGoogleLoading(true);
+
+    const supabase = createClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message);
+      setIsGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -166,7 +208,23 @@ function SignupForm() {
       <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Create your account</h1>
       <p className="mt-1.5 text-sm text-body">Start building your faceless page today.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={isGoogleLoading}
+        className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-semibold text-heading transition-colors hover:bg-app disabled:opacity-50 disabled:pointer-events-none"
+      >
+        {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+        Continue with Google
+      </button>
+
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-hairline" />
+        <span className="text-xs font-medium text-subtle">or continue with email</span>
+        <div className="h-px flex-1 bg-hairline" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
           Email
           <div className="relative">

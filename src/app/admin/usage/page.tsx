@@ -2,14 +2,14 @@ import { Activity, Flame, Plug, Wand2 } from "lucide-react";
 import { ADMIN_USERS, TOOL_USAGE_SHARE, USAGE_SERIES } from "@/lib/mock-data";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/admin/StatTile";
-import { LineAreaChart } from "@/components/charts/LineAreaChart";
+import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
 import { RankedBarList } from "@/components/charts/RankedBarList";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Avatar } from "@/components/ui/Avatar";
+import { formatChartDate } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 
 export default function AdminUsagePage() {
-  const labels = USAGE_SERIES.map((p) => p.date);
   const totalRuns = TOOL_USAGE_SHARE.reduce((s, t) => s + t.count, 0);
   const topTool = [...TOOL_USAGE_SHARE].sort((a, b) => b.count - a.count)[0];
   const mcpTotal = TOOL_USAGE_SHARE.find((t) => t.tool === "mcp")?.count ?? 0;
@@ -29,22 +29,21 @@ export default function AdminUsagePage() {
         <StatTile label="MCP calls (30d)" value={formatNumber(mcpTotal)} icon={Plug} trend={USAGE_SERIES.map((p) => p.mcp)} />
       </div>
 
-      <Card>
-        <div className="mb-5">
-          <h3 className="text-sm font-semibold text-heading">Usage by tool over time</h3>
-          <p className="text-xs text-body">Daily runs per tool, last 30 days — click a legend item to isolate it</p>
-        </div>
-        <LineAreaChart
-          labels={labels}
-          series={[
-            { key: "bend", label: "Niche Bending", tone: "violet", data: USAGE_SERIES.map((p) => p.bend) },
-            { key: "niches", label: "Niche Finder", tone: "blue", data: USAGE_SERIES.map((p) => p.niches) },
-            { key: "transcripts", label: "Transcripts", tone: "amber", data: USAGE_SERIES.map((p) => p.transcripts) },
-            { key: "downloader", label: "Downloader", tone: "green", data: USAGE_SERIES.map((p) => p.downloader) },
-            { key: "mcp", label: "MCP", tone: "rose", data: USAGE_SERIES.map((p) => p.mcp) },
-          ]}
-        />
-      </Card>
+      <ProgressMetricCard
+        title="Usage by tool over time"
+        total={formatNumber(totalRuns)}
+        deltaLabel="total runs, last 30 days"
+        delta={`${formatNumber(Math.round(totalRuns / USAGE_SERIES.length))}/day avg`}
+        showStats={false}
+        series={[
+          { name: "Niche Bending", tone: "violet", data: USAGE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.bend })) },
+          { name: "Niche Finder", tone: "blue", data: USAGE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.niches })) },
+          { name: "Transcripts", tone: "amber", data: USAGE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.transcripts })) },
+          { name: "Downloader", tone: "green", data: USAGE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.downloader })) },
+          { name: "MCP", tone: "rose", data: USAGE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.mcp })) },
+        ]}
+        size="lg"
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card>

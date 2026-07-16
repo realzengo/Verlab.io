@@ -34,7 +34,7 @@ export function PaymentMethodTab() {
 
       <div className="mt-6 flex items-center justify-between">
         <h3 className="font-semibold text-heading">Current plan</h3>
-        <Button variant="secondary" size="sm" icon={Zap}>
+        <Button variant="secondary" size="sm" icon={Zap} href="/pricing">
           View other plans
         </Button>
       </div>
@@ -50,7 +50,13 @@ export function PaymentMethodTab() {
           <p className="max-w-xs text-sm text-body">
             You&apos;re not subscribed to a paid plan yet. Choose one to unlock Pro features.
           </p>
-          <Button variant="primary" size="sm" className="mt-3">
+          <Button
+            variant="primary"
+            size="lg"
+            href="/pricing"
+            className="mt-3"
+            style={{ boxShadow: "none" }}
+          >
             Choose a plan
           </Button>
         </div>

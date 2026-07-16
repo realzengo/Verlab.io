@@ -29,6 +29,15 @@ export function toneHex(tone: ToolTone, resolvedTheme: "light" | "dark"): string
   return TONE_HEX[tone][resolvedTheme];
 }
 
+/** Formats a date-only ("YYYY-MM-DD") string, pinned to UTC so it never shifts by a day in other timezones. */
+export function formatChartDate(dateOnly: string): string {
+  return new Date(`${dateOnly}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 /** Appends an alpha channel (0-100) to a #rrggbb hex color. */
 export function withAlpha(hex: string, alphaPct: number): string {
   const a = Math.round((alphaPct / 100) * 255)

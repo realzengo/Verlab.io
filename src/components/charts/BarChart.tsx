@@ -2,14 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import { toneHex } from "@/lib/charts";
+import { formatChartDate, toneHex } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 import type { ToolTone } from "@/lib/types";
-
-function formatDateLabel(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
 
 export function BarChart({
   labels,
@@ -77,14 +72,14 @@ export function BarChart({
               }}
             >
               <p className="font-semibold text-heading">{valueFormatter(data[hoverIndex])}</p>
-              <p className="text-body">{formatDateLabel(labels[hoverIndex])}</p>
+              <p className="text-body">{formatChartDate(labels[hoverIndex])}</p>
             </div>
           )}
         </div>
       </div>
       <div className="mt-1.5 flex justify-between pl-9 text-[10px] text-body">
         {labels.map((label, i) =>
-          i % Math.max(1, Math.ceil(n / 7)) === 0 || i === n - 1 ? <span key={label}>{formatDateLabel(label)}</span> : null
+          i % Math.max(1, Math.ceil(n / 7)) === 0 || i === n - 1 ? <span key={label}>{formatChartDate(label)}</span> : null
         )}
       </div>
     </div>

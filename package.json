@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
+    "@radix-ui/react-avatar": "^1.2.2",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.6",
     "lucide-react": "^1.24.0",

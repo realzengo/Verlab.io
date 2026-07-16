@@ -10,13 +10,13 @@ import {
 } from "@/lib/mock-data";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/admin/StatTile";
-import { LineAreaChart } from "@/components/charts/LineAreaChart";
+import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
 import { StackedShareBar } from "@/components/charts/StackedShareBar";
 import { TransactionsTable } from "@/components/admin/TransactionsTable";
+import { formatChartDate } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 
 export default function AdminRevenuePage() {
-  const labels = REVENUE_SERIES.map((p) => p.date);
   const totalNewMrr = REVENUE_SERIES.reduce((s, p) => s + p.newMrr, 0);
   const totalChurnedMrr = REVENUE_SERIES.reduce((s, p) => s + p.churnedMrr, 0);
   const arpu = CURRENT_MRR / PAYING_USERS_COUNT;
@@ -54,20 +54,19 @@ export default function AdminRevenuePage() {
         />
       </div>
 
-      <Card>
-        <div className="mb-5">
-          <h3 className="text-sm font-semibold text-heading">New vs. churned MRR</h3>
-          <p className="text-xs text-body">Daily revenue added and lost, last 30 days</p>
-        </div>
-        <LineAreaChart
-          labels={labels}
-          unit="currency"
-          series={[
-            { key: "new", label: "New MRR", tone: "green", data: REVENUE_SERIES.map((p) => p.newMrr) },
-            { key: "churned", label: "Churned MRR", tone: "rose", data: REVENUE_SERIES.map((p) => p.churnedMrr) },
-          ]}
-        />
-      </Card>
+      <ProgressMetricCard
+        title="New vs. churned MRR"
+        total={`$${formatNumber(netNewMrr)}`}
+        deltaLabel="net, last 30 days"
+        delta={`${netNewMrr >= 0 ? "+" : "−"}$${formatNumber(Math.abs(netNewMrr))}`}
+        trend={netNewMrr >= 0 ? "up" : "down"}
+        series={[
+          { name: "New MRR", tone: "green", data: REVENUE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.newMrr })) },
+          { name: "Churned MRR", tone: "rose", data: REVENUE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.churnedMrr })) },
+        ]}
+        format="currency"
+        size="lg"
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">

@@ -7,6 +7,7 @@ import {
   MRR_GROWTH_PCT,
   PLAN_DISTRIBUTION,
   PREVIOUS_CHURN_RATE_PCT,
+  PREVIOUS_MRR,
   REVENUE_SERIES,
   SIGNUP_SERIES,
   SYSTEM_JOBS,
@@ -20,14 +21,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { StatTile } from "@/components/admin/StatTile";
 import { ActivityFeed } from "@/components/admin/ActivityFeed";
-import { LineAreaChart } from "@/components/charts/LineAreaChart";
+import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
 import { BarChart } from "@/components/charts/BarChart";
 import { RankedBarList } from "@/components/charts/RankedBarList";
 import { StackedShareBar } from "@/components/charts/StackedShareBar";
+import { formatChartDate } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 
 export default function AdminOverviewPage() {
-  const revenueLabels = REVENUE_SERIES.map((p) => p.date);
   const signupLabels = SIGNUP_SERIES.map((p) => p.date);
   const latestUsage = USAGE_SERIES[USAGE_SERIES.length - 1];
   const toolRunsToday = latestUsage.bend + latestUsage.niches + latestUsage.transcripts + latestUsage.downloader + latestUsage.mcp;
@@ -73,20 +74,19 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-heading">Revenue trend</h3>
-              <p className="text-xs text-body">MRR over the last 30 days</p>
-            </div>
-          </div>
-          <LineAreaChart
-            labels={revenueLabels}
-            areaFill
-            unit="currency"
-            series={[{ key: "mrr", label: "MRR", tone: "blue", data: REVENUE_SERIES.map((p) => p.mrr) }]}
+        <div className="xl:col-span-2">
+          <ProgressMetricCard
+            title="Revenue trend"
+            total={`$${formatNumber(CURRENT_MRR)}`}
+            delta={`${CURRENT_MRR - PREVIOUS_MRR >= 0 ? "+" : "−"}$${formatNumber(Math.abs(CURRENT_MRR - PREVIOUS_MRR))}`}
+            deltaLabel="vs last week"
+            percent={`${Math.abs(MRR_GROWTH_PCT)}%`}
+            trend={MRR_GROWTH_PCT >= 0 ? "up" : "down"}
+            data={REVENUE_SERIES.map((p) => ({ date: formatChartDate(p.date), value: p.mrr }))}
+            format="currency"
+            size="lg"
           />
-        </Card>
+        </div>
 
         <Card>
           <h3 className="text-sm font-semibold text-heading">Plan distribution</h3>

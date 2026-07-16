@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import { CHART_CHROME, toneHex, withAlpha } from "@/lib/charts";
+import { CHART_CHROME, formatChartDate, toneHex, withAlpha } from "@/lib/charts";
 import { formatNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { ToolTone } from "@/lib/types";
@@ -30,11 +30,6 @@ function niceTicks(min: number, max: number, count: number): number[] {
   const ticks: number[] = [];
   for (let t = niceMin; t <= max + step * 0.001; t += step) ticks.push(Math.round(t));
   return ticks;
-}
-
-function formatDateLabel(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 export function LineAreaChart({
@@ -155,7 +150,7 @@ export function LineAreaChart({
             <tbody>
               {labels.map((label, i) => (
                 <TableRow key={label}>
-                  <TableCell>{formatDateLabel(label)}</TableCell>
+                  <TableCell>{formatChartDate(label)}</TableCell>
                   {series.map((s) => (
                     <TableCell key={s.key} className="text-right tabular-nums">
                       {valueFormatter(s.data[i] ?? 0)}
@@ -246,7 +241,7 @@ export function LineAreaChart({
                   transform: `translateX(${hoverIndex > n / 2 ? "-105%" : "5%"})`,
                 }}
               >
-                <p className="mb-1 font-semibold text-heading">{formatDateLabel(labels[hoverIndex])}</p>
+                <p className="mb-1 font-semibold text-heading">{formatChartDate(labels[hoverIndex])}</p>
                 <div className="flex flex-col gap-0.5">
                   {visibleSeries.map((s) => (
                     <div key={s.key} className="flex items-center gap-2">
@@ -270,7 +265,7 @@ export function LineAreaChart({
             {labels.map((label, i) =>
               i % tickStride === 0 || i === n - 1 ? (
                 <span key={label} className="tabular-nums">
-                  {formatDateLabel(label)}
+                  {formatChartDate(label)}
                 </span>
               ) : null
             )}
