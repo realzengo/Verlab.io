@@ -11,7 +11,13 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
 function displayName(user: User | null): string {
-  return user?.email?.split("@")[0] ?? "";
+  const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
+  return meta?.full_name ?? meta?.name ?? user?.email?.split("@")[0] ?? "";
+}
+
+function avatarUrl(user: User | null): string | null {
+  const meta = user?.user_metadata as { avatar_url?: string; picture?: string } | undefined;
+  return meta?.avatar_url ?? meta?.picture ?? null;
 }
 
 function defaultHeading(pathname: string, user: User | null): string {
@@ -78,7 +84,7 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-xl font-semibold text-heading sm:text-2xl">
+        <h1 className="truncate text-xl font-bold tracking-tight text-heading sm:text-2xl">
           {resolvedHeading}
         </h1>
       </div>
@@ -90,10 +96,13 @@ export function TopBar({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface p-1 pr-2"
+            className="flex items-center gap-2 rounded-full border border-hairline bg-surface p-1 pl-1 pr-3"
             aria-label="Account menu"
           >
-            <Avatar name={displayName(user)} size="sm" />
+            <Avatar name={displayName(user)} src={avatarUrl(user)} size="sm" />
+            <span className="max-w-[10rem] truncate text-sm font-medium text-heading">
+              {displayName(user)}
+            </span>
             <ChevronDown className="h-3.5 w-3.5 text-body" />
           </button>
 

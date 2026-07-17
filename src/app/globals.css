@@ -60,21 +60,21 @@
 }
 
 .dark {
-  --background: #030303;
+  --background: #09090b;
   --foreground: #f2f2f3;
 
-  --color-primary: #6d8cff;
-  --color-primary-hover: #92abff;
-  --color-accent: #101014;
-  --color-accent-line: #2b2f3d;
+  --color-primary: #818cf8;
+  --color-primary-hover: #a5b4fc;
+  --color-accent: rgba(99, 102, 241, 0.08);
+  --color-accent-line: rgba(99, 102, 241, 0.2);
 
   --color-heading: #f5f5f6;
   --color-slate: #ffffff;
   --color-body: #a1a1aa;
   --color-subtle: #75757f;
-  --color-hairline: #1c1c1f;
-  --color-app: #030303;
-  --color-surface: #0a0a0d;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-app: #09090b;
+  --color-surface: #18181b;
   --color-star: #eab308;
 
   --color-success: #34d399;
@@ -102,8 +102,8 @@
   --color-cat-8-tint: #2a1414;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.045);
-  --shadow-card-hover: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
-  --shadow-blue: 0 8px 28px rgba(109, 140, 255, 0.35);
+  --shadow-card-hover: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(99, 102, 241, 0.12);
+  --shadow-blue: 0 8px 28px rgba(99, 102, 241, 0.35);
 }
 
 @theme inline {
@@ -157,7 +157,8 @@
   --shadow-card-hover: var(--shadow-card-hover);
   --shadow-blue: var(--shadow-blue);
 
-  --font-sans: var(--font-inter);
+  --font-sans: "Open Sauce One", sans-serif;
+  --font-heading: "Open Sauce One", sans-serif;
 }
 
 html {
@@ -214,4 +215,83 @@ body {
 .btn-glow,
 .glow-btn {
   box-shadow: var(--shadow-blue);
+}
+
+.btn-bevel {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 1px 2px 0 rgba(16, 24, 40, 0.1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-bevel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.12) 100%);
+  pointer-events: none;
+}
+.btn-bevel:hover {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.26),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 4px 14px 0 rgba(16, 24, 40, 0.14);
+}
+.btn-bevel:active {
+  box-shadow:
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  transform: translateY(0.5px) scale(0.99);
+}
+.dark .btn-bevel {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+.dark .btn-bevel::before {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.3) 100%);
+}
+.dark .btn-bevel:hover {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.38),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 6px 18px 0 rgba(0, 0, 0, 0.45);
+}
+.dark .btn-bevel:active {
+  box-shadow:
+    inset 0 2px 5px 0 rgba(0, 0, 0, 0.65),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.btn-bevel.btn-glow,
+.btn-bevel.glow-btn {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
+    var(--shadow-blue);
+}
+.btn-bevel.btn-glow:hover,
+.btn-bevel.glow-btn:hover {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8),
+    inset 0 -3px 2px 0 rgba(0, 0, 0, 0.26),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.06),
+    var(--shadow-blue);
+}
+.btn-bevel.btn-glow:active,
+.btn-bevel.glow-btn:active {
+  box-shadow:
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08),
+    var(--shadow-blue);
 }

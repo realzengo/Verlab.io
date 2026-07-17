@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Crown, Lock } from "lucide-react";
 import { fetchClaimedNiches } from "@/lib/api/niche-bend";
 import type { NicheClaim } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
 import { ChannelAvatar } from "./ChannelAvatar";
 
 function ClaimedNicheSkeleton() {
@@ -28,8 +27,7 @@ export function ClaimedNiches() {
     };
   }, []);
 
-  // Nothing claimed yet on a fresh install — an empty "wall of fame" reads
-  // as broken rather than aspirational, so skip rendering it entirely.
+  // Nothing claimed by this creator yet — skip rendering the section entirely.
   if (items !== null && items.length === 0) return null;
 
   return (
@@ -48,7 +46,7 @@ export function ClaimedNiches() {
         )}
       </div>
       <p className="mb-4 text-xs text-subtle">
-        Once a creator finalizes a bend it&rsquo;s locked platform-wide — no one else can ever generate it.
+        Once you finalize a bend it&rsquo;s locked to you — no one else can ever generate it.
       </p>
 
       {items === null ? (
@@ -64,12 +62,6 @@ export function ClaimedNiches() {
               key={item.id}
               className="relative flex flex-col gap-3 rounded-card-sm border border-dashed border-warning/30 bg-warning-tint/40 p-4"
             >
-              {item.isMine && (
-                <Badge variant="warning" className="absolute -top-2.5 right-3">
-                  Yours
-                </Badge>
-              )}
-
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <ChannelAvatar

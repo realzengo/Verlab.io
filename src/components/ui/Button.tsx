@@ -48,7 +48,7 @@ export function Button(props: ButtonProps | LinkProps) {
 
   const classes = cn(
     "inline-flex items-center justify-center rounded-full font-semibold transition-[background-color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-app disabled:opacity-50 disabled:pointer-events-none",
-    variant !== "text" && "rounded-full",
+    variant !== "text" && "rounded-full btn-bevel",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
     className

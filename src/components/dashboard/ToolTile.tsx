@@ -7,7 +7,7 @@ export function ToolTile({ tool }: { tool: ToolTileData }) {
   return (
     <Link
       href={tool.href}
-      className="group flex flex-col items-center gap-2.5 rounded-card-sm border border-hairline bg-surface p-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
+      className="group flex flex-col items-center gap-2.5 rounded-card-sm border border-hairline bg-surface p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10"
     >
       <div
         className={cn(

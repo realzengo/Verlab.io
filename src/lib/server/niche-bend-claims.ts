@@ -102,10 +102,11 @@ export async function claimNiche(input: {
   throw new Error(`Failed to claim niche: ${error.message}`);
 }
 
-// Public "wall of fame" feed — every signed-in user can see every claim,
-// that's the point (it's the scarcity signal). Reads go through the
-// caller's own request-scoped client since the table's select policy is
-// already open to any authenticated user; no need for the admin client here.
+// Per-creator "locked bends" feed — the dashboard promise is that claimed
+// niches stay private (see NicheBendingSpotlight's "Claimed niches stay
+// private" badge), so this only ever returns the viewer's own claims.
+// Reads go through the caller's own request-scoped client since the
+// table's select policy is already scoped to the authenticated user's rows.
 export async function listClaimedNiches(
   supabase: SupabaseClient,
   viewerId: string,
@@ -114,6 +115,7 @@ export async function listClaimedNiches(
   const { data } = await supabase
     .from("niche_claims")
     .select(CLAIM_COLUMNS)
+    .eq("user_id", viewerId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -126,6 +128,5 @@ export async function listClaimedNiches(
     avatarUrl: row.avatar_url,
     platform: row.platform,
     createdAt: row.created_at,
-    isMine: row.user_id === viewerId,
   }));
 }

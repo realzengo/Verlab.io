@@ -67,18 +67,16 @@ function Dropdown({
 
   return (
     <div className="relative">
-      <Button
+      <button
         type="button"
-        variant="secondary"
-        size="sm"
-        icon={Icon}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="gap-2"
+        className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-3.5 py-1.5 text-xs font-medium text-heading hover:bg-app disabled:opacity-50 disabled:pointer-events-none"
       >
+        <Icon className="h-4 w-4 shrink-0" />
         {label}: {value}
         <ChevronDown className="h-3.5 w-3.5" />
-      </Button>
+      </button>
       {open && !disabled && (
         <div className="absolute left-0 z-10 mt-2 w-44 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
           {LANGUAGES.map((option) => (
@@ -373,9 +371,14 @@ export default function TranscriptsPage() {
         <>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-heading">Transcript History</h3>
-            <Button variant="secondary" size="sm" icon={Download} onClick={() => setExportModalOpen(true)}>
+            <button
+              type="button"
+              onClick={() => setExportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-heading hover:bg-app"
+            >
+              <Download className="h-4 w-4" />
               Export All
-            </Button>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

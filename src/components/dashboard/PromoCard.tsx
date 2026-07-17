@@ -20,31 +20,59 @@ interface PromoCardProps {
   previewSlot: ReactNode;
   href: string;
   icon?: LucideIcon;
-  size?: "wide" | "normal";
+  size?: "wide" | "normal" | "hero";
   tone?: ToolTone;
+  className?: string;
 }
 
-export function PromoCard({ title, description, previewSlot, href, icon: Icon, size = "normal", tone = "blue" }: PromoCardProps) {
+export function PromoCard({
+  title,
+  description,
+  previewSlot,
+  href,
+  icon: Icon,
+  size = "normal",
+  tone = "blue",
+  className,
+}: PromoCardProps) {
+  const isHero = size === "hero";
+
   return (
     <Link
       href={href}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover",
-        size === "wide" && "sm:col-span-2"
+        "group flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10",
+        size === "wide" && "sm:col-span-2",
+        isHero && "flex-1",
+        className
       )}
     >
-      <div className={cn("flex h-44 items-center justify-center px-5", PREVIEW_TONE_CLASSES[tone])}>{previewSlot}</div>
-      <div className="flex flex-1 flex-col gap-3 p-5">
+      <div
+        className={cn(
+          "flex items-center justify-center px-5",
+          isHero ? "flex-1 min-h-[200px] py-8" : "h-44",
+          PREVIEW_TONE_CLASSES[tone]
+        )}
+      >
+        {previewSlot}
+      </div>
+      <div className={cn("flex flex-col gap-3 p-5", !isHero && "flex-1")}>
         <div className="flex items-center gap-3">
           {Icon && (
-            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", TOOL_TONE_CLASSES[tone])}>
-              <Icon className="h-[18px] w-[18px]" />
+            <span
+              className={cn(
+                "flex shrink-0 items-center justify-center rounded-xl",
+                isHero ? "h-10 w-10" : "h-9 w-9",
+                TOOL_TONE_CLASSES[tone]
+              )}
+            >
+              <Icon className={isHero ? "h-5 w-5" : "h-[18px] w-[18px]"} />
             </span>
           )}
-          <h3 className="text-sm font-semibold text-heading">{title}</h3>
+          <h3 className={cn("font-bold text-heading", isHero ? "text-base" : "text-sm")}>{title}</h3>
         </div>
-        <p className="text-sm leading-relaxed text-body">{description}</p>
-        <span className="mt-auto inline-flex w-fit items-center gap-1 rounded-full border border-hairline bg-surface px-3.5 py-1.5 text-xs font-semibold text-heading transition-colors group-hover:border-primary/40 group-hover:bg-accent group-hover:text-primary">
+        <p className="text-sm font-normal leading-relaxed text-body">{description}</p>
+        <span className="btn-bevel mt-auto inline-flex w-fit items-center gap-1 rounded-full border border-hairline bg-surface px-3.5 py-1.5 text-xs font-semibold text-heading transition-colors group-hover:border-primary/40 group-hover:bg-accent group-hover:text-primary">
           Try Now
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>

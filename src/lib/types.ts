@@ -329,7 +329,6 @@ export interface NicheClaim {
   avatarUrl: string | null;
   platform: NicheBendPlatform;
   createdAt: string;
-  isMine: boolean;
 }
 
 export interface NicheBendHistoryItem {

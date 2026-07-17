@@ -1,15 +1,21 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const AVATAR_COLORS = [
-  { bg: "#eef0ff", fg: "#335cff" },
-  { bg: "#fef3c7", fg: "#b45309" },
-  { bg: "#dcfce7", fg: "#15803d" },
-];
-
-function seedIndex(seed: string): number {
+function hashSeed(seed: string): number {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % AVATAR_COLORS.length;
-  return hash;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function gradientForSeed(seed: string): { from: string; to: string; fg: string } {
+  const hash = hashSeed(seed);
+  const hue = hash % 360;
+  const from = `hsl(${hue} 85% 60%)`;
+  const to = `hsl(${(hue + 40) % 360} 85% 45%)`;
+  return { from, to, fg: "#ffffff" };
 }
 
 function initials(name: string): string {
@@ -27,14 +33,31 @@ const SIZE_CLASSES = {
 
 export function Avatar({
   name,
+  src,
   size = "md",
   className,
 }: {
   name: string;
+  src?: string | null;
   size?: keyof typeof SIZE_CLASSES;
   className?: string;
 }) {
-  const color = AVATAR_COLORS[seedIndex(name)];
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (src && !imgFailed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name}
+        referrerPolicy="no-referrer"
+        onError={() => setImgFailed(true)}
+        className={cn("shrink-0 rounded-full object-cover", SIZE_CLASSES[size], className)}
+      />
+    );
+  }
+
+  const { from, to, fg } = gradientForSeed(name);
 
   return (
     <div
@@ -43,7 +66,7 @@ export function Avatar({
         SIZE_CLASSES[size],
         className
       )}
-      style={{ backgroundColor: color.bg, color: color.fg }}
+      style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})`, color: fg }}
     >
       {initials(name)}
     </div>
