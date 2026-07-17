@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchFacelessTrendingVideos } from "@/lib/server/apify-client";
+import { nicheForHashtag } from "@/lib/niches-catalog";
 
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const admin = createAdminClient();
 
   try {
-    const videos = await fetchFacelessTrendingVideos(200);
+    const videos = await fetchFacelessTrendingVideos();
 
     if (videos.length === 0) {
       throw new Error("No trending videos returned");
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         author: v.author,
         avatar_url: v.avatarUrl,
         hashtag: v.hashtag,
+        niche_category: nicheForHashtag(v.hashtag),
         region: "global",
         posted_at: v.postedAt,
         refreshed_at: new Date().toISOString(),

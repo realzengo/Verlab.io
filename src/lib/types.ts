@@ -37,6 +37,7 @@ export interface TrendingVideo {
   author: string;
   avatarUrl: string;
   hashtag: string;
+  niche: string;
   postedAt: string | null;
 }
 
@@ -195,6 +196,7 @@ export interface NicheBendVideo {
 export interface NicheBendChannelAnalysis {
   channelName: string;
   platform: NicheBendPlatform;
+  avatarUrl?: string;
   detectedNiche: string;
   format: string;
   topVideos: NicheBendVideo[];
@@ -311,10 +313,38 @@ export interface NicheBendJobStatusResponse {
   status: NicheBendJobStatus;
   statusText: string;
   progress: number;
+  saved: boolean;
   analysis?: NicheBendChannelAnalysis;
   candidates?: NicheBendCandidate[];
   sop?: NicheBendSopResult;
   error?: { message: string };
+}
+
+export interface NicheClaim {
+  id: string;
+  nicheName: string;
+  angle: NicheBendAngle;
+  exampleTitles: string[];
+  channelName: string | null;
+  avatarUrl: string | null;
+  platform: NicheBendPlatform;
+  createdAt: string;
+  isMine: boolean;
+}
+
+export interface NicheBendHistoryItem {
+  jobId: string;
+  sourceUrl: string;
+  platform: NicheBendPlatform;
+  videoType: NicheBendVideoType;
+  status: NicheBendJobStatus;
+  channelName: string | null;
+  avatarUrl: string | null;
+  detectedNiche: string | null;
+  chosenBend: NicheBendCandidate | null;
+  saved: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardPaste, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ClipboardPaste, Loader2, Wand2 } from "lucide-react";
 import type { NicheBendJobStatus, NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -56,11 +56,15 @@ export function StepAnalyze({
   const phaseIndex = status ? LOADING_PHASES.findIndex((phase) => phase.status === status) : -1;
 
   return (
-    <div className="animate-bend-in mx-auto flex max-w-2xl flex-col items-center gap-8 py-10 text-center">
+    <div className="animate-bend-in mx-auto flex max-w-2xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
       <div>
-        <h1 className="text-3xl font-bold text-heading sm:text-4xl">Bend any channel into a new niche.</h1>
-        <p className="mt-3 text-body">
-          Paste a YouTube or TikTok link. We reverse-engineer the format and hand you 3 ways to make it yours.
+        <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent">
+          <Wand2 className="h-5 w-5 text-primary" />
+        </span>
+        <h1 className="text-3xl font-semibold tracking-tight text-heading sm:text-4xl">Niche bend it.</h1>
+        <p className="mx-auto mt-3 max-w-lg text-body">
+          Paste a YouTube or TikTok link — we&apos;ll reverse-engineer the format and hand you three ways to make it
+          yours.
         </p>
       </div>
 

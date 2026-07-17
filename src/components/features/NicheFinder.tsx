@@ -1,25 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Download,
   Eye,
   Heart,
+  Loader2,
   MessageCircle,
-  Minus,
   Play,
-  Search,
   Share2,
-  TrendingDown,
-  TrendingUp,
+  Users,
   Wand2,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   VideoFilterBar,
@@ -27,47 +21,79 @@ import {
   type VideoRangeFilters,
   type VideoTimeWindow,
 } from "@/components/features/VideoFilterBar";
+import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
-import type { Niche, TrendingVideo } from "@/lib/types";
+import type { TrendingVideo } from "@/lib/types";
 
-type NicheFinderPlatform = "all" | "tiktok" | "youtube" | "instagram";
-type ContentStyle = "all" | "narrated" | "ai-generated" | "2d-animation";
+export const VIDEOS_PER_PAGE = 20;
 
-const TOP_NICHES_LIMIT = 6;
+type ContentStyle = "narrated" | "ai-generated" | "2d-animation";
 
-const PLATFORM_OPTIONS: { id: NicheFinderPlatform; label: string }[] = [
-  { id: "all", label: "All platforms" },
-  { id: "tiktok", label: "TikTok" },
-  { id: "youtube", label: "YouTube" },
-  { id: "instagram", label: "Instagram" },
-];
-
-const STYLE_OPTIONS: { id: ContentStyle; label: string }[] = [
-  { id: "all", label: "All styles" },
-  { id: "narrated", label: "Narrated" },
-  { id: "ai-generated", label: "AI-Generated" },
-  { id: "2d-animation", label: "2D Animation" },
-];
-
-const STYLE_LABEL: Record<Exclude<ContentStyle, "all">, string> = {
+const STYLE_LABEL: Record<ContentStyle, string> = {
   narrated: "Narrated",
   "ai-generated": "AI-Generated",
   "2d-animation": "2D Animation",
 };
 
-// The niche-discovery prompt tags every niche with one of these three
-// production styles; older seed rows predating that prompt fall back to
-// "narrated" since that's the most common style among them.
-function nicheStyle(niche: Niche): Exclude<ContentStyle, "all"> {
-  const tags = niche.tags.map((tag) => tag.toLowerCase());
-  if (tags.some((tag) => tag.includes("ai"))) return "ai-generated";
-  if (tags.some((tag) => tag.includes("2d") || tag.includes("animat"))) return "2d-animation";
+function videoStyle(video: TrendingVideo): ContentStyle {
+  const tag = video.hashtag.toLowerCase();
+  if (tag.includes("ai")) return "ai-generated";
+  if (tag.includes("2d") || tag.includes("animat")) return "2d-animation";
   return "narrated";
 }
 
-const TREND_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus };
-const TREND_BADGE_VARIANT = { up: "success", down: "danger", flat: "default" } as const;
-const TREND_LABEL = { up: "Rising", down: "Cooling down", flat: "Steady" };
+// Categorical hue slots (1-8, dataviz-validated order) assigned once per
+// niche/style so a given tag always renders the same color everywhere.
+const NICHE_CAT_SLOT: Record<string, number> = {
+  Technology: 1,
+  Finance: 2,
+  Horror: 3,
+  Explained: 4,
+  Conspiracy: 5,
+  History: 6,
+  Storytelling: 7,
+  Crime: 8,
+  Psychology: 1,
+  Entertainment: 2,
+};
+
+const STYLE_CAT_SLOT: Record<ContentStyle, number> = {
+  narrated: 5,
+  "ai-generated": 7,
+  "2d-animation": 6,
+};
+
+const CAT_CHIP: Record<number, string> = {
+  1: "border-2 border-cat-1/20 bg-cat-1-tint text-cat-1",
+  2: "border-2 border-cat-2/20 bg-cat-2-tint text-cat-2",
+  3: "border-2 border-cat-3/20 bg-cat-3-tint text-cat-3",
+  4: "border-2 border-cat-4/20 bg-cat-4-tint text-cat-4",
+  5: "border-2 border-cat-5/20 bg-cat-5-tint text-cat-5",
+  6: "border-2 border-cat-6/20 bg-cat-6-tint text-cat-6",
+  7: "border-2 border-cat-7/20 bg-cat-7-tint text-cat-7",
+  8: "border-2 border-cat-8/20 bg-cat-8-tint text-cat-8",
+};
+
+const CAT_CHIP_ACTIVE: Record<number, string> = {
+  1: "border-2 border-cat-1 bg-cat-1-tint text-cat-1",
+  2: "border-2 border-cat-2 bg-cat-2-tint text-cat-2",
+  3: "border-2 border-cat-3 bg-cat-3-tint text-cat-3",
+  4: "border-2 border-cat-4 bg-cat-4-tint text-cat-4",
+  5: "border-2 border-cat-5 bg-cat-5-tint text-cat-5",
+  6: "border-2 border-cat-6 bg-cat-6-tint text-cat-6",
+  7: "border-2 border-cat-7 bg-cat-7-tint text-cat-7",
+  8: "border-2 border-cat-8 bg-cat-8-tint text-cat-8",
+};
+
+function nicheChipClasses(niche: string, active = false): string {
+  const slot = NICHE_CAT_SLOT[niche] ?? 1;
+  return active ? CAT_CHIP_ACTIVE[slot] : CAT_CHIP[slot];
+}
+
+function styleChipClasses(style: ContentStyle, active = false): string {
+  const slot = STYLE_CAT_SLOT[style];
+  return active ? CAT_CHIP_ACTIVE[slot] : CAT_CHIP[slot];
+}
 
 const CARD_GRADIENTS = [
   "from-indigo-400 to-purple-500",
@@ -110,30 +136,22 @@ function formatTimeAgo(isoDate: string | null): string | null {
   return `${Math.floor(diffDays / 365)}y ago`;
 }
 
-function isWithinRecentWindow(postedTimeMs: number, windowDays: number): boolean {
-  return Date.now() - postedTimeMs <= windowDays * 24 * 60 * 60 * 1000;
-}
-
-const VIDEOS_PER_PAGE = 24;
-
+// "Infinite" pagination: the API never reports a total, just whether there's
+// a next page (see hasMore in /api/niches/[niche]/videos), so this only ever
+// shows the current page number and a Next button — no total page count.
 function Pagination({
   page,
-  totalPages,
+  hasMore,
   onChange,
 }: {
   page: number;
-  totalPages: number;
+  hasMore: boolean;
   onChange: (page: number) => void;
 }) {
-  if (totalPages <= 1) return null;
-
-  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
-  const items = Array.from(pages)
-    .filter((p) => p >= 1 && p <= totalPages)
-    .sort((a, b) => a - b);
+  if (page === 1 && !hasMore) return null;
 
   return (
-    <nav aria-label="Trending videos pagination" className="mt-6 flex items-center justify-center gap-1.5">
+    <nav aria-label="Trending videos pagination" className="mt-6 flex items-center justify-center gap-3">
       <button
         type="button"
         onClick={() => onChange(page - 1)}
@@ -145,33 +163,12 @@ function Pagination({
         Prev
       </button>
 
-      {items.map((p, index) => {
-        const prev = items[index - 1];
-        const showEllipsis = prev !== undefined && p - prev > 1;
-        return (
-          <span key={p} className="flex items-center gap-1.5">
-            {showEllipsis && <span className="px-1 text-xs text-body">…</span>}
-            <button
-              type="button"
-              onClick={() => onChange(p)}
-              aria-current={p === page ? "page" : undefined}
-              className={cn(
-                "flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-semibold transition-colors",
-                p === page
-                  ? "bg-primary text-white"
-                  : "border border-hairline bg-surface text-body hover:text-heading"
-              )}
-            >
-              {p}
-            </button>
-          </span>
-        );
-      })}
+      <span className="text-xs font-semibold text-body">Page {page}</span>
 
       <button
         type="button"
         onClick={() => onChange(page + 1)}
-        disabled={page === totalPages}
+        disabled={!hasMore}
         aria-label="Next page"
         className="flex h-8 items-center gap-1 rounded-full border border-hairline bg-surface px-3 text-xs font-semibold text-body transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -189,109 +186,17 @@ function initialsFor(name: string): string {
   return cleaned.slice(0, 2).toUpperCase() || "??";
 }
 
-function ToggleGroup<T extends string>({
-  ariaLabel,
-  options,
-  value,
-  onChange,
-}: {
-  ariaLabel: string;
-  options: { id: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div role="tablist" aria-label={ariaLabel} className="inline-flex flex-wrap items-center gap-1 rounded-full bg-app p-1">
-      {options.map((option) => {
-        const isActive = option.id === value;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onChange(option.id)}
-            className={cn(
-              "whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-semibold transition-[background-color,box-shadow] sm:px-4 sm:text-sm",
-              isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function NicheScoreCard({ niche, rank }: { niche: Niche; rank: number }) {
-  const TrendIcon = TREND_ICON[niche.momentumTrend];
-  const topVideo = niche.sampleVideos[0];
-
-  return (
-    <div className="flex flex-col rounded-card-lg border border-hairline bg-surface p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-              #{rank}
-            </span>
-            <h3 className="text-lg font-bold leading-snug text-heading">{niche.name}</h3>
-          </div>
-          <p className="mt-1 text-xs text-body">
-            {niche.category} · {STYLE_LABEL[nicheStyle(niche)]}
-          </p>
-        </div>
-        <Badge variant={TREND_BADGE_VARIANT[niche.momentumTrend]} className="shrink-0">
-          <TrendIcon className="h-3 w-3" />
-          {TREND_LABEL[niche.momentumTrend]}
-        </Badge>
-      </div>
-
-      <div className="mt-4 flex items-center gap-4">
-        <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-accent-line bg-accent p-3 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Clypa Score</p>
-          <p className="mt-1 text-3xl font-extrabold text-heading">{niche.momentumScore}</p>
-        </div>
-
-        {niche.tags.length > 0 && (
-          <div className="flex flex-1 flex-wrap gap-1.5">
-            {niche.tags.slice(0, 4).map((tag) => (
-              <span key={tag} className="rounded-full bg-app px-2 py-1 text-[11px] font-medium text-body">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {topVideo && (
-        <div className="mt-4 rounded-xl border border-hairline bg-app p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-body">Top sample video</p>
-          <p className="mt-1 line-clamp-2 text-xs font-medium text-heading">{topVideo.title}</p>
-          <p className="mt-1 text-[11px] font-semibold text-primary">{topVideo.views} views</p>
-        </div>
-      )}
-
-      <Link
-        href="/app/bend"
-        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-[background-color,transform] hover:-translate-y-px hover:bg-primary-hover sm:inline-flex sm:w-auto sm:self-start"
-      >
-        <Wand2 className="h-4 w-4" />
-        Bend this niche
-      </Link>
-    </div>
-  );
-}
 
 function TrendingVideoCard({ video }: { video: TrendingVideo }) {
   const [saved, setSaved] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
+  const niche = video.niche;
+  const style = videoStyle(video);
 
   return (
-    <div className="flex flex-col">
-      <div className="group relative aspect-[9/16] w-full overflow-hidden rounded-card border border-hairline bg-ink">
+    <div className="flex flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-shadow hover:shadow-card-hover">
+      <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
         {video.coverUrl && !coverFailed && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -372,259 +277,257 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-body">
-        {timeAgo && <span className="shrink-0 font-medium">{timeAgo}</span>}
-        <div className="flex flex-1 items-center justify-end gap-2.5">
-          <span className="flex items-center gap-0.5" title="Views">
-            <Eye className="h-3 w-3" />
-            {video.views}
+      <div className="flex flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
+            {niche}
           </span>
-          <span className="flex items-center gap-0.5" title="Likes">
-            <Heart className="h-3 w-3" />
-            {formatCompactNumber(video.likeCount)}
+          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", styleChipClasses(style))}>
+            {STYLE_LABEL[style]}
           </span>
-          <span className="flex items-center gap-0.5" title="Comments">
-            <MessageCircle className="h-3 w-3" />
-            {formatCompactNumber(video.commentCount)}
-          </span>
-          <span className="flex items-center gap-0.5" title="Shares">
-            <Share2 className="h-3 w-3" />
-            {formatCompactNumber(video.shareCount)}
-          </span>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {video.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={video.avatarUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-5 w-5 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-white">
+                {initialsFor(video.author)}
+              </div>
+            )}
+            <span className="truncate text-[11px] font-semibold text-heading">{video.author}</span>
+          </div>
+          {video.followerCount > 0 && (
+            <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-body" title="Followers">
+              <Users className="h-3 w-3" />
+              {formatCompactNumber(video.followerCount)}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t border-hairline pt-2 text-[11px] text-body">
+          {timeAgo && <span className="shrink-0 font-medium">{timeAgo}</span>}
+          <div className="flex flex-1 items-center justify-end gap-2.5">
+            <span className="flex items-center gap-0.5" title="Views">
+              <Eye className="h-3 w-3" />
+              {video.views}
+            </span>
+            <span className="flex items-center gap-0.5" title="Likes">
+              <Heart className="h-3 w-3" />
+              {formatCompactNumber(video.likeCount)}
+            </span>
+            <span className="flex items-center gap-0.5" title="Comments">
+              <MessageCircle className="h-3 w-3" />
+              {formatCompactNumber(video.commentCount)}
+            </span>
+            <span className="flex items-center gap-0.5" title="Shares">
+              <Share2 className="h-3 w-3" />
+              {formatCompactNumber(video.shareCount)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-export function NicheFinder({ niches, trendingVideos }: { niches: Niche[]; trendingVideos: TrendingVideo[] }) {
-  const [search, setSearch] = useState("");
+// Hard ceiling on how long a page fetch is allowed to hang before the UI
+// gives up and shows an error instead of spinning forever. Kept comfortably
+// above the API route's own maxDuration (60s) so the server's own timeout
+// fires first under normal conditions — this is purely a client-side
+// backstop for the case where the connection is dropped silently instead of
+// a response ever coming back.
+const FETCH_TIMEOUT_MS = 70_000;
 
-  // Platform/style selections are staged until "Apply filters" is clicked,
-  // so toggling an option doesn't refilter results out from under you.
-  const [pendingPlatform, setPendingPlatform] = useState<NicheFinderPlatform>("all");
-  const [pendingStyle, setPendingStyle] = useState<ContentStyle>("all");
-  const [appliedPlatform, setAppliedPlatform] = useState<NicheFinderPlatform>("all");
-  const [appliedStyle, setAppliedStyle] = useState<ContentStyle>("all");
-
-  const hasPendingChanges = pendingPlatform !== appliedPlatform || pendingStyle !== appliedStyle;
-  const hasActiveFilters = appliedPlatform !== "all" || appliedStyle !== "all";
-
-  function applyFilters() {
-    setAppliedPlatform(pendingPlatform);
-    setAppliedStyle(pendingStyle);
-  }
-
-  function resetFilters() {
-    setPendingPlatform("all");
-    setPendingStyle("all");
-    setAppliedPlatform("all");
-    setAppliedStyle("all");
-  }
-
-  const filteredNiches = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return niches
-      .filter((niche) => appliedPlatform === "all" || niche.platform === appliedPlatform || niche.platform === "mixed")
-      .filter((niche) => appliedStyle === "all" || nicheStyle(niche) === appliedStyle)
-      .filter(
-        (niche) =>
-          !query || niche.name.toLowerCase().includes(query) || niche.category.toLowerCase().includes(query)
-      )
-      .slice(0, TOP_NICHES_LIMIT);
-  }, [niches, search, appliedPlatform, appliedStyle]);
-
-  // The video grid has its own filter bar (platform/posting-window/views/followers),
-  // independent from the niche Platform+Style panel above.
+export function NicheFinder({
+  initialVideos,
+  initialHasMore,
+  nicheCounts,
+  availableNiches,
+}: {
+  initialVideos: TrendingVideo[];
+  initialHasMore: boolean;
+  nicheCounts: Record<string, number>;
+  availableNiches: string[];
+}) {
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("all");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
+  const { selected: selectedVideoNiches } = useNicheSidebar();
+  const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
 
-  const filteredVideos = useMemo(() => {
-    // Live videos are TikTok-only right now (see fetchFacelessTrendingVideos).
-    if (videoPlatform !== "all" && videoPlatform !== "tiktok") return [];
+  useNicheSidebarSync(availableNiches, nicheCounts);
 
-    const windowDays = videoTimeWindow === "7d" ? 7 : videoTimeWindow === "30d" ? 30 : null;
-    const postedAfter = videoRangeFilters.postedAfter ? new Date(videoRangeFilters.postedAfter).getTime() : null;
-    const postedBefore = videoRangeFilters.postedBefore ? new Date(videoRangeFilters.postedBefore).getTime() : null;
-    const viewsMin = videoRangeFilters.viewsMin ? Number(videoRangeFilters.viewsMin) : null;
-    const viewsMax = videoRangeFilters.viewsMax ? Number(videoRangeFilters.viewsMax) : null;
-    const followersMin = videoRangeFilters.followersMin ? Number(videoRangeFilters.followersMin) : null;
-    const followersMax = videoRangeFilters.followersMax ? Number(videoRangeFilters.followersMax) : null;
-
-    return trendingVideos.filter((video) => {
-      if (viewsMin !== null && video.viewCount < viewsMin) return false;
-      if (viewsMax !== null && video.viewCount > viewsMax) return false;
-      if (followersMin !== null && video.followerCount < followersMin) return false;
-      if (followersMax !== null && video.followerCount > followersMax) return false;
-
-      const postedTime = video.postedAt ? new Date(video.postedAt).getTime() : null;
-      if (postedAfter !== null || postedBefore !== null) {
-        if (postedTime === null) return false;
-        if (postedAfter !== null && postedTime < postedAfter) return false;
-        if (postedBefore !== null && postedTime > postedBefore) return false;
-      } else if (windowDays !== null) {
-        if (postedTime === null || !isWithinRecentWindow(postedTime, windowDays)) return false;
-      }
-      return true;
-    });
-  }, [trendingVideos, videoPlatform, videoTimeWindow, videoRangeFilters]);
-
+  // Videos are fetched a page at a time from /api/niches/[niche]/videos —
+  // that route owns the "scrape once, cache in Supabase, paginate from
+  // there" logic, so this component just asks for a page and renders it.
+  const [videos, setVideos] = useState<TrendingVideo[]>(initialVideos);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [videosError, setVideosError] = useState<string | null>(null);
   const [videoPage, setVideoPage] = useState(1);
-  const totalVideoPages = Math.max(1, Math.ceil(filteredVideos.length / VIDEOS_PER_PAGE));
 
-  // Reset to page 1 whenever the applied filters change. Adjusting state
-  // during render (rather than in an effect) avoids an extra commit/render.
-  const [videoFiltersKey, setVideoFiltersKey] = useState(
-    `${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`
-  );
-  const nextVideoFiltersKey = `${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`;
-  if (videoFiltersKey !== nextVideoFiltersKey) {
-    setVideoFiltersKey(nextVideoFiltersKey);
+  // Reset to page 1 whenever a filter (not the page itself) changes.
+  // Adjusting state during render — rather than in an effect — avoids an
+  // extra commit/fetch round-trip.
+  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`;
+  const [lastFiltersKey, setLastFiltersKey] = useState(filtersKey);
+  if (filtersKey !== lastFiltersKey) {
+    setLastFiltersKey(filtersKey);
     setVideoPage(1);
   }
+  const effectiveVideoPage = filtersKey !== lastFiltersKey ? 1 : videoPage;
 
-  const pagedVideos = useMemo(() => {
-    const start = (videoPage - 1) * VIDEOS_PER_PAGE;
-    return filteredVideos.slice(start, start + VIDEOS_PER_PAGE);
-  }, [filteredVideos, videoPage]);
+  // The server already rendered these exact params for the first paint —
+  // skip the redundant duplicate fetch on mount. Compared against a fixed
+  // snapshot (not a boolean flag) so this stays correct under React Strict
+  // Mode's dev-only double-invoke, which would otherwise flip a boolean
+  // guard on the throwaway first pass and fetch for real on the second.
+  const initialParamsRef = useRef(filtersKey + ":1");
+
+  // Only the response from the most recently issued request is ever applied
+  // to state — belt-and-suspenders alongside AbortController so a slower
+  // older request can never clobber a faster newer one's result.
+  const latestRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    const paramsKey = `${filtersKey}:${effectiveVideoPage}`;
+    if (paramsKey === initialParamsRef.current) return;
+
+    const requestId = ++latestRequestIdRef.current;
+    const controller = new AbortController();
+    // A dropped/hung connection never rejects the fetch on its own — this
+    // is what guarantees the "Fetching fresh videos…" state always resolves
+    // to something (data or an error) instead of spinning indefinitely.
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+
+    async function loadVideos() {
+      setVideosLoading(true);
+      setVideosError(null);
+      try {
+        const qs = new URLSearchParams({
+          page: String(effectiveVideoPage),
+          limit: String(VIDEOS_PER_PAGE),
+          platform: videoPlatform,
+          timeWindow: videoTimeWindow,
+        });
+        if (videoRangeFilters.viewsMin) qs.set("viewsMin", videoRangeFilters.viewsMin);
+        if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
+        if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
+        if (videoRangeFilters.followersMax) qs.set("followersMax", videoRangeFilters.followersMax);
+        if (videoRangeFilters.postedAfter) qs.set("postedAfter", videoRangeFilters.postedAfter);
+        if (videoRangeFilters.postedBefore) qs.set("postedBefore", videoRangeFilters.postedBefore);
+
+        const res = await fetch(`/api/niches/${encodeURIComponent(activeNiche ?? "all")}/videos?${qs.toString()}`, {
+          signal: controller.signal,
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json || !Array.isArray(json.videos)) {
+          throw new Error((json && typeof json.error === "string" && json.error) || "Failed to load videos");
+        }
+        if (latestRequestIdRef.current !== requestId) return;
+        setVideos(json.videos);
+        setHasMore(Boolean(json.hasMore));
+      } catch (err) {
+        if (latestRequestIdRef.current !== requestId) return;
+        // A superseded request (filters/page changed again before this one
+        // finished) is aborted too — that's not a real failure, the newer
+        // request's own loadVideos() call owns the loading/error state.
+        if (err instanceof DOMException && err.name === "AbortError" && !timedOut) return;
+        setVideos([]);
+        setVideosError(
+          timedOut ? "Taking too long to load — try again." : "Couldn't load videos. Try again."
+        );
+      } finally {
+        clearTimeout(timeoutId);
+        if (latestRequestIdRef.current === requestId) setVideosLoading(false);
+      }
+    }
+
+    loadVideos();
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [activeNiche, videoPlatform, videoTimeWindow, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
   return (
-    <div className="flex flex-col gap-10">
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-heading">Niche Finder</h2>
-            <p className="mt-1 max-w-xl text-sm text-body">
-              Discover explosive social media trends, reverse-engineer viral frameworks, and identify
-              high-revenue gaps.
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-body" />
-              <input
-                type="text"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search niches or topics..."
-                aria-label="Search niches or topics"
-                className="w-full rounded-full border border-hairline bg-surface py-2.5 pl-9 pr-4 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <Button variant="secondary" size="md" icon={Download} className="shrink-0">
-              Export
-            </Button>
-          </div>
+    <section>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-heading">Top Trending Videos</h2>
+          <p className="mt-1 text-sm text-body">Live from TikTok&apos;s trending feed</p>
         </div>
+        <VideoFilterBar
+          platform={videoPlatform}
+          onPlatformChange={setVideoPlatform}
+          timeWindow={videoTimeWindow}
+          onTimeWindowChange={setVideoTimeWindow}
+          filters={videoRangeFilters}
+          onApply={setVideoRangeFilters}
+          onClear={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
+        />
+      </div>
 
-        <div className="mt-5 rounded-xl border border-hairline bg-surface p-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-body">Platform</span>
-                <ToggleGroup ariaLabel="Platform" options={PLATFORM_OPTIONS} value={pendingPlatform} onChange={setPendingPlatform} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-body">Content style</span>
-                <ToggleGroup ariaLabel="Content style" options={STYLE_OPTIONS} value={pendingStyle} onChange={setPendingStyle} />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 border-t border-hairline pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-body">
-                {hasPendingChanges
-                  ? "Filter changes not applied yet."
-                  : hasActiveFilters
-                    ? `Showing ${appliedPlatform === "all" ? "all platforms" : PLATFORM_OPTIONS.find((o) => o.id === appliedPlatform)?.label} · ${appliedStyle === "all" ? "all styles" : STYLE_LABEL[appliedStyle]}`
-                    : "Showing all platforms and styles."}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={resetFilters} disabled={!hasActiveFilters && !hasPendingChanges}>
-                  Reset
-                </Button>
-                <Button variant="primary" size="sm" onClick={applyFilters} disabled={!hasPendingChanges}>
-                  Apply filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-heading">Trending Niches</h3>
-          <a
-            href="#all-niches"
-            className="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline underline-offset-4"
-          >
-            See all trending niches
-            <ArrowRight className="h-3.5 w-3.5" />
-          </a>
-        </div>
-
-        {filteredNiches.length > 0 ? (
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-            {filteredNiches.map((niche, index) => (
-              <NicheScoreCard key={niche.id} niche={niche} rank={index + 1} />
-            ))}
-          </div>
-        ) : niches.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            Trending niches will appear here once the next refresh runs.
-          </div>
-        ) : (
-          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            No niches match the current filters{search ? ` and "${search}"` : ""}.
-          </div>
-        )}
-      </section>
-
-      <section>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-heading">Top Trending Videos</h2>
-            <p className="mt-1 text-sm text-body">Live from TikTok&apos;s trending feed</p>
-          </div>
-          <VideoFilterBar
-            platform={videoPlatform}
-            onPlatformChange={setVideoPlatform}
-            timeWindow={videoTimeWindow}
-            onTimeWindowChange={setVideoTimeWindow}
-            filters={videoRangeFilters}
-            onApply={setVideoRangeFilters}
-            onClear={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
-          />
-        </div>
-
-        {filteredVideos.length > 0 && (
-          <p className="mt-3 text-xs text-body">
-            {filteredVideos.length} videos · page {videoPage} of {totalVideoPages}
+      <div className="mt-4">
+        {videos.length > 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-body">
+            Page {effectiveVideoPage}
+            {videosLoading && <Loader2 className="h-3 w-3 animate-spin" />}
           </p>
         )}
 
-        {filteredVideos.length > 0 ? (
+        {/* Priority order: a real error always wins (even if stale videos
+            are still in state), then videos, then the loading spinner —
+            which is now guaranteed to resolve to one of the other three
+            branches within FETCH_TIMEOUT_MS — then the platform-specific
+            and generic empty fallbacks. Nothing here can spin forever. */}
+        {videosError ? (
+          <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
+            {videosError}
+          </div>
+        ) : videos.length > 0 ? (
           <>
-            <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {pagedVideos.map((video) => (
+            <div
+              className={cn(
+                "mt-3 grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-3 sm:gap-4 xl:grid-cols-4",
+                videosLoading && "opacity-50"
+              )}
+            >
+              {videos.map((video) => (
                 <TrendingVideoCard key={video.id} video={video} />
               ))}
             </div>
-            <Pagination page={videoPage} totalPages={totalVideoPages} onChange={setVideoPage} />
+            <Pagination page={effectiveVideoPage} hasMore={hasMore} onChange={setVideoPage} />
           </>
-        ) : trendingVideos.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            Live trending videos will appear here once the next refresh runs.
+        ) : videosLoading ? (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {activeNiche
+              ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
+              : "Loading videos…"}
           </div>
         ) : videoPlatform !== "all" && videoPlatform !== "tiktok" ? (
-          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+          <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
             Live video data for YouTube is coming soon — currently sourced from TikTok only.
           </div>
         ) : (
-          <div className="mt-5 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+          <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
             No live videos match the current filters.
           </div>
         )}
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

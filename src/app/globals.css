@@ -28,6 +28,26 @@
   --color-danger: #dc2626;
   --color-danger-tint: #fef2f2;
 
+  /* Categorical palette for niche/style/complexity tags — fixed hue order,
+     validated for CVD-safety and contrast (see dataviz skill). Referenced by
+     slot number so tag→color mapping stays stable as categories are added. */
+  --color-cat-1: #2a78d6;
+  --color-cat-1-tint: #eaf2fc;
+  --color-cat-2: #008300;
+  --color-cat-2-tint: #e6f5e6;
+  --color-cat-3: #c2447a;
+  --color-cat-3-tint: #fceef3;
+  --color-cat-4: #b3790a;
+  --color-cat-4-tint: #fdf3e0;
+  --color-cat-5: #1baf7a;
+  --color-cat-5-tint: #e6f7f1;
+  --color-cat-6: #eb6834;
+  --color-cat-6-tint: #fdece3;
+  --color-cat-7: #4a3aa7;
+  --color-cat-7-tint: #ece9f8;
+  --color-cat-8: #e34948;
+  --color-cat-8-tint: #fbe9e9;
+
   --radius-chip: 12px;
   --radius-card: 20px;
   --radius-card-sm: 16px;
@@ -64,6 +84,23 @@
   --color-danger: #f87171;
   --color-danger-tint: #251111;
 
+  --color-cat-1: #3987e5;
+  --color-cat-1-tint: #0f1a2e;
+  --color-cat-2: #22b322;
+  --color-cat-2-tint: #0f1f10;
+  --color-cat-3: #d55181;
+  --color-cat-3-tint: #2a121b;
+  --color-cat-4: #c98500;
+  --color-cat-4-tint: #2a1d08;
+  --color-cat-5: #199e70;
+  --color-cat-5-tint: #0d211a;
+  --color-cat-6: #d95926;
+  --color-cat-6-tint: #2a1710;
+  --color-cat-7: #9085e9;
+  --color-cat-7-tint: #1c1830;
+  --color-cat-8: #e66767;
+  --color-cat-8-tint: #2a1414;
+
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.045);
   --shadow-card-hover: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
   --shadow-blue: 0 8px 28px rgba(109, 140, 255, 0.35);
@@ -92,6 +129,23 @@
   --color-warning-tint: var(--color-warning-tint);
   --color-danger: var(--color-danger);
   --color-danger-tint: var(--color-danger-tint);
+
+  --color-cat-1: var(--color-cat-1);
+  --color-cat-1-tint: var(--color-cat-1-tint);
+  --color-cat-2: var(--color-cat-2);
+  --color-cat-2-tint: var(--color-cat-2-tint);
+  --color-cat-3: var(--color-cat-3);
+  --color-cat-3-tint: var(--color-cat-3-tint);
+  --color-cat-4: var(--color-cat-4);
+  --color-cat-4-tint: var(--color-cat-4-tint);
+  --color-cat-5: var(--color-cat-5);
+  --color-cat-5-tint: var(--color-cat-5-tint);
+  --color-cat-6: var(--color-cat-6);
+  --color-cat-6-tint: var(--color-cat-6-tint);
+  --color-cat-7: var(--color-cat-7);
+  --color-cat-7-tint: var(--color-cat-7-tint);
+  --color-cat-8: var(--color-cat-8);
+  --color-cat-8-tint: var(--color-cat-8-tint);
 
   --radius-chip: var(--radius-chip);
   --radius-card: var(--radius-card);

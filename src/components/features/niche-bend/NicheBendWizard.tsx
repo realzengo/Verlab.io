@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useReducer, useRef } from "react";
-import { analyzeChannel, generateSop, pollStatus, pollStatusUntilSettled } from "@/lib/api/niche-bend";
+import {
+  NicheBendApiError,
+  analyzeChannel,
+  generateSop,
+  pollStatus,
+  pollStatusUntilSettled,
+  regenerateCandidate,
+  setBendSaved,
+} from "@/lib/api/niche-bend";
 import { detectPlatform } from "@/lib/niche-bend/platform";
 import { clearPersistedWizardRef, readPersistedWizardRef, writePersistedWizardRef } from "@/lib/niche-bend/storage";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
+  NicheBendHistoryItem,
   NicheBendJobStatus,
   NicheBendJobStatusResponse,
   NicheBendPlatform,
@@ -14,6 +23,8 @@ import type {
   NicheBendVideo,
   NicheBendVideoType,
 } from "@/lib/types";
+import { BendHistory } from "./BendHistory";
+import { ClaimedNiches } from "./ClaimedNiches";
 import { Stepper } from "./Stepper";
 import { StepAnalyze, type AnalyzeState } from "./StepAnalyze";
 import { StepChooseBend } from "./StepChooseBend";
@@ -31,10 +42,14 @@ interface WizardState {
   analysis: NicheBendChannelAnalysis | null;
   candidates: NicheBendCandidate[] | null;
   candidatesRegenerating: boolean;
+  regeneratingCandidateId: 1 | 2 | 3 | null;
+  savedCandidateIds: (1 | 2 | 3)[];
   selectedCandidateId: 1 | 2 | 3 | null;
   sopSubmitting: boolean;
   sopError: string | null;
   sop: NicheBendSopResult | null;
+  saved: boolean;
+  savingToggle: boolean;
   manualSubmitting: boolean;
 }
 
@@ -48,14 +63,27 @@ type WizardAction =
   | { type: "SHOW_MANUAL_FALLBACK" }
   | { type: "MANUAL_SUBMIT_START" }
   | { type: "SELECT_CANDIDATE"; id: 1 | 2 | 3 }
+  | { type: "TOGGLE_SAVED"; id: 1 | 2 | 3 }
   | { type: "REGEN_START" }
   | { type: "REGEN_JOB_CREATED"; jobId: string }
   | { type: "REGEN_STATUS_UPDATE"; status: NicheBendJobStatusResponse }
+  | { type: "REGEN_ONE_START"; id: 1 | 2 | 3 }
+  | { type: "REGEN_ONE_DONE"; candidates: NicheBendCandidate[] }
+  | { type: "REGEN_ONE_FAILED" }
   | { type: "SOP_SUBMIT_START" }
   | { type: "SOP_READY"; status: NicheBendJobStatusResponse }
-  | { type: "SOP_SUBMIT_FAILED"; message: string }
+  | { type: "SOP_SUBMIT_FAILED"; message: string; claimed?: boolean }
+  | { type: "SAVE_TOGGLE_START" }
+  | { type: "SAVE_TOGGLE_DONE"; saved: boolean }
+  | { type: "SAVE_TOGGLE_FAILED" }
   | { type: "RESET" }
-  | { type: "HYDRATE"; status: NicheBendJobStatusResponse; selectedCandidateId: 1 | 2 | 3 | null }
+  | {
+      type: "HYDRATE";
+      status: NicheBendJobStatusResponse;
+      selectedCandidateId: 1 | 2 | 3 | null;
+      sourceUrl?: string;
+      platform?: NicheBendPlatform;
+    }
   | { type: "GO_TO_STEP"; step: 1 | 2 | 3 };
 
 const INITIAL_STATE: WizardState = {
@@ -70,10 +98,14 @@ const INITIAL_STATE: WizardState = {
   analysis: null,
   candidates: null,
   candidatesRegenerating: false,
+  regeneratingCandidateId: null,
+  savedCandidateIds: [],
   selectedCandidateId: null,
   sopSubmitting: false,
   sopError: null,
   sop: null,
+  saved: false,
+  savingToggle: false,
   manualSubmitting: false,
 };
 
@@ -120,6 +152,7 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
           analysis: s.analysis ?? state.analysis,
           candidates: s.candidates ?? state.candidates,
           sop: s.sop ?? state.sop,
+          saved: s.saved,
         };
       }
       return { ...state, status: s.status };
@@ -133,6 +166,16 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
 
     case "SELECT_CANDIDATE":
       return { ...state, selectedCandidateId: action.id, sopError: null };
+
+    case "TOGGLE_SAVED": {
+      const isSaved = state.savedCandidateIds.includes(action.id);
+      return {
+        ...state,
+        savedCandidateIds: isSaved
+          ? state.savedCandidateIds.filter((id) => id !== action.id)
+          : [...state.savedCandidateIds, action.id],
+      };
+    }
 
     case "REGEN_START":
       return { ...state, candidatesRegenerating: true, selectedCandidateId: null };
@@ -148,14 +191,45 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
       return state;
     }
 
+    case "REGEN_ONE_START":
+      return {
+        ...state,
+        regeneratingCandidateId: action.id,
+        selectedCandidateId: state.selectedCandidateId === action.id ? null : state.selectedCandidateId,
+        savedCandidateIds: state.savedCandidateIds.filter((id) => id !== action.id),
+      };
+
+    case "REGEN_ONE_DONE":
+      return { ...state, candidates: action.candidates, regeneratingCandidateId: null };
+
+    case "REGEN_ONE_FAILED":
+      return { ...state, regeneratingCandidateId: null };
+
     case "SOP_SUBMIT_START":
       return { ...state, sopSubmitting: true, sopError: null };
 
     case "SOP_READY":
-      return { ...state, sop: action.status.sop ?? state.sop, step: 3, sopSubmitting: false };
+      return { ...state, sop: action.status.sop ?? state.sop, saved: action.status.saved, step: 3, sopSubmitting: false };
 
     case "SOP_SUBMIT_FAILED":
-      return { ...state, sopSubmitting: false, sopError: action.message };
+      return {
+        ...state,
+        sopSubmitting: false,
+        sopError: action.message,
+        // A claim conflict means this exact niche is now permanently gone —
+        // clearing the selection forces a conscious re-pick instead of
+        // letting a retry silently hit the same wall again.
+        selectedCandidateId: action.claimed ? null : state.selectedCandidateId,
+      };
+
+    case "SAVE_TOGGLE_START":
+      return { ...state, savingToggle: true };
+
+    case "SAVE_TOGGLE_DONE":
+      return { ...state, saved: action.saved, savingToggle: false };
+
+    case "SAVE_TOGGLE_FAILED":
+      return { ...state, savingToggle: false };
 
     case "GO_TO_STEP":
       if (action.step >= state.step) return state;
@@ -188,7 +262,10 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
         analysis: s.analysis ?? null,
         candidates: s.candidates ?? null,
         sop: s.sop ?? null,
+        saved: s.saved,
         selectedCandidateId: action.selectedCandidateId,
+        sourceUrl: action.sourceUrl ?? state.sourceUrl,
+        platform: action.platform ?? state.platform,
       };
     }
 
@@ -292,22 +369,52 @@ export function NicheBendWizard() {
         dispatch({ type: "REGEN_STATUS_UPDATE", status: update });
       });
     } catch {
-      dispatch({ type: "REGEN_STATUS_UPDATE", status: { jobId: state.jobId ?? "", status: "failed", statusText: "", progress: 0 } });
+      dispatch({
+        type: "REGEN_STATUS_UPDATE",
+        status: { jobId: state.jobId ?? "", status: "failed", statusText: "", progress: 0, saved: state.saved },
+      });
     }
   };
 
-  const handleGenerateSop = async () => {
-    if (!state.jobId || state.selectedCandidateId === null) return;
+  const handleRegenerateOne = async (id: 1 | 2 | 3) => {
+    if (!state.jobId) return;
+    dispatch({ type: "REGEN_ONE_START", id });
+
+    try {
+      const status = await regenerateCandidate({ jobId: state.jobId, candidateId: id });
+      dispatch({ type: "REGEN_ONE_DONE", candidates: status.candidates ?? state.candidates ?? [] });
+    } catch {
+      dispatch({ type: "REGEN_ONE_FAILED" });
+    }
+  };
+
+  const handleGenerateSop = async (candidateId?: 1 | 2 | 3) => {
+    const id = candidateId ?? state.selectedCandidateId;
+    if (!state.jobId || id === null) return;
+    if (candidateId !== undefined) dispatch({ type: "SELECT_CANDIDATE", id: candidateId });
     dispatch({ type: "SOP_SUBMIT_START" });
 
     try {
-      const status = await generateSop({ jobId: state.jobId, chosenBend: state.selectedCandidateId });
+      const status = await generateSop({ jobId: state.jobId, chosenBend: id });
       dispatch({ type: "SOP_READY", status });
     } catch (error) {
       dispatch({
         type: "SOP_SUBMIT_FAILED",
         message: error instanceof Error ? error.message : "Could not generate the SOP.",
+        claimed: error instanceof NicheBendApiError && error.code === "niche_claimed",
       });
+    }
+  };
+
+  const handleToggleSaved = async () => {
+    if (!state.jobId) return;
+    const nextSaved = !state.saved;
+    dispatch({ type: "SAVE_TOGGLE_START" });
+    try {
+      const status = await setBendSaved(state.jobId, nextSaved);
+      dispatch({ type: "SAVE_TOGGLE_DONE", saved: status.saved });
+    } catch {
+      dispatch({ type: "SAVE_TOGGLE_FAILED" });
     }
   };
 
@@ -315,6 +422,28 @@ export function NicheBendWizard() {
     stopPolling();
     clearPersistedWizardRef();
     dispatch({ type: "RESET" });
+  };
+
+  const handleResumeFromHistory = async (item: NicheBendHistoryItem) => {
+    stopPolling();
+    try {
+      const status = await pollStatus(item.jobId);
+      dispatch({
+        type: "HYDRATE",
+        status,
+        selectedCandidateId: null,
+        sourceUrl: item.sourceUrl,
+        platform: item.platform,
+      });
+      if (IN_PROGRESS_STATUSES.includes(status.status)) {
+        cancelPollRef.current = pollStatusUntilSettled(item.jobId, (update) => {
+          dispatch({ type: "STATUS_UPDATE", status: update });
+        });
+      }
+    } catch {
+      // Job may have been deleted or is no longer reachable — leave the
+      // wizard where it is rather than surfacing a disruptive error.
+    }
   };
 
   return (
@@ -339,21 +468,44 @@ export function NicheBendWizard() {
         />
       )}
 
+      {state.step === 1 && (state.analyzeState === "idle" || state.analyzeState === "error") && (
+        <div
+          className="animate-bend-in mx-auto flex w-full max-w-5xl flex-col gap-12 border-t border-hairline pt-10"
+          style={{ animationDelay: "100ms" }}
+        >
+          <ClaimedNiches />
+          <BendHistory onResume={handleResumeFromHistory} />
+        </div>
+      )}
+
       {state.step === 2 && state.analysis && (
         <StepChooseBend
           analysis={state.analysis}
           candidates={state.candidates}
           candidatesRegenerating={state.candidatesRegenerating}
+          regeneratingCandidateId={state.regeneratingCandidateId}
+          savedCandidateIds={state.savedCandidateIds}
           selectedCandidateId={state.selectedCandidateId}
           onSelect={(id) => dispatch({ type: "SELECT_CANDIDATE", id })}
+          onToggleSaved={(id) => dispatch({ type: "TOGGLE_SAVED", id })}
           onRegenerate={handleRegenerate}
-          onGenerateSop={handleGenerateSop}
+          onRegenerateOne={handleRegenerateOne}
+          onGenerateSop={() => handleGenerateSop()}
+          onGenerateSopFor={(id) => handleGenerateSop(id)}
           sopSubmitting={state.sopSubmitting}
           sopError={state.sopError}
         />
       )}
 
-      {state.step === 3 && state.sop && <StepSop sop={state.sop} onReset={handleReset} />}
+      {state.step === 3 && state.sop && (
+        <StepSop
+          sop={state.sop}
+          onReset={handleReset}
+          saved={state.saved}
+          savingToggle={state.savingToggle}
+          onToggleSaved={handleToggleSaved}
+        />
+      )}
     </div>
   );
 }

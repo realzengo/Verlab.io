@@ -1,4 +1,4 @@
-import { ArrowRight, Captions, Compass, Download, Link as LinkIcon, Plug, Star, TrendingUp, Wand2 } from "lucide-react";
+import { ArrowRight, Captions, Compass, Plug, Star, TrendingUp, Wand2 } from "lucide-react";
 import { DASHBOARD_TOOLS } from "@/lib/mock-data";
 import { ActionCard } from "@/components/dashboard/ActionCard";
 import { PromoCard } from "@/components/dashboard/PromoCard";
@@ -58,21 +58,6 @@ function TranscriptPreview() {
       <div className="flex gap-2 text-[11px] text-body">
         <span className="font-mono">0:09</span>
         <span className="line-clamp-1">Here&rsquo;s what actually happened...</span>
-      </div>
-    </div>
-  );
-}
-
-function DownloaderPreview() {
-  return (
-    <div className="flex w-full max-w-[220px] flex-col gap-2.5 rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left shadow-card">
-      <div className="flex items-center gap-2 text-[11px] text-body">
-        <LinkIcon className="h-3 w-3 shrink-0" />
-        <span className="truncate font-mono">tiktok.com/@user/video/72&hellip;</span>
-      </div>
-      <div className="flex gap-1.5">
-        <span className="rounded-full border border-primary bg-accent px-2 py-0.5 text-[10px] font-semibold text-primary">MP4</span>
-        <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-semibold text-body">MP3</span>
       </div>
     </div>
   );
@@ -150,14 +135,6 @@ export default function AppHome() {
             href="/app/transcripts"
             icon={Captions}
             tone="amber"
-          />
-          <PromoCard
-            title="Downloader"
-            description="Download high-quality video or MP3 audio from TikTok, YouTube, and Instagram."
-            previewSlot={<DownloaderPreview />}
-            href="/app/downloader"
-            icon={Download}
-            tone="green"
           />
           <PromoCard
             title="MCP"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, FileDown } from "lucide-react";
+import { Check, Copy, FileDown, Loader2 } from "lucide-react";
 import type { NicheBendSopResult } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -37,11 +37,22 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-export function StepSop({ sop, onReset }: { sop: NicheBendSopResult; onReset: () => void }) {
+export function StepSop({
+  sop,
+  onReset,
+  saved,
+  savingToggle,
+  onToggleSaved,
+}: {
+  sop: NicheBendSopResult;
+  onReset: () => void;
+  saved: boolean;
+  savingToggle: boolean;
+  onToggleSaved: () => void;
+}) {
   const { content } = sop;
   const [copied, setCopied] = useState(false);
   const [comingSoon, setComingSoon] = useState<"docx" | "pdf" | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const handleCopyMarkdown = async () => {
     await navigator.clipboard.writeText(formatSopAsMarkdown(sop));
@@ -357,12 +368,12 @@ export function StepSop({ sop, onReset }: { sop: NicheBendSopResult; onReset: ()
         <Button variant="secondary" onClick={onReset}>
           Bend another channel
         </Button>
-        <Button
-          variant={saved ? "secondary" : "primary"}
-          icon={saved ? Check : undefined}
-          onClick={() => setSaved(true)}
-          disabled={saved}
-        >
+        <Button variant={saved ? "secondary" : "primary"} onClick={onToggleSaved} disabled={savingToggle}>
+          {savingToggle ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : saved ? (
+            <Check className="h-4 w-4 shrink-0" />
+          ) : null}
           {saved ? "Saved to library" : "Save to my library"}
         </Button>
       </div>

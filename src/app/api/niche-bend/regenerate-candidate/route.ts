@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NicheAlreadyClaimedError } from "@/lib/server/niche-bend-claims";
-import { getJob, resolveStatus, setChosenBendAndGenerateSop } from "@/lib/server/niche-bend-job-store";
+import { getJob, regenerateOneCandidateInJob, resolveStatus } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
 
-interface SopRequestBody {
+interface RegenerateCandidateRequestBody {
   jobId?: string;
-  chosenBend?: 1 | 2 | 3;
+  candidateId?: 1 | 2 | 3;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -18,21 +17,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: SopRequestBody;
+  let body: RegenerateCandidateRequestBody;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { jobId, chosenBend } = body;
+  const { jobId, candidateId } = body;
 
   if (!jobId) {
     return NextResponse.json({ error: "jobId is required" }, { status: 400 });
   }
 
-  if (chosenBend !== 1 && chosenBend !== 2 && chosenBend !== 3) {
-    return NextResponse.json({ error: "chosenBend must be 1, 2, or 3" }, { status: 400 });
+  if (candidateId !== 1 && candidateId !== 2 && candidateId !== 3) {
+    return NextResponse.json({ error: "candidateId must be 1, 2, or 3" }, { status: 400 });
   }
 
   const job = await getJob(supabase, jobId);
@@ -46,15 +45,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    await setChosenBendAndGenerateSop(supabase, job, chosenBend);
+    await regenerateOneCandidateInJob(supabase, job, candidateId);
   } catch (error) {
-    if (error instanceof Error && error.message === "Invalid chosenBend id") {
+    if (error instanceof Error && (error.message === "Invalid candidateId" || error.message === "Job is not ready yet")) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    if (error instanceof NicheAlreadyClaimedError) {
-      return NextResponse.json({ error: error.message, code: "niche_claimed" }, { status: 409 });
-    }
-    const message = error instanceof Error ? error.message : "Could not generate the SOP";
+    const message = error instanceof Error ? error.message : "Could not regenerate this idea";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 

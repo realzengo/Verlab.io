@@ -1,4 +1,5 @@
 import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
+import { ApifyScraperError, fetchTikTokDownloadLinks } from "@/lib/server/apify-client";
 
 export type TranscriptPlatform = "tiktok" | "reels" | "shorts";
 
@@ -335,7 +336,31 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
   }
 }
 
+async function apifyFetchTikTokDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+  try {
+    const links = await fetchTikTokDownloadLinks(url);
+    const directUrl = format === "mp3" ? links.audioUrl : links.videoUrl;
+    if (!directUrl) {
+      throw new VideoProviderError("provider_error", "No audio track available for that video");
+    }
+    return { title: links.title, directUrl };
+  } catch (error) {
+    if (error instanceof ApifyScraperError) {
+      throw new VideoProviderError(error.code, error.message);
+    }
+    throw error;
+  }
+}
+
 export async function fetchDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+  // The Apify TikTok downloader returns direct, watermark-free file links
+  // (HD video + original audio track), so TikTok always goes through it
+  // regardless of VIDEO_PROVIDER — that env var only selects the backend
+  // for YouTube/Instagram, which the actor doesn't cover.
+  if (detectDownloadPlatform(url) === "tiktok") {
+    return apifyFetchTikTokDownloadLink(url, format);
+  }
+
   const provider = process.env.VIDEO_PROVIDER ?? "supadata";
   if (provider !== "supadata") {
     throw new VideoProviderError("not_configured", `Unknown VIDEO_PROVIDER "${provider}"`);

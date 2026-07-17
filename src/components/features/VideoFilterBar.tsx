@@ -146,7 +146,11 @@ export function VideoFilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div role="tablist" aria-label="Platform" className="inline-flex items-center gap-1 rounded-full bg-app p-1">
+      <div
+        role="tablist"
+        aria-label="Platform"
+        className="inline-flex items-center gap-0.5 rounded-full border border-hairline bg-app p-1"
+      >
         {PLATFORM_PILLS.map((pill) => {
           const isActive = pill.id === platform;
           return (
@@ -157,8 +161,8 @@ export function VideoFilterBar({
               aria-selected={isActive}
               onClick={() => onPlatformChange(pill.id)}
               className={cn(
-                "whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                isActive ? "bg-surface text-heading shadow-card" : "text-body hover:text-heading"
+                "whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors sm:px-3.5 sm:text-[13px]",
+                isActive ? "bg-primary text-white shadow-card" : "text-body hover:text-heading"
               )}
             >
               {pill.label}
@@ -167,7 +171,11 @@ export function VideoFilterBar({
         })}
       </div>
 
-      <div role="tablist" aria-label="Posting window" className="inline-flex items-center gap-1 rounded-full bg-app p-1">
+      <div
+        role="tablist"
+        aria-label="Posting window"
+        className="inline-flex items-center gap-0.5 rounded-full border border-hairline bg-app p-1"
+      >
         {TIME_WINDOWS.map((window) => {
           const isActive = window.id === timeWindow;
           return (
@@ -178,8 +186,8 @@ export function VideoFilterBar({
               aria-selected={isActive}
               onClick={() => onTimeWindowChange(window.id)}
               className={cn(
-                "whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors",
-                isActive ? "bg-success text-white" : "text-body hover:text-heading"
+                "whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors sm:px-3.5 sm:text-[13px]",
+                isActive ? "bg-primary text-white shadow-card" : "text-body hover:text-heading"
               )}
             >
               {window.label}
@@ -200,7 +208,15 @@ export function VideoFilterBar({
         </Button>
 
         {open && (
-          <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-[min(90vw,360px)] rounded-2xl border border-hairline bg-surface p-5 shadow-card-hover">
+          <div
+            aria-hidden="true"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-20 bg-black/40 sm:hidden"
+          />
+        )}
+
+        {open && (
+          <div className="fixed inset-x-4 top-1/2 z-30 max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-hairline bg-surface p-5 shadow-card-hover sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:z-20 sm:w-[360px] sm:max-h-none sm:translate-y-0 sm:overflow-visible">
             <p className="text-base font-bold text-heading">Refine results</p>
             <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-body">
               Adjust feed filters

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createJob } from "@/lib/server/niche-bend-job-store";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     manualVideos: hasManualVideos ? manualVideos : undefined,
   });
 
-  void recordUsageEvent("bend", user.id, { jobId: job.id });
+  after(() => recordUsageEvent("bend", user.id, { jobId: job.id }));
 
   return NextResponse.json({ jobId: job.id });
 }

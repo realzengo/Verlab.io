@@ -76,6 +76,5 @@ export const DASHBOARD_TOOLS: ToolTileData[] = [
   { label: "Transcript Extractor", href: "/app/transcripts", icon: Captions, tone: "blue" },
   { label: "Niche Finder", href: "/app/niches", icon: Compass, tone: "violet" },
   { label: "Niche Bender", href: "/app/bend", icon: Wand2, tone: "blue" },
-  { label: "Media Downloader", href: "/app/downloader", icon: Download, tone: "green" },
   { label: "Caption Export", href: "/app/transcripts", icon: FileDown, tone: "sky" },
 ];

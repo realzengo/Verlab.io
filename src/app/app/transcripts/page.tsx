@@ -10,12 +10,10 @@ import {
   Download,
   FileText,
   Languages,
-  ListChecks,
   Loader2,
   PlayCircle,
   Search,
   Sparkles,
-  Wand2,
   XCircle,
 } from "lucide-react";
 import type { TranscriptLine } from "@/lib/types";
@@ -57,11 +55,13 @@ function Dropdown({
   icon: Icon,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   icon: typeof Languages;
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -72,13 +72,14 @@ function Dropdown({
         variant="secondary"
         size="sm"
         icon={Icon}
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         className="gap-2"
       >
         {label}: {value}
         <ChevronDown className="h-3.5 w-3.5" />
       </Button>
-      {open && (
+      {open && !disabled && (
         <div className="absolute left-0 z-10 mt-2 w-44 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
           {LANGUAGES.map((option) => (
             <button
@@ -100,15 +101,28 @@ function Dropdown({
   );
 }
 
-function IconButton({ icon: Icon, label, onClick }: { icon: typeof Copy; label: string; onClick?: () => void }) {
+function IconButton({
+  icon: Icon,
+  label,
+  onClick,
+  active,
+}: {
+  icon: typeof Copy;
+  label: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-body transition-colors hover:bg-app"
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-200",
+        active ? "scale-110 border-primary bg-accent text-primary" : "scale-100 border-hairline bg-surface text-body hover:bg-app"
+      )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", active && "animate-bounce")} />
     </button>
   );
 }
@@ -161,13 +175,26 @@ export default function TranscriptsPage() {
   const [activeRow, setActiveRow] = useState<TranscriptRow | null>(null);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [translatedLines, setTranslatedLines] = useState<TranscriptLine[] | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
+  const [coverFailed, setCoverFailed] = useState(false);
 
   useEffect(() => {
     fetchRows();
   }, []);
+
+  function openRow(row: TranscriptRow) {
+    setActiveRow(row);
+    setTranslatedLines(null);
+    setRetranslateTo("Original");
+    setTranslateError(null);
+    setCoverFailed(false);
+  }
 
   async function fetchRows() {
     const res = await fetch("/api/transcripts");
@@ -219,6 +246,9 @@ export default function TranscriptsPage() {
 
     setBulkInput("");
     setShowTimestamps(true);
+    setTranslatedLines(null);
+    setRetranslateTo("Original");
+    setTranslateError(null);
     await fetchRows();
     setActiveRow({
       id: data.id,
@@ -238,13 +268,65 @@ export default function TranscriptsPage() {
   };
 
   const handleCopy = async () => {
-    if (!activeRow?.lines) return;
-    const fullText = activeRow.lines
+    const lines = translatedLines ?? activeRow?.lines;
+    if (!lines) return;
+    const fullText = lines
       .map((line) => (showTimestamps ? `[${line.timestamp}] ${line.text}` : line.text))
       .join("\n");
     await navigator.clipboard.writeText(fullText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleDownloadTxt = () => {
+    const lines = translatedLines ?? activeRow?.lines;
+    if (!lines) return;
+    const fullText = lines
+      .map((line) => (showTimestamps ? `[${line.timestamp}] ${line.text}` : line.text))
+      .join("\n");
+    const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const filename = `${(activeRow?.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim()}.txt`;
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    setDownloaded(true);
+    setTimeout(() => setDownloaded(false), 1200);
+  };
+
+  const handleRetranslate = async (language: string) => {
+    setRetranslateTo(language);
+    setTranslateError(null);
+
+    if (language === "Original") {
+      setTranslatedLines(null);
+      return;
+    }
+
+    if (!activeRow?.lines?.length) return;
+
+    setTranslating(true);
+    try {
+      const res = await fetch("/api/transcripts/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines: activeRow.lines, targetLanguage: language }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTranslateError(data.error ?? "Translation failed");
+        setRetranslateTo("Original");
+        return;
+      }
+      setTranslatedLines(data.lines);
+    } catch {
+      setTranslateError("Translation failed");
+      setRetranslateTo("Original");
+    } finally {
+      setTranslating(false);
+    }
   };
 
   return (
@@ -334,7 +416,7 @@ export default function TranscriptsPage() {
                       className={row.status === "complete" ? "cursor-pointer" : undefined}
                       onClick={() => {
                         if (row.status === "complete") {
-                          setActiveRow(row);
+                          openRow(row);
                           setView("result");
                         }
                       }}
@@ -392,7 +474,8 @@ export default function TranscriptsPage() {
                       <video
                         key={activeRow.video_url}
                         src={activeRow.video_url}
-                        poster={activeRow.cover_url ?? undefined}
+                        poster={activeRow.cover_url || undefined}
+                        referrerPolicy="no-referrer"
                         controls
                         playsInline
                         className="h-full w-full object-cover"
@@ -406,6 +489,25 @@ export default function TranscriptsPage() {
                         allowFullScreen
                         className="h-full w-full"
                       />
+                    ) : activeRow.cover_url && !coverFailed ? (
+                      <a
+                        href={activeRow.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative h-full w-full"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={activeRow.cover_url}
+                          alt={activeRow.title ?? "Video cover"}
+                          referrerPolicy="no-referrer"
+                          onError={() => setCoverFailed(true)}
+                          className="h-full w-full object-cover"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
+                          <PlayCircle className="h-12 w-12 text-white/90" />
+                        </span>
+                      </a>
                     ) : (
                       <PlayCircle className="h-12 w-12 text-white/70" />
                     )}
@@ -413,24 +515,7 @@ export default function TranscriptsPage() {
                 </div>
 
                 <Card className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2.5">
-                    <p className="text-sm text-body">
-                      You can do more with <span className="font-semibold text-primary">Clypa AI</span>
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" size="sm" icon={Sparkles}>
-                        Write hooks
-                      </Button>
-                      <Button variant="secondary" size="sm" icon={Wand2}>
-                        Rewrite scripts
-                      </Button>
-                      <Button variant="secondary" size="sm" icon={ListChecks}>
-                        Get framework
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
                       onClick={() => setShowTimestamps((v) => !v)}
@@ -453,13 +538,27 @@ export default function TranscriptsPage() {
                     </button>
 
                     <div className="flex items-center gap-2">
-                      <Dropdown label="Retranslate" icon={Languages} value={retranslateTo} onChange={setRetranslateTo} />
-                      <IconButton icon={copied ? Check : Copy} label="Copy transcript" onClick={handleCopy} />
+                      <Dropdown
+                        label="Retranslate"
+                        icon={translating ? Loader2 : Languages}
+                        value={translating ? "Translating…" : retranslateTo}
+                        onChange={handleRetranslate}
+                        disabled={translating}
+                      />
+                      <IconButton icon={copied ? Check : Copy} label="Copy transcript" onClick={handleCopy} active={copied} />
+                      <IconButton
+                        icon={downloaded ? Check : Download}
+                        label="Download as TXT"
+                        onClick={handleDownloadTxt}
+                        active={downloaded}
+                      />
                     </div>
                   </div>
 
+                  {translateError && <p className="text-sm text-danger">{translateError}</p>}
+
                   <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
-                    {(activeRow.lines ?? []).map((line, i) => (
+                    {(translatedLines ?? activeRow.lines ?? []).map((line, i) => (
                       <div key={i} className="flex gap-3 text-sm">
                         {showTimestamps && (
                           <span className="w-10 shrink-0 font-mono text-xs text-body">{line.timestamp}</span>

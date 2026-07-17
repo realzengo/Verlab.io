@@ -68,7 +68,7 @@ export function TopBar({
   }, [menuOpen]);
 
   return (
-    <div className="flex items-center justify-between gap-4 px-6 py-6 sm:px-8">
+    <div className="flex items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"

@@ -7,7 +7,56 @@ import { X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Logo } from "@/components/ui/Logo";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
+import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
+
+function NicheNavSection() {
+  const { data, selected, toggle, clear } = useNicheSidebar();
+
+  if (data.availableNiches.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-hairline pt-4">
+      <div className="flex items-center justify-between px-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Niches</p>
+          <p className="text-[10px] font-medium text-subtle">All on TikTok</p>
+        </div>
+        {selected.size > 0 && (
+          <button
+            type="button"
+            onClick={clear}
+            className="text-[11px] font-medium text-body hover:text-heading"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-0.5">
+        {data.availableNiches.map((niche) => {
+          const isActive = selected.has(niche);
+          const count = data.counts[niche] ?? 0;
+          return (
+            <button
+              key={niche}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => toggle(niche)}
+              disabled={count === 0 && !isActive}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                isActive ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
+              )}
+            >
+              <span className="truncate">{niche}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function Sidebar({
   mobileOpen,
@@ -18,6 +67,7 @@ export function Sidebar({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const showNicheSection = pathname === "/app/niches" && !collapsed;
 
   return (
     <aside
@@ -65,6 +115,8 @@ export function Sidebar({
             </Link>
           );
         })}
+
+        {showNicheSection && <NicheNavSection />}
       </nav>
 
       <SidebarFooter
