@@ -4,6 +4,7 @@ import {
   Captions,
   Compass,
   DollarSign,
+  Download,
   Home,
   LayoutDashboard,
   Library,
@@ -21,6 +22,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
   { label: "Library", href: "/app/library", icon: Library },
   { label: "Transcripts", href: "/app/transcripts", icon: Captions },
+  { label: "Downloads", href: "/app/downloads", icon: Download },
   { label: "MCP", href: "/app/mcp", icon: Plug },
 ];
 

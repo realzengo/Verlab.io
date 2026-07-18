@@ -42,7 +42,7 @@ export default async function NichesPage() {
   const availableNiches = NICHE_ORDER.filter((niche) => (nicheCounts[niche] ?? 0) > 0);
 
   return (
-    <div className="mt-6 flex flex-col gap-6 sm:mt-16 sm:gap-10">
+    <div className="mt-4 flex flex-col gap-6 sm:mt-6 sm:gap-10">
       <NicheFinder
         initialVideos={initialVideos}
         initialHasMore={initialHasMore}

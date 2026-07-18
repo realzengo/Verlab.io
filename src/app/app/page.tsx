@@ -1,5 +1,20 @@
-import { CheckCircle2, Captions, PenSquare, Plug, TrendingUp, Wand2 } from "lucide-react";
+import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
+import type { LucideIcon } from "lucide-react";
+import { CheckCircle2, Captions, PenSquare, Plug, SquareDashed, SquarePlay, TrendingUp, Wand2, Zap } from "lucide-react";
 import { ToolCard } from "@/components/dashboard/ToolCard";
+import { createClient } from "@/lib/supabase/server";
+
+function displayName(user: User | null): string {
+  const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
+  return meta?.full_name ?? meta?.name ?? user?.email?.split("@")[0] ?? "there";
+}
+
+const QUICK_ACTIONS: { label: string; href: string; icon: LucideIcon }[] = [
+  { label: "Quick Editor", href: "/app/bend", icon: Zap },
+  { label: "Full Editor", href: "/app/bend", icon: SquareDashed },
+  { label: "AI Videos", href: "/app/niches", icon: SquarePlay },
+];
 
 function BendPreview() {
   return (
@@ -203,15 +218,35 @@ const TOOLS = [
   cta?: string;
 }[];
 
-export default function AppHome() {
+export default async function AppHome() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
-    <div className="flex flex-col gap-4 pt-2">
+    <div className="flex flex-col gap-4 pt-8 sm:pt-12">
       <section>
-        <h2 className="font-heading text-4xl font-extrabold tracking-tight text-heading">Tools</h2>
-        <p className="mt-2 text-base text-body">
-          Powerful tools to bend niches, discover trends, and ship faceless content faster.
-        </p>
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-6 text-center">
+          <h1 className="text-lg font-bold text-heading sm:text-2xl">Hello {displayName(user)}, what would you like to create today?</h1>
+        </div>
+        <div className="mb-8 grid grid-cols-3 gap-2 sm:mb-12 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-4">
+          {QUICK_ACTIONS.map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className="group flex flex-col items-center gap-1.5 rounded-xl border border-hairline bg-surface px-2 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-gradient-to-br hover:from-primary hover:to-primary-hover hover:shadow-card-hover sm:flex-row sm:gap-3 sm:rounded-2xl sm:px-5 sm:py-4"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-primary/15 text-primary transition-colors group-hover:bg-white/15 group-hover:text-white group-hover:ring-1 group-hover:ring-inset group-hover:ring-white/40 sm:h-10 sm:w-10 sm:rounded-xl">
+                <action.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </span>
+              <span className="text-center text-[11px] font-semibold text-heading transition-colors group-hover:text-white sm:text-sm">
+                {action.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {TOOLS.map((tool) => (
             <ToolCard
               key={tool.title}

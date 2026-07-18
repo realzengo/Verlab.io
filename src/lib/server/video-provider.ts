@@ -133,6 +133,14 @@ interface ScrapeCreatorsUrlList {
   url_list?: string[];
 }
 
+// TikTok's cover url_list mixes HEIC and JPEG variants of the same image
+// (HEIC first) — <img> tags can't decode HEIC in most browsers, so prefer a
+// JPEG/PNG/WEBP entry when one exists instead of always taking url_list[0].
+function pickBrowserImageUrl(urlList: string[] | undefined): string | undefined {
+  if (!urlList?.length) return undefined;
+  return urlList.find((url) => /\.(jpe?g|png|webp)(\?|$)/i.test(url)) ?? urlList[0];
+}
+
 interface ScrapeCreatorsTikTokTranscript {
   transcript?: string; // WEBVTT
 }
@@ -140,6 +148,14 @@ interface ScrapeCreatorsTikTokTranscript {
 interface ScrapeCreatorsTikTokVideo {
   aweme_detail?: {
     desc?: string;
+    author?: {
+      nickname?: string;
+      unique_id?: string;
+    };
+    statistics?: {
+      digg_count?: number;
+      comment_count?: number;
+    };
     video?: {
       duration?: number; // ms
       cover?: ScrapeCreatorsUrlList;
@@ -165,7 +181,7 @@ async function scrapeCreatorsFetchTikTokTranscript(url: string): Promise<Transcr
 
   return {
     title: videoRes.aweme_detail?.desc?.trim() || "Untitled video",
-    coverUrl: video?.cover?.url_list?.[0] ?? video?.origin_cover?.url_list?.[0] ?? "",
+    coverUrl: pickBrowserImageUrl(video?.cover?.url_list) ?? pickBrowserImageUrl(video?.origin_cover?.url_list) ?? "",
     durationSeconds: video?.duration ? Math.round(video.duration / 1000) : 0,
     videoUrl: video?.download_no_watermark_addr?.url_list?.[0] ?? video?.play_addr?.url_list?.[0] ?? null,
     embedUrl: null,
@@ -236,6 +252,10 @@ interface ScrapeCreatorsInstagramPost {
       display_url?: string;
       thumbnail_src?: string;
       video_duration?: number;
+      owner?: { username?: string };
+      edge_media_preview_like?: { count?: number };
+      edge_media_to_comment?: { count?: number };
+      edge_media_to_parent_comment?: { count?: number };
       edge_media_to_caption?: { edges?: { node?: { text?: string } }[] };
     };
   };
@@ -263,6 +283,94 @@ async function scrapeCreatorsFetchInstagramTranscript(url: string): Promise<Tran
     embedUrl: null,
     lines: [{ timestamp: "0:00", text }],
   };
+}
+
+// --- Lightweight preview — real title/thumbnail/author/stats, no transcript
+// call and no download job started. Reuses the same Scrape Creators video/post
+// metadata endpoints the transcript fetchers above call, minus the transcript
+// request.
+
+export interface VideoPreviewResult {
+  platform: DownloadPlatform;
+  title: string;
+  author: string | null;
+  thumbnailUrl: string;
+  likes: string | null;
+  comments: string | null;
+}
+
+function formatCompactCount(count: number | undefined): string | null {
+  if (count === undefined || count === null) return null;
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(count);
+}
+
+async function scrapeCreatorsPreviewTikTok(url: string): Promise<VideoPreviewResult> {
+  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url });
+  const detail = videoRes.aweme_detail;
+  const video = detail?.video;
+  if (!video) {
+    throw new VideoProviderError("not_found", "Video not found");
+  }
+
+  return {
+    platform: "tiktok",
+    title: detail?.desc?.trim() || "Untitled video",
+    author: detail?.author?.nickname || (detail?.author?.unique_id ? `@${detail.author.unique_id}` : null),
+    thumbnailUrl: pickBrowserImageUrl(video.cover?.url_list) ?? pickBrowserImageUrl(video.origin_cover?.url_list) ?? "",
+    likes: formatCompactCount(detail?.statistics?.digg_count),
+    comments: formatCompactCount(detail?.statistics?.comment_count),
+  };
+}
+
+async function scrapeCreatorsPreviewYoutube(url: string): Promise<VideoPreviewResult> {
+  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsYoutubeVideo>("/v1/youtube/video", { url });
+  if (!videoRes.title && !videoRes.thumbnail) {
+    throw new VideoProviderError("not_found", "Video not found");
+  }
+
+  return {
+    platform: "youtube",
+    title: videoRes.title?.trim() || "Untitled video",
+    author: null,
+    thumbnailUrl: videoRes.thumbnail ?? "",
+    likes: null,
+    comments: null,
+  };
+}
+
+async function scrapeCreatorsPreviewInstagram(url: string): Promise<VideoPreviewResult> {
+  const postRes = await scrapeCreatorsGet<ScrapeCreatorsInstagramPost>("/v1/instagram/post", { url });
+  const media = postRes.data?.xdt_shortcode_media;
+  if (!media) {
+    throw new VideoProviderError("not_found", "Video not found");
+  }
+
+  const caption = media.edge_media_to_caption?.edges?.[0]?.node?.text?.trim();
+
+  return {
+    platform: "instagram",
+    title: caption?.slice(0, 120) || "Untitled video",
+    author: media.owner?.username ? `@${media.owner.username}` : null,
+    thumbnailUrl: media.thumbnail_src ?? media.display_url ?? "",
+    likes: formatCompactCount(media.edge_media_preview_like?.count),
+    comments: formatCompactCount(
+      media.edge_media_to_comment?.count ?? media.edge_media_to_parent_comment?.count
+    ),
+  };
+}
+
+export async function fetchVideoPreview(url: string): Promise<VideoPreviewResult> {
+  const platform = detectDownloadPlatform(url);
+  switch (platform) {
+    case "tiktok":
+      return scrapeCreatorsPreviewTikTok(url);
+    case "youtube":
+      return scrapeCreatorsPreviewYoutube(url);
+    case "instagram":
+      return scrapeCreatorsPreviewInstagram(url);
+    default:
+      throw new VideoProviderError("unsupported_url", "Unsupported video URL");
+  }
 }
 
 // --- Generic downloader aggregator — video/audio file resolution ----------
@@ -302,6 +410,88 @@ async function genericFetchDownloadLink(url: string, format: DownloadFormat): Pr
   }
 
   return { title: data.title ?? "Untitled video", directUrl: data.url };
+}
+
+// --- video-download-api.com (p.savenow.to) — YouTube file downloads -------
+// Async job API: submit to /ajax/download.php, then poll /ajax/progress.php
+// (progress is in thousandths, 1000 = done) until download_url appears. See
+// https://video-download-api.com/api/docs.
+
+const SAVENOW_BASE_URL = "https://p.savenow.to";
+const SAVENOW_POLL_INTERVAL_MS = 2_000;
+const SAVENOW_POLL_TIMEOUT_MS = 90_000;
+
+interface SavenowDownloadResponse {
+  success?: boolean;
+  id?: string;
+  info?: { title?: string; image?: string };
+}
+
+interface SavenowProgressResponse {
+  success?: number;
+  progress?: number;
+  download_url?: string;
+  text?: string;
+}
+
+function savenowFormatFor(format: DownloadFormat): string {
+  return format === "mp3" ? "mp3" : "720";
+}
+
+async function savenowPollForDownloadUrl(id: string): Promise<string> {
+  const deadline = Date.now() + SAVENOW_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${SAVENOW_BASE_URL}/ajax/progress.php?id=${encodeURIComponent(id)}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      throw new VideoProviderError("provider_error", `Video Download API progress returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as SavenowProgressResponse;
+    if (data.download_url && (data.progress ?? 0) >= 1000) {
+      return data.download_url;
+    }
+    if (data.success === 0) {
+      throw new VideoProviderError("provider_error", data.text || "Download job failed");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SAVENOW_POLL_INTERVAL_MS));
+  }
+  throw new VideoProviderError("provider_error", "Timed out waiting for the video to be ready");
+}
+
+async function savenowFetchYoutubeDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+  const apiKey = process.env.SAVENOW_API_KEY;
+  if (!apiKey) {
+    throw new VideoProviderError("not_configured", "Missing SAVENOW_API_KEY");
+  }
+
+  const endpoint = new URL("/ajax/download.php", SAVENOW_BASE_URL);
+  endpoint.searchParams.set("url", url);
+  endpoint.searchParams.set("format", savenowFormatFor(format));
+  endpoint.searchParams.set("apikey", apiKey);
+  endpoint.searchParams.set("add_info", "1");
+
+  const response = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+  if (response.status === 429) {
+    throw new VideoProviderError("rate_limited", "Rate limited by provider");
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new VideoProviderError(
+      "provider_error",
+      `Video Download API returned ${response.status}: ${body.slice(0, 300)}`
+    );
+  }
+
+  const data = (await response.json()) as SavenowDownloadResponse;
+  if (!data.success || !data.id) {
+    throw new VideoProviderError("provider_error", "Video Download API did not return a job id");
+  }
+
+  const directUrl = await savenowPollForDownloadUrl(data.id);
+  return { title: data.info?.title?.trim() || "Untitled video", directUrl };
 }
 
 export function detectTranscriptPlatform(rawUrl: string): TranscriptPlatform | null {
@@ -353,12 +543,18 @@ async function apifyFetchTikTokDownloadLink(url: string, format: DownloadFormat)
 }
 
 export async function fetchDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+  const platform = detectDownloadPlatform(url);
+
   // The Apify TikTok downloader returns direct, watermark-free file links
-  // (HD video + original audio track), so TikTok always goes through it
-  // regardless of VIDEO_PROVIDER — that env var only selects the backend
-  // for YouTube/Instagram, which the actor doesn't cover.
-  if (detectDownloadPlatform(url) === "tiktok") {
+  // (HD video + original audio track), so TikTok always goes through it.
+  if (platform === "tiktok") {
     return apifyFetchTikTokDownloadLink(url, format);
+  }
+
+  // video-download-api.com only covers YouTube; Instagram still goes through
+  // the generic VIDEO_PROVIDER backend below.
+  if (platform === "youtube") {
+    return savenowFetchYoutubeDownloadLink(url, format);
   }
 
   const provider = process.env.VIDEO_PROVIDER ?? "supadata";

@@ -20,8 +20,7 @@ function avatarUrl(user: User | null): string | null {
   return meta?.avatar_url ?? meta?.picture ?? null;
 }
 
-function defaultHeading(pathname: string, user: User | null): string {
-  if (pathname === "/app") return `Welcome back, ${displayName(user)} 👋`;
+function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
   if (match) return match.label;
   if (pathname.startsWith("/app/settings")) return "Settings";
@@ -40,7 +39,7 @@ export function TopBar({
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const resolvedHeading = heading ?? defaultHeading(pathname, user);
+  const resolvedHeading = heading ?? defaultHeading(pathname);
 
   useEffect(() => {
     const supabase = createClient();
@@ -73,9 +72,11 @@ export function TopBar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  const hideHeading = pathname === "/app";
+
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
-      <div className="flex min-w-0 items-center gap-3">
+    <div className="relative flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onMenuClick}
@@ -84,23 +85,25 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-xl font-bold tracking-tight text-heading sm:text-2xl">
-          {resolvedHeading}
-        </h1>
+        {!hideHeading && (
+          <h1 className="min-w-0 truncate text-lg font-bold tracking-tight text-heading sm:text-2xl">
+            {resolvedHeading}
+          </h1>
+        )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
-        <ThemeToggle />
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <ThemeToggle className="h-7 w-7 sm:h-9 sm:w-9" />
 
         <div className="relative" ref={menuRef}>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-full border border-hairline bg-surface p-1 pl-1 pr-3"
+            className="flex items-center gap-2 rounded-full border border-hairline bg-surface p-1 pl-1 pr-1 sm:pr-3"
             aria-label="Account menu"
           >
-            <Avatar name={displayName(user)} src={avatarUrl(user)} size="sm" />
-            <span className="max-w-[10rem] truncate text-sm font-medium text-heading">
+            <Avatar name={displayName(user)} src={avatarUrl(user)} size="sm" className="h-6 w-6 sm:h-7 sm:w-7" />
+            <span className="hidden max-w-[10rem] truncate text-sm font-medium text-heading sm:inline-block">
               {displayName(user)}
             </span>
             <ChevronDown className="h-3.5 w-3.5 text-body" />
