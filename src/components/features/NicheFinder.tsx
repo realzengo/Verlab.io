@@ -45,16 +45,27 @@ function videoStyle(video: TrendingVideo): ContentStyle {
 // Categorical hue slots (1-8, dataviz-validated order) assigned once per
 // niche/style so a given tag always renders the same color everywhere.
 const NICHE_CAT_SLOT: Record<string, number> = {
-  Technology: 1,
-  Finance: 2,
-  Horror: 3,
-  Explained: 4,
-  Conspiracy: 5,
-  History: 6,
-  Storytelling: 7,
-  Crime: 8,
-  Psychology: 1,
-  Entertainment: 2,
+  History: 1,
+  Horror: 2,
+  Crime: 3,
+  Finance: 4,
+  Education: 5,
+  Storytelling: 6,
+  Entertainment: 7,
+  Animals: 8,
+  Explained: 1,
+  Engineering: 2,
+  Military: 3,
+  Sport: 4,
+  Technology: 5,
+  Psychology: 6,
+  Religion: 7,
+  "Crime & Psychology": 8,
+  "Fitness & Health": 1,
+  Politics: 2,
+  Stats: 3,
+  Gaming: 4,
+  Games: 5,
 };
 
 const STYLE_CAT_SLOT: Record<ContentStyle, number> = {
@@ -95,15 +106,18 @@ function styleChipClasses(style: ContentStyle, active = false): string {
   return active ? CAT_CHIP_ACTIVE[slot] : CAT_CHIP[slot];
 }
 
+// Deep, muted placeholder tones (shown while a cover image loads or is
+// missing) — anchored to slate-900 so they read as premium dark thumbnails
+// rather than saturated neon fills.
 const CARD_GRADIENTS = [
-  "from-indigo-400 to-purple-500",
-  "from-blue-400 to-cyan-500",
-  "from-rose-400 to-orange-400",
-  "from-emerald-400 to-teal-500",
-  "from-fuchsia-400 to-pink-500",
-  "from-amber-400 to-red-400",
-  "from-sky-400 to-indigo-500",
-  "from-lime-400 to-emerald-500",
+  "from-slate-600 to-slate-900",
+  "from-indigo-800 to-slate-900",
+  "from-rose-900 to-slate-900",
+  "from-teal-800 to-slate-900",
+  "from-amber-800 to-slate-900",
+  "from-violet-800 to-slate-900",
+  "from-blue-800 to-slate-900",
+  "from-emerald-800 to-slate-900",
 ];
 
 function gradientForId(id: string): string {
@@ -358,7 +372,7 @@ export function NicheFinder({
   availableNiches: string[];
 }) {
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
-  const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("all");
+  const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
@@ -390,7 +404,11 @@ export function NicheFinder({
   // snapshot (not a boolean flag) so this stays correct under React Strict
   // Mode's dev-only double-invoke, which would otherwise flip a boolean
   // guard on the throwaway first pass and fetch for real on the second.
-  const initialParamsRef = useRef(filtersKey + ":1");
+  // Only trusted when the SSR pass actually returned videos — an empty SSR
+  // result is indistinguishable from a real "no matches" here, so a null
+  // snapshot (never equal to a paramsKey string) forces a real client fetch
+  // instead of permanently freezing on a possibly-transient SSR hiccup.
+  const initialParamsRef = useRef(initialVideos.length > 0 ? filtersKey + ":1" : null);
 
   // Only the response from the most recently issued request is ever applied
   // to state — belt-and-suspenders alongside AbortController so a slower

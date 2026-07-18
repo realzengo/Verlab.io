@@ -81,15 +81,15 @@ export function PricingCard({
       </ul>
 
       {yearlyUnavailable ? (
-        <Button variant="secondary" disabled>
+        <Button variant="secondary" bevel={false} disabled>
           {plan.cta}
         </Button>
       ) : ctaHref ? (
-        <Button href={ctaHref} variant={plan.recommended ? "primary" : "secondary"}>
+        <Button href={ctaHref} variant={plan.recommended ? "primary" : "secondary"} bevel={false}>
           {plan.cta}
         </Button>
       ) : (
-        <Button variant={plan.recommended ? "primary" : "secondary"} onClick={() => onSelect?.(plan)}>
+        <Button variant={plan.recommended ? "primary" : "secondary"} bevel={false} onClick={() => onSelect?.(plan)}>
           {plan.cta}
         </Button>
       )}

@@ -20,7 +20,23 @@ function systemTheme(): ResolvedTheme {
 }
 
 function applyTheme(resolved: ResolvedTheme) {
-  document.documentElement.classList.toggle("dark", resolved === "dark");
+  const root = document.documentElement;
+
+  // Toggling `.dark` flips CSS variables consumed by many elements' own
+  // hover transitions (transition-all/colors), which otherwise makes the
+  // whole page cross-fade through muddy intermediate colors. Suppress all
+  // transitions for one frame so the swap is instant, then restore them.
+  const blocker = document.createElement("style");
+  blocker.textContent = "*,*::before,*::after{transition:none!important;animation-duration:0s!important;}";
+  document.head.appendChild(blocker);
+
+  root.classList.toggle("dark", resolved === "dark");
+
+  // Force style recalculation under the blocker before removing it.
+  window.getComputedStyle(blocker).opacity;
+  requestAnimationFrame(() => {
+    document.head.removeChild(blocker);
+  });
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

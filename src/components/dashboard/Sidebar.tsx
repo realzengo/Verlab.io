@@ -19,7 +19,7 @@ function NicheNavSection() {
     <div className="mt-3 flex flex-col gap-2 border-t border-hairline pt-4">
       <div className="flex items-center justify-between px-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Niches</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-subtle">Niches</p>
           <p className="text-[10px] font-medium text-subtle">All on TikTok</p>
         </div>
         {selected.size > 0 && (
@@ -104,7 +104,7 @@ export function Sidebar({
               onClick={onCloseMobile}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus:outline-none focus-visible:outline-none",
                 collapsed && "md:justify-center md:px-0",
                 active ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
               )}

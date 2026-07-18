@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchFacelessTrendingVideos } from "@/lib/server/apify-client";
+import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 
 function isAuthorized(request: NextRequest): boolean {

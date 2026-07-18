@@ -113,6 +113,22 @@ export interface Transcript {
   createdAt: string;
 }
 
+export type TranscriptRowStatus = "queued" | "processing" | "complete" | "failed";
+
+export interface TranscriptRow {
+  id: string;
+  source_url: string;
+  platform: "tiktok" | "reels" | "shorts";
+  status: TranscriptRowStatus;
+  title: string | null;
+  cover_url: string | null;
+  duration_seconds: number | null;
+  video_url: string | null;
+  embed_url: string | null;
+  lines: TranscriptLine[] | null;
+  created_at: string;
+}
+
 export type DownloadPlatform = "tiktok" | "youtube" | "instagram";
 export type DownloadFormat = "mp4" | "mp3";
 

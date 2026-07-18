@@ -12,41 +12,17 @@ import {
   Languages,
   Loader2,
   PlayCircle,
-  Search,
   Sparkles,
   XCircle,
 } from "lucide-react";
-import type { TranscriptLine } from "@/lib/types";
+import type { TranscriptLine, TranscriptRow } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Table, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
+import { TranscriptHistoryTable } from "@/components/transcripts/TranscriptHistoryTable";
 import { ExportModal } from "@/components/transcripts/ExportModal";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type PageView = "history" | "result";
-type RowStatus = "queued" | "processing" | "complete" | "failed";
-
-interface TranscriptRow {
-  id: string;
-  source_url: string;
-  platform: "tiktok" | "reels" | "shorts";
-  status: RowStatus;
-  title: string | null;
-  cover_url: string | null;
-  duration_seconds: number | null;
-  video_url: string | null;
-  embed_url: string | null;
-  lines: TranscriptLine[] | null;
-  created_at: string;
-}
-
-const STATUS_BADGE: Record<RowStatus, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
-  complete: { label: "Complete", variant: "success" },
-  processing: { label: "Processing", variant: "warning" },
-  queued: { label: "Queued", variant: "default" },
-  failed: { label: "Failed", variant: "danger" },
-};
 
 const LANGUAGES = ["Original", "English", "Spanish", "Portuguese", "French"];
 
@@ -328,7 +304,7 @@ export default function TranscriptsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
+    <div className="flex flex-col gap-6 pt-2 pb-12">
       <div>
         <h2 className="text-lg font-semibold text-heading">Transcripts</h2>
         <p className="mt-1 text-sm text-body">
@@ -391,65 +367,13 @@ export default function TranscriptsPage() {
           {rows.length === 0 ? (
             <Card className="py-10 text-center text-sm text-body">No transcripts yet — paste a link above to get started.</Card>
           ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex w-full max-w-xs items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2">
-                <Search className="h-4 w-4 shrink-0 text-body" />
-                <input
-                  type="text"
-                  placeholder="Search transcripts..."
-                  className="w-full min-w-0 bg-transparent text-sm text-heading placeholder:text-body focus:outline-none"
-                />
-              </div>
-
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableHeaderCell>Content</TableHeaderCell>
-                    <TableHeaderCell>Source</TableHeaderCell>
-                    <TableHeaderCell>Platform</TableHeaderCell>
-                    <TableHeaderCell>Date</TableHeaderCell>
-                    <TableHeaderCell>Duration</TableHeaderCell>
-                    <TableHeaderCell>Status</TableHeaderCell>
-                  </TableRow>
-                </TableHead>
-                <tbody>
-                  {rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className={row.status === "complete" ? "cursor-pointer" : undefined}
-                      onClick={() => {
-                        if (row.status === "complete") {
-                          openRow(row);
-                          setView("result");
-                        }
-                      }}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
-                            <PlayCircle className="h-4 w-4" />
-                          </div>
-                          <span className="line-clamp-2 max-w-xs text-sm font-medium text-heading">
-                            {row.title ?? row.source_url}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-body">{row.source_url}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="capitalize">{row.platform}</Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-body">{formatDate(row.created_at)}</TableCell>
-                      <TableCell>{row.duration_seconds ? `0:${String(row.duration_seconds).padStart(2, "0")}` : "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={STATUS_BADGE[row.status].variant}>{STATUS_BADGE[row.status].label}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
+            <TranscriptHistoryTable
+              rows={rows}
+              onOpenRow={(row) => {
+                openRow(row);
+                setView("result");
+              }}
+            />
           )}
         </>
       ) : (

@@ -80,7 +80,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   className={cn(
                     "group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all",
                     active
-                      ? "bg-gradient-to-r from-primary to-primary-hover text-white shadow-blue"
+                      ? "bg-gradient-to-r from-primary to-primary-hover text-white"
                       : "text-body hover:bg-app hover:text-heading"
                   )}
                 >

@@ -92,25 +92,21 @@ export function PaymentMethodTab() {
           </Button>
         </div>
       ) : (
-        <div className="relative mt-4 overflow-hidden rounded-card-sm bg-gradient-to-br from-[#1c2437] to-ink p-6 text-white shadow-card">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-primary/30 blur-3xl"
-          />
-          <div className="relative flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg">
+        <div className="mt-4 overflow-hidden rounded-card-sm border border-hairline bg-surface shadow-card">
+          <div className="flex items-center gap-3 p-6">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white">
               <Crown className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-lg font-bold">{currentPlan.name}</p>
-              <p className="text-sm text-white/70">{currentPlan.info}</p>
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-heading">{currentPlan.name}</p>
+              <p className="truncate text-sm text-body">{currentPlan.info}</p>
             </div>
           </div>
 
-          <div className="relative mt-6 flex items-center justify-between">
-            <span className="text-sm text-white/70">Price</span>
-            <span className="text-lg font-bold">
-              ${currentPlan.price_monthly} <span className="text-sm font-normal text-white/70">/month</span>
+          <div className="flex items-center justify-between border-t border-hairline bg-app px-6 py-4">
+            <span className="text-sm text-subtle">Price</span>
+            <span className="text-lg font-bold text-heading">
+              ${currentPlan.price_monthly} <span className="text-sm font-normal text-subtle">/month</span>
             </span>
           </div>
         </div>

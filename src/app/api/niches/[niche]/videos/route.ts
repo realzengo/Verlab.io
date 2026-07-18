@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchNicheTrendingVideos } from "@/lib/server/apify-client";
+import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { mapTrendingVideoRow, TRENDING_VIDEO_COLUMNS, type TrendingVideoRow } from "@/lib/server/trending-videos";
 import { NICHE_HASHTAGS, isNicheName, type NicheName } from "@/lib/niches-catalog";
 
-// Let this route run long enough to cover a real Apify scrape without the
-// platform silently killing the function mid-request (which used to leave
-// the frontend spinner hanging with no response ever coming back). 60s is
-// the hard cap on Vercel's Hobby tier, so it's a safe upper bound everywhere.
+// Let this route run long enough to cover a real SociaVault scrape without
+// the platform silently killing the function mid-request (which used to
+// leave the frontend spinner hanging with no response ever coming back). 60s
+// is the hard cap on Vercel's Hobby tier, so it's a safe upper bound everywhere.
 export const maxDuration = 60;
 
 // Cache-aside knobs. Unlike a flat one-time batch size, the pool a niche
@@ -18,9 +18,8 @@ export const maxDuration = 60;
 // demand as the user keeps hitting Next, instead of being capped upfront.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const BACKFILL_BUFFER = 40;
-// Lock TTL: long enough to cover a full Apify run (runActor times out at
-// 45s for this path), short enough that a crashed request doesn't wedge the
-// niche for a day.
+// Lock TTL: long enough to cover a full SociaVault scrape across a niche's
+// hashtags, short enough that a crashed request doesn't wedge the niche for a day.
 const LOCK_TTL_MS = 2 * 60 * 1000;
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -43,7 +42,7 @@ async function isCacheStale(
 
 // Atomically flips this niche's lock row from idle (or abandoned-stale) to
 // refreshing, so concurrent requests for the same niche don't each kick off
-// their own Apify run — only the request that wins the claim scrapes.
+// their own scrape — only the request that wins the claim scrapes.
 async function claimNicheRefresh(admin: SupabaseAdmin, niche: string): Promise<boolean> {
   const now = new Date();
   const staleBefore = new Date(now.getTime() - LOCK_TTL_MS).toISOString();
@@ -112,7 +111,7 @@ async function refreshNicheCache(admin: SupabaseAdmin, niche: NicheName, targetC
     }
     return true;
   } catch (err) {
-    console.error("[niches/videos] Apify scrape failed:", err);
+    console.error("[niches/videos] SociaVault scrape failed:", err);
     return false;
   } finally {
     await releaseNicheRefresh(admin, niche);
@@ -213,9 +212,9 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   let rows = (data ?? []) as TrendingVideoRow[];
   let pageRows = rows.slice(0, limit);
 
-  // Cache-aside: only niche-scoped feeds are backed by the on-demand Apify
-  // scrape (the "all" feed reads whatever's already cached across every
-  // niche, which is always plenty). Trigger a backfill when either this
+  // Cache-aside: only niche-scoped feeds are backed by the on-demand
+  // SociaVault scrape (the "all" feed reads whatever's already cached across
+  // every niche, which is always plenty). Trigger a backfill when either this
   // page ran past the end of what's cached, or — only on page 1, so we're
   // not re-scraping on every paginate — the pool has simply gone stale.
   if (!isAllNiches) {

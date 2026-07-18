@@ -24,10 +24,12 @@ export function Hero() {
           className="pointer-events-none absolute right-0 top-1/2 -z-10 h-64 w-1/2 translate-x-1/4 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
         />
 
-        <h1 className="relative max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
-          Build a{" "}
-          <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
-            Non-Competitive
+        <h1 className="relative max-w-5xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[68px]">
+          <span className="whitespace-nowrap">
+            Build a{" "}
+            <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
+              Non-Competitive
+            </span>
           </span>
           <br />
           Faceless Page
@@ -42,7 +44,7 @@ export function Hero() {
       </p>
 
       <div className="mt-8 flex justify-center">
-        <Button href="/app" size="lg" icon={Zap} className="px-6 py-3.5 text-base font-bold! sm:px-8 sm:py-4 sm:text-lg">
+        <Button href="/app" size="lg" icon={Zap} bevel={false} className="px-6 py-3.5 text-base font-bold! shadow-none sm:px-8 sm:py-4 sm:text-lg">
           Try Clypo Now
         </Button>
       </div>

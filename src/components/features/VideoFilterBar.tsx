@@ -201,8 +201,10 @@ export function VideoFilterBar({
           type="button"
           variant={activeCount > 0 ? "primary" : "secondary"}
           size="sm"
+          bevel={false}
           icon={SlidersHorizontal}
           onClick={() => (open ? setOpen(false) : openPopover())}
+          className="shadow-none"
         >
           Filters{activeCount > 0 ? ` (${activeCount})` : ""}
         </Button>

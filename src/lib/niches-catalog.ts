@@ -1,5 +1,5 @@
 // Live trending videos are sourced from hashtag searches (see
-// fetchFacelessTrendingVideos / fetchNicheTrendingVideos in apify-client.ts)
+// fetchFacelessTrendingVideos / fetchNicheTrendingVideos in sociavault-client.ts)
 // rather than a dedicated classification pass. This file is the single
 // source of truth mapping each niche to the hashtags that feed it, so the
 // ingestion pipeline (server) and the UI (client) never drift out of sync.
@@ -7,31 +7,53 @@
 // Fixed display order — stable regardless of which niches currently have
 // videos, so the sidebar list doesn't reshuffle as data changes.
 export const NICHE_ORDER = [
-  "Technology",
-  "Finance",
-  "Horror",
-  "Explained",
-  "Conspiracy",
   "History",
-  "Storytelling",
+  "Horror",
   "Crime",
-  "Psychology",
+  "Finance",
+  "Education",
+  "Storytelling",
   "Entertainment",
+  "Animals",
+  "Explained",
+  "Engineering",
+  "Military",
+  "Sport",
+  "Technology",
+  "Psychology",
+  "Religion",
+  "Crime & Psychology",
+  "Fitness & Health",
+  "Politics",
+  "Stats",
+  "Gaming",
+  "Games",
 ] as const;
 
 export type NicheName = (typeof NICHE_ORDER)[number];
 
 export const NICHE_HASHTAGS: Record<NicheName, string[]> = {
-  Technology: ["aigenerated", "aivoiceover"],
-  Finance: ["businessfacts"],
-  Horror: ["scarystories", "mysteryfacts"],
-  Explained: ["factsyoudidntknow", "didyouknowfacts"],
-  Conspiracy: ["conspiracytheory"],
   History: ["historyfacts"],
-  Storytelling: ["aistorytime", "2danimation", "animatedstory", "redditstories"],
+  Horror: ["scarystories", "mysteryfacts"],
   Crime: ["truecrime"],
-  Psychology: ["psychologyfacts"],
+  Finance: ["businessfacts"],
+  Education: ["educationfacts"],
+  Storytelling: ["aistorytime", "2danimation", "animatedstory", "redditstories"],
   Entertainment: ["motivationalstory"],
+  Animals: ["animalfacts"],
+  Explained: ["factsyoudidntknow", "didyouknowfacts"],
+  Engineering: ["engineeringfacts"],
+  Military: ["militaryfacts"],
+  Sport: ["sportsfacts"],
+  Technology: ["aigenerated", "aivoiceover"],
+  Psychology: ["psychologyfacts"],
+  Religion: ["religionfacts"],
+  "Crime & Psychology": ["criminalpsychology"],
+  "Fitness & Health": ["fitnessfacts", "healthfacts"],
+  Politics: ["politicsfacts"],
+  Stats: ["statsfacts"],
+  Gaming: ["gamingfacts"],
+  Games: ["videogamefacts"],
 };
 
 const HASHTAG_TO_NICHE: Record<string, NicheName> = Object.fromEntries(
