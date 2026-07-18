@@ -208,7 +208,7 @@ export function InteractiveDemo() {
                   <button
                     type="button"
                     onClick={handleBendIt}
-                    className="w-full rounded-lg bg-primary px-6 py-2.5 font-medium text-white transition-colors hover:bg-primary-hover sm:w-auto"
+                    className="w-full rounded-lg bg-btn-primary px-6 py-2.5 font-medium text-white transition-colors hover:bg-btn-primary-hover sm:w-auto"
                   >
                     Bend it
                   </button>
@@ -277,7 +277,7 @@ export function InteractiveDemo() {
                 <button
                   type="button"
                   onClick={handleDownload}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary-hover px-2.5 py-1.5 text-xs font-medium text-white transition-colors sm:px-3 sm:text-sm"
+                  className="flex items-center gap-1.5 rounded-lg bg-btn-primary hover:bg-btn-primary-hover px-2.5 py-1.5 text-xs font-medium text-white transition-colors sm:px-3 sm:text-sm"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Download SOP

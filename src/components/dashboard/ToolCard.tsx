@@ -29,13 +29,13 @@ export function ToolCard({ title, description, previewSlot, href, cta = "Try now
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-heading">{title}</h3>
           {beta && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+            <span className="rounded-full bg-btn-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               Beta
             </span>
           )}
         </div>
         <p className="mb-5 mt-1 text-xs font-normal leading-snug text-body">{description}</p>
-        <span className="mt-auto flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-white transition-colors group-hover:bg-primary-hover">
+        <span className="mt-auto flex w-full items-center justify-center gap-1.5 rounded-2xl bg-btn-primary py-3.5 text-sm font-semibold text-white transition-colors group-hover:bg-btn-primary-hover">
           {cta}
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </span>

@@ -274,6 +274,11 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
   }
 }
 
+// Module-scoped, so it resets on a hard page load/refresh but survives the
+// wizard unmounting and remounting from client-side navigation within the
+// same session (e.g. visiting another page and coming back).
+let hasHydratedThisPageLoad = false;
+
 export function NicheBendWizard() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const cancelPollRef = useRef<(() => void) | null>(null);
@@ -283,8 +288,13 @@ export function NicheBendWizard() {
     cancelPollRef.current = null;
   };
 
-  // Resume an in-flight or completed job after a refresh.
+  // Resume an in-flight or completed job after a refresh — but not when the
+  // wizard is simply being revisited after navigating to another page in the
+  // same session, where we want to start fresh at the "paste link" step.
   useEffect(() => {
+    if (hasHydratedThisPageLoad) return;
+    hasHydratedThisPageLoad = true;
+
     const ref = readPersistedWizardRef();
     if (!ref) return;
 

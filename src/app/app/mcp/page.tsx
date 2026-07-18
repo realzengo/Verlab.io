@@ -61,7 +61,7 @@ export default function McpPage() {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-btn-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied!" : "Copy Link"}

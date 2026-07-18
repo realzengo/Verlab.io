@@ -6,7 +6,11 @@ import type { NicheBendSopResult } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { buildSopDocxBlob } from "@/lib/niche-bend/export-docx";
+import { buildSopPdfBlob } from "@/lib/niche-bend/export-pdf";
 import { formatSopAsMarkdown } from "@/lib/niche-bend/markdown";
+import { slugifySopTitle } from "@/lib/niche-bend/sop-blocks";
+import { downloadBlob } from "@/lib/utils";
 import { ChannelAnalysisSummary } from "./ChannelAnalysisSummary";
 
 const SECTIONS: { id: string; label: string }[] = [
@@ -52,7 +56,8 @@ export function StepSop({
 }) {
   const { content } = sop;
   const [copied, setCopied] = useState(false);
-  const [comingSoon, setComingSoon] = useState<"docx" | "pdf" | null>(null);
+  const [downloading, setDownloading] = useState<"docx" | "pdf" | null>(null);
+  const [downloadError, setDownloadError] = useState<"docx" | "pdf" | null>(null);
 
   const handleCopyMarkdown = async () => {
     await navigator.clipboard.writeText(formatSopAsMarkdown(sop));
@@ -60,9 +65,19 @@ export function StepSop({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleDownload = (format: "docx" | "pdf") => {
-    setComingSoon(format);
-    setTimeout(() => setComingSoon(null), 1500);
+  const handleDownload = async (format: "docx" | "pdf") => {
+    setDownloading(format);
+    setDownloadError(null);
+    const filename = `${slugifySopTitle(content.title)}.${format}`;
+    try {
+      const blob = format === "docx" ? await buildSopDocxBlob(sop) : buildSopPdfBlob(sop);
+      downloadBlob(blob, filename);
+    } catch {
+      setDownloadError(format);
+      setTimeout(() => setDownloadError(null), 2000);
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
@@ -74,26 +89,42 @@ export function StepSop({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
-            <Button variant="secondary" size="sm" icon={FileDown} onClick={() => handleDownload("docx")}>
+            <Button
+              variant="secondary"
+              size="sm"
+              bevel={false}
+              icon={downloading === "docx" ? undefined : FileDown}
+              disabled={downloading !== null}
+              onClick={() => handleDownload("docx")}
+            >
+              {downloading === "docx" && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
               Download DOCX
             </Button>
-            {comingSoon === "docx" && (
-              <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-ink px-2.5 py-1 text-xs font-semibold text-white">
-                Coming soon
+            {downloadError === "docx" && (
+              <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-danger px-2.5 py-1 text-xs font-semibold text-white">
+                Download failed
               </span>
             )}
           </div>
           <div className="relative">
-            <Button variant="secondary" size="sm" icon={FileDown} onClick={() => handleDownload("pdf")}>
+            <Button
+              variant="secondary"
+              size="sm"
+              bevel={false}
+              icon={downloading === "pdf" ? undefined : FileDown}
+              disabled={downloading !== null}
+              onClick={() => handleDownload("pdf")}
+            >
+              {downloading === "pdf" && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
               Download PDF
             </Button>
-            {comingSoon === "pdf" && (
-              <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-ink px-2.5 py-1 text-xs font-semibold text-white">
-                Coming soon
+            {downloadError === "pdf" && (
+              <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-danger px-2.5 py-1 text-xs font-semibold text-white">
+                Download failed
               </span>
             )}
           </div>
-          <Button size="sm" icon={copied ? Check : Copy} onClick={handleCopyMarkdown}>
+          <Button size="sm" bevel={false} icon={copied ? Check : Copy} onClick={handleCopyMarkdown}>
             {copied ? "Copied" : "Copy Markdown"}
           </Button>
         </div>
@@ -362,13 +393,16 @@ export function StepSop({
         </div>
       </div>
 
-      <p className="text-center text-xs text-subtle">Part of your Zenstars protocols.</p>
-
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <Button variant="secondary" onClick={onReset}>
+        <Button variant="secondary" bevel={false} onClick={onReset}>
           Bend another channel
         </Button>
-        <Button variant={saved ? "secondary" : "primary"} onClick={onToggleSaved} disabled={savingToggle}>
+        <Button
+          variant={saved ? "secondary" : "primary"}
+          bevel={false}
+          onClick={onToggleSaved}
+          disabled={savingToggle}
+        >
           {savingToggle ? (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           ) : saved ? (

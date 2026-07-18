@@ -106,7 +106,7 @@ export function ExportModal({ isOpen, onClose, count, onExport }: ExportModalPro
           <button
             type="button"
             onClick={handleExport}
-            className="rounded-md bg-primary px-4 py-2 text-white hover:bg-primary-hover"
+            className="rounded-md bg-btn-primary px-4 py-2 text-white hover:bg-btn-primary-hover"
           >
             Export as {selectedFormat}
           </button>

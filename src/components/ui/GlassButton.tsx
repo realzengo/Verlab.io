@@ -15,7 +15,7 @@ export function GlassButton(props: ButtonProps | LinkProps) {
 
   const classes = cn(
     "group btn-bevel inline-flex items-center rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md",
-    "bg-primary/95 hover:bg-primary dark:bg-primary/90 dark:hover:bg-primary",
+    "bg-btn-primary/95 hover:bg-btn-primary",
     "text-white transition-all duration-300 hover:-translate-y-0.5",
     "border border-primary/20 dark:border-white/10",
     "hover:shadow-md hover:shadow-primary/30 dark:hover:shadow-primary/20",

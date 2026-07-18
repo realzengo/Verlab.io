@@ -202,7 +202,7 @@ export function VideoDownloader() {
             className={`flex w-14 shrink-0 items-center justify-center rounded-xl text-white transition-[background-color,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16 ${
               state === "ready"
                 ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-primary hover:bg-primary-hover"
+                : "bg-btn-primary hover:bg-btn-primary-hover"
             }`}
           >
             {state === "preparing" ? (
@@ -343,7 +343,7 @@ export function VideoDownloader() {
                     <button
                       type="button"
                       onClick={() => readyId && triggerBrowserDownload(`/api/downloads/file/${readyId}`)}
-                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-2 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
+                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-2 py-3 text-sm font-semibold text-white hover:bg-btn-primary-hover"
                     >
                       <Download className="h-4 w-4 shrink-0" />
                       Download

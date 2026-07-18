@@ -50,7 +50,7 @@ export function LinkInput({
       <button
         type="submit"
         disabled={loading}
-        className="btn-bevel flex w-full shrink-0 items-center justify-center rounded-full bg-primary/95 px-6 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:translate-y-0 sm:w-auto"
+        className="btn-bevel flex w-full shrink-0 items-center justify-center rounded-full bg-btn-primary/95 px-6 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-btn-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:translate-y-0 sm:w-auto"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
       </button>
