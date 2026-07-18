@@ -458,7 +458,6 @@ export function NicheBendWizard() {
           videoType={state.videoType}
           onVideoTypeChange={(videoType) => dispatch({ type: "SET_VIDEO_TYPE", videoType })}
           analyzeState={state.analyzeState}
-          status={state.status}
           errorMessage={state.errorMessage}
           onSubmit={() => startAnalyze()}
           onRetry={() => startAnalyze()}

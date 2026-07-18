@@ -6,7 +6,7 @@ export const RECENT_DOWNLOADS: DownloadItem[] = [
     title: "Viral TikTok Hook Strategy",
     sourceUrl: "tiktok.com/@bensbusinessbreakdown",
     platform: "tiktok",
-    format: "mp4",
+    format: "720",
     createdAt: "2026-07-15T14:30:00.000Z",
   },
   {
@@ -20,9 +20,9 @@ export const RECENT_DOWNLOADS: DownloadItem[] = [
   {
     id: "dl-3",
     title: "Inside the courtroom that changed maritime law forever",
-    sourceUrl: "instagram.com/reel/C8xYzabcdEf",
-    platform: "instagram",
-    format: "mp4",
+    sourceUrl: "facebook.com/watch/?v=8xYzabcdEf",
+    platform: "facebook",
+    format: "720",
     createdAt: "2026-07-14T18:45:00.000Z",
   },
   {

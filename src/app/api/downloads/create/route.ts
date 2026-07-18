@@ -7,21 +7,27 @@ import {
   fetchDownloadLink,
   humanizeVideoProviderError,
 } from "@/lib/server/video-provider";
-import type { DownloadFormat } from "@/lib/types";
+import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
 
 async function runDownload(supabase: SupabaseClient, id: string, url: string, format: DownloadFormat): Promise<void> {
   try {
     await supabase.from("downloads").update({ status: "processing" }).eq("id", id);
-    const result = await fetchDownloadLink(url, format);
+    const result = await fetchDownloadLink(url, format, (percent) => {
+      void supabase.from("downloads").update({ progress: percent }).eq("id", id);
+    });
     // Storing the provider's direct URL for now — provider-signed URLs can
     // expire, so re-hosting into Supabase Storage is the natural next step
     // if "Download Again" needs to keep working long-term.
     await supabase
       .from("downloads")
-      .update({ status: "complete", title: result.title, file_path: result.directUrl })
+      .update({ status: "complete", progress: 100, title: result.title, file_path: result.directUrl })
       .eq("id", id);
   } catch (error) {
-    console.error("[downloads] download failed:", error);
+    console.error(
+      "[downloads] download failed:",
+      error,
+      error instanceof Error && error.cause ? { cause: error.cause } : ""
+    );
     await supabase
       .from("downloads")
       .update({ status: "failed", error_message: humanizeVideoProviderError(error) })
@@ -51,12 +57,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
   }
 
-  const format = body.format === "mp3" ? "mp3" : "mp4";
+  const formatOption = getDownloadFormatOption(body.format ?? "");
+  if (!formatOption) {
+    return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
+  }
+  const format = formatOption.value;
 
   const platform = detectDownloadPlatform(url);
   if (!platform) {
     return NextResponse.json(
-      { error: "Only TikTok, YouTube, and Instagram links are supported" },
+      { error: "Only TikTok, YouTube, and Facebook links are supported" },
       { status: 400 }
     );
   }

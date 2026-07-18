@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AlertTriangle, Check, ClipboardPaste, Loader2, Wand2 } from "lucide-react";
 import type { NicheBendJobStatus, NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,46 @@ const LOADING_PHASES: { status: NicheBendJobStatus; label: string }[] = [
   { status: "generating_bends", label: "Generating your niche bends…" },
 ];
 
+// Steps through the loading phases on its own clock rather than waiting on
+// real backend timing: quick at first, then decelerating. The first couple
+// of phases land almost instantly (reads as "fast"), then it settles onto
+// the final phase and holds there — however long the job actually takes —
+// so it never lies about being done before the real result arrives.
+const PROGRESS_BASE_DELAY_MS = 380;
+const PROGRESS_DELAY_GROWTH = 1.7;
+
+function useFakeStepProgress(active: boolean, stepCount: number): number {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Scheduling the first step (i=0) through a zero-delay timeout, rather
+    // than calling setIndex directly here, keeps the reset out of the
+    // effect body itself so it can't trigger a synchronous cascading render.
+    const scheduleStep = (i: number, delay: number) => {
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        setIndex(i);
+        if (i < stepCount - 1) {
+          scheduleStep(i + 1, PROGRESS_BASE_DELAY_MS * PROGRESS_DELAY_GROWTH ** i);
+        }
+      }, delay);
+    };
+    scheduleStep(0, 0);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [active, stepCount]);
+
+  return active ? index : 0;
+}
+
 export type AnalyzeState = "idle" | "submitting" | "polling" | "error" | "manual-fallback";
 
 interface StepAnalyzeProps {
@@ -26,7 +67,6 @@ interface StepAnalyzeProps {
   videoType: NicheBendVideoType;
   onVideoTypeChange: (videoType: NicheBendVideoType) => void;
   analyzeState: AnalyzeState;
-  status: NicheBendJobStatus | null;
   errorMessage: string | null;
   onSubmit: () => void;
   onRetry: () => void;
@@ -42,7 +82,6 @@ export function StepAnalyze({
   videoType,
   onVideoTypeChange,
   analyzeState,
-  status,
   errorMessage,
   onSubmit,
   onRetry,
@@ -53,7 +92,7 @@ export function StepAnalyze({
   const detected = platform ?? detectPlatform(sourceUrl);
   const showValidation = sourceUrl.trim().length > 0 && !detected;
   const canSubmit = Boolean(detected) && analyzeState !== "submitting";
-  const phaseIndex = status ? LOADING_PHASES.findIndex((phase) => phase.status === status) : -1;
+  const phaseIndex = useFakeStepProgress(analyzeState === "polling", LOADING_PHASES.length);
 
   return (
     <div className="animate-bend-in mx-auto flex max-w-2xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
@@ -122,7 +161,7 @@ export function StepAnalyze({
         <div className="flex w-full flex-col gap-8">
           <div className="flex flex-col gap-3 text-left">
             {LOADING_PHASES.map((phase, i) => {
-              const isDone = phaseIndex > i || phaseIndex === -1;
+              const isDone = phaseIndex > i;
               const isCurrent = phaseIndex === i;
               return (
                 <div key={phase.status} className="flex items-center gap-3">

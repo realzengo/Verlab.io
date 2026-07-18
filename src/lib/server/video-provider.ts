@@ -1,5 +1,4 @@
 import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
-import { ApifyScraperError, fetchTikTokDownloadLinks } from "@/lib/server/apify-client";
 
 export type TranscriptPlatform = "tiktok" | "reels" | "shorts";
 
@@ -31,6 +30,24 @@ export class VideoProviderError extends Error {
     super(message);
     this.name = "VideoProviderError";
     this.code = code;
+  }
+}
+
+// `fetch` throws a bare TypeError ("fetch failed") for transient network
+// blips (DNS hiccup, connection reset) — these aren't real provider failures
+// and are worth a couple of quick retries before giving up and surfacing the
+// generic "something went wrong" error to the user.
+const NETWORK_RETRY_ATTEMPTS = 2;
+const NETWORK_RETRY_DELAY_MS = 500;
+
+async function fetchWithRetry(input: string | URL, init?: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(input, init);
+    } catch (error) {
+      if (attempt >= NETWORK_RETRY_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_DELAY_MS * (attempt + 1)));
+    }
   }
 }
 
@@ -76,7 +93,7 @@ async function scrapeCreatorsGet<T>(path: string, params: Record<string, string>
     endpoint.searchParams.set(key, value);
   }
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithRetry(endpoint, {
     headers: { "x-api-key": apiKey },
     signal: AbortSignal.timeout(60_000),
   });
@@ -290,13 +307,24 @@ async function scrapeCreatorsFetchInstagramTranscript(url: string): Promise<Tran
 // metadata endpoints the transcript fetchers above call, minus the transcript
 // request.
 
+export type VideoPreviewPlatform = "tiktok" | "youtube" | "instagram";
+
 export interface VideoPreviewResult {
-  platform: DownloadPlatform;
+  platform: VideoPreviewPlatform;
   title: string;
   author: string | null;
   thumbnailUrl: string;
   likes: string | null;
   comments: string | null;
+}
+
+function detectPreviewPlatform(rawUrl: string): VideoPreviewPlatform | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  if (/tiktok\.com/i.test(trimmed)) return "tiktok";
+  if (/(youtube\.com|youtu\.be)/i.test(trimmed)) return "youtube";
+  if (/instagram\.com/i.test(trimmed)) return "instagram";
+  return null;
 }
 
 function formatCompactCount(count: number | undefined): string | null {
@@ -360,7 +388,7 @@ async function scrapeCreatorsPreviewInstagram(url: string): Promise<VideoPreview
 }
 
 export async function fetchVideoPreview(url: string): Promise<VideoPreviewResult> {
-  const platform = detectDownloadPlatform(url);
+  const platform = detectPreviewPlatform(url);
   switch (platform) {
     case "tiktok":
       return scrapeCreatorsPreviewTikTok(url);
@@ -373,53 +401,20 @@ export async function fetchVideoPreview(url: string): Promise<VideoPreviewResult
   }
 }
 
-// --- Generic downloader aggregator — video/audio file resolution ----------
-// Transcript extraction (above) and raw file downloading are different
-// vendor categories (Supadata focuses on transcripts/metadata, not file
-// downloads). VIDEO_PROVIDER selects which downloader backend to call;
-// swap the request below for your chosen vendor's actual endpoint shape.
-
-async function genericFetchDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
-  const apiKey = process.env.SUPADATA_API_KEY;
-  if (!apiKey) {
-    throw new VideoProviderError("not_configured", "Missing SUPADATA_API_KEY");
-  }
-
-  const endpoint = new URL("https://api.supadata.ai/v1/download");
-  endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("format", format);
-
-  const response = await fetch(endpoint, {
-    headers: { "x-api-key": apiKey },
-  });
-
-  if (response.status === 404) {
-    throw new VideoProviderError("not_found", "Video not found");
-  }
-  if (response.status === 429) {
-    throw new VideoProviderError("rate_limited", "Rate limited by provider");
-  }
-  if (!response.ok) {
-    throw new VideoProviderError("provider_error", `Provider returned ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (!data.url) {
-    throw new VideoProviderError("provider_error", "Provider response missing a download URL");
-  }
-
-  return { title: data.title ?? "Untitled video", directUrl: data.url };
-}
-
-// --- video-download-api.com (p.savenow.to) — YouTube file downloads -------
-// Async job API: submit to /ajax/download.php, then poll /ajax/progress.php
-// (progress is in thousandths, 1000 = done) until download_url appears. See
+// --- video-download-api.com (p.savenow.to) — file downloads for every
+// supported platform (YouTube, TikTok, Facebook). Async job API: submit to
+// /ajax/download.php, then poll /ajax/progress.php (progress is in
+// thousandths, 1000 = done) until download_url appears. See
 // https://video-download-api.com/api/docs.
+//
+// Instagram is deliberately not routed here — verified against this
+// provider directly and it consistently fails ("text":"Failed") for real
+// Instagram post/reel URLs, unlike YouTube/TikTok/Facebook which return
+// working files.
 
 const SAVENOW_BASE_URL = "https://p.savenow.to";
 const SAVENOW_POLL_INTERVAL_MS = 2_000;
-const SAVENOW_POLL_TIMEOUT_MS = 90_000;
+const SAVENOW_POLL_TIMEOUT_MS = 180_000;
 
 interface SavenowDownloadResponse {
   success?: boolean;
@@ -434,14 +429,10 @@ interface SavenowProgressResponse {
   text?: string;
 }
 
-function savenowFormatFor(format: DownloadFormat): string {
-  return format === "mp3" ? "mp3" : "720";
-}
-
-async function savenowPollForDownloadUrl(id: string): Promise<string> {
+async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: number) => void): Promise<string> {
   const deadline = Date.now() + SAVENOW_POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const response = await fetch(`${SAVENOW_BASE_URL}/ajax/progress.php?id=${encodeURIComponent(id)}`, {
+    const response = await fetchWithRetry(`${SAVENOW_BASE_URL}/ajax/progress.php?id=${encodeURIComponent(id)}`, {
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
@@ -450,10 +441,23 @@ async function savenowPollForDownloadUrl(id: string): Promise<string> {
 
     const data = (await response.json()) as SavenowProgressResponse;
     if (data.download_url && (data.progress ?? 0) >= 1000) {
+      onProgress?.(100);
       return data.download_url;
     }
-    if (data.success === 0) {
-      throw new VideoProviderError("provider_error", data.text || "Download job failed");
+    // `success: 0` is the in-progress state, not a failure — it stays 0 until
+    // the job actually finishes (only then does it flip to 1 alongside
+    // progress reaching 1000), so it can't be used to detect a failed job.
+    // A terminal "Failed" job also reports progress 1000, but with no
+    // download_url — without this check it would spin here until the
+    // timeout below instead of surfacing the real failure.
+    if (!data.download_url && (data.progress ?? 0) >= 1000) {
+      throw new VideoProviderError(
+        "not_found",
+        "That video couldn't be downloaded — it may be private, deleted, or unsupported."
+      );
+    }
+    if (data.progress !== undefined) {
+      onProgress?.(Math.floor(data.progress / 10));
     }
 
     await new Promise((resolve) => setTimeout(resolve, SAVENOW_POLL_INTERVAL_MS));
@@ -461,7 +465,11 @@ async function savenowPollForDownloadUrl(id: string): Promise<string> {
   throw new VideoProviderError("provider_error", "Timed out waiting for the video to be ready");
 }
 
-async function savenowFetchYoutubeDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+async function savenowFetchDownloadLink(
+  url: string,
+  format: DownloadFormat,
+  onProgress?: (percent: number) => void
+): Promise<DownloadResult> {
   const apiKey = process.env.SAVENOW_API_KEY;
   if (!apiKey) {
     throw new VideoProviderError("not_configured", "Missing SAVENOW_API_KEY");
@@ -469,11 +477,11 @@ async function savenowFetchYoutubeDownloadLink(url: string, format: DownloadForm
 
   const endpoint = new URL("/ajax/download.php", SAVENOW_BASE_URL);
   endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("format", savenowFormatFor(format));
+  endpoint.searchParams.set("format", format);
   endpoint.searchParams.set("apikey", apiKey);
   endpoint.searchParams.set("add_info", "1");
 
-  const response = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+  const response = await fetchWithRetry(endpoint, { signal: AbortSignal.timeout(30_000) });
   if (response.status === 429) {
     throw new VideoProviderError("rate_limited", "Rate limited by provider");
   }
@@ -490,7 +498,7 @@ async function savenowFetchYoutubeDownloadLink(url: string, format: DownloadForm
     throw new VideoProviderError("provider_error", "Video Download API did not return a job id");
   }
 
-  const directUrl = await savenowPollForDownloadUrl(data.id);
+  const directUrl = await savenowPollForDownloadUrl(data.id, onProgress);
   return { title: data.info?.title?.trim() || "Untitled video", directUrl };
 }
 
@@ -508,7 +516,7 @@ export function detectDownloadPlatform(rawUrl: string): DownloadPlatform | null 
   if (!trimmed) return null;
   if (/tiktok\.com/i.test(trimmed)) return "tiktok";
   if (/(youtube\.com|youtu\.be)/i.test(trimmed)) return "youtube";
-  if (/instagram\.com/i.test(trimmed)) return "instagram";
+  if (/(facebook\.com|fb\.watch)/i.test(trimmed)) return "facebook";
   return null;
 }
 
@@ -526,42 +534,16 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
   }
 }
 
-async function apifyFetchTikTokDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
-  try {
-    const links = await fetchTikTokDownloadLinks(url);
-    const directUrl = format === "mp3" ? links.audioUrl : links.videoUrl;
-    if (!directUrl) {
-      throw new VideoProviderError("provider_error", "No audio track available for that video");
-    }
-    return { title: links.title, directUrl };
-  } catch (error) {
-    if (error instanceof ApifyScraperError) {
-      throw new VideoProviderError(error.code, error.message);
-    }
-    throw error;
-  }
-}
-
-export async function fetchDownloadLink(url: string, format: DownloadFormat): Promise<DownloadResult> {
+export async function fetchDownloadLink(
+  url: string,
+  format: DownloadFormat,
+  onProgress?: (percent: number) => void
+): Promise<DownloadResult> {
   const platform = detectDownloadPlatform(url);
-
-  // The Apify TikTok downloader returns direct, watermark-free file links
-  // (HD video + original audio track), so TikTok always goes through it.
-  if (platform === "tiktok") {
-    return apifyFetchTikTokDownloadLink(url, format);
+  if (!platform) {
+    throw new VideoProviderError("unsupported_url", "Unsupported video URL");
   }
-
-  // video-download-api.com only covers YouTube; Instagram still goes through
-  // the generic VIDEO_PROVIDER backend below.
-  if (platform === "youtube") {
-    return savenowFetchYoutubeDownloadLink(url, format);
-  }
-
-  const provider = process.env.VIDEO_PROVIDER ?? "supadata";
-  if (provider !== "supadata") {
-    throw new VideoProviderError("not_configured", `Unknown VIDEO_PROVIDER "${provider}"`);
-  }
-  return genericFetchDownloadLink(url, format);
+  return savenowFetchDownloadLink(url, format, onProgress);
 }
 
 export { humanizeVideoProviderError };

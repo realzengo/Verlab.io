@@ -1,28 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Download, Loader2, Play } from "lucide-react";
-import type { VideoPreviewResult } from "@/lib/server/video-provider";
+import Link from "next/link";
+import { ArrowRight, Check, CloudDownload, Download, Eye, Link2, Loader2, RotateCcw, X } from "lucide-react";
+import type { DownloadFormat } from "@/lib/types";
+
+// Always download at the highest quality reliably available for any video —
+// higher tiers (4K/8K) fail outright for sources that don't have them.
+const DOWNLOAD_FORMAT: DownloadFormat = "1080";
 
 const SUPPORTED_PLATFORMS = [
-  { id: "youtube", label: "YouTube", logo: "/logos/social/youtube.png" },
-  { id: "instagram", label: "Instagram", logo: "/logos/social/instagram.png" },
-  { id: "tiktok", label: "TikTok", logo: "/logos/social/tiktok.png" },
-  { id: "facebook", label: "Facebook", logo: "/logos/social/facebook.png" },
+  { id: "youtube", label: "YouTube", logo: "/logos/social/youtube.png", match: /youtube\.com|youtu\.be/i },
+  { id: "tiktok", label: "TikTok", logo: "/logos/social/tiktok.png", match: /tiktok\.com/i },
+  { id: "facebook", label: "Facebook", logo: "/logos/social/facebook.png", match: /facebook\.com|fb\.watch/i },
 ] as const;
 
-const PLATFORM_LOGO: Record<VideoPreviewResult["platform"], { logo: string; label: string }> = {
-  youtube: { logo: "/logos/social/youtube.png", label: "YouTube" },
-  instagram: { logo: "/logos/social/instagram.png", label: "Instagram" },
-  tiktok: { logo: "/logos/social/tiktok.png", label: "TikTok" },
-};
+function detectPlatform(url: string): (typeof SUPPORTED_PLATFORMS)[number] | null {
+  return SUPPORTED_PLATFORMS.find((platform) => platform.match.test(url)) ?? null;
+}
 
 const POLL_INTERVAL_MS = 2_000;
-const PREVIEW_DEBOUNCE_MS = 500;
+
+// Simulated progress: jumps quickly at first, then eases off — never
+// reaching PROGRESS_CAP on its own so it doesn't look "done" before the
+// real job actually finishes (which snaps it to 100 immediately).
+const PROGRESS_CAP = 92;
+const PROGRESS_TIME_CONSTANT_MS = 3_500;
+const PROGRESS_TICK_MS = 150;
+
+// Number of bars drawn in the "Downloading your Video..." popup's segmented
+// progress meter.
+const PROGRESS_SEGMENT_COUNT = 28;
 
 interface DownloadStatus {
   status: "queued" | "processing" | "complete" | "failed";
+  progress: number | null;
   title: string | null;
   file_path: string | null;
   error_message: string | null;
@@ -41,87 +54,114 @@ function triggerBrowserDownload(fileUrl: string): void {
   link.remove();
 }
 
+// idle: nothing to prepare yet. preparing: job running, popup shows progress.
+// ready: file is on the server, popup shows the download-complete card.
+type PrepState = "idle" | "preparing" | "ready" | "error";
+
 export function VideoDownloader() {
   const [url, setUrl] = useState("");
-  const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [state, setState] = useState<PrepState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<VideoPreviewResult | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [readyId, setReadyId] = useState<string | null>(null);
+  const [popupDismissed, setPopupDismissed] = useState(false);
+  const detectedPlatform = detectPlatform(url.trim());
 
-  useEffect(() => {
-    const trimmedUrl = url.trim();
-    if (trimmedUrl.length <= 10) return;
+  // Bumped whenever the in-flight job should be abandoned (url changed
+  // mid-prepare) so a stale poll loop can't overwrite newer state.
+  const jobToken = useRef(0);
 
-    const controller = new AbortController();
-
-    const timeoutId = setTimeout(async () => {
-      setPreviewLoading(true);
-      try {
-        const response = await fetch(`/api/downloads/preview?url=${encodeURIComponent(trimmedUrl)}`, {
-          signal: controller.signal,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setThumbnailFailed(false);
-        setPreview(data.preview as VideoPreviewResult);
-      } catch (err) {
-        // Preview is best-effort (a slow/flaky third-party lookup) and never
-        // blocks the actual download below, so failures just clear the card
-        // instead of surfacing an alarming error to the user.
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setPreview(null);
-      } finally {
-        setPreviewLoading(false);
-      }
-    }, PREVIEW_DEBOUNCE_MS);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timeoutId);
-    };
-  }, [url]);
-
-  async function handleDownload() {
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl || state === "working") return;
-
-    setState("working");
+  async function prepare(targetUrl: string, myToken: number) {
+    setState("preparing");
     setError(null);
+    setProgress(0);
+    setReadyId(null);
+    setPopupDismissed(false);
 
     try {
       const createResponse = await fetch("/api/downloads/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmedUrl, format: "mp4" }),
+        body: JSON.stringify({ url: targetUrl, format: DOWNLOAD_FORMAT }),
       });
       const createData = await createResponse.json();
       if (!createResponse.ok) {
         throw new Error(createData.error ?? "Could not start download");
       }
+      if (jobToken.current !== myToken) return;
 
       const id = createData.id as string;
       while (true) {
         await wait(POLL_INTERVAL_MS);
+        if (jobToken.current !== myToken) return;
+
         const statusResponse = await fetch(`/api/downloads/status/${id}`);
         const statusData = await statusResponse.json();
+        if (jobToken.current !== myToken) return;
         if (!statusResponse.ok) {
           throw new Error(statusData.error ?? "Could not check download status");
         }
 
         const download = statusData.download as DownloadStatus;
         if (download.status === "complete" && download.file_path) {
-          setState("done");
-          triggerBrowserDownload(`/api/downloads/file/${id}`);
+          setProgress(100);
+          setReadyId(id);
+          setState("ready");
           return;
         }
         if (download.status === "failed") {
           throw new Error(download.error_message ?? "That download failed");
         }
+        // Real provider progress arrives in lumpy jumps (long stalls at 0,
+        // then a sudden leap) — driving the bar off it looks broken. Instead
+        // a simulated curve (below) fills fast up front and eases off, so it
+        // always looks alive; this branch just keeps polling for completion.
       }
     } catch (err) {
+      if (jobToken.current !== myToken) return;
       setError(err instanceof Error ? err.message : "Something went wrong");
       setState("error");
+    }
+  }
+
+  // Abandons any in-flight job and drops the UI back to idle — called
+  // synchronously from the input handler (not an effect) so the progress
+  // bar clears the instant the user edits the url.
+  function resetJob() {
+    jobToken.current += 1;
+    setState("idle");
+    setError(null);
+    setProgress(null);
+    setReadyId(null);
+    setPopupDismissed(false);
+  }
+
+  // Drives the visible bar while a job is in flight: fast climb early on,
+  // decelerating toward PROGRESS_CAP. Real completion (in `prepare`) snaps
+  // straight to 100 regardless of where this simulated curve has gotten to.
+  useEffect(() => {
+    if (state !== "preparing") return;
+
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const eased = PROGRESS_CAP * (1 - Math.exp(-elapsed / PROGRESS_TIME_CONSTANT_MS));
+      setProgress(Math.round(eased));
+    }, PROGRESS_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [state]);
+
+  // The compact arrow button: starts a job from idle/error, or re-opens the
+  // popup if the job already finished and got dismissed.
+  function handleTriggerClick() {
+    if (state === "ready") {
+      setPopupDismissed(false);
+      return;
+    }
+    const trimmedUrl = url.trim();
+    if ((state === "idle" || state === "error") && trimmedUrl && detectPlatform(trimmedUrl)) {
+      void prepare(trimmedUrl, ++jobToken.current);
     }
   }
 
@@ -132,81 +172,63 @@ export function VideoDownloader() {
           Video Downloader
         </h1>
         <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400 sm:text-base">
-          Download videos from YouTube, Instagram, TikTok, and Facebook. 10 downloads use 1
-          credit.
+          Download videos from YouTube, TikTok, and Facebook. 10 downloads use 1 credit.
         </p>
       </div>
 
       <div className="mt-6 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/30 dark:backdrop-blur-md sm:mt-10 sm:p-12">
-        <input
-          type="url"
-          inputMode="url"
-          autoCapitalize="off"
-          autoCorrect="off"
-          value={url}
-          onChange={(event) => {
-            const nextUrl = event.target.value;
-            setUrl(nextUrl);
-            if (state !== "idle") setState("idle");
-            if (nextUrl.trim().length <= 10) {
-              setPreview(null);
-              setPreviewLoading(false);
+        <div className="flex items-stretch gap-2">
+          <input
+            type="url"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            value={url}
+            onChange={(event) => {
+              resetJob();
+              setUrl(event.target.value);
+            }}
+            placeholder="Paste video URL here..."
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:px-5 sm:py-4"
+          />
+
+          <button
+            type="button"
+            onClick={handleTriggerClick}
+            disabled={state === "preparing" || ((state === "idle" || state === "error") && !detectedPlatform)}
+            aria-label={
+              state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
             }
-          }}
-          placeholder="Paste video URL here..."
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:px-5 sm:py-4"
-        />
-
-        {previewLoading && (
-          <div className="mt-4 flex aspect-video w-full animate-pulse items-center justify-center rounded-xl border border-slate-200 bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400 dark:text-zinc-600" />
-          </div>
-        )}
-
-        {!previewLoading && preview && (
-          <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-900 dark:border-zinc-800">
-            {preview.thumbnailUrl && !thumbnailFailed && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={preview.thumbnailUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                onError={() => setThumbnailFailed(true)}
-                className="h-full w-full object-cover"
-              />
+            className={`flex w-14 shrink-0 items-center justify-center rounded-xl text-white transition-[background-color,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16 ${
+              state === "ready"
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-primary hover:bg-primary-hover"
+            }`}
+          >
+            {state === "preparing" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : state === "ready" ? (
+              <Check className="h-5 w-5" />
+            ) : state === "error" ? (
+              <RotateCcw className="h-5 w-5" />
+            ) : (
+              <ArrowRight className="h-5 w-5" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+          </button>
+        </div>
 
-            <div className="absolute inset-0 m-auto flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md">
-              <Play className="h-5 w-5 fill-white" />
-            </div>
-
-            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
-              <Image
-                src={PLATFORM_LOGO[preview.platform].logo}
-                alt=""
-                width={12}
-                height={12}
-                className="h-3 w-3 object-contain"
-              />
-              {PLATFORM_LOGO[preview.platform].label}
-            </div>
+        {detectedPlatform && (
+          <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
+            <Image
+              src={detectedPlatform.logo}
+              alt=""
+              width={16}
+              height={16}
+              className="h-4 w-4 object-contain"
+            />
+            {detectedPlatform.label}
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={state === "working"}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-white transition-[background-color,transform] hover:bg-primary-hover hover:-translate-y-px active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none disabled:hover:translate-y-0 sm:px-5 sm:py-4"
-        >
-          {state === "working" ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Download className="h-5 w-5" />
-          )}
-          {state === "working" ? "Downloading..." : "Download"}
-        </button>
 
         {state === "error" && error && (
           <p className="mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -222,6 +244,124 @@ export function VideoDownloader() {
           ))}
         </div>
       </div>
+
+      {(state === "preparing" || state === "ready") && !popupDismissed && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
+          onClick={() => setPopupDismissed(true)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-zinc-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {state === "preparing" ? (
+              <div className="p-6 pt-4">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={resetJob}
+                    aria-label="Cancel download"
+                    className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mx-auto -mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
+                  <CloudDownload className="h-8 w-8 text-white" />
+                </div>
+
+                <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">
+                  Downloading your Video...
+                </h3>
+
+                <div className="mt-5 flex items-center gap-[3px]">
+                  {Array.from({ length: PROGRESS_SEGMENT_COUNT }).map((_, index) => {
+                    const filled = index < Math.round(((progress ?? 0) / 100) * PROGRESS_SEGMENT_COUNT);
+                    return (
+                      <span
+                        key={index}
+                        className={`h-2 flex-1 rounded-full transition-colors duration-300 ${
+                          filled ? "bg-primary" : "bg-slate-200 dark:bg-zinc-800"
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400">
+                  After completion, view in{" "}
+                  <Link
+                    href="/app/library"
+                    className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+                  >
+                    Library
+                    <Link2 className="h-3 w-3" />
+                  </Link>
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-zinc-800">
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white">Download Complete</h3>
+                  <button
+                    type="button"
+                    onClick={() => setPopupDismissed(true)}
+                    aria-label="Close"
+                    className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/10">
+                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+
+                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">Video ready!</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
+                    Your video has been processed successfully
+                  </p>
+
+                  <div className="mt-5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        readyId &&
+                        window.open(
+                          `/api/downloads/file/${readyId}?disposition=inline`,
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 px-2 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+                    >
+                      <Eye className="h-4 w-4 shrink-0" />
+                      Open in new tab
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => readyId && triggerBrowserDownload(`/api/downloads/file/${readyId}`)}
+                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary px-2 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
+                    >
+                      <Download className="h-4 w-4 shrink-0" />
+                      Download
+                    </button>
+                  </div>
+
+                  <p className="mt-4 text-xs text-slate-500 dark:text-zinc-400">
+                    View all downloads in{" "}
+                    <Link href="/app/library" className="font-medium text-primary hover:underline">
+                      Library
+                    </Link>
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

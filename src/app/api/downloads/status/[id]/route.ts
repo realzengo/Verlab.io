@@ -17,7 +17,7 @@ export async function GET(
 
   const { data } = await supabase
     .from("downloads")
-    .select("id, source_url, platform, format, status, title, file_path, error_message, created_at")
+    .select("id, source_url, platform, format, status, progress, title, file_path, error_message, created_at")
     .eq("id", id)
     .maybeSingle();
 

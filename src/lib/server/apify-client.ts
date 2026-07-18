@@ -15,7 +15,6 @@ export class ApifyScraperError extends Error {
 const APIFY_BASE_URL = "https://api.apify.com/v2";
 const YOUTUBE_ACTOR = "streamers~youtube-scraper";
 const TIKTOK_ACTOR = "clockworks~tiktok-profile-scraper";
-const TIKTOK_DOWNLOADER_ACTOR = "api-ninja~tiktok-video-downloader";
 
 export function humanizeViewCount(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -189,69 +188,3 @@ export async function scrapeChannelVideos(
   };
 }
 
-interface TikTokDownloaderResult {
-  code?: number;
-  msg?: string;
-  data?: {
-    title?: string;
-    title_new?: string;
-    play?: string; // no-watermark, standard quality
-    hdplay?: string; // no-watermark, HD quality
-    music?: string; // background audio track
-    duration?: number;
-    cover?: string;
-  };
-}
-
-export interface TikTokDownloadLinks {
-  title: string;
-  videoUrl: string;
-  audioUrl: string | null;
-  coverUrl: string;
-  durationSeconds: number;
-}
-
-// The actor also accepts profile handles/URLs and silently expands them to
-// every published video on that account, billing per video returned. Reject
-// anything that isn't clearly a single-video link so a pasted profile URL
-// can't trigger an unbounded (and unbudgeted) bulk scrape.
-const TIKTOK_VIDEO_URL_PATTERN = /tiktok\.com\/@[^/?#]+\/(video|photo)\/\d+/i;
-const TIKTOK_SHORT_LINK_PATTERN = /(?:vm|vt|m)\.tiktok\.com\//i;
-
-function assertSingleTikTokVideoUrl(url: string): void {
-  if (TIKTOK_VIDEO_URL_PATTERN.test(url) || TIKTOK_SHORT_LINK_PATTERN.test(url)) return;
-  throw new ApifyScraperError(
-    "unsupported_url",
-    "Paste a link to a single TikTok video, not a profile — profile links download every video on that account."
-  );
-}
-
-// api-ninja~tiktok-video-downloader mirrors the tikwm.com response shape:
-// `hdplay`/`play` are watermark-free video links, `music` is the track used
-// in the video (there's no separate "video audio" — TikTok downloaders treat
-// this as the mp3 download).
-export async function fetchTikTokDownloadLinks(url: string): Promise<TikTokDownloadLinks> {
-  assertSingleTikTokVideoUrl(url);
-
-  const [item] = await runActor<TikTokDownloaderResult>(TIKTOK_DOWNLOADER_ACTOR, {
-    videoUrls: [url],
-    ttl: "none",
-  });
-
-  if (!item || item.code !== 0 || !item.data) {
-    throw new ApifyScraperError("not_found", item?.msg || "That TikTok video couldn't be found.");
-  }
-
-  const videoUrl = item.data.hdplay || item.data.play;
-  if (!videoUrl) {
-    throw new ApifyScraperError("provider_error", "Downloader did not return a video file URL.");
-  }
-
-  return {
-    title: item.data.title?.trim() || item.data.title_new?.trim() || "Untitled video",
-    videoUrl,
-    audioUrl: item.data.music ?? null,
-    coverUrl: item.data.cover ?? "",
-    durationSeconds: item.data.duration ?? 0,
-  };
-}

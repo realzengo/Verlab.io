@@ -129,8 +129,37 @@ export interface TranscriptRow {
   created_at: string;
 }
 
-export type DownloadPlatform = "tiktok" | "youtube" | "instagram";
-export type DownloadFormat = "mp4" | "mp3";
+export type DownloadPlatform = "tiktok" | "youtube" | "facebook";
+
+// Matches the format codes video-download-api.com accepts (a curated subset
+// of their full list — see https://video-download-api.com/api/docs).
+export type DownloadFormat = "mp3" | "m4a" | "aac" | "flac" | "wav" | "360" | "720" | "1080" | "1440" | "mp44k" | "mp48k";
+
+export interface DownloadFormatOption {
+  value: DownloadFormat;
+  label: string;
+  kind: "audio" | "video";
+  extension: string;
+  contentType: string;
+}
+
+export const DOWNLOAD_FORMAT_OPTIONS: DownloadFormatOption[] = [
+  { value: "mp3", label: "MP3", kind: "audio", extension: "mp3", contentType: "audio/mpeg" },
+  { value: "m4a", label: "M4A", kind: "audio", extension: "m4a", contentType: "audio/mp4" },
+  { value: "360", label: "MP4 360p", kind: "video", extension: "mp4", contentType: "video/mp4" },
+  { value: "720", label: "MP4 720p", kind: "video", extension: "mp4", contentType: "video/mp4" },
+  { value: "1080", label: "MP4 1080p", kind: "video", extension: "mp4", contentType: "video/mp4" },
+  { value: "1440", label: "MP4 1440p", kind: "video", extension: "mp4", contentType: "video/mp4" },
+  { value: "aac", label: "AAC", kind: "audio", extension: "aac", contentType: "audio/aac" },
+  { value: "flac", label: "FLAC", kind: "audio", extension: "flac", contentType: "audio/flac" },
+  { value: "wav", label: "WAV", kind: "audio", extension: "wav", contentType: "audio/wav" },
+  { value: "mp44k", label: "MP4 4K", kind: "video", extension: "mp4", contentType: "video/mp4" },
+  { value: "mp48k", label: "MP4 8K", kind: "video", extension: "mp4", contentType: "video/mp4" },
+];
+
+export function getDownloadFormatOption(format: string): DownloadFormatOption | undefined {
+  return DOWNLOAD_FORMAT_OPTIONS.find((option) => option.value === format);
+}
 
 export interface DownloadItem {
   id: string;
