@@ -26,6 +26,7 @@ import type { TranscriptRow, TranscriptRowStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
 import { TikTokIcon, InstagramIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
@@ -328,11 +329,13 @@ function RowMenu({
   viewDisabled,
   onExport,
   exportDisabled,
+  onDelete,
 }: {
   onView: () => void;
   viewDisabled: boolean;
   onExport: () => void;
   exportDisabled: boolean;
+  onDelete: () => void;
 }) {
   const { open, setOpen, anchorRef, menuRef, style } = useAnchoredMenu();
 
@@ -370,7 +373,10 @@ function RowMenu({
             <div className="my-1 border-t border-hairline" />
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                onDelete();
+                setOpen(false);
+              }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-danger hover:bg-danger-tint"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -386,9 +392,11 @@ function RowMenu({
 export function TranscriptHistoryTable({
   rows,
   onOpenRow,
+  onDeleteRows,
 }: {
   rows: TranscriptRow[];
   onOpenRow: (row: TranscriptRow) => void;
+  onDeleteRows: (ids: string[]) => void | Promise<void>;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
@@ -398,6 +406,8 @@ export function TranscriptHistoryTable({
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [folderOverrides, setFolderOverrides] = useState<Record<string, string | null>>({});
+  const [deleting, setDeleting] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
 
   const meta = useMemo(() => {
     const map = new Map<string, PlaceholderMeta>();
@@ -460,6 +470,34 @@ export function TranscriptHistoryTable({
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function exportSelected() {
+    const selectedRows = filtered.filter((row) => selected.has(row.id) && row.lines?.length);
+    selectedRows.forEach((row, index) => setTimeout(() => exportRow(row), index * 150));
+  }
+
+  function requestDelete(ids: string[]) {
+    if (ids.length === 0 || deleting) return;
+    setPendingDeleteIds(ids);
+  }
+
+  async function confirmDelete() {
+    const ids = pendingDeleteIds;
+    if (!ids) return;
+
+    setDeleting(true);
+    try {
+      await onDeleteRows(ids);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    } finally {
+      setDeleting(false);
+      setPendingDeleteIds(null);
+    }
   }
 
   return (
@@ -534,10 +572,18 @@ export function TranscriptHistoryTable({
         <div className="flex items-center justify-between gap-3 rounded-card-sm border border-primary/20 bg-accent px-4 py-2.5">
           <p className="text-sm font-semibold text-primary">{selected.size} selected</p>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" bevel={false} className="shadow-none" icon={Download} onClick={() => setSelected(new Set())}>
+            <Button variant="secondary" size="sm" bevel={false} className="shadow-none" icon={Download} onClick={exportSelected}>
               Export
             </Button>
-            <Button variant="secondary" size="sm" bevel={false} className="shadow-none" icon={Trash2} onClick={() => setSelected(new Set())}>
+            <Button
+              variant="secondary"
+              size="sm"
+              bevel={false}
+              className="shadow-none"
+              icon={Trash2}
+              disabled={deleting}
+              onClick={() => requestDelete(Array.from(selected))}
+            >
               Delete
             </Button>
             <Button variant="ghost" size="sm" bevel={false} className="shadow-none" icon={X} onClick={() => setSelected(new Set())}>
@@ -665,6 +711,7 @@ export function TranscriptHistoryTable({
                         viewDisabled={!isComplete}
                         onExport={() => exportRow(row)}
                         exportDisabled={!row.lines?.length}
+                        onDelete={() => requestDelete([row.id])}
                       />
                     </div>
                   </TableCell>
@@ -674,6 +721,20 @@ export function TranscriptHistoryTable({
           </tbody>
         </Table>
       )}
+
+      <ConfirmDialog
+        isOpen={pendingDeleteIds !== null}
+        onClose={() => setPendingDeleteIds(null)}
+        onConfirm={confirmDelete}
+        title="Delete transcripts"
+        description={
+          pendingDeleteIds && pendingDeleteIds.length === 1
+            ? "Are you sure you want to delete this transcript? This cannot be undone."
+            : `Are you sure you want to delete these ${pendingDeleteIds?.length ?? 0} transcripts? This cannot be undone.`
+        }
+        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        danger
+      />
     </div>
   );
 }

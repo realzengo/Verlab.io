@@ -189,7 +189,7 @@ export function VideoDownloader() {
               setUrl(event.target.value);
             }}
             placeholder="Paste video URL here..."
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:px-5 sm:py-4"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:px-5 sm:py-4"
           />
 
           <button

@@ -178,6 +178,20 @@ export default function TranscriptsPage() {
     }
   }
 
+  async function handleDeleteRows(ids: string[]) {
+    const res = await fetch("/api/transcripts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) return;
+    setRows((prev) => prev.filter((row) => !ids.includes(row.id)));
+    if (activeRow && ids.includes(activeRow.id)) {
+      setActiveRow(null);
+      setView("history");
+    }
+  }
+
   function pollUntilSettled(id: string) {
     const interval = setInterval(async () => {
       const res = await fetch(`/api/transcripts/status/${id}`);
@@ -373,6 +387,7 @@ export default function TranscriptsPage() {
                 openRow(row);
                 setView("result");
               }}
+              onDeleteRows={handleDeleteRows}
             />
           )}
         </>
