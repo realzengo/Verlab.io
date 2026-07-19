@@ -183,9 +183,9 @@ const TOOLS = [
     preview: <TranscriptPreview />,
   },
   {
-    title: "Script Maker",
-    description: "Generate ready-to-film scripts — hook, body, and CTA — from a bent SOP.",
-    href: "/app/bend",
+    title: "Scriptwriter",
+    description: "Create engaging scripts for your videos with AI-powered writing assistance.",
+    href: "/app/scripts",
     preview: <ScriptPreview />,
     beta: true,
   },

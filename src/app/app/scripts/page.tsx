@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 const PLACEHOLDER =
-  "Describe your video, make sure to explain the product being sold, and add reference videos.";
+  "Describe the video you want to create, and add reference videos to help write a viral script.";
 
 // Simulated progress: jumps quickly at first, then eases off — never
 // reaching PROGRESS_CAP on its own so it doesn't look "done" before the
@@ -124,7 +124,7 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
       className={cn(
-        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-slate-50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.1)] transition-colors hover:bg-slate-200/70 dark:bg-zinc-900/50 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:hover:bg-zinc-800",
+        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-slate-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.1)] transition-colors hover:bg-slate-200/70 dark:bg-zinc-900 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:hover:bg-zinc-800",
         isDragOver && "bg-slate-200/70 dark:bg-zinc-800",
         isUploading && "pointer-events-none opacity-70"
       )}
@@ -410,14 +410,16 @@ export default function ScriptWriterPage() {
     <div className="relative isolate">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-56 w-[90vw] -translate-x-1/2 rounded-full bg-blue-400/40 blur-[70px] dark:bg-blue-500/25 sm:-top-56 sm:h-80 sm:w-[40rem] sm:blur-[100px]"
+        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-400/40 blur-[90px] dark:bg-blue-500/25 sm:-top-40 sm:h-72 sm:blur-[120px]"
       />
 
       <div className="relative mx-auto w-full max-w-3xl pt-8 sm:pt-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Create New Script</h1>
-        <p className="mt-2 text-slate-500">{PLACEHOLDER}</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Scriptwriter</h1>
+        <p className="mt-2 text-slate-500">
+          Create engaging scripts for your videos with AI-powered writing assistance.
+        </p>
       </div>
 
       {/* Prompter */}

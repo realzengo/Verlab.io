@@ -126,6 +126,7 @@ export interface TranscriptRow {
   video_url: string | null;
   embed_url: string | null;
   lines: TranscriptLine[] | null;
+  error_message: string | null;
   created_at: string;
 }
 

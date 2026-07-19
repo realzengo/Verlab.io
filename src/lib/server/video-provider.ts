@@ -21,7 +21,13 @@ export interface DownloadResult {
   directUrl: string;
 }
 
-export type VideoProviderErrorCode = "unsupported_url" | "rate_limited" | "not_found" | "provider_error" | "not_configured";
+export type VideoProviderErrorCode =
+  | "unsupported_url"
+  | "rate_limited"
+  | "not_found"
+  | "no_captions"
+  | "provider_error"
+  | "not_configured";
 
 export class VideoProviderError extends Error {
   code: VideoProviderErrorCode;
@@ -60,6 +66,8 @@ function humanizeVideoProviderError(error: unknown): string {
         return "We're processing a lot of requests right now — try again in a moment.";
       case "not_found":
         return "That video couldn't be found — it may be private or deleted.";
+      case "no_captions":
+        return "That video doesn't have any captions or subtitles available to extract.";
       case "not_configured":
         return "This feature isn't configured yet. Contact support.";
       default:
@@ -179,19 +187,35 @@ interface ScrapeCreatorsTikTokVideo {
       origin_cover?: ScrapeCreatorsUrlList;
       play_addr?: ScrapeCreatorsUrlList;
       download_no_watermark_addr?: ScrapeCreatorsUrlList;
+      cla_info?: {
+        original_language_info?: {
+          language_code?: string;
+        };
+      };
     };
   };
 }
 
 async function scrapeCreatorsFetchTikTokTranscript(url: string): Promise<TranscriptResult> {
-  const [transcriptRes, videoRes] = await Promise.all([
-    scrapeCreatorsGet<ScrapeCreatorsTikTokTranscript>("/v1/tiktok/video/transcript", { url }),
-    scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url }),
-  ]);
+  // Fetch video metadata first: without an explicit `language`, the
+  // transcript endpoint defaults to serving TikTok's auto-translated (often
+  // English) caption track instead of the video's own spoken language. The
+  // video metadata call exposes that original language code, so we pass it
+  // through explicitly to get the true original-language transcript.
+  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url });
+  const originalLanguage = videoRes.aweme_detail?.video?.cla_info?.original_language_info?.language_code;
+
+  const transcriptParams: Record<string, string> = { url };
+  if (originalLanguage) transcriptParams.language = originalLanguage;
+
+  const transcriptRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokTranscript>(
+    "/v1/tiktok/video/transcript",
+    transcriptParams
+  );
 
   const lines = parseSubtitles(transcriptRes.transcript ?? "");
   if (lines.length === 0) {
-    throw new VideoProviderError("not_found", "No transcript available for that video");
+    throw new VideoProviderError("no_captions", "No transcript available for that video");
   }
 
   const video = videoRes.aweme_detail?.video;
@@ -215,11 +239,17 @@ interface ScrapeCreatorsYoutubeTranscript {
   transcript?: ScrapeCreatorsYoutubeTranscriptSegment[];
 }
 
+interface ScrapeCreatorsYoutubeCaptionTrack {
+  languageCode?: string;
+  kind?: string; // "asr" marks the auto-generated track transcribed from actual speech (the original language)
+}
+
 interface ScrapeCreatorsYoutubeVideo {
   id?: string;
   title?: string;
   thumbnail?: string;
   durationMs?: number;
+  captionTracks?: ScrapeCreatorsYoutubeCaptionTrack[];
 }
 
 function extractYoutubeVideoId(rawUrl: string): string | null {
@@ -230,10 +260,22 @@ function extractYoutubeVideoId(rawUrl: string): string | null {
 }
 
 async function scrapeCreatorsFetchYoutubeShortsTranscript(url: string): Promise<TranscriptResult> {
-  const [transcriptRes, videoRes] = await Promise.all([
-    scrapeCreatorsGet<ScrapeCreatorsYoutubeTranscript>("/v1/youtube/video/transcript", { url }),
-    scrapeCreatorsGet<ScrapeCreatorsYoutubeVideo>("/v1/youtube/video", { url }),
-  ]);
+  // Fetch video metadata first so we can pin the transcript request to the
+  // "asr" (auto-generated from speech) caption track's language — otherwise
+  // the transcript endpoint's default can hand back an auto-translated
+  // track instead of the video's actual spoken language.
+  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsYoutubeVideo>("/v1/youtube/video", { url });
+  const originalLanguage =
+    videoRes.captionTracks?.find((track) => track.kind === "asr")?.languageCode ??
+    videoRes.captionTracks?.[0]?.languageCode;
+
+  const transcriptParams: Record<string, string> = { url };
+  if (originalLanguage) transcriptParams.language = originalLanguage;
+
+  const transcriptRes = await scrapeCreatorsGet<ScrapeCreatorsYoutubeTranscript>(
+    "/v1/youtube/video/transcript",
+    transcriptParams
+  );
 
   const lines: TranscriptLineResult[] = (transcriptRes.transcript ?? [])
     .filter((segment) => segment.text?.trim())
@@ -243,7 +285,7 @@ async function scrapeCreatorsFetchYoutubeShortsTranscript(url: string): Promise<
     }));
 
   if (lines.length === 0) {
-    throw new VideoProviderError("not_found", "No transcript available for that video");
+    throw new VideoProviderError("no_captions", "No transcript available for that video");
   }
 
   const videoId = videoRes.id ?? extractYoutubeVideoId(url);
@@ -286,7 +328,7 @@ async function scrapeCreatorsFetchInstagramTranscript(url: string): Promise<Tran
 
   const text = transcriptRes.transcripts?.[0]?.text?.trim();
   if (!text) {
-    throw new VideoProviderError("not_found", "No transcript available for that video");
+    throw new VideoProviderError("no_captions", "No transcript available for that video");
   }
 
   const media = postRes.data?.xdt_shortcode_media;

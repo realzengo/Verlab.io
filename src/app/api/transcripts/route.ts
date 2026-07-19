@@ -13,7 +13,9 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("transcripts")
-    .select("id, source_url, platform, status, title, cover_url, duration_seconds, video_url, embed_url, lines, created_at")
+    .select(
+      "id, source_url, platform, status, title, cover_url, duration_seconds, video_url, embed_url, lines, error_message, created_at"
+    )
     .order("created_at", { ascending: false })
     .limit(100);
 

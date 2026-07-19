@@ -10,9 +10,11 @@ import {
   Download,
   FileText,
   Languages,
+  Link2,
   Loader2,
   PlayCircle,
   Sparkles,
+  X,
   XCircle,
 } from "lucide-react";
 import type { TranscriptLine, TranscriptRow } from "@/lib/types";
@@ -25,6 +27,14 @@ import { cn } from "@/lib/utils";
 type PageView = "history" | "result";
 
 const LANGUAGES = ["Original", "English", "Spanish", "Portuguese", "French"];
+
+// Simulated progress for the extraction popup: jumps quickly at first, then
+// eases off — never reaching the cap on its own so it doesn't look "done"
+// before the real job actually finishes (which snaps it to 100 immediately).
+const POPUP_PROGRESS_CAP = 92;
+const POPUP_PROGRESS_TIME_CONSTANT_MS = 3_500;
+const POPUP_PROGRESS_TICK_MS = 150;
+const POPUP_PROGRESS_SEGMENTS = 28;
 
 function Dropdown({
   label,
@@ -157,10 +167,30 @@ export default function TranscriptsPage() {
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupProgress, setPopupProgress] = useState(0);
 
   useEffect(() => {
     fetchRows();
   }, []);
+
+  // Drives the popup's progress bar while a freshly-submitted job is in
+  // flight: fast climb early on, decelerating toward the cap. Real
+  // completion (in pollUntilSettled) snaps straight to 100.
+  const activeRowId = activeRow?.id;
+  const activeRowStatus = activeRow?.status;
+  useEffect(() => {
+    if (!popupOpen || (activeRowStatus !== "queued" && activeRowStatus !== "processing")) return;
+
+    const start = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const eased = POPUP_PROGRESS_CAP * (1 - Math.exp(-elapsed / POPUP_PROGRESS_TIME_CONSTANT_MS));
+      setPopupProgress(Math.round(eased));
+    }, POPUP_PROGRESS_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [popupOpen, activeRowId, activeRowStatus]);
 
   function openRow(row: TranscriptRow) {
     setActiveRow(row);
@@ -168,6 +198,7 @@ export default function TranscriptsPage() {
     setRetranslateTo("Original");
     setTranslateError(null);
     setCoverFailed(false);
+    setPopupOpen(false);
   }
 
   async function fetchRows() {
@@ -199,6 +230,9 @@ export default function TranscriptsPage() {
       const { transcript } = await res.json();
       setRows((prev) => prev.map((r) => (r.id === id ? transcript : r)));
       setActiveRow((prev) => (prev?.id === id ? transcript : prev));
+      if (transcript.status === "complete") {
+        setPopupProgress(100);
+      }
       if (transcript.status === "complete" || transcript.status === "failed") {
         clearInterval(interval);
       }
@@ -237,6 +271,8 @@ export default function TranscriptsPage() {
     setTranslatedLines(null);
     setRetranslateTo("Original");
     setTranslateError(null);
+    setPopupProgress(0);
+    setPopupOpen(true);
     await fetchRows();
     setActiveRow({
       id: data.id,
@@ -249,6 +285,7 @@ export default function TranscriptsPage() {
       video_url: null,
       embed_url: null,
       lines: null,
+      error_message: null,
       created_at: new Date().toISOString(),
     });
     setView("result");
@@ -320,7 +357,7 @@ export default function TranscriptsPage() {
   return (
     <div className="flex flex-col gap-6 pt-2 pb-12">
       <div>
-        <h2 className="text-lg font-semibold text-heading">Transcripts</h2>
+        <h1 className="text-2xl font-bold text-heading">Transcripts</h1>
         <p className="mt-1 text-sm text-body">
           Paste a TikTok, Reels, or Shorts link to pull a clean, timestamped transcript.
         </p>
@@ -406,7 +443,9 @@ export default function TranscriptsPage() {
             ) : activeRow.status === "failed" ? (
               <Card className="flex flex-col items-center gap-3 py-16 text-center">
                 <XCircle className="h-6 w-6 text-danger" />
-                <p className="text-sm text-body">Couldn&apos;t extract that transcript. Try a different link.</p>
+                <p className="text-sm text-body">
+                  {activeRow.error_message || "Couldn't extract that transcript. Try a different link."}
+                </p>
               </Card>
             ) : (
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
@@ -517,6 +556,147 @@ export default function TranscriptsPage() {
             )}
           </>
         )
+      )}
+
+      {popupOpen && activeRow && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
+          onClick={() => setPopupOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface text-center shadow-card-hover"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {activeRow.status === "queued" || activeRow.status === "processing" ? (
+              <div className="p-6 pt-4">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPopupOpen(false)}
+                    aria-label="Close"
+                    className="text-body hover:text-heading"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mx-auto -mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
+                  <FileText className="h-8 w-8 text-white" />
+                </div>
+
+                <h3 className="mt-4 text-lg font-semibold text-heading">Extracting your Transcript...</h3>
+
+                <div className="mt-5 flex items-center gap-[3px]">
+                  {Array.from({ length: POPUP_PROGRESS_SEGMENTS }).map((_, index) => {
+                    const filled = index < Math.round((popupProgress / 100) * POPUP_PROGRESS_SEGMENTS);
+                    return (
+                      <span
+                        key={index}
+                        className={cn(
+                          "h-2 flex-1 rounded-full transition-colors duration-300",
+                          filled ? "bg-primary" : "bg-hairline"
+                        )}
+                      />
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-xs text-body">
+                  After completion, view in{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPopupOpen(false);
+                      setView("history");
+                    }}
+                    className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+                  >
+                    Transcript History
+                    <Link2 className="h-3 w-3" />
+                  </button>
+                </p>
+              </div>
+            ) : activeRow.status === "failed" ? (
+              <div className="p-6 pt-4">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setPopupOpen(false)}
+                    aria-label="Close"
+                    className="text-body hover:text-heading"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mx-auto -mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-danger-tint">
+                  <XCircle className="h-8 w-8 text-danger" />
+                </div>
+
+                <h3 className="mt-4 text-lg font-semibold text-heading">Extraction failed</h3>
+                <p className="mt-1 text-sm text-body">
+                  {activeRow.error_message || "Couldn't extract that transcript. Try a different link."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
+                  <h3 className="text-base font-semibold text-heading">Transcript Ready</h3>
+                  <button
+                    type="button"
+                    onClick={() => setPopupOpen(false)}
+                    aria-label="Close"
+                    className="text-body hover:text-heading"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-tint">
+                    <Check className="h-8 w-8 text-success" />
+                  </div>
+
+                  <h3 className="mt-4 text-lg font-semibold text-heading">Transcript ready!</h3>
+                  <p className="mt-1 text-sm text-body">Your transcript has been processed successfully</p>
+
+                  <div className="mt-5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-hairline px-2 py-3 text-sm font-semibold text-heading hover:bg-app"
+                    >
+                      {copied ? <Check className="h-4 w-4 shrink-0" /> : <Copy className="h-4 w-4 shrink-0" />}
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPopupOpen(false)}
+                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-2 py-3 text-sm font-semibold text-white hover:bg-btn-primary-hover"
+                    >
+                      <PlayCircle className="h-4 w-4 shrink-0" />
+                      View Transcript
+                    </button>
+                  </div>
+
+                  <p className="mt-4 text-xs text-body">
+                    View all in{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPopupOpen(false);
+                        setView("history");
+                      }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Transcript History
+                    </button>
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       <ExportModal

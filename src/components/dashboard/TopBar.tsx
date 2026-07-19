@@ -72,10 +72,15 @@ export function TopBar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  const hideHeading = pathname === "/app";
+  const hideHeading =
+    pathname === "/app" ||
+    pathname.startsWith("/app/scripts") ||
+    pathname.startsWith("/app/library") ||
+    pathname.startsWith("/app/transcripts") ||
+    pathname.startsWith("/app/mcp");
 
   return (
-    <div className="relative flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
+    <div className="relative z-10 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"

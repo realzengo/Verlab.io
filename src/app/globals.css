@@ -315,6 +315,14 @@ body {
     inset 0 2px 5px 0 rgba(0, 0, 0, 0.65),
     inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
+.dark .btn-bevel.btn-white,
+.dark .btn-bevel.btn-white:hover,
+.dark .btn-bevel.btn-white:active {
+  box-shadow: none;
+}
+.dark .btn-bevel.btn-white::before {
+  content: none;
+}
 
 .btn-bevel.btn-glow,
 .btn-bevel.glow-btn {

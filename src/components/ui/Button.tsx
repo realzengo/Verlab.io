@@ -11,7 +11,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
   secondary: "bg-surface text-heading border border-hairline hover:bg-app btn-secondary",
   ghost: "bg-transparent text-heading hover:bg-accent",
   text: "bg-transparent text-primary hover:underline underline-offset-4 px-0",
-  white: "bg-white text-primary hover:bg-[#f2f4ff] hover:-translate-y-px",
+  white: "btn-white bg-white text-primary hover:bg-[#f2f4ff] hover:-translate-y-px",
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
