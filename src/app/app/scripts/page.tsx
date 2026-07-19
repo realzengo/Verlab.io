@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   Copy,
+  Download,
   Eye,
   FileBadge,
   FileText,
@@ -186,6 +187,8 @@ export default function ScriptWriterPage() {
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
   const [uploadingKind, setUploadingKind] = useState<ReferenceKind | null>(null);
+  const [viewingScript, setViewingScript] = useState<ScriptHistoryItem | null>(null);
+  const [copiedModal, setCopiedModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -356,6 +359,28 @@ export default function ScriptWriterPage() {
     setTimeout(() => setCopiedHistoryId((current) => (current === id ? null : current)), 1500);
   }
 
+  async function handleCopyModal(content: string) {
+    await navigator.clipboard.writeText(content);
+    setCopiedModal(true);
+    setTimeout(() => setCopiedModal(false), 1500);
+  }
+
+  function handleDownloadScript(item: ScriptHistoryItem, title: string | null) {
+    const filename = (title ?? item.prompt)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "script";
+
+    const blob = new Blob([item.content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filename}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleViewScript() {
     setPopupDismissed(true);
     resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -382,7 +407,13 @@ export default function ScriptWriterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl pt-8 sm:pt-12">
+    <div className="relative isolate">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-56 w-[90vw] -translate-x-1/2 rounded-full bg-blue-400/40 blur-[70px] dark:bg-blue-500/25 sm:-top-56 sm:h-80 sm:w-[40rem] sm:blur-[100px]"
+      />
+
+      <div className="relative mx-auto w-full max-w-3xl pt-8 sm:pt-12">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Create New Script</h1>
@@ -400,7 +431,7 @@ export default function ScriptWriterPage() {
             onKeyDown={handleKeyDown}
             placeholder={PLACEHOLDER}
             disabled={isGenerating}
-            className="h-full min-h-[150px] w-full resize-none bg-transparent text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white"
+            className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white"
           />
         </div>
 
@@ -642,12 +673,7 @@ export default function ScriptWriterPage() {
               >
                 <button
                   type="button"
-                  onClick={() => {
-                    setError(null);
-                    setResult(item.content);
-                    setPopupDismissed(true);
-                    resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() => setViewingScript(item)}
                   className="block w-full p-4 pr-12 text-left"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -679,6 +705,73 @@ export default function ScriptWriterPage() {
           })}
         </div>
       )}
+
+      {viewingScript &&
+        (() => {
+          const parsed = parseScriptOutput(viewingScript.content);
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
+              onClick={() => setViewingScript(null)}
+            >
+              <div
+                className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
+                  <h3 className="truncate text-base font-semibold text-heading">
+                    {parsed.title ?? viewingScript.prompt}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setViewingScript(null)}
+                    aria-label="Close"
+                    className="shrink-0 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="overflow-y-auto px-6 py-5">
+                  {parsed.metrics.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {parsed.metrics.map((metric) => (
+                        <Badge key={metric.label}>
+                          {metric.label}: {metric.value}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-heading">
+                    {parsed.script || viewingScript.content}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-2 border-t border-hairline px-6 py-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={copiedModal ? Check : Copy}
+                    onClick={() => handleCopyModal(viewingScript.content)}
+                  >
+                    {copiedModal ? "Copied" : "Copy"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    icon={Download}
+                    onClick={() => handleDownloadScript(viewingScript, parsed.title)}
+                  >
+                    Download .txt
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }
