@@ -442,7 +442,7 @@ export interface SignupPoint {
   trials: number;
 }
 
-export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp";
+export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp" | "image";
 
 export type UsagePoint = { date: string } & Record<AdminToolKey, number>;
 
@@ -507,4 +507,17 @@ export interface PlanDistribution {
   label: string;
   count: number;
   tone: ToolTone;
+}
+
+export type LibraryAssetType = "image" | "video" | "sop";
+
+export interface LibraryAsset {
+  id: string;
+  type: LibraryAssetType;
+  title: string;
+  fileUrl: string | null;
+  thumbnailUrl: string | null;
+  sizeBytes: number | null;
+  category: string;
+  createdAt: string;
 }
