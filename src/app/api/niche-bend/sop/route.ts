@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NicheAlreadyClaimedError } from "@/lib/server/niche-bend-claims";
-import { getJob, resolveStatus, setChosenBendAndGenerateSop } from "@/lib/server/niche-bend-job-store";
+import { getJob, resolveStatus, startSopGeneration } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
+
+export const maxDuration = 300;
 
 interface SopRequestBody {
   jobId?: string;
@@ -45,8 +47,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Job is not ready yet" }, { status: 409 });
   }
 
+  let updatedJob;
   try {
-    await setChosenBendAndGenerateSop(supabase, job, chosenBend);
+    updatedJob = await startSopGeneration(supabase, job, chosenBend);
   } catch (error) {
     if (error instanceof Error && error.message === "Invalid chosenBend id") {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -58,6 +61,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
-  const updatedJob = await getJob(supabase, jobId);
-  return NextResponse.json(resolveStatus(updatedJob!));
+  // Returns as soon as generation has been kicked off (status "generating_sop"),
+  // not once it's finished — the actual writing continues in the background
+  // (see startSopGeneration) and the client polls /status/[jobId] for "sop_ready".
+  return NextResponse.json(resolveStatus(updatedJob));
 }

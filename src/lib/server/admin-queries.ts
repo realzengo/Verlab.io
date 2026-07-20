@@ -29,6 +29,7 @@ const TOOL_LABELS: Record<AdminToolKey, string> = {
   transcripts: "Transcripts",
   downloader: "Downloader",
   mcp: "MCP",
+  image: "Image Generator",
 };
 
 const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
@@ -37,6 +38,7 @@ const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
   transcripts: "amber",
   downloader: "green",
   mcp: "rose",
+  image: "sky",
 };
 
 function last30Days(): string[] {
@@ -81,8 +83,8 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
   const { data } = await admin.from("usage_events").select("tool, created_at").gte("created_at", since.toISOString());
 
   const days = last30Days();
-  const byDay = new Map(days.map((d) => [d, { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0 }]));
-  const totals: Record<AdminToolKey, number> = { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0 };
+  const byDay = new Map(days.map((d) => [d, { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0, image: 0 }]));
+  const totals: Record<AdminToolKey, number> = { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0, image: 0 };
 
   for (const row of data ?? []) {
     const day = (row.created_at as string).slice(0, 10);

@@ -338,17 +338,6 @@ export async function setJobSaved(supabase: SupabaseClient, id: string, saved: b
 export function resolveStatus(job: NicheBendJobRow): NicheBendJobStatusResponse {
   const { statusText, progress } = PHASE_TEXT[job.status];
 
-  if (job.status === "failed") {
-    return {
-      jobId: job.id,
-      status: "failed",
-      statusText,
-      progress,
-      saved: job.saved,
-      error: { message: job.error_message ?? "Something went wrong." },
-    };
-  }
-
   const response: NicheBendJobStatusResponse = {
     jobId: job.id,
     status: job.status,
@@ -356,6 +345,14 @@ export function resolveStatus(job: NicheBendJobRow): NicheBendJobStatusResponse 
     progress,
     saved: job.saved,
   };
+
+  // Not only surfaced for status === "failed": a background SOP generation
+  // failure reverts status to "ready" (the job itself is still fine, just
+  // the SOP attempt wasn't), so error_message can be set on a non-"failed"
+  // status too. Whenever it's present, the client should see it.
+  if (job.error_message) {
+    response.error = { message: job.error_message };
+  }
 
   if (job.analysis) response.analysis = job.analysis;
   if (job.candidates) response.candidates = job.candidates;
@@ -402,12 +399,18 @@ export async function regenerateOneCandidateInJob(
   return nextCandidates;
 }
 
-export async function setChosenBendAndGenerateSop(
+// SOP writing is two sequential structured-output calls (see
+// generateSopContent) that can each take minutes — the same shape of problem
+// as the initial channel analysis. So this follows the same async pattern as
+// createJob()/runPipeline(): claim the niche and flip status synchronously
+// (fast, so the route can respond immediately), then let the actual writing
+// continue via after() while the client polls for "sop_ready".
+export async function startSopGeneration(
   supabase: SupabaseClient,
   job: NicheBendJobRow,
   chosenBendId: 1 | 2 | 3
-): Promise<NicheBendSopResult> {
-  if (job.sop) return job.sop;
+): Promise<NicheBendJobRow> {
+  if (job.sop) return job;
 
   const candidates = job.candidates;
   const analysis = job.analysis;
@@ -438,31 +441,52 @@ export async function setChosenBendAndGenerateSop(
     throw new NicheAlreadyClaimedError(chosen.nicheName);
   }
 
-  await updateJob(supabase, job.id, { chosen_bend: chosen, status: "generating_sop" });
+  // Clear out any error_message left over from a previous failed SOP attempt
+  // on this same job — otherwise resolveStatus would keep surfacing it.
+  await updateJob(supabase, job.id, { chosen_bend: chosen, status: "generating_sop", error_message: null });
 
+  after(() => runSopGeneration(supabase, job.id, job.conversation ?? [], analysis, chosen));
+
+  return { ...job, chosen_bend: chosen, status: "generating_sop", error_message: null };
+}
+
+async function runSopGeneration(
+  supabase: SupabaseClient,
+  jobId: string,
+  conversation: MessageParam[],
+  analysis: NicheBendChannelAnalysis,
+  chosen: NicheBendCandidate
+): Promise<void> {
   let content;
   try {
-    content = await generateSopContent(job.conversation ?? [], analysis, chosen);
+    content = await generateSopContent(conversation, analysis, chosen);
   } catch (error) {
     console.error("[niche-bend] SOP generation failed:", error);
-    await updateJob(supabase, job.id, { status: "ready" });
-    throw new Error(humanizeError(error));
+    try {
+      await updateJob(supabase, jobId, { status: "ready", error_message: humanizeError(error) });
+    } catch (writeError) {
+      console.error("[niche-bend] Could not persist the SOP failure status either:", writeError);
+    }
+    return;
   }
 
   const sop: NicheBendSopResult = {
-    id: `sop-${job.id}`,
-    jobId: job.id,
+    id: `sop-${jobId}`,
+    jobId,
     chosenBend: chosen,
     originalChannel: analysis,
     content,
     downloads: {
       // Real DOCX/PDF generation + storage isn't built yet — still a placeholder.
-      docxUrl: `/mock/niche-bend/${job.id}.docx`,
-      pdfUrl: `/mock/niche-bend/${job.id}.pdf`,
+      docxUrl: `/mock/niche-bend/${jobId}.docx`,
+      pdfUrl: `/mock/niche-bend/${jobId}.pdf`,
     },
     createdAt: new Date().toISOString(),
   };
 
-  await updateJob(supabase, job.id, { sop, status: "sop_ready" });
-  return sop;
+  try {
+    await updateJob(supabase, jobId, { sop, status: "sop_ready" });
+  } catch (writeError) {
+    console.error("[niche-bend] Could not persist the completed SOP:", writeError);
+  }
 }

@@ -79,6 +79,7 @@ export const USAGE_SERIES: UsagePoint[] = Array.from({ length: 30 }, (_, i) => {
     transcripts: Math.max(10, Math.round(95 + wave(i, 22, 9, 2) + i * 0.6)),
     downloader: Math.max(6, Math.round(70 + wave(i, 16, 7, 0.5))),
     mcp: Math.max(2, Math.round(20 + wave(i, 9, 10, 1.5) + i * 0.4)),
+    image: Math.max(3, Math.round(30 + wave(i, 12, 6, 0.8))),
   };
 });
 
@@ -88,6 +89,7 @@ export const TOOL_USAGE_SHARE: ToolUsageShare[] = [
   { tool: "transcripts", label: "Transcripts", count: USAGE_SERIES.reduce((s, p) => s + p.transcripts, 0), tone: "amber" },
   { tool: "downloader", label: "Downloader", count: USAGE_SERIES.reduce((s, p) => s + p.downloader, 0), tone: "green" },
   { tool: "mcp", label: "MCP", count: USAGE_SERIES.reduce((s, p) => s + p.mcp, 0), tone: "rose" },
+  { tool: "image", label: "Image Generator", count: USAGE_SERIES.reduce((s, p) => s + p.image, 0), tone: "sky" },
 ];
 
 // --- Users -------------------------------------------------------------------

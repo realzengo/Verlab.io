@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText, type ModelMessage } from "ai";
+import { streamText, type LanguageModel, type ModelMessage } from "ai";
 import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "@/lib/server/gemini-client";
+import { CLAUDE_MAX_OUTPUT_TOKENS, anthropicModel } from "@/lib/server/anthropic-client";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
+
+// Tried in order. If a model errors before producing any output (bad key,
+// rate limit, retired model, etc.) the next candidate is tried. Once a
+// model has started streaming text to the client we can no longer swap —
+// the response is already committed — so a mid-stream failure just ends
+// the response with a note appended, rather than restarting elsewhere.
+const MODEL_CANDIDATES: { model: LanguageModel; maxOutputTokens: number; label: string }[] = [
+  { model: geminiModel, maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, label: "gemini-flash-latest" },
+  { model: anthropicModel, maxOutputTokens: CLAUDE_MAX_OUTPUT_TOKENS, label: "claude-sonnet-5" },
+];
 
 // CRITICAL: This is the absolute system prompt for script generation.
 // Do not alter — it contains precise rules the AI model must follow.
@@ -123,16 +134,50 @@ export async function POST(request: NextRequest): Promise<Response> {
     message
   );
 
-  const result = streamText({
-    model: geminiModel,
-    system: systemPrompt,
-    messages,
-    maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-    onFinish: async ({ text }) => {
-      if (!text) return;
-      await supabase.from("scripts").insert({ user_id: user.id, prompt: message, content: text });
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let sentAnyOutput = false;
+      let fullText = "";
+
+      for (const candidate of MODEL_CANDIDATES) {
+        try {
+          const result = streamText({
+            model: candidate.model,
+            system: systemPrompt,
+            messages,
+            maxOutputTokens: candidate.maxOutputTokens,
+          });
+
+          for await (const chunk of result.textStream) {
+            sentAnyOutput = true;
+            fullText += chunk;
+            controller.enqueue(encoder.encode(chunk));
+          }
+
+          controller.close();
+          if (fullText) {
+            await supabase.from("scripts").insert({ user_id: user.id, prompt: message, content: fullText });
+          }
+          return;
+        } catch (error) {
+          console.error(`generate-script: ${candidate.label} failed`, error);
+
+          if (sentAnyOutput) {
+            controller.enqueue(
+              encoder.encode("\n\n[Generation was interrupted due to an error. Please try again.]")
+            );
+            controller.close();
+            return;
+          }
+          // Nothing streamed yet — safe to fall through and try the next model.
+        }
+      }
+
+      controller.error(new Error("All script-generation models are currently unavailable."));
     },
   });
 
-  return result.toTextStreamResponse();
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }

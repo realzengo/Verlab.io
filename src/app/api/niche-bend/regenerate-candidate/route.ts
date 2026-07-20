@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getJob, regenerateOneCandidateInJob, resolveStatus } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
 
+export const maxDuration = 300;
+
 interface RegenerateCandidateRequestBody {
   jobId?: string;
   candidateId?: 1 | 2 | 3;

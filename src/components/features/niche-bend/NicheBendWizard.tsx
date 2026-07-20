@@ -72,6 +72,7 @@ type WizardAction =
   | { type: "REGEN_ONE_FAILED" }
   | { type: "SOP_SUBMIT_START" }
   | { type: "SOP_READY"; status: NicheBendJobStatusResponse }
+  | { type: "SOP_POLL_UPDATE"; status: NicheBendJobStatusResponse }
   | { type: "SOP_SUBMIT_FAILED"; message: string; claimed?: boolean }
   | { type: "SAVE_TOGGLE_START" }
   | { type: "SAVE_TOGGLE_DONE"; saved: boolean }
@@ -114,6 +115,7 @@ const IN_PROGRESS_STATUSES: NicheBendJobStatus[] = [
   "reading_videos",
   "identifying_format",
   "generating_bends",
+  "generating_sop",
 ];
 
 function reducer(state: WizardState, action: WizardAction): WizardState {
@@ -153,6 +155,10 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
           candidates: s.candidates ?? state.candidates,
           sop: s.sop ?? state.sop,
           saved: s.saved,
+          sopSubmitting: false,
+          // "ready" carrying an error means a resumed background SOP
+          // generation (see startSopGeneration) reverted here after failing.
+          sopError: s.status === "ready" ? (s.error?.message ?? null) : state.sopError,
         };
       }
       return { ...state, status: s.status };
@@ -211,6 +217,23 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
     case "SOP_READY":
       return { ...state, sop: action.status.sop ?? state.sop, saved: action.status.saved, step: 3, sopSubmitting: false };
 
+    case "SOP_POLL_UPDATE": {
+      const s = action.status;
+      if (s.status === "sop_ready") {
+        return { ...state, sop: s.sop ?? state.sop, saved: s.saved, step: 3, sopSubmitting: false };
+      }
+      if (s.status === "generating_sop") {
+        return state;
+      }
+      // Anything else (background generation reverted the job to "ready"
+      // after a failure) means the SOP attempt itself failed.
+      return {
+        ...state,
+        sopSubmitting: false,
+        sopError: s.error?.message ?? "Could not generate the SOP.",
+      };
+    }
+
     case "SOP_SUBMIT_FAILED":
       return {
         ...state,
@@ -242,9 +265,14 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
       const s = action.status;
       let step: 1 | 2 | 3 = 1;
       let analyzeState: AnalyzeState = "polling";
+      let sopSubmitting = false;
       if (s.status === "sop_ready") {
         step = 3;
         analyzeState = "idle";
+      } else if (s.status === "generating_sop") {
+        step = 2;
+        analyzeState = "idle";
+        sopSubmitting = true;
       } else if (s.status === "ready") {
         step = 2;
         analyzeState = "idle";
@@ -263,6 +291,7 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
         candidates: s.candidates ?? null,
         sop: s.sop ?? null,
         saved: s.saved,
+        sopSubmitting,
         selectedCandidateId: action.selectedCandidateId,
         sourceUrl: action.sourceUrl ?? state.sourceUrl,
         platform: action.platform ?? state.platform,
@@ -406,7 +435,17 @@ export function NicheBendWizard() {
 
     try {
       const status = await generateSop({ jobId: state.jobId, chosenBend: id });
-      dispatch({ type: "SOP_READY", status });
+      if (status.status === "sop_ready") {
+        dispatch({ type: "SOP_READY", status });
+        return;
+      }
+      // Generation was kicked off and is continuing server-side (see
+      // startSopGeneration) — poll until it lands on "sop_ready" or reverts
+      // to "ready" with an error, rather than holding one long request open.
+      stopPolling();
+      cancelPollRef.current = pollStatusUntilSettled(state.jobId, (update) => {
+        dispatch({ type: "SOP_POLL_UPDATE", status: update });
+      });
     } catch (error) {
       dispatch({
         type: "SOP_SUBMIT_FAILED",

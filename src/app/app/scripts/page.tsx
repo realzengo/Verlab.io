@@ -24,17 +24,6 @@ import { Button } from "@/components/ui/Button";
 const PLACEHOLDER =
   "Describe the video you want to create, and add reference videos to help write a viral script.";
 
-// Simulated progress: jumps quickly at first, then eases off — never
-// reaching PROGRESS_CAP on its own so it doesn't look "done" before the
-// real generation actually finishes (which snaps it to 100 immediately).
-const PROGRESS_CAP = 92;
-const PROGRESS_TIME_CONSTANT_MS = 3_500;
-const PROGRESS_TICK_MS = 150;
-
-// Number of bars drawn in the "Generating your Script..." popup's segmented
-// progress meter.
-const PROGRESS_SEGMENT_COUNT = 28;
-
 type ReferenceKind = "sop" | "transcript";
 
 type ReferenceFile = {
@@ -59,6 +48,22 @@ interface ParsedScript {
 // output into display-ready pieces. Falls back to raw text for formats that
 // don't match (e.g. the idea-generation mode, or a still-streaming response
 // that hasn't reached a section yet).
+// Derives a status label and rough completion percentage purely from the
+// streamed text itself (no fake timers) so the modal never lies about
+// progress it doesn't actually have.
+function getGenerationProgress(result: string): { label: string; percent: number } {
+  if (!result) {
+    return { label: "Analyzing your SOP and transcripts to match the formula", percent: 8 };
+  }
+  if (result.length < 400) {
+    return { label: "Drafting the hook and structure", percent: 30 };
+  }
+  if (result.length < 1200) {
+    return { label: "Writing the full script", percent: 65 };
+  }
+  return { label: "Polishing the final draft", percent: 92 };
+}
+
 function parseScriptOutput(raw: string): ParsedScript {
   const cleaned = raw.trim().replace(/^-{3,}\s*/, "").replace(/\s*-{3,}$/, "").trim();
 
@@ -182,7 +187,6 @@ export default function ScriptWriterPage() {
   const [transcriptFile, setTranscriptFile] = useState<ReferenceFile | null>(null);
   const [sopFile, setSopFile] = useState<ReferenceFile | null>(null);
   const [history, setHistory] = useState<ScriptHistoryItem[]>([]);
-  const [progress, setProgress] = useState<number | null>(null);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
@@ -191,6 +195,7 @@ export default function ScriptWriterPage() {
   const [copiedModal, setCopiedModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const modalStreamRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
@@ -279,22 +284,12 @@ export default function ScriptWriterPage() {
     }
   }
 
-  // Drives the popup's segmented progress bar while a generation is in
-  // flight: fast climb early on, decelerating toward PROGRESS_CAP. Real
-  // completion (in `handleSubmit`) snaps straight to 100 regardless of
-  // where this simulated curve has gotten to.
+  // Auto-scrolls the modal's live text preview to the bottom as streamed
+  // tokens arrive, so the newest text is always in view.
   useEffect(() => {
     if (!isGenerating) return;
-
-    const start = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const eased = PROGRESS_CAP * (1 - Math.exp(-elapsed / PROGRESS_TIME_CONSTANT_MS));
-      setProgress(Math.round(eased));
-    }, PROGRESS_TICK_MS);
-
-    return () => clearInterval(interval);
-  }, [isGenerating]);
+    modalStreamRef.current?.scrollTo({ top: modalStreamRef.current.scrollHeight });
+  }, [isGenerating, result]);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -303,7 +298,6 @@ export default function ScriptWriterPage() {
     setIsGenerating(true);
     setError(null);
     setResult("");
-    setProgress(0);
     setPopupDismissed(false);
 
     const abortController = new AbortController();
@@ -331,7 +325,6 @@ export default function ScriptWriterPage() {
         setResult((prev) => prev + decoder.decode(value, { stream: true }));
       }
 
-      setProgress(100);
       loadHistory();
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -407,10 +400,10 @@ export default function ScriptWriterPage() {
   }
 
   return (
-    <div className="relative isolate">
+    <div className="relative">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-400/40 blur-[90px] dark:bg-blue-500/25 sm:-top-40 sm:h-72 sm:blur-[120px]"
+        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-400/50 blur-[100px] dark:bg-blue-500/30 sm:-top-40 sm:h-72 sm:blur-[130px]"
       />
 
       <div className="relative mx-auto w-full max-w-3xl pt-8 sm:pt-12">
@@ -489,44 +482,80 @@ export default function ScriptWriterPage() {
             onClick={(event) => event.stopPropagation()}
           >
             {isGenerating ? (
-              <div className="p-6 pt-4">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={cancelGeneration}
-                    aria-label="Cancel generation"
-                    className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
+              (() => {
+                const progress = getGenerationProgress(result);
+                const wordCount = result.trim() ? result.trim().split(/\s+/).length : 0;
+                return (
+                  <div className="p-6 pt-5 text-left">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary">
+                          <Sparkles className="h-4 w-4 text-white" />
+                          <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-primary/40" />
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold leading-tight text-slate-900 dark:text-white">
+                            Generating your script
+                          </h3>
+                          <p className="mt-0.5 text-xs leading-snug text-slate-400 dark:text-zinc-500">
+                            {progress.label}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={cancelGeneration}
+                        aria-label="Cancel generation"
+                        className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
 
-                <div className="mx-auto -mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-
-                <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">
-                  Generating your Script...
-                </h3>
-
-                <div className="mt-5 flex items-center gap-[3px]">
-                  {Array.from({ length: PROGRESS_SEGMENT_COUNT }).map((_, index) => {
-                    const filled = index < Math.round(((progress ?? 0) / 100) * PROGRESS_SEGMENT_COUNT);
-                    return (
-                      <span
-                        key={index}
-                        className={`h-2 flex-1 rounded-full transition-colors duration-300 ${
-                          filled ? "bg-primary" : "bg-slate-200 dark:bg-zinc-800"
-                        }`}
+                    <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
+                        style={{ width: `${progress.percent}%` }}
                       />
-                    );
-                  })}
-                </div>
+                    </div>
 
-                <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400">
-                  Analyzing your SOP and transcripts to match the formula
-                </p>
-              </div>
+                    <div className="relative mt-4">
+                      <div
+                        ref={modalStreamRef}
+                        className="max-h-64 min-h-[7rem] overflow-y-auto rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 dark:bg-zinc-800/60 dark:text-zinc-300"
+                      >
+                        {result ? (
+                          <p className="whitespace-pre-wrap">
+                            {result}
+                            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-current align-middle" />
+                          </p>
+                        ) : (
+                          <div className="flex h-full items-center gap-2 text-slate-400 dark:text-zinc-500">
+                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
+                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
+                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-5 rounded-t-xl bg-gradient-to-b from-slate-50 to-transparent dark:from-zinc-800/60" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 rounded-b-xl bg-gradient-to-t from-slate-50 to-transparent dark:from-zinc-800/60" />
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xs tabular-nums text-slate-400 dark:text-zinc-500">
+                        {wordCount > 0 ? `${wordCount} words written` : "Starting up…"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={cancelGeneration}
+                        className="text-xs font-semibold text-slate-500 transition-colors hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-zinc-800">

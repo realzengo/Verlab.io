@@ -4,6 +4,8 @@ import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
+export const maxDuration = 300;
+
 interface AnalyzeRequestBody {
   url?: string;
   platform?: NicheBendPlatform;

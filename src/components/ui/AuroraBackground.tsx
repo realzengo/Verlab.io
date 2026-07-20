@@ -20,7 +20,7 @@ export function AuroraBackground({
 
   return (
     <div className={cn("relative bg-app", className)} {...props}>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 isolate overflow-hidden">
         {/* light mode: multicolor swirl */}
         <div
           className={cn(
