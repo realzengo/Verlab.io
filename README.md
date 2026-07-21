@@ -1,6 +1,6 @@
-# Clypa
+# Verlab
 
-Clypa is a niche-bending platform for short-form video creators. It finds proven viral
+Verlab is a niche-bending platform for short-form video creators. It finds proven viral
 faceless niches on TikTok, reverse-engineers why they work, and bends the winning formula
 into a creator's own topic — then produces ready-to-film scripts from it.
 

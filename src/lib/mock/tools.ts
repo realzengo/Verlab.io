@@ -61,13 +61,13 @@ export const FEATURE_GRID_ITEMS: FeatureGridItem[] = [
   },
   {
     title: "MCP for Claude & ChatGPT",
-    description: "Connect Clypa to your AI workflow — bend niches and pull transcripts from chat.",
+    description: "Connect Verlab to your AI workflow — bend niches and pull transcripts from chat.",
     icon: Plug,
     badge: "Developer favorite",
   },
   {
     title: "API access",
-    description: "Full REST API access to every Clypa tool for your own pipeline.",
+    description: "Full REST API access to every Verlab tool for your own pipeline.",
     icon: Code2,
   },
 ];

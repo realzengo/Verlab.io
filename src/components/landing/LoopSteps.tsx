@@ -3,7 +3,7 @@ import { ClipboardList, Compass, PenSquare, Wand2 } from "lucide-react";
 const STEPS = [
   { title: "Find a viral faceless niche", description: "Niche Finder surfaces proven niches with real momentum.", icon: Compass },
   { title: "Understand why it works", description: "Transcripts + SOP Builder reverse-engineer the script structure.", icon: ClipboardList },
-  { title: "Bend it into your niche", description: "Clypa maps the winning formula onto your own topic.", icon: Wand2 },
+  { title: "Bend it into your niche", description: "Verlab maps the winning formula onto your own topic.", icon: Wand2 },
   { title: "Produce ready-to-film scripts", description: "Script Maker turns the bent SOP into finished scripts.", icon: PenSquare },
 ];
 

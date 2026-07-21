@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { ApiKey } from "@/lib/types";
 
-const KEY_PREFIX = "clypa_live_";
+const KEY_PREFIX = "verlab_live_";
 
 interface ApiKeyRow {
   id: string;

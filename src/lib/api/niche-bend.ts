@@ -4,7 +4,6 @@ import type {
   NicheBendPlatform,
   NicheBendVideo,
   NicheBendVideoType,
-  NicheClaim,
 } from "@/lib/types";
 
 export class NicheBendApiError extends Error {
@@ -151,18 +150,6 @@ export async function fetchSavedBends(limit = 50): Promise<NicheBendHistoryItem[
   }
 
   const body = (await response.json()) as { items: NicheBendHistoryItem[] };
-  return body.items;
-}
-
-export async function fetchClaimedNiches(limit = 24): Promise<NicheClaim[]> {
-  const response = await fetch(`/api/niche-bend/claimed?limit=${limit}`);
-
-  if (!response.ok) {
-    const { message, code } = await parseError(response, "Could not load claimed niches");
-    throw new NicheBendApiError(message, response.status, code);
-  }
-
-  const body = (await response.json()) as { items: NicheClaim[] };
   return body.items;
 }
 

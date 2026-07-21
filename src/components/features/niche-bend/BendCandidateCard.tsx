@@ -5,7 +5,6 @@ import type { MouseEvent } from "react";
 import type { NicheBendCandidate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Wave } from "@/components/ui/wave";
 import { cn } from "@/lib/utils";
 
 export function BendCandidateCard({
@@ -78,7 +77,11 @@ export function BendCandidateCard({
         )}
       >
         {busy ? (
-          <Wave className="h-5 w-5 text-primary" />
+          <span className="relative flex h-9 w-9 items-center justify-center" role="status">
+            <span className="absolute h-8 w-8 animate-craft-glow rounded-full bg-primary/50 blur-lg" />
+            <Sparkles className="relative h-5 w-5 animate-pulse text-primary" />
+            <span className="sr-only">Working…</span>
+          </span>
         ) : (
           <>
             <button

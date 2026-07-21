@@ -4,8 +4,8 @@ import { FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Clypa",
-  description: "The terms and conditions that govern your use of Clypa's niche research and script-generation tools.",
+  title: "Terms of Service — Verlab",
+  description: "The terms and conditions that govern your use of Verlab's niche research and script-generation tools.",
 };
 
 const SECTIONS: LegalSection[] = [
@@ -15,8 +15,8 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          These Terms of Service (&quot;Terms&quot;) form a binding agreement between you and Clypa (&quot;Clypa,&quot;
-          &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) governing your access to and use of clypa.io, the Clypa
+          These Terms of Service (&quot;Terms&quot;) form a binding agreement between you and Verlab (&quot;Verlab,&quot;
+          &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) governing your access to and use of verlab.io, the Verlab
           dashboard, and any related tools (together, the &quot;Service&quot;).
         </p>
         <p>
@@ -32,7 +32,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          Clypa helps creators discover trending niches on TikTok, Instagram Reels, and YouTube Shorts, and uses AI to
+          Verlab helps creators discover trending niches on TikTok, Instagram Reels, and YouTube Shorts, and uses AI to
           reverse-engineer that content into scripts, hooks, and SOPs for the user&apos;s own channel.
         </p>
         <p>
@@ -51,7 +51,7 @@ const SECTIONS: LegalSection[] = [
     title: "Accounts & Eligibility",
     body: (
       <ul className="list-disc space-y-2 pl-5 marker:text-primary">
-        <li>You must be at least 16 years old to create a Clypa account.</li>
+        <li>You must be at least 16 years old to create a Verlab account.</li>
         <li>You are responsible for the accuracy of the information you provide and for maintaining the security of your login credentials.</li>
         <li>You are responsible for all activity that occurs under your account, whether or not you authorized it.</li>
         <li>We may suspend or terminate accounts that provide false information or violate these Terms.</li>
@@ -95,7 +95,7 @@ const SECTIONS: LegalSection[] = [
         <p>You agree not to use the Service to:</p>
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>Violate any applicable law, or the terms of service of TikTok, Instagram, YouTube, or any other platform you connect or publish to.</li>
-          <li>Scrape, resell, or redistribute Clypa&apos;s underlying niche data or datasets outside the Service.</li>
+          <li>Scrape, resell, or redistribute Verlab&apos;s underlying niche data or datasets outside the Service.</li>
           <li>Reverse engineer, decompile, or attempt to extract the source code of the Service.</li>
           <li>Upload content that is unlawful, infringing, defamatory, or that you do not have the rights to use.</li>
           <li>Interfere with or disrupt the integrity or performance of the Service, including via automated scraping or abuse of API rate limits.</li>
@@ -110,13 +110,13 @@ const SECTIONS: LegalSection[] = [
       <>
         <p className="font-semibold text-heading">6.1 Your Content</p>
         <p>
-          You retain ownership of any content you submit to Clypa (topics, transcripts, uploads) and of the scripts,
-          hooks, and outputs generated for your account. You grant Clypa a limited license to process that content
+          You retain ownership of any content you submit to Verlab (topics, transcripts, uploads) and of the scripts,
+          hooks, and outputs generated for your account. You grant Verlab a limited license to process that content
           solely to operate and improve the Service.
         </p>
         <p className="font-semibold text-heading">6.2 Our Platform</p>
         <p>
-          The Service, including its design, software, models, and underlying niche-analysis data, is owned by Clypa
+          The Service, including its design, software, models, and underlying niche-analysis data, is owned by Verlab
           and protected by intellectual property laws. These Terms do not grant you any rights to our trademarks,
           branding, or proprietary technology beyond what is necessary to use the Service.
         </p>
@@ -134,10 +134,10 @@ const SECTIONS: LegalSection[] = [
     title: "Third-Party Platforms",
     body: (
       <p>
-        Clypa analyzes publicly available content and metadata from third-party platforms such as TikTok, Instagram,
+        Verlab analyzes publicly available content and metadata from third-party platforms such as TikTok, Instagram,
         and YouTube. We are not affiliated with, endorsed by, or sponsored by any of these platforms, and we do not
         control their availability, terms, or data. Changes to a third-party platform&apos;s API or policies may
-        affect the accuracy or availability of related Clypa features without notice.
+        affect the accuracy or availability of related Verlab features without notice.
       </p>
     ),
   },
@@ -159,11 +159,11 @@ const SECTIONS: LegalSection[] = [
       <>
         <p>
           The Service is provided &quot;as is&quot; and &quot;as available,&quot; without warranties of any kind.
-          Clypa does not guarantee that any niche, script, or strategy suggested by the Service will result in
+          Verlab does not guarantee that any niche, script, or strategy suggested by the Service will result in
           particular views, followers, or revenue.
         </p>
         <p>
-          To the fullest extent permitted by law, Clypa will not be liable for any indirect, incidental, or
+          To the fullest extent permitted by law, Verlab will not be liable for any indirect, incidental, or
           consequential damages arising from your use of the Service, and our total liability for any claim will not
           exceed the amount you paid us in the twelve months preceding the claim.
         </p>
@@ -186,7 +186,7 @@ const SECTIONS: LegalSection[] = [
     title: "Governing Law",
     body: (
       <p>
-        These Terms are governed by and construed in accordance with the laws of the jurisdiction in which Clypa is
+        These Terms are governed by and construed in accordance with the laws of the jurisdiction in which Verlab is
         registered, without regard to its conflict of law provisions.
       </p>
     ),
@@ -198,8 +198,8 @@ const SECTIONS: LegalSection[] = [
       <ul className="list-disc space-y-2 pl-5 marker:text-primary">
         <li>
           Email:{" "}
-          <a href="mailto:support@clypa.io" className="text-primary hover:underline">
-            support@clypa.io
+          <a href="mailto:support@verlab.io" className="text-primary hover:underline">
+            support@verlab.io
           </a>
         </li>
       </ul>
@@ -209,7 +209,7 @@ const SECTIONS: LegalSection[] = [
 
 const HIGHLIGHTS = [
   { icon: RefreshCw, text: "Cancel your subscription anytime, no questions asked." },
-  { icon: ShieldCheck, text: "You own every script and hook Clypa generates for you." },
+  { icon: ShieldCheck, text: "You own every script and hook Verlab generates for you." },
   { icon: FileText, text: "You're responsible for how you publish generated content." },
 ];
 
@@ -219,7 +219,7 @@ export default function TermsOfServicePage() {
       icon={FileText}
       activeHref="/legal/terms"
       title="Terms of Service"
-      description="The rules and conditions that govern your use of Clypa."
+      description="The rules and conditions that govern your use of Verlab."
       effectiveDate="July 16, 2026"
       updatedDate="July 16, 2026"
       highlights={HIGHLIGHTS}

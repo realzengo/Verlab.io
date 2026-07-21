@@ -366,17 +366,6 @@ export interface NicheBendJobStatusResponse {
   error?: { message: string };
 }
 
-export interface NicheClaim {
-  id: string;
-  nicheName: string;
-  angle: NicheBendAngle;
-  exampleTitles: string[];
-  channelName: string | null;
-  avatarUrl: string | null;
-  platform: NicheBendPlatform;
-  createdAt: string;
-}
-
 export interface NicheBendHistoryItem {
   jobId: string;
   sourceUrl: string;

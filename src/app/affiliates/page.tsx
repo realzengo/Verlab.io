@@ -4,8 +4,8 @@ import { Footer } from "@/components/landing/Footer";
 import { AffiliatePage } from "@/components/landing/AffiliatePage";
 
 export const metadata: Metadata = {
-  title: "Affiliates — Clypa",
-  description: "The Clypa affiliate program is coming soon. Join the waitlist for early access.",
+  title: "Affiliates — Verlab",
+  description: "The Verlab affiliate program is coming soon. Join the waitlist for early access.",
 };
 
 export default function Affiliates() {

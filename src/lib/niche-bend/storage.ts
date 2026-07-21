@@ -1,4 +1,4 @@
-const STORAGE_KEY = "clypa:niche-bend:wizard";
+const STORAGE_KEY = "verlab:niche-bend:wizard";
 
 export interface PersistedWizardRef {
   jobId: string;

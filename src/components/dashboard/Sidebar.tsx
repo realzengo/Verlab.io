@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
-import { Logo } from "@/components/ui/Logo";
+import { Logo, LogoMark } from "@/components/ui/Logo";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-surface transition-transform duration-200 md:sticky md:top-0 md:translate-x-0 md:shrink-0 md:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-surface transition-transform duration-300 ease-in-out md:sticky md:top-0 md:translate-x-0 md:shrink-0 md:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "md:w-[76px]" : "md:w-64"
       )}
@@ -83,7 +83,30 @@ export function Sidebar({
           collapsed && "md:justify-center md:px-0"
         )}
       >
-        <Logo height={collapsed ? 16 : 22} />
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none md:flex"
+        >
+          <LogoMark
+            className={cn(
+              "h-7 w-7 shrink-0 -rotate-90 text-heading transition-all duration-300 ease-in-out",
+              collapsed && "md:h-8 md:w-8 md:rotate-0"
+            )}
+          />
+          <Logo
+            height={24}
+            className={cn(
+              "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
+              collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[170px] md:opacity-100"
+            )}
+          />
+        </button>
+        <div className="flex items-center gap-1.5 md:hidden">
+          <LogoMark className="h-7 w-7 shrink-0 -rotate-90 text-heading" />
+          <Logo height={24} />
+        </div>
         <button
           type="button"
           onClick={onCloseMobile}
@@ -111,7 +134,14 @@ export function Sidebar({
               title={collapsed ? item.label : undefined}
             >
               <item.icon className="h-4.5 w-4.5 shrink-0" />
-              <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
+              <span
+                className={cn(
+                  "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
+                  collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                )}
+              >
+                {item.label}
+              </span>
             </Link>
           );
         })}

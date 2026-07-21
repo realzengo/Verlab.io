@@ -71,7 +71,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 flex flex-col items-center gap-4 border-t border-hairline pt-[22px] text-[13px] text-subtle sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} Clypa. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Verlab. All rights reserved.</span>
           <div className="flex items-center gap-2.5">
             <ThemeToggle className="h-8 w-8" />
             <a

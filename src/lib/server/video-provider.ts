@@ -90,7 +90,7 @@ function formatTimestamp(seconds: number): string {
 
 const SCRAPECREATORS_BASE_URL = "https://api.scrapecreators.com";
 
-async function scrapeCreatorsGet<T>(path: string, params: Record<string, string>): Promise<T> {
+export async function scrapeCreatorsGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const apiKey = process.env.SCRAPECREATORS_API_KEY;
   if (!apiKey) {
     throw new VideoProviderError("not_configured", "Missing SCRAPECREATORS_API_KEY");

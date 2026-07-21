@@ -26,7 +26,7 @@ const STAT_CHIPS = [
 const STEPS = [
   {
     title: "Apply",
-    description: "Tell us where you'll share Clypa. Applications are reviewed within a day.",
+    description: "Tell us where you'll share Verlab. Applications are reviewed within a day.",
     icon: UserPlus,
   },
   {
@@ -89,7 +89,7 @@ const FAQ_ITEMS = [
   {
     id: "affiliate-cost",
     trigger: "Is there a cost to join?",
-    content: "No, joining the Clypa affiliate program is completely free.",
+    content: "No, joining the Verlab affiliate program is completely free.",
   },
 ];
 
@@ -169,7 +169,7 @@ export function AffiliatePage() {
 
         <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-semibold text-primary shadow-card md:mb-8">
           <Sparkles className="h-3.5 w-3.5" />
-          Clypa Partners — applications open
+          Verlab Partners — applications open
         </span>
 
         <h1 className="max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
@@ -182,7 +182,7 @@ export function AffiliatePage() {
         </h1>
 
         <p className="mt-6 max-w-xl text-sm leading-relaxed text-body sm:text-base">
-          Join the Clypa affiliate program and get paid every month your referrals stay subscribed — no cap, no
+          Join the Verlab affiliate program and get paid every month your referrals stay subscribed — no cap, no
           complicated tiers.
         </p>
 

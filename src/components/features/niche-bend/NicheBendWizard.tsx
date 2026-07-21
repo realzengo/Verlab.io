@@ -2,7 +2,6 @@
 
 import { useEffect, useReducer, useRef } from "react";
 import {
-  NicheBendApiError,
   analyzeChannel,
   generateSop,
   pollStatus,
@@ -24,7 +23,6 @@ import type {
   NicheBendVideoType,
 } from "@/lib/types";
 import { BendHistory } from "./BendHistory";
-import { ClaimedNiches } from "./ClaimedNiches";
 import { Stepper } from "./Stepper";
 import { StepAnalyze, type AnalyzeState } from "./StepAnalyze";
 import { StepChooseBend } from "./StepChooseBend";
@@ -73,7 +71,7 @@ type WizardAction =
   | { type: "SOP_SUBMIT_START" }
   | { type: "SOP_READY"; status: NicheBendJobStatusResponse }
   | { type: "SOP_POLL_UPDATE"; status: NicheBendJobStatusResponse }
-  | { type: "SOP_SUBMIT_FAILED"; message: string; claimed?: boolean }
+  | { type: "SOP_SUBMIT_FAILED"; message: string }
   | { type: "SAVE_TOGGLE_START" }
   | { type: "SAVE_TOGGLE_DONE"; saved: boolean }
   | { type: "SAVE_TOGGLE_FAILED" }
@@ -235,15 +233,7 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
     }
 
     case "SOP_SUBMIT_FAILED":
-      return {
-        ...state,
-        sopSubmitting: false,
-        sopError: action.message,
-        // A claim conflict means this exact niche is now permanently gone —
-        // clearing the selection forces a conscious re-pick instead of
-        // letting a retry silently hit the same wall again.
-        selectedCandidateId: action.claimed ? null : state.selectedCandidateId,
-      };
+      return { ...state, sopSubmitting: false, sopError: action.message };
 
     case "SAVE_TOGGLE_START":
       return { ...state, savingToggle: true };
@@ -450,7 +440,6 @@ export function NicheBendWizard() {
       dispatch({
         type: "SOP_SUBMIT_FAILED",
         message: error instanceof Error ? error.message : "Could not generate the SOP.",
-        claimed: error instanceof NicheBendApiError && error.code === "niche_claimed",
       });
     }
   };
@@ -521,7 +510,6 @@ export function NicheBendWizard() {
           className="animate-bend-in mx-auto flex w-full max-w-5xl flex-col gap-12 border-t border-hairline pt-10"
           style={{ animationDelay: "100ms" }}
         >
-          <ClaimedNiches />
           <BendHistory onResume={handleResumeFromHistory} />
         </div>
       )}

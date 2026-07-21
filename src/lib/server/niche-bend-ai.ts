@@ -2,7 +2,6 @@ import { generateObject, type ModelMessage } from "ai";
 import { z } from "zod";
 import { ApifyScraperError, scrapeChannelVideos } from "./apify-client";
 import { CLAUDE_MAX_OUTPUT_TOKENS, nicheBendModel } from "./cloudflare-client";
-import { normalizeNicheKey } from "./niche-bend-claims";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
@@ -14,7 +13,7 @@ import type {
 
 export class NicheBendAiError extends Error {}
 
-const SYSTEM_PROMPT = `You are Clypa's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work — hooks, structure, pacing, retention devices — and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
+const SYSTEM_PROMPT = `You are Verlab's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work — hooks, structure, pacing, retention devices — and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
 
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheBendAiError) throw error;
@@ -185,13 +184,10 @@ const CandidateOnlySchema = z.object({ candidate: CandidateSchema });
 export async function regenerateOneCandidate(
   conversation: ModelMessage[],
   analysis: NicheBendChannelAnalysis,
-  otherCandidates: NicheBendCandidate[],
-  avoidNicheNames: string[] = []
+  otherCandidates: NicheBendCandidate[]
 ): Promise<{ candidate: NicheBendCandidate; conversation: ModelMessage[] }> {
-  const avoidList = [analysis.detectedNiche, ...otherCandidates.map((c) => c.nicheName), ...avoidNicheNames].join(
-    ", "
-  );
-  const prompt = `Give exactly 1 NEW strategic "niche bend" candidate for this same channel — a different niche than any of these (some are already claimed by other creators on the platform and are permanently off-limits): ${avoidList}. Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
+  const avoidList = [analysis.detectedNiche, ...otherCandidates.map((c) => c.nicheName)].join(", ");
+  const prompt = `Give exactly 1 NEW strategic "niche bend" candidate for this same channel — a different niche than any of these: ${avoidList}. Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
 
   const messages: ModelMessage[] = [...conversation, { role: "user", content: prompt }];
   const { object, messages: nextMessages } = await runExtract(messages, CandidateOnlySchema, {
@@ -212,14 +208,9 @@ export async function regenerateOneCandidate(
 
 export async function regenerateCandidates(
   conversation: ModelMessage[],
-  analysis: NicheBendChannelAnalysis,
-  avoidNicheNames: string[] = []
+  analysis: NicheBendChannelAnalysis
 ): Promise<{ candidates: NicheBendCandidate[]; conversation: ModelMessage[] }> {
-  const claimedNote =
-    avoidNicheNames.length > 0
-      ? ` Also avoid these niches — they're already claimed by other creators on the platform and are permanently off-limits: ${avoidNicheNames.join(", ")}.`
-      : "";
-  const prompt = `Give 3 NEW strategic "niche bend" candidates for this same channel — different niches than any you've already proposed earlier in this conversation, and still different from the channel's own detected niche ("${analysis.detectedNiche}").${claimedNote} Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
+  const prompt = `Give 3 NEW strategic "niche bend" candidates for this same channel — different niches than any you've already proposed earlier in this conversation, and still different from the channel's own detected niche ("${analysis.detectedNiche}"). Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
 
   const messages: ModelMessage[] = [...conversation, { role: "user", content: prompt }];
   const { object, messages: nextMessages } = await runExtract(messages, CandidatesOnlySchema, {
@@ -265,8 +256,7 @@ async function extractAnalysisAndCandidates(
 export async function researchChannel(
   url: string,
   platform: NicheBendPlatform,
-  videoType: NicheBendVideoType,
-  avoidNicheNames: string[] = []
+  videoType: NicheBendVideoType
 ): Promise<ResearchOutcome> {
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
   const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
@@ -287,10 +277,6 @@ export async function researchChannel(
   }
 
   const videoList = scraped.videos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
-  const claimedNote =
-    avoidNicheNames.length > 0
-      ? ` None of the 3 candidates may be any of these niches — they're already claimed by other creators on the platform and are permanently off-limits: ${avoidNicheNames.join(", ")}.`
-      : "";
 
   const extractionPrompt = `We scraped the real top ${formatLabel} from the ${platformLabel} channel "${scraped.channelName}" (${url}), sorted by view count:
 
@@ -298,7 +284,7 @@ ${videoList}
 
 From this real data, produce:
 1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
-2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself.${claimedNote} Each candidate needs: a bold niche name (max 3 words), an angle tag — exactly one of Ranking, Timeline, or Conflict — describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
+2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself. Each candidate needs: a bold niche name (max 3 words), an angle tag — exactly one of Ranking, Timeline, or Conflict — describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
 
 Respond only in the required structured format.`;
 
@@ -309,16 +295,11 @@ export async function researchFromManualVideos(
   url: string | undefined,
   platform: NicheBendPlatform,
   videoType: NicheBendVideoType,
-  manualVideos: NicheBendVideo[],
-  avoidNicheNames: string[] = []
+  manualVideos: NicheBendVideo[]
 ): Promise<ResearchOutcome> {
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
   const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
   const videoList = manualVideos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
-  const claimedNote =
-    avoidNicheNames.length > 0
-      ? ` None of the 3 candidates may be any of these niches — they're already claimed by other creators on the platform and are permanently off-limits: ${avoidNicheNames.join(", ")}.`
-      : "";
 
   const prompt = `A creator pasted their own top ${platformLabel} video titles and view counts below (no web research needed or possible — work only from this data). These are ${formatLabel}.
 
@@ -326,7 +307,7 @@ ${videoList}
 
 From only this data, infer and produce:
 1. A structured channel analysis: channelName (use "${url ? url : "Your channel"}" or infer a reasonable label if a URL was given), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
-2. Exactly 3 strategic "niche bend" candidates applying the same proven format to 3 different verticals than the detected niche.${claimedNote} Each with a niche name (max 3 words), an angle tag (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the same hook style as the given titles.
+2. Exactly 3 strategic "niche bend" candidates applying the same proven format to 3 different verticals than the detected niche. Each with a niche name (max 3 words), an angle tag (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the same hook style as the given titles.
 
 Respond only in the required structured format.`;
 
@@ -391,45 +372,4 @@ Respond only in the required structured format.`;
   });
 
   return { ...parsedA, ...parsedB };
-}
-
-const MAX_CLAIM_DEDUPE_ATTEMPTS = 3;
-
-// Last line of defense before candidates ever reach the client: swaps out
-// any candidate that collides with an already-claimed niche for a fresh one,
-// so a user is (practically) never shown a bend someone else already owns.
-// The atomic insert in claimNiche() is the real lock — this just keeps the
-// UI from routinely dead-ending into it.
-export async function dedupeCandidatesAgainstClaims(
-  candidates: NicheBendCandidate[],
-  analysis: NicheBendChannelAnalysis,
-  conversation: ModelMessage[],
-  claimedNicheKeys: Set<string>
-): Promise<{ candidates: NicheBendCandidate[]; conversation: ModelMessage[] }> {
-  if (claimedNicheKeys.size === 0) return { candidates, conversation };
-
-  const working = [...candidates];
-  let workingConversation = conversation;
-
-  for (let i = 0; i < working.length; i++) {
-    let attempts = 0;
-    while (claimedNicheKeys.has(normalizeNicheKey(working[i].nicheName)) && attempts < MAX_CLAIM_DEDUPE_ATTEMPTS) {
-      const others = working.filter((_, idx) => idx !== i);
-      try {
-        const { candidate, conversation: nextConversation } = await regenerateOneCandidate(
-          workingConversation,
-          analysis,
-          others
-        );
-        working[i] = { ...candidate, id: working[i].id };
-        workingConversation = nextConversation;
-      } catch (error) {
-        console.error("[niche-bend] Claim-dedupe regeneration failed, keeping current candidate:", error);
-        break;
-      }
-      attempts++;
-    }
-  }
-
-  return { candidates: working, conversation: workingConversation };
 }

@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
 import { Table, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
 
-const MCP_SERVER_URL = "https://api.clypa.io/mcp/v1/sse";
+const MCP_SERVER_URL = "https://api.verlab.io/mcp/v1/sse";
 
 const CONNECT_TABS = [
   { id: "claude", label: "Claude Desktop" },
@@ -18,7 +18,7 @@ const CONNECT_STEPS: Record<string, string[]> = {
     "Open Claude Desktop and go to Settings.",
     "Navigate to the Connectors section.",
     'Click "Add custom connector" and paste the URL above.',
-    "Restart Claude Desktop to load the Clypa tools.",
+    "Restart Claude Desktop to load the Verlab tools.",
   ],
   chatgpt: [
     "Open ChatGPT Settings.",
@@ -30,7 +30,7 @@ const CONNECT_STEPS: Record<string, string[]> = {
 
 const AVAILABLE_TOOLS = [
   { name: "get_transcript", description: "Fetches the full text of a specific saved transcript." },
-  { name: "search_niches", description: "Searches trending niches based on your Clypa parameters." },
+  { name: "search_niches", description: "Searches trending niches based on your Verlab parameters." },
   { name: "generate_sop", description: "Extracts the exact script formula from a competitor link." },
 ];
 
@@ -48,7 +48,7 @@ export default function McpPage() {
     <div className="mx-auto max-w-3xl py-8">
       <h1 className="text-2xl font-bold text-heading">Model Context Protocol (MCP)</h1>
       <p className="mt-2 max-w-xl text-sm leading-relaxed text-body">
-        Connect Clypa directly to Claude Desktop or ChatGPT to search your transcripts, generate scripts, and
+        Connect Verlab directly to Claude Desktop or ChatGPT to search your transcripts, generate scripts, and
         bend niches using AI.
       </p>
 

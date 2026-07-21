@@ -56,7 +56,7 @@ function AssetThumbnail({ asset }: { asset: LibraryAsset }) {
           className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-md"
         />
         {/* eslint-disable-next-line @next/next/no-img-element -- foreground thumbnail from a data URL or upstream URL */}
-        <img src={asset.thumbnailUrl} alt={asset.title} className="absolute inset-0 z-10 h-full w-full object-contain" />
+        <img src={asset.thumbnailUrl} alt={asset.title} className="absolute inset-0 h-full w-full object-contain" />
       </>
     );
   }

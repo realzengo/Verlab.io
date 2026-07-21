@@ -4,8 +4,8 @@ import { CreditCard, RefreshCw, XCircle } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Refund Policy — Clypa",
-  description: "Clypa's refund and cancellation policy: how billing works, how to cancel, and what happens to your data.",
+  title: "Refund Policy — Verlab",
+  description: "Verlab's refund and cancellation policy: how billing works, how to cancel, and what happens to your data.",
 };
 
 const SECTIONS: LegalSection[] = [
@@ -16,7 +16,7 @@ const SECTIONS: LegalSection[] = [
       <>
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>All sales are final. We do not offer refunds for any subscription, credits, or add-on once a payment has been successfully processed.</li>
-          <li>By subscribing to Clypa, you acknowledge and agree that you have read, understood, and accepted this no-refund policy.</li>
+          <li>By subscribing to Verlab, you acknowledge and agree that you have read, understood, and accepted this no-refund policy.</li>
           <li>No exceptions are made to this policy, including for unused credits, partial-month usage, accidental purchases, or a change of mind.</li>
         </ul>
         <p>
@@ -35,7 +35,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p className="font-semibold text-heading">2.1 Eligibility</p>
-        <p>All subscribers may cancel at any time, for any reason, with no approval required from Clypa.</p>
+        <p>All subscribers may cancel at any time, for any reason, with no approval required from Verlab.</p>
 
         <p className="font-semibold text-heading">2.2 Cancellation Process</p>
         <p>To cancel your subscription:</p>
@@ -43,7 +43,7 @@ const SECTIONS: LegalSection[] = [
           <li>
             Go to{" "}
             <Link href="/app/settings/subscription" className="text-primary hover:underline">
-              clypa.io/app/settings/subscription
+              verlab.io/app/settings/subscription
             </Link>
           </li>
           <li>Open the <strong className="text-heading">Subscription</strong> tab in your account settings</li>
@@ -62,7 +62,7 @@ const SECTIONS: LegalSection[] = [
 
         <p className="font-semibold text-heading">2.5 Data Retention</p>
         <p>
-          We generally retain your account data in case you choose to reactivate. Clypa reserves the right to delete
+          We generally retain your account data in case you choose to reactivate. Verlab reserves the right to delete
           data associated with a cancelled account after a reasonable retention period. If you would like your data
           removed sooner, contact us using the details below and we will act in accordance with applicable privacy
           laws and our{" "}
@@ -83,8 +83,8 @@ const SECTIONS: LegalSection[] = [
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>
             Email:{" "}
-            <a href="mailto:support@clypa.io" className="text-primary hover:underline">
-              support@clypa.io
+            <a href="mailto:support@verlab.io" className="text-primary hover:underline">
+              support@verlab.io
             </a>
           </li>
         </ul>
@@ -96,7 +96,7 @@ const SECTIONS: LegalSection[] = [
     title: "Amendments",
     body: (
       <ul className="list-disc space-y-2 pl-5 marker:text-primary">
-        <li>Clypa reserves the right to modify this Policy at any time, effective upon posting of an updated version on our website.</li>
+        <li>Verlab reserves the right to modify this Policy at any time, effective upon posting of an updated version on our website.</li>
         <li>You are responsible for periodically reviewing this Policy. The &quot;Last updated&quot; date above indicates when it was last revised.</li>
       </ul>
     ),
@@ -106,7 +106,7 @@ const SECTIONS: LegalSection[] = [
     title: "Governing Law",
     body: (
       <p>
-        This Policy is governed by and construed in accordance with the laws of the jurisdiction in which Clypa is
+        This Policy is governed by and construed in accordance with the laws of the jurisdiction in which Verlab is
         registered, without regard to its conflict of law provisions.
       </p>
     ),

@@ -137,7 +137,7 @@ function McpPreview() {
         <Plug className="h-3.5 w-3.5 text-primary" />
         <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Connected</span>
       </div>
-      <p className="truncate font-mono text-[11px] text-heading">api.clypa.io/mcp/v1/sse</p>
+      <p className="truncate font-mono text-[11px] text-heading">api.verlab.io/mcp/v1/sse</p>
       <div className="flex flex-wrap gap-1.5">
         <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-primary">Claude</span>
         <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-primary">ChatGPT</span>
@@ -197,13 +197,13 @@ const TOOLS = [
   },
   {
     title: "MCP",
-    description: "Connect Clypa to Claude or ChatGPT to bend niches and pull transcripts right from chat.",
+    description: "Connect Verlab to Claude or ChatGPT to bend niches and pull transcripts right from chat.",
     href: "/app/mcp",
     preview: <McpPreview />,
   },
   {
     title: "API Access",
-    description: "Full REST API access to every Clypa tool for your own pipeline.",
+    description: "Full REST API access to every Verlab tool for your own pipeline.",
     href: "/app/settings/api",
     preview: <ApiPreview />,
     beta: true,

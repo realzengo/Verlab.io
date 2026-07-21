@@ -3,19 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import {
   NicheBendAiError,
-  dedupeCandidatesAgainstClaims,
   generateSopContent,
   regenerateCandidates,
   regenerateOneCandidate,
   researchChannel,
   researchFromManualVideos,
 } from "./niche-bend-ai";
-import {
-  NicheAlreadyClaimedError,
-  claimNiche,
-  getClaimedNichesForAvoidance,
-  normalizeNicheKey,
-} from "./niche-bend-claims";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   NicheBendCandidate,
@@ -159,28 +152,19 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
       return;
     }
 
-    const avoidance = await getClaimedNichesForAvoidance();
-
     if (hasManualVideos) {
       await updateJob(supabase, job.id, { status: "identifying_format" });
       const outcome = await researchFromManualVideos(
         job.source_url || undefined,
         job.platform,
         job.video_type,
-        job.manual_videos!,
-        avoidance.names
-      );
-      const deduped = await dedupeCandidatesAgainstClaims(
-        outcome.candidates,
-        outcome.analysis,
-        outcome.conversation,
-        avoidance.keys
+        job.manual_videos!
       );
       await updateJob(supabase, job.id, {
         status: "ready",
         analysis: outcome.analysis,
-        candidates: deduped.candidates,
-        conversation: deduped.conversation,
+        candidates: outcome.candidates,
+        conversation: outcome.conversation,
       });
       return;
     }
@@ -190,38 +174,26 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
 
     if (cached) {
       await updateJob(supabase, job.id, { status: "generating_bends" });
-      const outcome = await regenerateCandidates(cached.conversation, cached.analysis, avoidance.names);
-      const deduped = await dedupeCandidatesAgainstClaims(
-        outcome.candidates,
-        cached.analysis,
-        outcome.conversation,
-        avoidance.keys
-      );
-      await setCachedResearch(cacheKey, { analysis: cached.analysis, conversation: deduped.conversation });
+      const outcome = await regenerateCandidates(cached.conversation, cached.analysis);
+      await setCachedResearch(cacheKey, { analysis: cached.analysis, conversation: outcome.conversation });
       await updateJob(supabase, job.id, {
         status: "ready",
         analysis: cached.analysis,
-        candidates: deduped.candidates,
-        conversation: deduped.conversation,
+        candidates: outcome.candidates,
+        conversation: outcome.conversation,
       });
       return;
     }
 
     await updateJob(supabase, job.id, { status: "reading_videos" });
-    const outcome = await researchChannel(job.source_url, job.platform, job.video_type, avoidance.names);
+    const outcome = await researchChannel(job.source_url, job.platform, job.video_type);
     await updateJob(supabase, job.id, { status: "generating_bends" });
-    const deduped = await dedupeCandidatesAgainstClaims(
-      outcome.candidates,
-      outcome.analysis,
-      outcome.conversation,
-      avoidance.keys
-    );
-    await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: deduped.conversation });
+    await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
     await updateJob(supabase, job.id, {
       status: "ready",
       analysis: outcome.analysis,
-      candidates: deduped.candidates,
-      conversation: deduped.conversation,
+      candidates: outcome.candidates,
+      conversation: outcome.conversation,
     });
   } catch (error) {
     console.error("[niche-bend] Analysis pipeline failed:", error);
@@ -375,22 +347,7 @@ export async function regenerateOneCandidateInJob(
   }
 
   const otherCandidates = candidates.filter((candidate) => candidate.id !== candidateId);
-  const avoidance = await getClaimedNichesForAvoidance();
-  let { candidate, conversation } = await regenerateOneCandidate(
-    job.conversation ?? [],
-    analysis,
-    otherCandidates,
-    avoidance.names
-  );
-
-  // Same claim-collision backstop as the initial generation pass — this is
-  // a single-candidate reroll, so the retry loop lives here directly rather
-  // than going through dedupeCandidatesAgainstClaims (which dedupes a batch).
-  let attempts = 0;
-  while (avoidance.keys.has(normalizeNicheKey(candidate.nicheName)) && attempts < 3) {
-    ({ candidate, conversation } = await regenerateOneCandidate(conversation, analysis, otherCandidates, avoidance.names));
-    attempts++;
-  }
+  const { candidate, conversation } = await regenerateOneCandidate(job.conversation ?? [], analysis, otherCandidates);
 
   const newCandidate: NicheBendCandidate = { ...candidate, id: candidateId };
   const nextCandidates = candidates.map((c) => (c.id === candidateId ? newCandidate : c));
@@ -402,9 +359,9 @@ export async function regenerateOneCandidateInJob(
 // SOP writing is two sequential structured-output calls (see
 // generateSopContent) that can each take minutes — the same shape of problem
 // as the initial channel analysis. So this follows the same async pattern as
-// createJob()/runPipeline(): claim the niche and flip status synchronously
-// (fast, so the route can respond immediately), then let the actual writing
-// continue via after() while the client polls for "sop_ready".
+// createJob()/runPipeline(): flip status synchronously (fast, so the route
+// can respond immediately), then let the actual writing continue via after()
+// while the client polls for "sop_ready".
 export async function startSopGeneration(
   supabase: SupabaseClient,
   job: NicheBendJobRow,
@@ -421,24 +378,6 @@ export async function startSopGeneration(
   const chosen = candidates.find((candidate) => candidate.id === chosenBendId);
   if (!chosen) {
     throw new Error("Invalid chosenBend id");
-  }
-
-  // Reserve the niche before spending the (expensive) SOP generation call.
-  // This is the actual enforcement point — candidate generation upstream
-  // only reduces the odds of a collision, this atomic insert is what
-  // guarantees exclusivity even if two users pick the same niche at once.
-  const claimed = await claimNiche({
-    nicheName: chosen.nicheName,
-    angle: chosen.angle,
-    exampleTitles: chosen.exampleTitles,
-    userId: job.user_id,
-    jobId: job.id,
-    channelName: analysis.channelName,
-    avatarUrl: analysis.avatarUrl ?? null,
-    platform: job.platform,
-  });
-  if (!claimed) {
-    throw new NicheAlreadyClaimedError(chosen.nicheName);
   }
 
   // Clear out any error_message left over from a previous failed SOP attempt

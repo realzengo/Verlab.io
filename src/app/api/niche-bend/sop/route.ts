@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NicheAlreadyClaimedError } from "@/lib/server/niche-bend-claims";
 import { getJob, resolveStatus, startSopGeneration } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
 
@@ -53,9 +52,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     if (error instanceof Error && error.message === "Invalid chosenBend id") {
       return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    if (error instanceof NicheAlreadyClaimedError) {
-      return NextResponse.json({ error: error.message, code: "niche_claimed" }, { status: 409 });
     }
     const message = error instanceof Error ? error.message : "Could not generate the SOP";
     return NextResponse.json({ error: message }, { status: 502 });

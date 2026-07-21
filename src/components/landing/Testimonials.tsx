@@ -4,7 +4,7 @@ const TESTIMONIALS: Testimonial[] = [
   {
     name: "Maya R.",
     role: "Faceless Reddit channel",
-    text: "I paste the top videos in my niche and Clypa hands me a bent SOP in seconds. My research time collapsed.",
+    text: "I paste the top videos in my niche and Verlab hands me a bent SOP in seconds. My research time collapsed.",
     image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150",
   },
   {
@@ -22,19 +22,19 @@ const TESTIMONIALS: Testimonial[] = [
   {
     name: "Priya N.",
     role: "Faceless YouTube channel",
-    text: "We went from guessing formats to shipping a proven script every morning. Clypa reads the winners so we don't have to.",
+    text: "We went from guessing formats to shipping a proven script every morning. Verlab reads the winners so we don't have to.",
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150",
   },
   {
     name: "Marcus T.",
     role: "Solo clipper",
-    text: "I run five niches solo now. Clypa's SOPs mean I'm never staring at a blank timeline.",
+    text: "I run five niches solo now. Verlab's SOPs mean I'm never staring at a blank timeline.",
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150",
   },
   {
     name: "Elena V.",
     role: "Content studio lead",
-    text: "Onboarding new editors used to take weeks. Now I hand them a Clypa breakdown and they're cutting on day one.",
+    text: "Onboarding new editors used to take weeks. Now I hand them a Verlab breakdown and they're cutting on day one.",
     image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=150&h=150",
   },
   {
@@ -46,7 +46,7 @@ const TESTIMONIALS: Testimonial[] = [
   {
     name: "Sana R.",
     role: "Growth marketer",
-    text: "Clypa turned our competitor research into a repeatable system instead of a Friday afternoon scramble.",
+    text: "Verlab turned our competitor research into a repeatable system instead of a Friday afternoon scramble.",
     image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150&h=150",
   },
   {
@@ -71,7 +71,7 @@ export function Testimonials() {
             Built for creators who bend at scale
           </h2>
           <p className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]">
-            Faceless channels, agencies and solo clippers use Clypa to reverse-engineer what&rsquo;s already
+            Faceless channels, agencies and solo clippers use Verlab to reverse-engineer what&rsquo;s already
             working.
           </p>
         </div>

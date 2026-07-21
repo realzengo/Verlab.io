@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
 
-const STORAGE_KEY = "clypa-theme";
+const STORAGE_KEY = "verlab-theme";
 
 interface ThemeContextValue {
   theme: Theme;

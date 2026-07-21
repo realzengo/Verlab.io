@@ -6,6 +6,7 @@ import { deleteBendHistoryItem, fetchBendHistory } from "@/lib/api/niche-bend";
 import type { NicheBendHistoryItem, NicheBendJobStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ChannelAvatar } from "./ChannelAvatar";
+import { SopPreviewModal } from "./SopPreviewModal";
 
 const STATUS_META: Record<NicheBendJobStatus, { label: string; dot: string }> = {
   opening_channel: { label: "In progress", dot: "bg-primary animate-pulse" },
@@ -58,6 +59,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null);
+  const [previewJobId, setPreviewJobId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,8 +125,12 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
             <li key={item.jobId} className="group relative">
               <button
                 type="button"
-                onClick={() => onResume(item)}
-                aria-label={`Resume bend for ${item.channelName ?? item.sourceUrl ?? "channel"}`}
+                onClick={() => (item.status === "sop_ready" ? setPreviewJobId(item.jobId) : onResume(item))}
+                aria-label={
+                  item.status === "sop_ready"
+                    ? `View SOP for ${item.channelName ?? item.sourceUrl ?? "channel"}`
+                    : `Resume bend for ${item.channelName ?? item.sourceUrl ?? "channel"}`
+                }
                 className="absolute inset-0 z-0 rounded-card-sm transition-[transform,box-shadow,border-color] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               />
 
@@ -215,6 +221,8 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
           {expanded ? "Show less" : `Show ${items.length - COLLAPSED_COUNT} more`}
         </button>
       )}
+
+      <SopPreviewModal jobId={previewJobId} onClose={() => setPreviewJobId(null)} />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import type { MockUser } from "@/lib/types";
 export const MOCK_USER: MockUser = {
   id: "user_zengo",
   name: "Zengo",
-  email: "zengo@clypa.io",
+  email: "zengo@verlab.io",
   plan: "pro",
   streak: {
     current: 1,

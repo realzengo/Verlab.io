@@ -45,7 +45,7 @@ export function Hero() {
 
       <div className="mt-8 flex justify-center">
         <Button href="/app" size="lg" icon={Zap} bevel={false} className="px-6 py-3.5 text-base font-bold! shadow-none sm:px-8 sm:py-4 sm:text-lg">
-          Try Clypo Now
+          Try Verlab Now
         </Button>
       </div>
 

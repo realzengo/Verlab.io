@@ -2,9 +2,9 @@ import { CodeSnippet } from "@/components/ui/CodeSnippet";
 
 const MCP_SNIPPET = `{
   "mcpServers": {
-    "clypa": {
-      "url": "https://mcp.clypa.io/v1",
-      "auth": "Bearer YOUR_CLYPA_API_KEY"
+    "verlab": {
+      "url": "https://mcp.verlab.io/v1",
+      "auth": "Bearer YOUR_VERLAB_API_KEY"
     }
   }
 }`;

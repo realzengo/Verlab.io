@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, Coins, Lock } from "lucide-react";
+import { CheckCircle2, Coins } from "lucide-react";
 import { BEND_RESULTS } from "@/lib/mock-data";
 import { LinkInput } from "@/components/ui/LinkInput";
 import { SopView } from "@/components/features/SopView";
@@ -14,7 +14,6 @@ type BendCard = {
   structures: number;
   niche: string;
   bullets: string[];
-  locked?: boolean;
 };
 
 const BEND_WALL: BendCard[] = [
@@ -41,7 +40,6 @@ const BEND_WALL: BendCard[] = [
       "How a rival's mole sat in on every board meeting",
       "The patent filing that exposed the whole scheme",
     ],
-    locked: true,
   },
   {
     id: "the-finance-guy",
@@ -128,13 +126,6 @@ function BendWallCard({ card, index }: { card: BendCard; index: number }) {
 
   return (
     <div className="relative flex flex-col gap-4 rounded-card border border-hairline bg-surface p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5">
-      {card.locked && (
-        <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full border border-[#fde68a] bg-[#fef3c7] px-2.5 py-1 text-[11px] font-semibold text-[#b45309] shadow-sm">
-          <Lock className="h-3 w-3" strokeWidth={2.5} />
-          Claimed niches stay private
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -200,9 +191,6 @@ export function NicheBendingSpotlight() {
           </SocialProofBadge>
           <SocialProofBadge icon={<Coins className="h-3.5 w-3.5 text-warning" strokeWidth={2.5} />}>
             $1.2M in creator earnings
-          </SocialProofBadge>
-          <SocialProofBadge icon={<Lock className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />}>
-            Claimed niches stay private
           </SocialProofBadge>
         </div>
 

@@ -12,7 +12,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
     href: "/legal/terms",
     label: "Terms of Service",
     icon: FileText,
-    description: "The rules that govern your use of Clypa.",
+    description: "The rules that govern your use of Verlab.",
   },
   {
     href: "/legal/privacy",

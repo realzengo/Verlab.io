@@ -220,8 +220,8 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
 // --- Admin team -----------------------------------------------------------
 
 export const ADMIN_TEAM: AdminTeamMember[] = [
-  { id: "adm_1", name: "Zengo", email: "zengo@clypa.io", role: "owner", lastLogin: isoDaysAgo(0) },
-  { id: "adm_2", name: "Ruth Petrov", email: "ruth@clypa.io", role: "admin", lastLogin: isoDaysAgo(1) },
-  { id: "adm_3", name: "Amir Costa", email: "amir@clypa.io", role: "support", lastLogin: isoDaysAgo(2) },
-  { id: "adm_4", name: "Hana Larsson", email: "hana@clypa.io", role: "support", lastLogin: isoDaysAgo(6) },
+  { id: "adm_1", name: "Zengo", email: "zengo@verlab.io", role: "owner", lastLogin: isoDaysAgo(0) },
+  { id: "adm_2", name: "Ruth Petrov", email: "ruth@verlab.io", role: "admin", lastLogin: isoDaysAgo(1) },
+  { id: "adm_3", name: "Amir Costa", email: "amir@verlab.io", role: "support", lastLogin: isoDaysAgo(2) },
+  { id: "adm_4", name: "Hana Larsson", email: "hana@verlab.io", role: "support", lastLogin: isoDaysAgo(6) },
 ];

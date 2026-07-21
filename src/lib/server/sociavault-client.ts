@@ -148,7 +148,7 @@ export interface TrendingTikTokVideo {
 
 // Global "trending" feeds skew toward music/dance/celebrity content, which is
 // irrelevant to a faceless-content tool. Instead we search hashtags specific
-// to the faceless production styles Clypa serves — narrated/voiceover niches,
+// to the faceless production styles Verlab serves — narrated/voiceover niches,
 // AI-generated content, and 2D animation — so every result is on-topic.
 const FACELESS_HASHTAGS = [
   "historyfacts",

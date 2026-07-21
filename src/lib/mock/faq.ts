@@ -28,7 +28,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "faq-api",
     question: "Is there an API?",
     answer:
-      "Yes — API access is included on the Annual plan. You can also connect Clypa to Claude or ChatGPT via MCP for niche bending and transcripts directly inside your AI workflow.",
+      "Yes — API access is included on the Annual plan. You can also connect Verlab to Claude or ChatGPT via MCP for niche bending and transcripts directly inside your AI workflow.",
   },
   {
     id: "faq-cancel",

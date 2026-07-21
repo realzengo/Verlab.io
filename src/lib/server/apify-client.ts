@@ -1,3 +1,4 @@
+import { scrapeCreatorsGet } from "./video-provider";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
 export type ApifyScraperErrorCode = "not_configured" | "unsupported_url" | "not_found" | "provider_error";
@@ -128,11 +129,36 @@ export interface ScrapedChannel {
   videos: NicheBendVideo[];
 }
 
+// Apify is the primary channel-scraping provider, but it's a single point of
+// failure — actor deprecations, rate limits, or a missing APIFY_API_TOKEN all
+// surface as the same dead end for the user ("we couldn't read that
+// channel"). ScrapeCreators (already configured/used for transcript fetching
+// in video-provider.ts) covers the same TikTok/YouTube profile data via a
+// different backend, so on any Apify failure we retry through it before
+// giving up and asking the user to paste videos manually.
 export async function scrapeChannelVideos(
   url: string,
   platform: NicheBendPlatform,
   videoType: NicheBendVideoType,
   limit = 10
+): Promise<ScrapedChannel> {
+  try {
+    return await scrapeChannelVideosViaApify(url, platform, videoType, limit);
+  } catch (primaryError) {
+    try {
+      return await scrapeChannelVideosViaScrapeCreators(url, platform, videoType, limit);
+    } catch (fallbackError) {
+      console.error("[niche-bend] ScrapeCreators fallback also failed:", fallbackError);
+      throw primaryError;
+    }
+  }
+}
+
+async function scrapeChannelVideosViaApify(
+  url: string,
+  platform: NicheBendPlatform,
+  videoType: NicheBendVideoType,
+  limit: number
 ): Promise<ScrapedChannel> {
   if (platform === "youtube") {
     const items = await runActor<YoutubeScraperItem>(YOUTUBE_ACTOR, {
@@ -186,5 +212,114 @@ export async function scrapeChannelVideos(
       views: humanizeViewCount(Number(item.playCount) || 0),
     })),
   };
+}
+
+// --- ScrapeCreators fallback — same channel-scraping job as the Apify actors
+// above, hit through a different backend so a single provider's outage/rate
+// limit/deprecated actor doesn't dead-end the whole analysis. See
+// https://docs.scrapecreators.com/v3/tiktok/profile/videos and
+// https://docs.scrapecreators.com/v1/youtube/channel-videos.
+
+interface ScrapeCreatorsTikTokProfileVideoItem {
+  desc?: string;
+  statistics?: { play_count?: number };
+  author?: { unique_id?: string; nickname?: string; avatar_medium?: { url_list?: string[] } };
+}
+
+interface ScrapeCreatorsTikTokProfileVideosResponse {
+  aweme_list?: ScrapeCreatorsTikTokProfileVideoItem[];
+}
+
+async function scrapeCreatorsTikTokChannel(url: string, limit: number): Promise<ScrapedChannel> {
+  const handle = extractTikTokHandle(url);
+  const data = await scrapeCreatorsGet<ScrapeCreatorsTikTokProfileVideosResponse>("/v3/tiktok/profile/videos", {
+    handle,
+    sort_by: "popular",
+  });
+
+  const items = data.aweme_list ?? [];
+  if (items.length === 0) {
+    throw new ApifyScraperError("not_found", "No videos found for that TikTok profile.");
+  }
+
+  const author = items[0].author;
+  const channelName = author?.nickname?.trim() || (author?.unique_id ? `@${author.unique_id}` : `@${handle}`);
+
+  return {
+    channelName,
+    avatarUrl: author?.avatar_medium?.url_list?.[0],
+    videos: items.slice(0, limit).map((item) => ({
+      title: (item.desc ?? "").trim() || "Untitled",
+      views: humanizeViewCount(Number(item.statistics?.play_count) || 0),
+    })),
+  };
+}
+
+function extractYoutubeChannelParams(url: string): Record<string, string> {
+  const channelIdMatch = url.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
+  if (channelIdMatch) return { channelId: channelIdMatch[1] };
+  const handleMatch = url.match(/youtube\.com\/(?:@|c\/|user\/)([^/?#]+)/i);
+  if (handleMatch) return { handle: handleMatch[1].replace(/^@/, "") };
+  throw new ApifyScraperError("unsupported_url", "Couldn't parse a YouTube channel from that URL.");
+}
+
+interface ScrapeCreatorsChannelInfoResponse {
+  name?: string;
+  avatar?: { image?: { sources?: { url?: string }[] } };
+}
+
+interface ScrapeCreatorsChannelVideoItem {
+  title?: string;
+  viewCountInt?: number;
+}
+
+interface ScrapeCreatorsChannelVideosResponse {
+  videos?: ScrapeCreatorsChannelVideoItem[];
+}
+
+interface ScrapeCreatorsChannelShortsResponse {
+  shorts?: ScrapeCreatorsChannelVideoItem[];
+}
+
+async function scrapeCreatorsYoutubeChannel(
+  url: string,
+  videoType: NicheBendVideoType,
+  limit: number
+): Promise<ScrapedChannel> {
+  const channelParams = extractYoutubeChannelParams(url);
+  const listPath = videoType === "shorts" ? "/v1/youtube/channel/shorts" : "/v1/youtube/channel-videos";
+
+  const [infoRes, listRes] = await Promise.all([
+    scrapeCreatorsGet<ScrapeCreatorsChannelInfoResponse>("/v1/youtube/channel", channelParams),
+    scrapeCreatorsGet<ScrapeCreatorsChannelShortsResponse & ScrapeCreatorsChannelVideosResponse>(listPath, {
+      ...channelParams,
+      sort: "popular",
+    }),
+  ]);
+
+  const items = listRes.shorts ?? listRes.videos ?? [];
+  if (items.length === 0) {
+    throw new ApifyScraperError("not_found", "No videos found for that YouTube channel.");
+  }
+
+  return {
+    channelName: infoRes.name?.trim() || url,
+    avatarUrl: infoRes.avatar?.image?.sources?.[0]?.url,
+    videos: items.slice(0, limit).map((item) => ({
+      title: item.title?.trim() || "Untitled",
+      views: humanizeViewCount(Number(item.viewCountInt) || 0),
+    })),
+  };
+}
+
+async function scrapeChannelVideosViaScrapeCreators(
+  url: string,
+  platform: NicheBendPlatform,
+  videoType: NicheBendVideoType,
+  limit: number
+): Promise<ScrapedChannel> {
+  return platform === "youtube"
+    ? scrapeCreatorsYoutubeChannel(url, videoType, limit)
+    : scrapeCreatorsTikTokChannel(url, limit);
 }
 

@@ -4,8 +4,8 @@ import { Database, Lock, ShieldCheck, UserCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Clypa",
-  description: "How Clypa collects, uses, and protects your data.",
+  title: "Privacy Policy — Verlab",
+  description: "How Verlab collects, uses, and protects your data.",
 };
 
 const SECTIONS: LegalSection[] = [
@@ -14,8 +14,8 @@ const SECTIONS: LegalSection[] = [
     title: "Introduction",
     body: (
       <p>
-        This Privacy Policy explains how Clypa (&quot;Clypa,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
-        collects, uses, shares, and protects information when you use clypa.io and the Clypa dashboard (the
+        This Privacy Policy explains how Verlab (&quot;Verlab,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
+        collects, uses, shares, and protects information when you use verlab.io and the Verlab dashboard (the
         &quot;Service&quot;). By using the Service, you agree to the collection and use of information as described
         here.
       </p>
@@ -31,7 +31,7 @@ const SECTIONS: LegalSection[] = [
         <p className="font-semibold text-heading">2.2 Billing Information</p>
         <p>
           Subscription plan, billing history, and payment details. Card and payment information is collected and
-          processed directly by our payment processor — Clypa does not store full card numbers on its own servers.
+          processed directly by our payment processor — Verlab does not store full card numbers on its own servers.
         </p>
         <p className="font-semibold text-heading">2.3 Content You Provide</p>
         <p>Topics, niches, transcripts, uploads, and any other content you submit to generate scripts or SOPs.</p>
@@ -66,7 +66,7 @@ const SECTIONS: LegalSection[] = [
       <>
         <p>
           We do not sell your personal information. We share data only with service providers that help us run
-          Clypa, under confidentiality and data-processing terms, including:
+          Verlab, under confidentiality and data-processing terms, including:
         </p>
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>Our authentication and database provider, used to store account and application data.</li>
@@ -74,7 +74,7 @@ const SECTIONS: LegalSection[] = [
           <li>Analytics and infrastructure providers, used to operate and monitor the Service.</li>
         </ul>
         <p>
-          We may also disclose information if required by law, to protect the rights and safety of Clypa and its
+          We may also disclose information if required by law, to protect the rights and safety of Verlab and its
           users, or in connection with a merger, acquisition, or sale of assets.
         </p>
       </>
@@ -165,8 +165,8 @@ const SECTIONS: LegalSection[] = [
       <ul className="list-disc space-y-2 pl-5 marker:text-primary">
         <li>
           Email:{" "}
-          <a href="mailto:support@clypa.io" className="text-primary hover:underline">
-            support@clypa.io
+          <a href="mailto:support@verlab.io" className="text-primary hover:underline">
+            support@verlab.io
           </a>
         </li>
       </ul>
@@ -186,7 +186,7 @@ export default function PrivacyPolicyPage() {
       icon={ShieldCheck}
       activeHref="/legal/privacy"
       title="Privacy Policy"
-      description="How Clypa collects, uses, and protects your data."
+      description="How Verlab collects, uses, and protects your data."
       effectiveDate="July 16, 2026"
       updatedDate="July 16, 2026"
       highlights={HIGHLIGHTS}

@@ -2,7 +2,6 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -19,7 +18,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Logo } from "@/components/ui/Logo";
+import { Logo, LogoMark } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
@@ -71,7 +70,10 @@ function BrandPanel() {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
 
       <div className="relative z-10 flex items-center justify-between">
-        <Image src="/logo/clypa-logo-dark.png" alt="Clypa" width={104} height={26} priority className="h-6 w-auto" />
+        <span className="inline-flex items-center gap-1.5">
+          <LogoMark className="h-6 w-6 shrink-0 -rotate-90 text-white" />
+          <Logo height={22} className="!text-white" />
+        </span>
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"

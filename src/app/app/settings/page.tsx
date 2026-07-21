@@ -54,7 +54,7 @@ export default function AccountSettingsPage() {
       <SettingsCardHeader
         icon={UserIcon}
         title="Account"
-        description="Your personal information and how it appears across Clypa."
+        description="Your personal information and how it appears across Verlab."
       />
 
       <div className="mt-6 flex items-center gap-4">

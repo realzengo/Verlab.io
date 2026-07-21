@@ -4,7 +4,7 @@ import { Footer } from "@/components/landing/Footer";
 import { PricingSection } from "@/components/landing/PricingSection";
 
 export const metadata: Metadata = {
-  title: "Pricing — Clypa",
+  title: "Pricing — Verlab",
   description: "Simple pricing that pays for itself in 24 hours. Reverse-engineer viral videos into your own scripts.",
 };
 

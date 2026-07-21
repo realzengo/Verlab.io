@@ -24,7 +24,7 @@ function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
   if (match) return match.label;
   if (pathname.startsWith("/app/settings")) return "Settings";
-  return "Clypa";
+  return "Verlab";
 }
 
 export function TopBar({
@@ -80,7 +80,7 @@ export function TopBar({
     pathname.startsWith("/app/mcp");
 
   return (
-    <div className="relative z-10 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
+    <div className="relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
