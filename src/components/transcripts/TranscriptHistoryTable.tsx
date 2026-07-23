@@ -260,18 +260,23 @@ const IconButton = forwardRef<
     label: string;
     onClick?: () => void;
     disabled?: boolean;
+    active?: boolean;
   }
->(function IconButton({ icon: Icon, label, onClick, disabled }, ref) {
+>(function IconButton({ icon: Icon, label, onClick, disabled, active }, ref) {
   return (
     <button
       ref={ref}
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={active}
       aria-label={label}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-body transition-colors hover:bg-app hover:text-heading disabled:opacity-40 disabled:pointer-events-none"
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-40 disabled:pointer-events-none",
+        active ? "border-primary bg-accent text-primary" : "border-hairline bg-surface text-body hover:bg-app hover:text-heading"
+      )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", active && "fill-current")} />
     </button>
   );
 });
@@ -406,6 +411,7 @@ export function TranscriptHistoryTable({
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [folderOverrides, setFolderOverrides] = useState<Record<string, string | null>>({});
+  const [bookmarkOverrides, setBookmarkOverrides] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
 
@@ -419,6 +425,10 @@ export function TranscriptHistoryTable({
     return row.id in folderOverrides ? folderOverrides[row.id] : (meta.get(row.id)?.folder ?? null);
   }
 
+  function bookmarkedFor(row: TranscriptRow): boolean {
+    return row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : (meta.get(row.id)?.bookmarked ?? false);
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((row) => {
@@ -430,14 +440,15 @@ export function TranscriptHistoryTable({
       const folder = row.id in folderOverrides ? folderOverrides[row.id] : rowMeta.folder;
       if (folderFilter === "unassigned" && folder !== null) return false;
       if (folderFilter !== "all" && folderFilter !== "unassigned" && folder !== folderFilter) return false;
-      if (bookmarkedOnly && !rowMeta.bookmarked) return false;
+      const bookmarked = row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : rowMeta.bookmarked;
+      if (bookmarkedOnly && !bookmarked) return false;
       if (q) {
         const haystack = `${row.title ?? ""} ${row.source_url} ${rowMeta.handle}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, meta, search, statusFilter, sourceFilter, platformFilter, folderFilter, bookmarkedOnly, folderOverrides]);
+  }, [rows, meta, search, statusFilter, sourceFilter, platformFilter, folderFilter, bookmarkedOnly, folderOverrides, bookmarkOverrides]);
 
   const allSelected = filtered.length > 0 && filtered.every((row) => selected.has(row.id));
   const someSelected = filtered.some((row) => selected.has(row.id));
@@ -702,6 +713,14 @@ export function TranscriptHistoryTable({
                   <TableCell>
                     <div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1.5">
                       <IconButton icon={Eye} label="View transcript" disabled={!isComplete} onClick={() => onOpenRow(row)} />
+                      <IconButton
+                        icon={Bookmark}
+                        label={bookmarkedFor(row) ? "Remove bookmark" : "Add bookmark"}
+                        active={bookmarkedFor(row)}
+                        onClick={() =>
+                          setBookmarkOverrides((prev) => ({ ...prev, [row.id]: !bookmarkedFor(row) }))
+                        }
+                      />
                       <FolderMenu
                         currentFolder={folder}
                         onAssign={(next) => setFolderOverrides((prev) => ({ ...prev, [row.id]: next }))}

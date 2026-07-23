@@ -15,18 +15,26 @@ import {
   Tag,
   Users,
   Wand2,
+  Wrench,
 } from "lucide-react";
 import type { NavItem } from "@/lib/types";
 
 export const SIDEBAR_NAV: NavItem[] = [
   { label: "Home", href: "/app", icon: Home },
+  { label: "Library", href: "/app/library", icon: Library },
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
-  { label: "Script Writer", href: "/app/scripts", icon: PenSquare },
-  { label: "Image Generator", href: "/app/image-generator", icon: ImageIcon },
-  { label: "Library", href: "/app/library", icon: Library },
-  { label: "Transcripts", href: "/app/transcripts", icon: Captions },
-  { label: "Downloader", href: "/app/downloads", icon: Download },
+  {
+    label: "Tools",
+    href: "/app/image-generator",
+    icon: Wrench,
+    subItems: [
+      { title: "Image Generator", href: "/app/image-generator", icon: ImageIcon },
+      { title: "Script Writer", href: "/app/scripts", icon: PenSquare },
+      { title: "Transcripts", href: "/app/transcripts", icon: Captions },
+      { title: "Downloader", href: "/app/downloads", icon: Download },
+    ],
+  },
   { label: "MCP", href: "/app/mcp", icon: Plug },
 ];
 

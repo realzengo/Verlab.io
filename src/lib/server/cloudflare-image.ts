@@ -1,3 +1,5 @@
+import { generateImageWithFal, hasFalFallback } from "./fal-image";
+
 // Cloudflare Workers AI text-to-image models. There is no @cf/google/
 // "nano-banana" family on this account (verified live against Cloudflare's
 // /ai/models/search — 0 results for "nano", and Google's only 4 models
@@ -23,25 +25,30 @@
 // <= 2500"), flux-1-schnell/sdxl-lightning were confirmed fine at 2048 (not
 // pushed further), and the flux-2-* multipart models were still running
 // past 2 minutes at 2048x2048 -- capped low here so the "4K" tier doesn't
-// turn into a multi-minute (or timed-out) request on those.
+// turn into a multi-minute (or timed-out) request on those. Nano Banana Pro
+// (flux-2-dev) was still slow even at 1536, so it's capped further to 1024
+// to keep generation time reasonable.
 export const IMAGE_MODEL_MAP: Record<string, { id: string; format: "json" | "multipart"; maxDimension: number }> = {
   "Nano Banana": { id: "@cf/black-forest-labs/flux-1-schnell", format: "json", maxDimension: 2048 },
   "Nano Banana 2": { id: "@cf/leonardo/lucid-origin", format: "json", maxDimension: 2496 },
-  "Nano Banana Pro": { id: "@cf/black-forest-labs/flux-2-dev", format: "multipart", maxDimension: 1536 },
+  "Nano Banana Pro": { id: "@cf/black-forest-labs/flux-2-dev", format: "multipart", maxDimension: 1024 },
   "Nano Banana 2 Lite": { id: "@cf/bytedance/stable-diffusion-xl-lightning", format: "json", maxDimension: 2048 },
   "GPT Image 2": { id: "@cf/black-forest-labs/flux-2-klein-9b", format: "multipart", maxDimension: 1536 },
 };
 
 // `quality` isn't a real Cloudflare param (confirmed live -- passing it to
-// any of these models' /ai/run/ endpoint is silently ignored). Only offered
-// in the UI for Nano Banana 2 / GPT Image 2, so each tier maps to a real
-// model swap instead, worst-to-best. Both only have 1 real upgrade rung
-// available (Pro's model), so Auto/Low resolve to the base model and
-// Medium/High both resolve to the upgrade -- there's no real 3rd/4th model
-// to fake a finer gradation with.
+// any of these models' /ai/run/ endpoint is silently ignored), and Nano
+// Banana 2 has no fal.ai equivalent with a real quality knob, so for that
+// tier "Quality" maps to a real model swap instead, worst-to-best (only 1
+// real upgrade rung available -- Pro's model -- so Auto/Low resolve to the
+// base model and Medium/High both resolve to the upgrade). GPT Image 2 used
+// to work the same way, but fal.ai's openai/gpt-image-2 has its own genuine
+// `quality: auto/low/medium/high` param (see fal-image.ts) -- swapping it
+// away to a different model/company entirely on Medium/High was actively
+// wrong once that became available, so it's deliberately left out of this
+// ladder and its quality value is passed straight through instead.
 const QUALITY_MODEL_LADDER: Record<string, string[]> = {
   "Nano Banana 2": ["Nano Banana 2", "Nano Banana Pro"],
-  "GPT Image 2": ["GPT Image 2", "Nano Banana Pro"],
 };
 
 const QUALITY_TIER_INDEX: Record<string, number> = { auto: 0, low: 0, medium: 1, high: Infinity };
@@ -109,7 +116,14 @@ function resolveDimensions(aspectRatio: string, resolution: string, maxDimension
   };
 }
 
-async function runOnce(
+// Cloudflare's own safety classifier on flux-2-* output rejects a slice of
+// completely benign prompts (error code 3030, "Your output has been
+// flagged") -- since these models sample randomly, the same prompt often
+// passes on a second attempt, so we retry once before surfacing a
+// user-facing message instead of the raw Cloudflare JSON.
+const OUTPUT_FLAGGED_CODE = 3030;
+
+async function callCloudflare(
   entry: { id: string; format: "json" | "multipart" },
   prompt: string,
   width: number,
@@ -137,6 +151,17 @@ async function runOnce(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    let code: number | undefined;
+    try {
+      code = JSON.parse(text)?.errors?.[0]?.code;
+    } catch {
+      // not JSON, leave code undefined
+    }
+    if (code === OUTPUT_FLAGGED_CODE) {
+      const error = new Error("This prompt was flagged by the image model's safety filter. Try rephrasing it.");
+      error.name = "OutputFlaggedError";
+      throw error;
+    }
     throw new Error(`Cloudflare Workers AI request failed (${response.status}): ${text || response.statusText}`);
   }
 
@@ -157,6 +182,52 @@ async function runOnce(
   return `data:${mimeType};base64,${base64Image}`;
 }
 
+// Cloudflare's flux-2-* models (what "Nano Banana Pro" and "GPT Image 2" are
+// mapped to) are genuinely slow -- live-confirmed at 93s for a single
+// 1024x768 flux-2-dev image, even at its already-reduced maxDimension.
+// fal.ai's nano-banana-pro / openai/gpt-image-2 are the real models these
+// tiers are named after, and are expected to be much faster, so for these
+// two prefer fal over Cloudflare instead of only falling back to it on
+// error. If fal is unavailable (e.g. exhausted balance -- see fal-image.ts)
+// this just fails fast and falls through to the normal Cloudflare path
+// below, so it's safe to ship ahead of fal being funded.
+const PREFER_FAL_MODELS = new Set(["Nano Banana Pro", "GPT Image 2"]);
+
+async function runOnce(
+  resolvedModel: string,
+  entry: { id: string; format: "json" | "multipart" },
+  prompt: string,
+  aspectRatio: string,
+  width: number,
+  height: number,
+  resolution: "512px" | "1K" | "2K" | "4K",
+  quality: "auto" | "low" | "medium" | "high"
+): Promise<string> {
+  if (PREFER_FAL_MODELS.has(resolvedModel) && hasFalFallback(resolvedModel)) {
+    try {
+      return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
+    } catch {
+      // fall through to the Cloudflare path below as a backup
+    }
+  }
+
+  try {
+    return await callCloudflare(entry, prompt, width, height);
+  } catch (error) {
+    if (error instanceof Error && error.name === "OutputFlaggedError") {
+      try {
+        return await callCloudflare(entry, prompt, width, height);
+      } catch (retryError) {
+        error = retryError;
+      }
+    }
+    if (hasFalFallback(resolvedModel)) {
+      return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
+    }
+    throw error;
+  }
+}
+
 export async function generateImages({
   prompt,
   model,
@@ -169,5 +240,7 @@ export async function generateImages({
   const entry = IMAGE_MODEL_MAP[resolvedModel];
   const { width, height } = resolveDimensions(aspectRatio, resolution, entry.maxDimension);
 
-  return Promise.all(Array.from({ length: outputs }, () => runOnce(entry, prompt, width, height)));
+  return Promise.all(
+    Array.from({ length: outputs }, () => runOnce(resolvedModel, entry, prompt, aspectRatio, width, height, resolution, quality))
+  );
 }

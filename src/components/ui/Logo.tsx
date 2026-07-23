@@ -8,14 +8,22 @@ export function LogoMark({ className, style }: { className?: string; style?: Rea
   );
 }
 
-export function Logo({ className, height = 24 }: { className?: string; height?: number }) {
+export function Logo({
+  className,
+  height = 24,
+  showStudio = true,
+}: {
+  className?: string;
+  height?: number;
+  showStudio?: boolean;
+}) {
   return (
     <span
       className={cn("inline-flex items-center tracking-tight text-heading font-logo", className)}
       style={{ height, fontSize: height * 0.82, lineHeight: 1 }}
     >
       <span className="font-black">Verlab</span>
-      <span className="font-normal">&nbsp;Studio</span>
+      {showStudio && <span className="font-normal">&nbsp;Studio</span>}
     </span>
   );
 }

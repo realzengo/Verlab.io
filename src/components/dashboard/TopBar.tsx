@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { ChevronDown, CreditCard, LogOut, Menu, Settings } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/Avatar";
+import { CreditBalance } from "@/components/dashboard/CreditBalance";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
@@ -98,6 +99,7 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <CreditBalance />
         <ThemeToggle className="h-7 w-7 sm:h-9 sm:w-9" />
 
         <div className="relative" ref={menuRef}>

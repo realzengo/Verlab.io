@@ -75,7 +75,9 @@ export function Footer() {
           <div className="flex items-center gap-2.5">
             <ThemeToggle className="h-8 w-8" />
             <a
-              href="#"
+              href="https://www.instagram.com/verlab.io"
+              target="_blank"
+              rel="noopener noreferrer"
               aria-label="Instagram"
               className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-surface"
             >

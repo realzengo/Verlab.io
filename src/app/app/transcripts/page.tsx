@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { TranscriptHistoryTable } from "@/components/transcripts/TranscriptHistoryTable";
 import { ExportModal } from "@/components/transcripts/ExportModal";
+import { exportTranscripts } from "@/lib/transcript-export";
 import { cn } from "@/lib/utils";
 
 type PageView = "history" | "result";
@@ -223,7 +224,18 @@ export default function TranscriptsPage() {
     }
   }
 
-  function pollUntilSettled(id: string) {
+  async function translateLinesRequest(lines: TranscriptLine[], language: string): Promise<TranscriptLine[]> {
+    const res = await fetch("/api/transcripts/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines, targetLanguage: language }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Translation failed");
+    return data.lines;
+  }
+
+  function pollUntilSettled(id: string, autoTranslateTo: string) {
     const interval = setInterval(async () => {
       const res = await fetch(`/api/transcripts/status/${id}`);
       if (!res.ok) return;
@@ -232,6 +244,18 @@ export default function TranscriptsPage() {
       setActiveRow((prev) => (prev?.id === id ? transcript : prev));
       if (transcript.status === "complete") {
         setPopupProgress(100);
+        if (autoTranslateTo !== "Original" && transcript.lines?.length) {
+          setRetranslateTo(autoTranslateTo);
+          setTranslating(true);
+          try {
+            setTranslatedLines(await translateLinesRequest(transcript.lines, autoTranslateTo));
+          } catch {
+            setTranslateError("Translation failed");
+            setRetranslateTo("Original");
+          } finally {
+            setTranslating(false);
+          }
+        }
       }
       if (transcript.status === "complete" || transcript.status === "failed") {
         clearInterval(interval);
@@ -289,7 +313,7 @@ export default function TranscriptsPage() {
       created_at: new Date().toISOString(),
     });
     setView("result");
-    pollUntilSettled(data.id);
+    pollUntilSettled(data.id, translateTo);
   };
 
   const handleCopy = async () => {
@@ -334,18 +358,7 @@ export default function TranscriptsPage() {
 
     setTranslating(true);
     try {
-      const res = await fetch("/api/transcripts/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines: activeRow.lines, targetLanguage: language }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setTranslateError(data.error ?? "Translation failed");
-        setRetranslateTo("Original");
-        return;
-      }
-      setTranslatedLines(data.lines);
+      setTranslatedLines(await translateLinesRequest(activeRow.lines, language));
     } catch {
       setTranslateError("Translation failed");
       setRetranslateTo("Original");
@@ -703,7 +716,7 @@ export default function TranscriptsPage() {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         count={rows.length}
-        onExport={() => setExportModalOpen(false)}
+        onExport={(format) => exportTranscripts(rows, format)}
       />
     </div>
   );

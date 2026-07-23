@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Logo, LogoMark } from "@/components/ui/Logo";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
@@ -66,8 +67,47 @@ export function Sidebar({
   onCloseMobile: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState<string[]>(["Tools"]);
+  const [popoverGroup, setPopoverGroup] = useState<string | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const pathname = usePathname();
   const showNicheSection = pathname === "/app/niches" && !collapsed;
+
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!popoverGroup) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const trigger = triggerRefs.current[popoverGroup];
+      if (popoverRef.current?.contains(target) || trigger?.contains(target)) return;
+      setPopoverGroup(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [popoverGroup]);
+
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) =>
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
+    );
+  };
+
+  const togglePopover = (label: string) => {
+    if (popoverGroup === label) {
+      setPopoverGroup(null);
+      return;
+    }
+    const el = triggerRefs.current[label];
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setPopoverPos({ top: rect.top, left: rect.right + 8 });
+    }
+    setPopoverGroup(label);
+  };
 
   return (
     <aside
@@ -119,30 +159,152 @@ export function Sidebar({
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
         {SIDEBAR_NAV.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onCloseMobile}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus:outline-none focus-visible:outline-none",
-                collapsed && "md:justify-center md:px-0",
-                active ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon className="h-4.5 w-4.5 shrink-0" />
-              <span
+          if (!item.subItems) {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onCloseMobile}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-                  collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus:outline-none focus-visible:outline-none",
+                  collapsed && "md:justify-center md:px-0",
+                  active ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
                 )}
+                title={collapsed ? item.label : undefined}
               >
-                {item.label}
-              </span>
-            </Link>
+                <item.icon className="h-4.5 w-4.5 shrink-0" />
+                <span
+                  className={cn(
+                    "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
+                    collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                  )}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          }
+
+          const isOpen = openGroups.includes(item.label);
+          const groupActive = item.subItems.some((subItem) => pathname === subItem.href);
+          const popoverOpen = collapsed && popoverGroup === item.label && popoverPos !== null;
+
+          return (
+            <div key={item.label}>
+              <button
+                type="button"
+                ref={(el) => {
+                  triggerRefs.current[item.label] = el;
+                }}
+                onClick={() => (collapsed ? togglePopover(item.label) : toggleGroup(item.label))}
+                aria-expanded={collapsed ? popoverOpen : isOpen}
+                className={cn(
+                  "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors rounded-lg cursor-pointer",
+                  collapsed && "md:justify-center md:px-0",
+                  groupActive
+                    ? "text-slate-900 dark:text-white"
+                    : "text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white"
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className="flex items-center gap-3">
+                  <item.icon className="h-4.5 w-4.5 shrink-0" />
+                  <span
+                    className={cn(
+                      "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
+                      collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out",
+                    collapsed && "md:hidden",
+                    !isOpen && "rotate-180"
+                  )}
+                />
+              </button>
+
+              {!collapsed && (
+                <div
+                  className={cn(
+                    "grid transition-all duration-300 ease-in-out",
+                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="ml-4 pl-4 border-l border-slate-200 dark:border-zinc-800 flex flex-col gap-1 pt-1">
+                      {item.subItems.map((subItem, index) => {
+                        const active = pathname === subItem.href;
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            onClick={onCloseMobile}
+                            aria-current={active ? "page" : undefined}
+                            style={{ transitionDelay: isOpen ? `${index * 30}ms` : "0ms" }}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-200 ease-out",
+                              isOpen
+                                ? "translate-y-0 opacity-100"
+                                : "-translate-y-1 opacity-0",
+                              active
+                                ? "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-medium"
+                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+                            )}
+                          >
+                            <subItem.icon className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{subItem.title}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {popoverOpen &&
+                popoverPos &&
+                createPortal(
+                  <div
+                    ref={popoverRef}
+                    style={{ position: "fixed", top: popoverPos.top, left: popoverPos.left }}
+                    className="z-50 w-56 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl p-2 flex flex-col gap-1"
+                  >
+                    <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-zinc-500">
+                      {item.label}
+                    </p>
+                    {item.subItems.map((subItem) => {
+                      const active = pathname === subItem.href;
+                      return (
+                        <Link
+                          key={subItem.href}
+                          href={subItem.href}
+                          onClick={() => {
+                            onCloseMobile();
+                            setPopoverGroup(null);
+                          }}
+                          aria-current={active ? "page" : undefined}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all",
+                            active
+                              ? "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-medium"
+                              : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+                          )}
+                        >
+                          <subItem.icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{subItem.title}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>,
+                  document.body
+                )}
+            </div>
           );
         })}
 

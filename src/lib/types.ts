@@ -208,10 +208,17 @@ export interface FaqItem {
   answer: string;
 }
 
+export interface NavSubItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+}
+
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  subItems?: NavSubItem[];
 }
 
 export type ToolTone = "blue" | "violet" | "amber" | "green" | "rose" | "sky";

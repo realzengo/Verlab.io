@@ -2,15 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
-
-type ExportFormat = "CSV" | "JSON" | "XML" | "TXT";
-
-const FORMATS: { id: ExportFormat; title: string; description: string }[] = [
-  { id: "CSV", title: "CSV", description: "Comma-separated values (Excel compatible)" },
-  { id: "JSON", title: "JSON", description: "Structured data format (developer-friendly)" },
-  { id: "XML", title: "XML", description: "Structured markup format (legacy system compatible)" },
-  { id: "TXT", title: "TXT", description: "Plain text format (universal compatibility)" },
-];
+import { EXPORT_FORMATS, type ExportFormat } from "@/lib/transcript-export";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -64,7 +56,7 @@ export function ExportModal({ isOpen, onClose, count, onExport }: ExportModalPro
           <p className="mb-2 mt-4 text-sm font-medium text-heading">Select Format:</p>
 
           <div className="flex flex-col gap-2">
-            {FORMATS.map((format) => {
+            {EXPORT_FORMATS.map((format) => {
               const isActive = format.id === selectedFormat;
               return (
                 <button

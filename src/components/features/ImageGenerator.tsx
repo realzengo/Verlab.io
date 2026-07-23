@@ -63,13 +63,36 @@ const QUALITY_OPTIONS = [
   { value: "high", label: "High" },
 ];
 
-// Models with a tunable quality ladder (see QUALITY_MODEL_LADDER in
-// cloudflare-image.ts) -- Quality and Settings (Resolution/Web Search) only
-// show for these. The other models are fixed-quality/already-top-tier, so
-// there's nothing for those controls to adjust.
-const ADVANCED_SETTINGS_MODELS = new Set(["Nano Banana 2", "GPT Image 2"]);
+// Models with a tunable Quality control -- Nano Banana 2 has no fal.ai
+// equivalent with a real quality knob, so its tiers swap to a better model
+// instead (QUALITY_MODEL_LADDER in cloudflare-image.ts). GPT Image 2's real
+// fal.ai model has a genuine quality param, so its tiers apply directly
+// without changing models. Nano Banana Pro (the top of the ladder) has
+// nothing better to swap to and no native quality param either, so it
+// doesn't get this control.
+const QUALITY_LADDER_MODELS = new Set(["Nano Banana 2", "GPT Image 2"]);
+
+// Models where Resolution is a real, working lever server-side: the two
+// ladder models above (via width/height scaling on their Cloudflare calls)
+// plus Nano Banana Pro, whose fal.ai endpoint has a genuine 1K/2K/4K
+// `resolution` param (see fal-image.ts).
+const RESOLUTION_MODELS = new Set(["Nano Banana 2", "GPT Image 2", "Nano Banana Pro"]);
 
 const RESOLUTIONS = ["512px", "1K", "2K", "4K"] as const;
+
+interface ModelSettings {
+  aspectRatio: string;
+  outputs: number;
+  quality: string;
+  resolution: (typeof RESOLUTIONS)[number];
+}
+
+const DEFAULT_MODEL_SETTINGS: ModelSettings = {
+  aspectRatio: "9:16",
+  outputs: 1,
+  quality: "auto",
+  resolution: "1K",
+};
 
 interface GenerationHistoryItem {
   id: string;
@@ -78,6 +101,8 @@ interface GenerationHistoryItem {
   aspect_ratio: string;
   outputs: number;
   images: string[];
+  status: "generating" | "completed" | "failed";
+  error_message: string | null;
   created_at: string;
 }
 
@@ -154,10 +179,26 @@ function RatioIcon({ ratio, className }: { ratio: string; className?: string }) 
 export function ImageGenerator() {
   const [prompt, setPrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState("Nano Banana 2");
-  const [aspectRatio, setAspectRatio] = useState("9:16");
-  const [outputs, setOutputs] = useState(1);
-  const [quality, setQuality] = useState("auto");
-  const [resolution, setResolution] = useState<(typeof RESOLUTIONS)[number]>("1K");
+
+  // Aspect ratio / outputs / quality / resolution are per-model: switching
+  // models restores whatever this specific model was last set to (falling
+  // back to defaults the first time a model is picked), instead of one
+  // shared value bleeding across models that don't even support the same
+  // controls (e.g. a Nano Banana 2 Quality pick showing up on GPT Image 2).
+  const [modelSettings, setModelSettings] = useState<Record<string, ModelSettings>>({});
+  const { aspectRatio, outputs, quality, resolution } = modelSettings[selectedModel] ?? DEFAULT_MODEL_SETTINGS;
+
+  function updateModelSettings(patch: Partial<ModelSettings>) {
+    setModelSettings((prev) => ({
+      ...prev,
+      [selectedModel]: { ...(prev[selectedModel] ?? DEFAULT_MODEL_SETTINGS), ...patch },
+    }));
+  }
+
+  const setAspectRatio = (value: string) => updateModelSettings({ aspectRatio: value });
+  const setOutputs = (value: number) => updateModelSettings({ outputs: value });
+  const setQuality = (value: string) => updateModelSettings({ quality: value });
+  const setResolution = (value: (typeof RESOLUTIONS)[number]) => updateModelSettings({ resolution: value });
   // Inert for now -- see Web Search toggle below.
   const [webSearchEnabled] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -188,14 +229,17 @@ export function ImageGenerator() {
   const [filterUploads, setFilterUploads] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
+  const pollCancelRef = useRef<(() => void) | null>(null);
+
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
 
   const galleryColumns = Math.max(2, Math.min(6, Math.round(6 - (galleryZoom / 100) * 4)));
 
-  const visibleHistory = history?.filter(() => filterGenerations) ?? null;
+  const visibleHistory = history?.filter((item) => filterGenerations && item.status === "completed") ?? null;
 
   useEffect(() => {
     loadHistory();
+    return () => pollCancelRef.current?.();
   }, []);
 
   useEffect(() => {
@@ -251,9 +295,71 @@ export function ImageGenerator() {
         if (!response.ok) throw new Error();
         return response.json();
       })
-      .then((data) => setHistory(data.generations ?? []))
+      .then((data) => {
+        const items: GenerationHistoryItem[] = data.generations ?? [];
+        setHistory(items);
+
+        // A generation that's still running (e.g. the page was reloaded, or
+        // the previous poll loop was interrupted) has no client-side poller
+        // watching it -- resume one so it doesn't get stuck looking finished.
+        const stillGenerating = items.find((item) => item.status === "generating");
+        if (stillGenerating && !pollCancelRef.current) {
+          setIsGenerating(true);
+          setPendingAspectRatio(stillGenerating.aspect_ratio);
+          setPendingCount(stillGenerating.outputs);
+          pollGenerationStatus(stillGenerating.id);
+        }
+      })
       .catch(() => setHistoryError("Couldn't load your generation history."))
       .finally(() => setHistoryLoading(false));
+  }
+
+  // Generation can take minutes, especially for slower models -- rather than
+  // holding a single fetch open for that whole time (fragile: proxies,
+  // gateways, and the browser itself can kill a long-idle connection well
+  // before the server is done, silently orphaning the request), the POST
+  // below only kicks the job off and returns its id immediately. This polls
+  // the same history endpoint until that row's status leaves "generating",
+  // so the UI stays correct even if the tab is backgrounded or reloaded
+  // mid-generation.
+  function pollGenerationStatus(id: string) {
+    pollCancelRef.current?.();
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const response = await fetch("/api/generate-image");
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        const items: GenerationHistoryItem[] = data.generations ?? [];
+        if (cancelled) return;
+        setHistory(items);
+
+        const match = items.find((item) => item.id === id);
+        if (!match || match.status === "generating") {
+          timeoutId = setTimeout(tick, 3000);
+          return;
+        }
+
+        if (match.status === "failed") {
+          setError(match.error_message ?? "Something went wrong. Try again.");
+        } else {
+          setGeneratedImages(match.images);
+        }
+        setIsGenerating(false);
+        setPendingCount(0);
+      } catch {
+        if (!cancelled) timeoutId = setTimeout(tick, 3000);
+      }
+    };
+
+    tick();
+    pollCancelRef.current = () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }
 
   async function handleGenerate() {
@@ -261,6 +367,7 @@ export function ImageGenerator() {
 
     setIsGenerating(true);
     setError(null);
+    setGeneratedImages([]);
     setPendingAspectRatio(aspectRatio);
     setPendingCount(outputs);
 
@@ -273,19 +380,17 @@ export function ImageGenerator() {
           model: selectedModel,
           aspectRatio,
           outputs,
-          quality: ADVANCED_SETTINGS_MODELS.has(selectedModel) ? quality : "auto",
-          resolution: ADVANCED_SETTINGS_MODELS.has(selectedModel) ? resolution : "1K",
+          quality: QUALITY_LADDER_MODELS.has(selectedModel) ? quality : "auto",
+          resolution: RESOLUTION_MODELS.has(selectedModel) ? resolution : "1K",
         }),
       });
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "Failed to generate images.");
 
-      setGeneratedImages(data.images ?? []);
-      await loadHistory();
+      pollGenerationStatus(data.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
-    } finally {
       setIsGenerating(false);
       setPendingCount(0);
     }
@@ -511,14 +616,14 @@ export function ImageGenerator() {
                 </div>
               ) : historyError ? (
                 <p className="mt-4 text-center text-sm font-medium text-red-500">{historyError}</p>
-              ) : !history || history.length === 0 ? (
+              ) : !history || history.filter((item) => item.status === "completed").length === 0 ? (
                 <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
                   <ImageIcon className="h-8 w-8" />
                   <p className="text-sm font-medium">Nothing Here!</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {history.map((item) => (
+                  {history.filter((item) => item.status === "completed").map((item) => (
                     <button
                       key={item.id}
                       type="button"
@@ -599,12 +704,12 @@ export function ImageGenerator() {
                   options={OUTPUT_OPTIONS}
                   onChange={(value) => setOutputs(Number(value))}
                 />
-                {ADVANCED_SETTINGS_MODELS.has(selectedModel) && (
+                {QUALITY_LADDER_MODELS.has(selectedModel) && (
                   <PillDropdown value={quality} options={QUALITY_OPTIONS} onChange={setQuality} labelPrefix="Quality" />
                 )}
                 {refImageButton}
 
-                {ADVANCED_SETTINGS_MODELS.has(selectedModel) && (
+                {RESOLUTION_MODELS.has(selectedModel) && (
                 <div ref={settingsMenuRef} className="relative">
                   <button
                     type="button"
