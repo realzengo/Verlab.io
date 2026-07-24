@@ -6,12 +6,14 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { McpBackground } from "@/components/mcp/McpBackground";
 import { cn } from "@/lib/utils";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
   const isHome = pathname === "/app";
+  const isMcp = pathname === "/app/mcp";
   const isSettings = pathname.startsWith("/app/settings");
 
   const topBarAndMain = (
@@ -36,6 +38,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {isHome ? (
           <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
+        ) : isMcp ? (
+          <McpBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</McpBackground>
         ) : (
           <div className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</div>
         )}

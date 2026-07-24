@@ -7,12 +7,9 @@ interface AuroraBackgroundProps extends React.HTMLProps<HTMLDivElement> {
   children: ReactNode;
 }
 
-const NOISE_BG =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")";
-
 export function AuroraBackground({ className, children, ...props }: AuroraBackgroundProps) {
   return (
-    <div className={cn("relative min-h-screen overflow-hidden bg-white z-0 dark:bg-[#08090D]", className)} {...props}>
+    <div className={cn("relative min-h-screen overflow-hidden bg-white z-0 dark:bg-[#010015]", className)} {...props}>
       {/* light mode — single centered, restrained wash */}
       <div
         className={cn(
@@ -30,11 +27,6 @@ export function AuroraBackground({ className, children, ...props }: AuroraBackgr
             "[mask-image:linear-gradient(to_bottom,black_0%,black_15%,transparent_78%)]",
             "[background-image:radial-gradient(55%_75%_at_50%_-5%,rgba(59,130,246,0.40)_0%,rgba(37,99,235,0.14)_35%,transparent_72%)]"
           )}
-        />
-        <div className="absolute inset-0 [background-image:radial-gradient(120%_90%_at_50%_-10%,transparent_45%,rgba(0,0,0,0.45)_100%)]" />
-        <div
-          className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
-          style={{ backgroundImage: NOISE_BG }}
         />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -90,6 +90,42 @@ export function Sidebar({
 
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const asideRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [hoverIndicator, setHoverIndicator] = useState<{ top: number; height: number } | null>(null);
+
+  const showHoverIndicator = useCallback((el: HTMLElement | null) => {
+    if (!el || !asideRef.current) return;
+    const itemRect = el.getBoundingClientRect();
+    const asideRect = asideRef.current.getBoundingClientRect();
+    setHoverIndicator({ top: itemRect.top - asideRect.top, height: itemRect.height });
+  }, []);
+
+  const getActiveKey = useCallback(() => {
+    for (const item of SIDEBAR_NAV) {
+      if (!item.subItems) {
+        if (pathname === item.href) return item.href;
+      } else if (item.subItems.some((subItem) => pathname === subItem.href)) {
+        return item.label;
+      }
+    }
+    return null;
+  }, [pathname]);
+
+  const syncIndicatorToActive = useCallback(() => {
+    const key = getActiveKey();
+    if (!key) {
+      setHoverIndicator(null);
+      return;
+    }
+    showHoverIndicator(itemRefs.current[key] ?? null);
+  }, [getActiveKey, showHoverIndicator]);
+
+  useEffect(() => {
+    // Measures DOM layout (an external system) to reposition the indicator after navigation/collapse.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    syncIndicatorToActive();
+  }, [syncIndicatorToActive, collapsed]);
 
   useEffect(() => {
     if (!popoverGroup) return;
@@ -126,12 +162,22 @@ export function Sidebar({
 
   return (
     <aside
+      ref={asideRef}
       className={cn(
         "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "lg:w-[76px]" : "lg:w-64"
       )}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1 w-1 rounded-full bg-primary transition-all duration-200 ease-out"
+        style={{
+          top: hoverIndicator ? hoverIndicator.top + 6 : 0,
+          height: hoverIndicator ? hoverIndicator.height - 12 : 0,
+          opacity: hoverIndicator ? 1 : 0,
+        }}
+      />
       <div
         className={cn(
           "flex items-center justify-between border-b border-hairline px-4 py-5",
@@ -175,7 +221,10 @@ export function Sidebar({
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3">
+      <nav
+        className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3"
+        onMouseLeave={syncIndicatorToActive}
+      >
         {SIDEBAR_NAV.map((item) => {
           if (!item.subItems) {
             const active = pathname === item.href;
@@ -183,10 +232,14 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                ref={(el) => {
+                  itemRefs.current[item.href] = el;
+                }}
                 onClick={onCloseMobile}
+                onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  "group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-accent-line bg-accent font-semibold text-heading"
@@ -197,7 +250,7 @@ export function Sidebar({
                 <item.icon
                   className={cn(
                     "h-4.5 w-4.5 shrink-0 transition-colors",
-                    active ? "text-primary" : "text-subtle group-hover:text-body"
+                    active ? "text-primary" : "text-subtle group-hover:text-primary"
                   )}
                 />
                 <span
@@ -222,11 +275,13 @@ export function Sidebar({
                 type="button"
                 ref={(el) => {
                   triggerRefs.current[item.label] = el;
+                  itemRefs.current[item.label] = el;
                 }}
                 onClick={() => (collapsed ? togglePopover(item.label) : toggleGroup(item.label))}
+                onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  "group flex w-full cursor-pointer items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"
@@ -238,7 +293,7 @@ export function Sidebar({
                   <item.icon
                     className={cn(
                       "h-4.5 w-4.5 shrink-0 transition-colors",
-                      groupActive ? "text-primary" : "text-subtle"
+                      groupActive ? "text-primary" : "text-subtle group-hover:text-primary"
                     )}
                   />
                   <span
