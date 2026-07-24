@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   Copy,
@@ -19,7 +20,13 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PillDropdown } from "@/components/ui/PillDropdown";
-import { formatDate } from "@/lib/utils";
+import { PlasticButton } from "@/components/ui/plastic-button";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { TopUpModal } from "@/components/TopUpModal";
+import { BorderTrail } from "@/components/ui/BorderTrail";
+import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
+import { cn, formatDate } from "@/lib/utils";
 
 const GEMINI_ICON = "/logos/ai/gemini.png";
 const GPT_ICON = "/logos/ai/chatgpt.png";
@@ -80,6 +87,21 @@ const RESOLUTION_MODELS = new Set(["Nano Banana 2", "GPT Image 2", "Nano Banana 
 
 const RESOLUTIONS = ["512px", "1K", "2K", "4K"] as const;
 
+// Mirrors resolveQualityModel() in src/lib/server/cloudflare-image.ts (kept
+// separate rather than imported, since that file is server-only and pulls in
+// fal-image.ts). Only used here to price the button correctly -- the real
+// resolution that determines the actual charge always happens server-side.
+const COST_QUALITY_LADDER: Record<string, string[]> = {
+  "Nano Banana 2": ["Nano Banana 2", "Nano Banana Pro"],
+};
+const COST_QUALITY_TIER_INDEX: Record<string, number> = { auto: 0, low: 0, medium: 1, high: Infinity };
+function resolveModelForCost(model: string, quality: string): string {
+  const ladder = COST_QUALITY_LADDER[model];
+  if (!ladder) return model;
+  const index = Math.min(COST_QUALITY_TIER_INDEX[quality] ?? 0, ladder.length - 1);
+  return ladder[index];
+}
+
 interface ModelSettings {
   aspectRatio: string;
   outputs: number;
@@ -124,6 +146,17 @@ function getDataUrlSize(dataUrl: string): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function downloadDataUrl(dataUrl: string, filename: string) {
@@ -207,6 +240,7 @@ export function ImageGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showTopUp, setShowTopUp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
@@ -232,6 +266,14 @@ export function ImageGenerator() {
   const pollCancelRef = useRef<(() => void) | null>(null);
 
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
+
+  const estimatedCost = getImageGenerationCost({
+    model: resolveModelForCost(selectedModel, quality),
+    resolution: resolution as ImageResolution,
+    quality: quality as ImageQuality,
+    outputs,
+    hasReferenceImage: Boolean(refImage),
+  });
 
   const galleryColumns = Math.max(2, Math.min(6, Math.round(6 - (galleryZoom / 100) * 4)));
 
@@ -347,6 +389,10 @@ export function ImageGenerator() {
           setError(match.error_message ?? "Something went wrong. Try again.");
         } else {
           setGeneratedImages(match.images);
+          // The charge for this generation lands right before the row flips
+          // to "completed" (see generate-image/route.ts's after() block) --
+          // safe to signal now rather than waiting for the header's next poll.
+          notifyCreditsChanged();
         }
         setIsGenerating(false);
         setPendingCount(0);
@@ -372,6 +418,8 @@ export function ImageGenerator() {
     setPendingCount(outputs);
 
     try {
+      const referenceImage = refImage ? await readFileAsDataUrl(refImage) : undefined;
+
       const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,8 +430,16 @@ export function ImageGenerator() {
           outputs,
           quality: QUALITY_LADDER_MODELS.has(selectedModel) ? quality : "auto",
           resolution: RESOLUTION_MODELS.has(selectedModel) ? resolution : "1K",
+          referenceImage,
         }),
       });
+
+      if (response.status === 402) {
+        setShowTopUp(true);
+        setIsGenerating(false);
+        setPendingCount(0);
+        return;
+      }
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "Failed to generate images.");
@@ -396,22 +452,49 @@ export function ImageGenerator() {
     }
   }
 
+  function handleRefImageChange(file: File | null) {
+    if (file && file.size > MAX_REFERENCE_IMAGE_BYTES) {
+      setError("Reference image is too large (max 8MB).");
+      return;
+    }
+    setError(null);
+    setRefImage(file);
+  }
+
   const refImageButton = (
     <>
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-800 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.1)] transition-all hover:bg-slate-200 active:scale-95 dark:bg-zinc-800/80 dark:text-slate-200 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:hover:bg-zinc-700"
+        className={cn(
+          "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-all duration-200 active:scale-[0.97]",
+          "border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-800 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] hover:border-slate-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_6px_rgba(15,23,42,0.08)]",
+          "dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-200 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:from-zinc-700/90 dark:hover:to-zinc-800",
+          "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
+        )}
       >
         <Upload className="h-3.5 w-3.5 shrink-0" />
         {refImage ? refImage.name : "Ref Image"}
       </button>
+      {refImage && (
+        <button
+          type="button"
+          onClick={() => {
+            setRefImage(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+          aria-label="Remove reference image"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-500 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-300 hover:text-slate-800 active:scale-[0.97] dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-400 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:text-slate-200"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(event) => setRefImage(event.target.files?.[0] ?? null)}
+        onChange={(event) => handleRefImageChange(event.target.files?.[0] ?? null)}
       />
     </>
   );
@@ -425,8 +508,10 @@ export function ImageGenerator() {
 
       <div className="relative w-full max-w-none pt-8 pb-20 sm:pt-12">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">AI Image Generator</h1>
-          <p className="mt-2 text-slate-500">Generate stunning images by AI.</p>
+          <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
+            AI Image Generator
+          </h1>
+          <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">Generate stunning images by AI.</p>
         </div>
 
         {/* ---------------- Mobile layout (< md) ---------------- */}
@@ -471,30 +556,45 @@ export function ImageGenerator() {
               <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">REFERENCE IMAGE</h2>
                 <p className="mt-1 text-sm text-slate-400">{refImage ? "1 of 1" : "0 of 1"} reference image added.</p>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
-                    <Upload className="h-4 w-4 text-slate-500" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
-                      {refImage ? refImage.name : "Upload reference image"}
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-1 items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
+                      <Upload className="h-4 w-4 text-slate-500" />
                     </span>
-                    <span className="block text-xs text-slate-400">PNG, JPG, WebP, or GIF</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-zinc-900">
-                    {refImage ? "1/1" : "0/1"}
-                  </span>
-                </button>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
+                        {refImage ? refImage.name : "Upload reference image"}
+                      </span>
+                      <span className="block text-xs text-slate-400">PNG, JPG, WebP, or GIF</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-zinc-900">
+                      {refImage ? "1/1" : "0/1"}
+                    </span>
+                  </button>
+                  {refImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRefImage(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      aria-label="Remove reference image"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(event) => setRefImage(event.target.files?.[0] ?? null)}
+                  onChange={(event) => handleRefImageChange(event.target.files?.[0] ?? null)}
                 />
               </section>
 
@@ -660,39 +760,61 @@ export function ImageGenerator() {
 
           {activeTab === "generate" && (
             <div className="fixed inset-x-4 bottom-4 z-20">
-              <button
-                type="button"
-                onClick={handleGenerate}
+              <PlasticButton
+                text="Generate"
+                loading={isGenerating}
                 disabled={!canSubmit}
-                className={`flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold shadow-lg transition-colors ${
-                  canSubmit ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-slate-200/90 text-slate-400 dark:bg-zinc-800/90"
-                }`}
-              >
-                {isGenerating ? (
+                onClick={handleGenerate}
+                className="w-full py-3.5 shadow-lg"
+                trailing={
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    Generate
                     <Sparkles className="h-4 w-4" />
                     {outputs}
+                    <CreditCost amount={estimatedCost} className="text-blue-200/80" />
                   </>
-                )}
-              </button>
+                }
+              />
             </div>
           )}
         </div>
 
         {/* ---------------- Desktop layout (>= md) ---------------- */}
         <div className="hidden md:block">
-          <div className="mt-8 flex w-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="group relative mt-8">
+            {/* Focused ambient glow — two soft blobs give the glass something
+                textured to refract, instead of one flat wash. */}
+            <div aria-hidden="true" className="pointer-events-none absolute -inset-20 -z-10 overflow-hidden">
+              <div className="absolute -left-10 -top-16 h-56 w-72 rounded-full bg-blue-500/25 blur-[90px] transition-opacity duration-500 dark:bg-blue-500/35" />
+              <div className="absolute -right-6 -bottom-12 h-48 w-64 rounded-full bg-indigo-500/0 blur-[90px] transition-opacity duration-500 dark:bg-indigo-500/25" />
+            </div>
+
+            {/* Border wrapper — a thin static border plus an animated light
+                trail that travels the perimeter for a premium, "alive" edge. */}
+            <div
+              className={cn(
+                "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
+                "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]",
+                "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.14),0_16px_40px_-16px_rgba(37,99,235,0.35)]",
+                "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_32px_70px_-20px_rgba(37,99,235,0.7)]"
+              )}
+            >
+              <BorderTrail
+                size={90}
+                className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-80 blur-[1px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
+                transition={{ repeat: Infinity, duration: 7, ease: "linear" }}
+              />
+
+              <div
+                className={cn(
+                  "relative flex w-full flex-col rounded-[calc(1rem-1px)] bg-white/60 p-5 backdrop-blur-2xl backdrop-saturate-150",
+                  "dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(9,9,11,0)_45%)]"
+                )}
+              >
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to create..."
-              className="min-h-[120px] w-full resize-none bg-transparent text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
+              className="min-h-[120px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -715,83 +837,92 @@ export function ImageGenerator() {
                     type="button"
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     aria-expanded={isSettingsOpen}
-                    className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300 dark:hover:bg-zinc-800"
+                    className={cn(
+                      "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-all duration-200 active:scale-[0.97]",
+                      "border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-800 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] hover:border-slate-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_6px_rgba(15,23,42,0.08)]",
+                      "dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-200 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:from-zinc-700/90 dark:hover:to-zinc-800",
+                      "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
+                      isSettingsOpen &&
+                        "border-blue-400/60 shadow-[0_0_0_3px_rgba(59,130,246,0.12),0_1px_2px_rgba(15,23,42,0.06)] dark:border-blue-400/40 dark:shadow-[0_0_0_3px_rgba(59,130,246,0.16),0_1px_2px_rgba(0,0,0,0.4)]"
+                    )}
                   >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    <SlidersHorizontal className={cn("h-3.5 w-3.5 transition-colors", isSettingsOpen && "text-blue-500 dark:text-blue-400")} />
                     Settings
                   </button>
 
-                  {isSettingsOpen && (
-                    <div className="absolute top-full right-0 z-50 mt-2 flex w-64 flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-                      <div>
-                        <h3 className="mb-2 text-sm text-slate-500">Resolution</h3>
-                        <div className="flex flex-wrap gap-1">
-                          {RESOLUTIONS.map((value) => (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => setResolution(value)}
-                              className={
-                                resolution === value
-                                  ? "rounded-lg bg-blue-500 px-3 py-1 text-sm font-medium text-white"
-                                  : "cursor-pointer rounded-lg px-3 py-1 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800"
-                              }
-                            >
-                              {value}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-zinc-800/50">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-zinc-900">
-                            <Search className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">Web Search</p>
-                            <p className="text-xs text-slate-500">Coming soon</p>
+                  <AnimatePresence>
+                    {isSettingsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        className={cn(
+                          "absolute top-full right-0 z-50 mt-2 flex w-64 origin-top-right flex-col gap-4 rounded-2xl border p-4",
+                          "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
+                          "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
+                        )}
+                      >
+                        <div>
+                          <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">Resolution</h3>
+                          <div className="flex flex-wrap gap-1">
+                            {RESOLUTIONS.map((value) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setResolution(value)}
+                                className={
+                                  resolution === value
+                                    ? "rounded-lg bg-blue-500 px-3 py-1 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_2px_6px_rgba(37,99,235,0.35)]"
+                                    : "cursor-pointer rounded-lg px-3 py-1 text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/[0.06]"
+                                }
+                              >
+                                {value}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          disabled
-                          aria-disabled="true"
-                          aria-label="Web Search (coming soon)"
-                          className="relative h-5 w-9 shrink-0 cursor-not-allowed rounded-full bg-slate-200 opacity-60 dark:bg-zinc-700"
-                        >
-                          <span
-                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all dark:bg-zinc-400 ${
-                              webSearchEnabled ? "left-4" : "left-0.5"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
+                        <div className="mt-2 flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-900/[0.04] dark:bg-zinc-800 dark:ring-white/[0.06]">
+                              <Search className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                            </span>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">Web Search</p>
+                              <p className="text-xs text-slate-500">Coming soon</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            aria-label="Web Search (coming soon)"
+                            className="relative h-5 w-9 shrink-0 cursor-not-allowed rounded-full bg-slate-200 opacity-60 dark:bg-zinc-700"
+                          >
+                            <span
+                              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all dark:bg-zinc-400 ${
+                                webSearchEnabled ? "left-4" : "left-0.5"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={handleGenerate}
+              <PlasticButton
+                text="Generate"
+                loading={isGenerating}
                 disabled={!canSubmit}
-                className={
-                  canSubmit
-                    ? "flex items-center gap-2 rounded-full bg-blue-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
-                    : "flex items-center gap-2 rounded-full bg-slate-100 px-5 py-2 text-sm font-semibold text-slate-400 dark:bg-zinc-900"
-                }
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  "Generate"
-                )}
-              </button>
+                onClick={handleGenerate}
+                trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
+              />
+            </div>
+              </div>
             </div>
           </div>
 
@@ -1099,6 +1230,8 @@ export function ImageGenerator() {
           </div>
         </div>
       )}
+
+      <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
     </div>
   );
 }

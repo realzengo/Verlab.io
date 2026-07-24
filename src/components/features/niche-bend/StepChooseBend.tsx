@@ -4,6 +4,9 @@ import { Check, Sparkles } from "lucide-react";
 import type { NicheBendCandidate, NicheBendChannelAnalysis } from "@/lib/types";
 import { Accordion } from "@/components/ui/Accordion";
 import { Button } from "@/components/ui/Button";
+import { PlasticButton } from "@/components/ui/plastic-button";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { useFakeStepProgress } from "@/lib/niche-bend/useFakeStepProgress";
 import { BendCandidateCard } from "./BendCandidateCard";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
@@ -89,6 +92,7 @@ export function StepChooseBend({
         <h2 className="text-xl font-bold text-heading">Pick a direction.</h2>
         <Button variant="text" size="sm" onClick={onRegenerate} disabled={candidatesRegenerating}>
           Regenerate bends
+          <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.analyzeScrape} approx className="text-primary/70" />
         </Button>
       </div>
 
@@ -132,16 +136,21 @@ export function StepChooseBend({
 
             <div className="flex items-center gap-4">
               {sopError && <p className="text-sm text-danger">{sopError}</p>}
-              <Button
-                size="lg"
-                className="w-full sm:w-auto"
-                icon={sopSubmitting ? undefined : Sparkles}
-                iconPosition="right"
+              <PlasticButton
+                className="w-full py-3 text-base sm:w-auto"
+                text="Generate my SOP"
+                trailing={
+                  sopSubmitting ? undefined : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} className="text-blue-200/80" />
+                    </>
+                  )
+                }
+                loading={sopSubmitting}
+                loadingText={<SopGeneratingStatus />}
                 onClick={onGenerateSop}
-                disabled={sopSubmitting}
-              >
-                {sopSubmitting ? <SopGeneratingStatus /> : "Generate my SOP"}
-              </Button>
+              />
             </div>
           </div>
         </div>

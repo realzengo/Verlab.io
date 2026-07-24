@@ -53,7 +53,7 @@ const QUALITY_MODEL_LADDER: Record<string, string[]> = {
 
 const QUALITY_TIER_INDEX: Record<string, number> = { auto: 0, low: 0, medium: 1, high: Infinity };
 
-function resolveQualityModel(model: string, quality: string): string {
+export function resolveQualityModel(model: string, quality: string): string {
   const ladder = QUALITY_MODEL_LADDER[model];
   if (!ladder) return model;
   const index = Math.min(QUALITY_TIER_INDEX[quality] ?? 0, ladder.length - 1);
@@ -97,6 +97,7 @@ interface GenerateImagesParams {
   outputs: number;
   quality: "auto" | "low" | "medium" | "high";
   resolution: "512px" | "1K" | "2K" | "4K";
+  referenceImage?: string;
 }
 
 function sniffMimeType(bytes: Uint8Array): string {
@@ -201,8 +202,23 @@ async function runOnce(
   width: number,
   height: number,
   resolution: "512px" | "1K" | "2K" | "4K",
-  quality: "auto" | "low" | "medium" | "high"
+  quality: "auto" | "low" | "medium" | "high",
+  referenceImage?: string
 ): Promise<string> {
+  // Cloudflare Workers AI has no confirmed img2img path for any of the
+  // models in IMAGE_MODEL_MAP on this account -- only fal.ai's `/edit`
+  // endpoints (see fal-image.ts) can actually honor a reference image. If
+  // we let this fall through to the plain Cloudflare text-to-image call
+  // below on error, the reference image would silently get dropped again
+  // (the original bug), so a reference image always goes through fal, with
+  // no Cloudflare fallback.
+  if (referenceImage) {
+    if (!hasFalFallback(resolvedModel)) {
+      throw new Error(`${resolvedModel} doesn't support reference images yet.`);
+    }
+    return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality, referenceImage);
+  }
+
   if (PREFER_FAL_MODELS.has(resolvedModel) && hasFalFallback(resolvedModel)) {
     try {
       return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
@@ -235,12 +251,15 @@ export async function generateImages({
   outputs,
   quality,
   resolution,
+  referenceImage,
 }: GenerateImagesParams): Promise<string[]> {
   const resolvedModel = resolveQualityModel(model, quality);
   const entry = IMAGE_MODEL_MAP[resolvedModel];
   const { width, height } = resolveDimensions(aspectRatio, resolution, entry.maxDimension);
 
   return Promise.all(
-    Array.from({ length: outputs }, () => runOnce(resolvedModel, entry, prompt, aspectRatio, width, height, resolution, quality))
+    Array.from({ length: outputs }, () =>
+      runOnce(resolvedModel, entry, prompt, aspectRatio, width, height, resolution, quality, referenceImage)
+    )
   );
 }

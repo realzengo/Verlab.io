@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { getJob, resolveStatus, startSopGeneration } from "@/lib/server/niche-bend-job-store";
+import { getUserCredits } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -44,6 +46,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const currentStatus = resolveStatus(job).status;
   if (currentStatus !== "ready" && currentStatus !== "sop_ready") {
     return NextResponse.json({ error: "Job is not ready yet" }, { status: 409 });
+  }
+
+  const balance = await getUserCredits(user.id);
+  if (balance < TOOL_CREDIT_COSTS.nicheBend.sop) {
+    return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
   let updatedJob;

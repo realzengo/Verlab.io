@@ -5,6 +5,8 @@ import type { MouseEvent } from "react";
 import type { NicheBendCandidate } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { cn } from "@/lib/utils";
 
 export function BendCandidateCard({
@@ -108,6 +110,7 @@ export function BendCandidateCard({
                 <RotateCw className="h-4 w-4" />
               </span>
               Regenerate
+              <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} bullet={false} className="font-normal text-subtle" />
             </button>
             <button
               type="button"
@@ -118,6 +121,7 @@ export function BendCandidateCard({
                 <Sparkles className="h-4 w-4" />
               </span>
               Get SOP
+              <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} bullet={false} className="font-normal text-subtle" />
             </button>
           </>
         )}

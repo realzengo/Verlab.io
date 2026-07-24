@@ -1,11 +1,10 @@
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { generateImages, IMAGE_MODEL_MAP } from "@/lib/server/cloudflare-image";
-import { deductCredits, getUserCredits } from "@/lib/server/credits";
+import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
+import { getImageGenerationCost, slugifyModelName, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
+import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
-
-const IMAGE_GENERATION_COST = 1;
 
 export const maxDuration = 300;
 
@@ -20,7 +19,11 @@ interface GenerateImageRequestBody {
   outputs?: number;
   quality?: string;
   resolution?: string;
+  referenceImage?: string;
 }
+
+const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 
 export async function GET(): Promise<NextResponse> {
   const supabase = await createClient();
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { prompt, model, aspectRatio, outputs, quality = "auto", resolution = "1K" } = body;
+  const { prompt, model, aspectRatio, outputs, quality = "auto", resolution = "1K", referenceImage } = body;
 
   if (!prompt || !prompt.trim()) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
@@ -88,13 +91,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "resolution must be one of the supported options" }, { status: 400 });
   }
 
+  if (referenceImage !== undefined) {
+    if (typeof referenceImage !== "string" || !DATA_URL_PATTERN.test(referenceImage)) {
+      return NextResponse.json({ error: "referenceImage must be a base64 image data URL" }, { status: 400 });
+    }
+    const approxBytes = (referenceImage.length * 3) / 4;
+    if (approxBytes > MAX_REFERENCE_IMAGE_BYTES) {
+      return NextResponse.json({ error: "Reference image is too large (max 8MB)" }, { status: 400 });
+    }
+  }
+
+  // Cost is computed against the model that will actually run, not the one
+  // picked in the dropdown -- Nano Banana 2 at medium/high quality resolves
+  // to Nano Banana Pro under the hood (see resolveQualityModel /
+  // QUALITY_MODEL_LADDER in cloudflare-image.ts), which is a real, far more
+  // expensive fal.ai/Cloudflare call.
+  const resolvedModel = resolveQualityModel(model, quality);
+  const cost = getImageGenerationCost({
+    model: resolvedModel,
+    resolution: resolution as ImageResolution,
+    quality: quality as ImageQuality,
+    outputs: outputs!,
+    hasReferenceImage: Boolean(referenceImage),
+  });
+
   // Checked synchronously (not inside the after() callback below) because
   // the response for this request is sent before generation finishes — by
   // the time we'd know the balance was too low in the background, there'd
-  // be no way left to tell the client with a 403.
+  // be no way left to tell the client with a 402.
   const balance = await getUserCredits(user.id);
-  if (balance < IMAGE_GENERATION_COST) {
-    return NextResponse.json({ error: "Insufficient credits" }, { status: 403 });
+  if (balance < cost) {
+    return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
   // Generation can take minutes (Nano Banana Pro / flux-2-dev especially --
@@ -136,10 +163,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         outputs: outputs!,
         quality: quality as "auto" | "low" | "medium" | "high",
         resolution: resolution as "512px" | "1K" | "2K" | "4K",
+        referenceImage,
       });
       recordUsageEvent("image", user.id, { model, aspectRatio, outputs });
       try {
-        await deductCredits(user.id, IMAGE_GENERATION_COST, "Image Generation");
+        await chargeUser(user.id, cost, "Image Generation", `image.${slugifyModelName(resolvedModel)}`);
       } catch (creditError) {
         // The image was already generated (Cloudflare already spent) — a
         // ledger failure here shouldn't undo that or fail the request.

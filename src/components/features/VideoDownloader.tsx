@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Check, CloudDownload, Download, Eye, Link2, Loader2, RotateCcw, X } from "lucide-react";
+import { BorderTrail } from "@/components/ui/BorderTrail";
 import type { DownloadFormat } from "@/lib/types";
 
 // Always download at the highest quality reliably available for any video —
@@ -167,81 +168,122 @@ export function VideoDownloader() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-24">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+      <div className="relative text-center">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-8 -z-10 flex justify-center">
+          <div className="h-24 w-72 rounded-full bg-primary/25 blur-[70px] dark:bg-primary/35" />
+        </div>
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl">
           Video Downloader
         </h1>
-        <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400 sm:text-base">
-          Download videos from YouTube, TikTok, and Facebook. 10 downloads use 1 credit.
+        <p className="mx-auto mt-3 max-w-xs text-xs font-medium leading-relaxed tracking-wide text-body/60 sm:max-w-sm sm:text-sm">
+          Download videos from YouTube, TikTok, and Facebook —{" "}
+          <span className="text-body/80">10 downloads use just 1 credit.</span>
         </p>
       </div>
 
-      <div className="mt-6 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/30 dark:backdrop-blur-md sm:mt-10 sm:p-12">
-        <div className="flex items-stretch gap-2">
-          <input
-            type="url"
-            inputMode="url"
-            autoCapitalize="off"
-            autoCorrect="off"
-            value={url}
-            onChange={(event) => {
-              resetJob();
-              setUrl(event.target.value);
-            }}
-            placeholder="Paste video URL here..."
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:px-5 sm:py-4"
-          />
-
-          <button
-            type="button"
-            onClick={handleTriggerClick}
-            disabled={state === "preparing" || ((state === "idle" || state === "error") && !detectedPlatform)}
-            aria-label={
-              state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
-            }
-            className={`flex w-14 shrink-0 items-center justify-center rounded-xl text-white transition-[background-color,transform] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16 ${
-              state === "ready"
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-btn-primary hover:bg-btn-primary-hover"
-            }`}
-          >
-            {state === "preparing" ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : state === "ready" ? (
-              <Check className="h-5 w-5" />
-            ) : state === "error" ? (
-              <RotateCcw className="h-5 w-5" />
-            ) : (
-              <ArrowRight className="h-5 w-5" />
-            )}
-          </button>
+      <div className="relative mt-8 sm:mt-12">
+        {/* Ambient glow behind the card, matching the app's premium panel style */}
+        <div aria-hidden="true" className="pointer-events-none absolute -inset-16 -z-10 overflow-hidden">
+          <div className="absolute left-1/2 top-0 h-56 w-80 -translate-x-1/2 rounded-full bg-blue-500/20 blur-[100px] dark:bg-blue-500/30" />
         </div>
 
-        {detectedPlatform && (
-          <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
-            <Image
-              src={detectedPlatform.logo}
-              alt=""
-              width={16}
-              height={16}
-              className="h-4 w-4 object-contain"
-            />
-            {detectedPlatform.label}
+        <div className="relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.15)] dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.5)]">
+          <BorderTrail
+            size={130}
+            className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-60 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
+            transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
+          />
+
+          <div className="relative overflow-hidden rounded-[calc(1rem-1px)] bg-white/70 p-6 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
+            <div className="flex items-stretch gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                <input
+                  type="url"
+                  inputMode="url"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  value={url}
+                  onChange={(event) => {
+                    resetJob();
+                    setUrl(event.target.value);
+                  }}
+                  placeholder="Paste video URL here..."
+                  className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-base text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-shadow duration-200 placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTriggerClick}
+                disabled={state === "preparing" || ((state === "idle" || state === "error") && !detectedPlatform)}
+                aria-label={
+                  state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
+                }
+                className="relative flex w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
+                style={{
+                  background:
+                    state === "ready"
+                      ? "linear-gradient(to bottom, rgb(16,185,129), rgb(5,150,105))"
+                      : "linear-gradient(to bottom, rgb(59,130,246), rgb(37,99,235))",
+                  boxShadow:
+                    state === "ready"
+                      ? "0 2px 10px 0 rgba(5,150,105,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 8px 0 rgba(5,150,105,0.5) inset"
+                      : "0 2px 10px 0 rgba(37,99,235,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 8px 0 rgba(37,99,235,0.5) inset",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 top-0 h-2/5 w-[80%] -translate-x-1/2 rounded-t-full"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 80%)",
+                    filter: "blur(1.5px)",
+                  }}
+                />
+                <span className="relative z-10">
+                  {state === "preparing" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : state === "ready" ? (
+                    <Check className="h-5 w-5" />
+                  ) : state === "error" ? (
+                    <RotateCcw className="h-5 w-5" />
+                  ) : (
+                    <ArrowRight className="h-5 w-5" />
+                  )}
+                </span>
+              </button>
+            </div>
+
+            {detectedPlatform && (
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
+                <Image
+                  src={detectedPlatform.logo}
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="h-4 w-4 object-contain"
+                />
+                {detectedPlatform.label}
+              </div>
+            )}
+
+            {state === "error" && error && (
+              <p className="mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:mt-8">
+              <span className="text-xs font-medium text-slate-400 dark:text-zinc-500">Supports</span>
+              {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
+                <span
+                  key={id}
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
+                >
+                  <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
-        )}
-
-        {state === "error" && error && (
-          <p className="mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
-        )}
-
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-slate-400 dark:text-zinc-500 sm:mt-8 sm:gap-x-4">
-          <span>Supports</span>
-          {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
-            <span key={id} className="flex items-center gap-1.5">
-              <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-              <span className="hidden sm:inline">{label}</span>
-            </span>
-          ))}
         </div>
       </div>
 

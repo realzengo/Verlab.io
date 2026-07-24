@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { getJob, regenerateOneCandidateInJob, resolveStatus } from "@/lib/server/niche-bend-job-store";
+import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -47,8 +49,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    await chargeUser(
+      user.id,
+      TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate,
+      "Regenerate Candidate",
+      "niche_bend.regenerate_candidate"
+    );
+  } catch (creditError) {
+    if (creditError instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
+    }
+    throw creditError;
+  }
+
+  try {
     await regenerateOneCandidateInJob(supabase, job, candidateId);
   } catch (error) {
+    await refundUser(
+      user.id,
+      TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate,
+      "Regenerate Candidate refund",
+      "niche_bend.regenerate_candidate"
+    );
     if (error instanceof Error && (error.message === "Invalid candidateId" || error.message === "Job is not ready yet")) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

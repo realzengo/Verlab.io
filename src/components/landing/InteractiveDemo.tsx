@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, Loader2, ArrowRight } from "lucide-react";
 import { TikTokIcon } from "@/components/landing/PlatformIcons";
+import { PlasticButton } from "@/components/ui/plastic-button";
 
 type DemoState = "idle" | "loading_bends" | "show_bends" | "loading_sop" | "show_sop";
 
@@ -248,13 +249,12 @@ export function InteractiveDemo() {
                       ))}
                     </ul>
                     {bend.sopAction && (
-                      <button
-                        type="button"
+                      <PlasticButton
+                        className="mt-1 self-start"
+                        text="Generate SOP"
+                        trailing={<ArrowRight className="h-3.5 w-3.5" />}
                         onClick={handleGenerateSop}
-                        className="mt-1 flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-hover"
-                      >
-                        Generate SOP <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
+                      />
                     )}
                   </div>
                 ))}

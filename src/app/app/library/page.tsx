@@ -147,13 +147,16 @@ export default function LibraryPage() {
   }
 
   function handleDownload(asset: LibraryAsset) {
-    if (!asset.fileUrl) return;
-    if (asset.fileUrl.startsWith("data:")) {
-      const extension = asset.fileUrl.slice(5, asset.fileUrl.indexOf(";")).split("/")[1] ?? "jpg";
+    // Images only ever populate thumbnailUrl (see /api/library) since it's
+    // the same data URL fileUrl would've been -- fall back to it here.
+    const url = asset.fileUrl ?? (asset.type === "image" ? asset.thumbnailUrl : null);
+    if (!url) return;
+    if (url.startsWith("data:")) {
+      const extension = url.slice(5, url.indexOf(";")).split("/")[1] ?? "jpg";
       const slug = asset.title.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
-      downloadDataUrl(asset.fileUrl, `${slug}.${extension}`);
+      downloadDataUrl(url, `${slug}.${extension}`);
     } else {
-      window.open(asset.fileUrl, "_blank");
+      window.open(url, "_blank");
     }
     setOpenMenuId(null);
   }
@@ -161,8 +164,12 @@ export default function LibraryPage() {
   return (
     <div className="flex flex-col gap-2 pt-2">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Library</h1>
-        <p className="mt-1 text-sm text-slate-500">Every image, video, and SOP you&rsquo;ve generated, in one place.</p>
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
+          Library
+        </h1>
+        <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
+          Every image, video, and SOP you&rsquo;ve generated, in one place.
+        </p>
       </div>
 
       <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">

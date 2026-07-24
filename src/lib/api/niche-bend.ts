@@ -1,3 +1,4 @@
+import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import type {
   NicheBendHistoryItem,
   NicheBendJobStatusResponse,
@@ -102,6 +103,10 @@ export async function regenerateCandidate(
     throw new NicheBendApiError(message, response.status, code);
   }
 
+  // This route charges synchronously before regenerating, so the balance
+  // has already changed by the time this response resolves.
+  notifyCreditsChanged();
+
   return response.json();
 }
 
@@ -172,6 +177,12 @@ export function pollStatusUntilSettled(
       onUpdate(status);
       if (!SETTLED.includes(status.status)) {
         timeoutId = setTimeout(tick, intervalMs);
+      } else if (status.status !== "failed") {
+        // "ready" (analyze settled) and "sop_ready" (SOP settled) both mean
+        // the background job's charge (see niche-bend-job-store.ts) already
+        // succeeded -- "failed" jobs are refunded, not charged, so they're
+        // excluded here.
+        notifyCreditsChanged();
       }
     } catch {
       if (!cancelled) {

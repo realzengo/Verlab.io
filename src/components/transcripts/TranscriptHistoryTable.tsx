@@ -10,13 +10,9 @@ import {
   ChevronDown,
   Download,
   Eye,
-  Folder as FolderIcon,
-  Globe,
   ListFilter,
   MoreVertical,
-  PenLine,
   PlayCircle,
-  Puzzle,
   Search,
   Smartphone,
   Trash2,
@@ -32,12 +28,8 @@ import { Table, TableHead, TableRow, TableHeaderCell, TableCell } from "@/compon
 import { TikTokIcon, InstagramIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 
-type TranscriptSource = "web" | "extension" | "manual";
-type SourceFilterValue = "all" | TranscriptSource;
 type PlatformFilterValue = "all" | TranscriptRow["platform"];
 type StatusFilterValue = "all" | TranscriptRowStatus;
-
-const PLACEHOLDER_FOLDERS = ["Client Work", "Content Ideas", "Competitor Research"] as const;
 
 const STATUS_META: Record<TranscriptRowStatus, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
   complete: { label: "Complete", variant: "success" },
@@ -46,23 +38,11 @@ const STATUS_META: Record<TranscriptRowStatus, { label: string; variant: "succes
   failed: { label: "Failed", variant: "danger" },
 };
 
-const SOURCE_META: Record<TranscriptSource, { label: string; icon: LucideIcon }> = {
-  web: { label: "Web", icon: Globe },
-  extension: { label: "Extension", icon: Puzzle },
-  manual: { label: "Manual", icon: PenLine },
-};
-
 const PLATFORM_META = {
   tiktok: { label: "TikTok", icon: TikTokIcon },
   reels: { label: "Reels", icon: InstagramIcon },
   shorts: { label: "Shorts", icon: YouTubeIcon },
 } satisfies Record<TranscriptRow["platform"], { label: string; icon: ComponentType<{ className?: string }> }>;
-
-const FOLDER_OPTIONS: { value: string; label: string }[] = [
-  { value: "all", label: "All Folders" },
-  { value: "unassigned", label: "Unassigned" },
-  ...PLACEHOLDER_FOLDERS.map((folder) => ({ value: folder, label: folder })),
-];
 
 const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "all", label: "All" },
@@ -70,13 +50,6 @@ const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "processing", label: STATUS_META.processing.label },
   { value: "queued", label: STATUS_META.queued.label },
   { value: "failed", label: STATUS_META.failed.label },
-];
-
-const SOURCE_OPTIONS: { value: SourceFilterValue; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "web", label: SOURCE_META.web.label },
-  { value: "extension", label: SOURCE_META.extension.label },
-  { value: "manual", label: SOURCE_META.manual.label },
 ];
 
 const PLATFORM_OPTIONS: { value: PlatformFilterValue; label: string }[] = [
@@ -89,8 +62,6 @@ const PLATFORM_OPTIONS: { value: PlatformFilterValue; label: string }[] = [
 interface PlaceholderMeta {
   handle: string;
   views: number;
-  source: TranscriptSource;
-  folder: string | null;
   bookmarked: boolean;
 }
 
@@ -102,19 +73,16 @@ function hashSeed(id: string): number {
   return hash;
 }
 
-// Backend doesn't track author handle / views / source / folder / bookmarks yet —
-// derive stable placeholder values from the row id so the new columns have something
-// realistic to show until those fields exist for real.
+// Backend doesn't track author handle / views / bookmarks yet — derive stable
+// placeholder values from the row id so the columns have something realistic
+// to show until those fields exist for real.
 function derivePlaceholderMeta(row: TranscriptRow): PlaceholderMeta {
   const seed = hashSeed(row.id);
   const slug = (row.title ?? "creator").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14);
-  const sources: TranscriptSource[] = ["web", "extension", "manual"];
 
   return {
     handle: `@${slug || "creator"}`,
     views: 1_200 + (seed % 480_000),
-    source: sources[seed % sources.length],
-    folder: seed % 3 === 0 ? null : PLACEHOLDER_FOLDERS[seed % PLACEHOLDER_FOLDERS.length],
     bookmarked: seed % 4 === 0,
   };
 }
@@ -281,54 +249,6 @@ const IconButton = forwardRef<
   );
 });
 
-function FolderMenu({
-  currentFolder,
-  onAssign,
-}: {
-  currentFolder: string | null;
-  onAssign: (folder: string | null) => void;
-}) {
-  const { open, setOpen, anchorRef, menuRef, style } = useAnchoredMenu();
-
-  return (
-    <>
-      <IconButton ref={anchorRef} icon={FolderIcon} label="Move to folder" onClick={() => setOpen((o) => !o)} />
-      {open &&
-        style &&
-        createPortal(
-          <div ref={menuRef} style={style} className="w-48 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
-            <button
-              type="button"
-              onClick={() => {
-                onAssign(null);
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
-            >
-              Unassigned
-              {currentFolder === null && <Check className="h-3.5 w-3.5 text-primary" />}
-            </button>
-            {PLACEHOLDER_FOLDERS.map((folder) => (
-              <button
-                key={folder}
-                type="button"
-                onClick={() => {
-                  onAssign(folder);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
-              >
-                {folder}
-                {currentFolder === folder && <Check className="h-3.5 w-3.5 text-primary" />}
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
-    </>
-  );
-}
-
 function RowMenu({
   onView,
   viewDisabled,
@@ -405,12 +325,9 @@ export function TranscriptHistoryTable({
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilterValue>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilterValue>("all");
-  const [folderFilter, setFolderFilter] = useState<string>("all");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [folderOverrides, setFolderOverrides] = useState<Record<string, string | null>>({});
   const [bookmarkOverrides, setBookmarkOverrides] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
@@ -420,10 +337,6 @@ export function TranscriptHistoryTable({
     rows.forEach((row) => map.set(row.id, derivePlaceholderMeta(row)));
     return map;
   }, [rows]);
-
-  function folderFor(row: TranscriptRow): string | null {
-    return row.id in folderOverrides ? folderOverrides[row.id] : (meta.get(row.id)?.folder ?? null);
-  }
 
   function bookmarkedFor(row: TranscriptRow): boolean {
     return row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : (meta.get(row.id)?.bookmarked ?? false);
@@ -435,11 +348,7 @@ export function TranscriptHistoryTable({
       const rowMeta = meta.get(row.id);
       if (!rowMeta) return false;
       if (statusFilter !== "all" && row.status !== statusFilter) return false;
-      if (sourceFilter !== "all" && rowMeta.source !== sourceFilter) return false;
       if (platformFilter !== "all" && row.platform !== platformFilter) return false;
-      const folder = row.id in folderOverrides ? folderOverrides[row.id] : rowMeta.folder;
-      if (folderFilter === "unassigned" && folder !== null) return false;
-      if (folderFilter !== "all" && folderFilter !== "unassigned" && folder !== folderFilter) return false;
       const bookmarked = row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : rowMeta.bookmarked;
       if (bookmarkedOnly && !bookmarked) return false;
       if (q) {
@@ -448,7 +357,7 @@ export function TranscriptHistoryTable({
       }
       return true;
     });
-  }, [rows, meta, search, statusFilter, sourceFilter, platformFilter, folderFilter, bookmarkedOnly, folderOverrides, bookmarkOverrides]);
+  }, [rows, meta, search, statusFilter, platformFilter, bookmarkedOnly, bookmarkOverrides]);
 
   const allSelected = filtered.length > 0 && filtered.every((row) => selected.has(row.id));
   const someSelected = filtered.some((row) => selected.has(row.id));
@@ -526,30 +435,12 @@ export function TranscriptHistoryTable({
         </div>
 
         <FilterDropdown
-          label="Folder"
-          icon={FolderIcon}
-          value={folderFilter}
-          valueLabel={folderFilter === "all" ? "All" : folderFilter === "unassigned" ? "Unassigned" : folderFilter}
-          onChange={setFolderFilter}
-          options={FOLDER_OPTIONS}
-        />
-
-        <FilterDropdown
           label="Status"
           icon={ListFilter}
           value={statusFilter}
           valueLabel={statusFilter === "all" ? "All" : STATUS_META[statusFilter].label}
           onChange={setStatusFilter}
           options={STATUS_OPTIONS}
-        />
-
-        <FilterDropdown
-          label="Source"
-          icon={Globe}
-          value={sourceFilter}
-          valueLabel={sourceFilter === "all" ? "All" : SOURCE_META[sourceFilter].label}
-          onChange={setSourceFilter}
-          options={SOURCE_OPTIONS}
         />
 
         <FilterDropdown
@@ -580,9 +471,9 @@ export function TranscriptHistoryTable({
       </p>
 
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-card-sm border border-primary/20 bg-accent px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card-sm border border-primary/20 bg-accent px-4 py-2.5">
           <p className="text-sm font-semibold text-primary">{selected.size} selected</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" bevel={false} className="shadow-none" icon={Download} onClick={exportSelected}>
               Export
             </Button>
@@ -607,7 +498,92 @@ export function TranscriptHistoryTable({
       {filtered.length === 0 ? (
         <EmptyState icon={Search} title="No transcripts match" description="Try a different search term or clear the filters." />
       ) : (
-        <Table className="min-w-0">
+        <>
+          <div className="flex flex-col gap-2 sm:hidden">
+            {filtered.map((row) => {
+              const rowMeta = meta.get(row.id);
+              if (!rowMeta) return null;
+              const platformMeta = PLATFORM_META[row.platform];
+              const PlatformIcon = platformMeta.icon;
+              const statusMeta = STATUS_META[row.status];
+              const isComplete = row.status === "complete";
+
+              return (
+                <div
+                  key={row.id}
+                  onClick={() => {
+                    if (isComplete) onOpenRow(row);
+                  }}
+                  className={cn(
+                    "rounded-card border border-hairline bg-surface p-3",
+                    isComplete && "active:bg-app/60"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div onClick={(event) => event.stopPropagation()} className="pt-1.5">
+                      <Checkbox
+                        checked={selected.has(row.id)}
+                        onChange={() => toggleRow(row.id)}
+                        aria-label={`Select ${row.title ?? "transcript"}`}
+                      />
+                    </div>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink text-white">
+                      {row.cover_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.cover_url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      ) : (
+                        <PlayCircle className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="line-clamp-2 text-sm font-medium text-heading">{row.title ?? row.source_url}</p>
+                        <Badge variant={statusMeta.variant} className="shrink-0">
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {statusMeta.label}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-subtle">
+                        {rowMeta.handle} · {formatNumber(rowMeta.views)} views
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-body">
+                        <span className="inline-flex items-center gap-1">
+                          <PlatformIcon className="h-3 w-3" />
+                          {platformMeta.label}
+                        </span>
+                        <span>{formatDuration(row.duration_seconds)}</span>
+                        <span>
+                          {formatDate(row.created_at)} · {formatTime(row.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={(event) => event.stopPropagation()}
+                    className="mt-3 flex items-center justify-end gap-1.5 border-t border-hairline pt-2.5"
+                  >
+                    <IconButton icon={Eye} label="View transcript" disabled={!isComplete} onClick={() => onOpenRow(row)} />
+                    <IconButton
+                      icon={Bookmark}
+                      label={bookmarkedFor(row) ? "Remove bookmark" : "Add bookmark"}
+                      active={bookmarkedFor(row)}
+                      onClick={() => setBookmarkOverrides((prev) => ({ ...prev, [row.id]: !bookmarkedFor(row) }))}
+                    />
+                    <RowMenu
+                      onView={() => onOpenRow(row)}
+                      viewDisabled={!isComplete}
+                      onExport={() => exportRow(row)}
+                      exportDisabled={!row.lines?.length}
+                      onDelete={() => requestDelete([row.id])}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Table className="hidden min-w-0 sm:block">
           <TableHead>
             <TableRow>
               <TableHeaderCell className="w-10">
@@ -619,8 +595,6 @@ export function TranscriptHistoryTable({
                 />
               </TableHeaderCell>
               <TableHeaderCell>Content</TableHeaderCell>
-              <TableHeaderCell>Source</TableHeaderCell>
-              <TableHeaderCell>Folder</TableHeaderCell>
               <TableHeaderCell>Platform</TableHeaderCell>
               <TableHeaderCell>Date</TableHeaderCell>
               <TableHeaderCell>Duration</TableHeaderCell>
@@ -632,12 +606,9 @@ export function TranscriptHistoryTable({
             {filtered.map((row) => {
               const rowMeta = meta.get(row.id);
               if (!rowMeta) return null;
-              const sourceMeta = SOURCE_META[rowMeta.source];
-              const SourceIcon = sourceMeta.icon;
               const platformMeta = PLATFORM_META[row.platform];
               const PlatformIcon = platformMeta.icon;
               const statusMeta = STATUS_META[row.status];
-              const folder = folderFor(row);
               const isComplete = row.status === "complete";
 
               return (
@@ -678,22 +649,6 @@ export function TranscriptHistoryTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-xs font-medium text-body">
-                      <SourceIcon className="h-3 w-3" />
-                      {sourceMeta.label}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {folder ? (
-                      <span className="inline-flex items-center gap-1.5 text-sm text-body">
-                        <FolderIcon className="h-3.5 w-3.5 text-subtle" />
-                        {folder}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-subtle">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
                     <span className="inline-flex items-center gap-1.5 text-sm text-heading">
                       <PlatformIcon className="h-3.5 w-3.5" />
                       {platformMeta.label}
@@ -721,10 +676,6 @@ export function TranscriptHistoryTable({
                           setBookmarkOverrides((prev) => ({ ...prev, [row.id]: !bookmarkedFor(row) }))
                         }
                       />
-                      <FolderMenu
-                        currentFolder={folder}
-                        onAssign={(next) => setFolderOverrides((prev) => ({ ...prev, [row.id]: next }))}
-                      />
                       <RowMenu
                         onView={() => onOpenRow(row)}
                         viewDisabled={!isComplete}
@@ -738,7 +689,8 @@ export function TranscriptHistoryTable({
               );
             })}
           </tbody>
-        </Table>
+          </Table>
+        </>
       )}
 
       <ConfirmDialog

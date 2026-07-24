@@ -1,9 +1,12 @@
 "use client";
 
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 import type { Script } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { PlasticButton } from "@/components/ui/plastic-button";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 
 interface ScriptViewProps {
   script: Script;
@@ -25,9 +28,11 @@ export function ScriptView({ script, variant = "full", onRegenerate, onExport }:
         {!compact && (onRegenerate || onExport) && (
           <div className="flex shrink-0 gap-2">
             {onRegenerate && (
-              <Button variant="secondary" size="sm" icon={RefreshCw} onClick={onRegenerate}>
-                Regenerate
-              </Button>
+              <PlasticButton
+                text="Regenerate"
+                onClick={onRegenerate}
+                trailing={<CreditCost amount={TOOL_CREDIT_COSTS.script.generation} className="text-blue-200/80" />}
+              />
             )}
             {onExport && (
               <Button variant="secondary" size="sm" icon={Download} onClick={() => onExport("txt")}>

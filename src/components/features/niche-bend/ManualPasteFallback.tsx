@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { CreditCost } from "@/components/ui/CreditCost";
 import { parseManualVideos } from "@/lib/niche-bend/manual-parse";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import type { NicheBendVideo } from "@/lib/types";
 
 export function ManualPasteFallback({
@@ -35,6 +37,7 @@ export function ManualPasteFallback({
         </p>
         <Button size="sm" disabled={!canSubmit} onClick={() => onSubmit(parsed)}>
           Use these videos
+          <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.analyzeManualVideos} className="text-white/80" />
         </Button>
       </div>
     </div>

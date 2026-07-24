@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   ArrowLeft,
   Check,
-  CheckCircle2,
   ChevronDown,
   Copy,
   Download,
@@ -20,10 +20,17 @@ import {
 import type { TranscriptLine, TranscriptRow } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { PlasticButton } from "@/components/ui/plastic-button";
 import { TranscriptHistoryTable } from "@/components/transcripts/TranscriptHistoryTable";
 import { ExportModal } from "@/components/transcripts/ExportModal";
 import { exportTranscripts } from "@/lib/transcript-export";
 import { cn } from "@/lib/utils";
+
+const SUPPORTED_PLATFORMS = [
+  { id: "youtube", label: "YouTube", logo: "/logos/social/youtube.png" },
+  { id: "tiktok", label: "TikTok", logo: "/logos/social/tiktok.png" },
+  { id: "instagram", label: "Instagram", logo: "/logos/social/instagram.png" },
+] as const;
 
 type PageView = "history" | "result";
 
@@ -112,37 +119,6 @@ function IconButton({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  icon: typeof FileText;
-  tone: "primary" | "success" | "warning" | "danger";
-}) {
-  const toneClasses: Record<typeof tone, string> = {
-    primary: "bg-accent text-primary",
-    success: "bg-success-tint text-success",
-    warning: "bg-warning-tint text-warning",
-    danger: "bg-danger-tint text-danger",
-  };
-
-  return (
-    <Card className="flex items-center justify-between gap-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-body">{label}</p>
-        <p className="mt-1.5 text-3xl font-bold text-heading">{value}</p>
-      </div>
-      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-chip", toneClasses[tone])}>
-        <Icon className="h-5 w-5" />
-      </div>
-    </Card>
-  );
-}
-
 function firstUrl(input: string): string | null {
   const line = input
     .split(/\s+/)
@@ -155,7 +131,6 @@ export default function TranscriptsPage() {
   const [view, setView] = useState<PageView>("history");
   const [rows, setRows] = useState<TranscriptRow[]>([]);
   const [bulkInput, setBulkInput] = useState("");
-  const [translateTo, setTranslateTo] = useState("Original");
   const [retranslateTo, setRetranslateTo] = useState("Original");
   const [activeRow, setActiveRow] = useState<TranscriptRow | null>(null);
   const [showTimestamps, setShowTimestamps] = useState(true);
@@ -263,13 +238,6 @@ export default function TranscriptsPage() {
     }, 1500);
   }
 
-  const stats = {
-    total: rows.length,
-    complete: rows.filter((r) => r.status === "complete").length,
-    processing: rows.filter((r) => r.status === "processing" || r.status === "queued").length,
-    failed: rows.filter((r) => r.status === "failed").length,
-  };
-
   const handleExtract = async () => {
     const url = firstUrl(bulkInput);
     if (!url) return;
@@ -313,7 +281,7 @@ export default function TranscriptsPage() {
       created_at: new Date().toISOString(),
     });
     setView("result");
-    pollUntilSettled(data.id, translateTo);
+    pollUntilSettled(data.id, "Original");
   };
 
   const handleCopy = async () => {
@@ -370,62 +338,93 @@ export default function TranscriptsPage() {
   return (
     <div className="flex flex-col gap-6 pt-2 pb-12">
       <div>
-        <h1 className="text-2xl font-bold text-heading">Transcripts</h1>
-        <p className="mt-1 text-sm text-body">
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
+          Transcripts
+        </h1>
+        <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
           Paste a TikTok, Reels, or Shorts link to pull a clean, timestamped transcript.
         </p>
       </div>
 
-      <Card className="flex flex-col gap-4">
-        <div>
-          <h3 className="text-base font-semibold text-heading">Paste your video link here</h3>
-          <p className="mt-1 text-sm text-body">
-            Paste your TikTok, YouTube Shorts, or Instagram Reels link to get started.
-          </p>
-        </div>
+      <div className="relative">
+        <div className="pointer-events-none absolute -top-20 left-1/2 h-48 w-[34rem] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
 
-        <textarea
-          value={bulkInput}
-          onChange={(event) => setBulkInput(event.target.value)}
-          placeholder="Paste a video link here"
-          rows={4}
-          className="w-full resize-none rounded-card-sm border border-hairline bg-app p-4 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
+        <Card className="relative flex flex-col gap-5 overflow-hidden border-primary/15 shadow-card-hover">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-        {error && <p className="text-sm text-danger">{error}</p>}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent">
+              <Link2 className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-heading">Video link</h3>
+              <p className="text-xs text-subtle">Paste a link and get a clean, timestamped transcript in seconds</p>
+            </div>
+          </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Dropdown label="Translate" icon={Languages} value={translateTo} onChange={setTranslateTo} />
-          <Button
-            variant="primary"
-            icon={submitting ? Loader2 : undefined}
-            disabled={!bulkInput.trim() || submitting}
-            onClick={handleExtract}
-          >
-            {submitting ? "Extracting…" : "Extract"}
-          </Button>
-        </div>
-      </Card>
+          <div className="group flex items-center gap-3 rounded-2xl border border-hairline bg-app/60 px-4 py-3.5 transition-all focus-within:border-primary/50 focus-within:bg-surface focus-within:ring-4 focus-within:ring-primary/10 hover:border-primary/25">
+            <Link2 className="h-4 w-4 shrink-0 text-subtle transition-colors group-focus-within:text-primary" />
+            <input
+              type="text"
+              value={bulkInput}
+              onChange={(event) => setBulkInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && bulkInput.trim() && !submitting) handleExtract();
+              }}
+              placeholder="Paste a YouTube, TikTok, or Instagram link…"
+              className="w-full bg-transparent text-sm text-heading placeholder:text-subtle focus:outline-none"
+            />
+            {bulkInput && (
+              <button
+                type="button"
+                onClick={() => setBulkInput("")}
+                aria-label="Clear"
+                className="shrink-0 text-subtle transition-colors hover:text-heading"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-danger">{error}</p>}
+
+          <div className="flex flex-col gap-4 border-t border-hairline pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-subtle">
+              <span className="font-medium text-body">Supported:</span>
+              {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
+                <span
+                  key={id}
+                  className="flex items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-subtle transition-colors hover:border-primary/25 hover:text-heading"
+                >
+                  <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <PlasticButton
+              text={
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Extract Transcript
+                </>
+              }
+              loading={submitting}
+              loadingText="Extracting…"
+              disabled={!bulkInput.trim()}
+              onClick={handleExtract}
+              className="w-full justify-center px-6 py-3 text-sm sm:w-auto"
+            />
+          </div>
+        </Card>
+      </div>
 
       {view === "history" ? (
         <>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-heading">Transcript History</h3>
-            <button
-              type="button"
-              onClick={() => setExportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-heading hover:bg-app"
-            >
-              <Download className="h-4 w-4" />
+            <Button variant="ghost" size="sm" bevel={false} icon={Download} onClick={() => setExportModalOpen(true)}>
               Export All
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total Transcripts" value={stats.total} icon={FileText} tone="primary" />
-            <StatCard label="Successfully Processed" value={stats.complete} icon={CheckCircle2} tone="success" />
-            <StatCard label="Currently Processing" value={stats.processing} icon={Sparkles} tone="warning" />
-            <StatCard label="Failed / Errors" value={stats.failed} icon={XCircle} tone="danger" />
+            </Button>
           </div>
 
           {rows.length === 0 ? (

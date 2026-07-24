@@ -37,9 +37,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const wantsVideos = type === "all" || type === "video";
   const wantsSops = type === "all" || type === "sop";
 
+  // Capped well below the old 100: `image_generations.images` holds raw
+  // base64 data URLs (up to 4K res, multi-MB each as text) with no separate
+  // thumbnail column yet, so every row fetched here is pure payload weight
+  // on the Library grid's initial paint.
   const [imagesResult, videosResult, sopsResult] = await Promise.all([
     wantsImages
-      ? supabase.from("image_generations").select(IMAGE_SELECT).order("created_at", { ascending: false }).limit(100)
+      ? supabase.from("image_generations").select(IMAGE_SELECT).order("created_at", { ascending: false }).limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),
     wantsVideos
       ? supabase
@@ -48,10 +52,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           .eq("status", "complete")
           .eq("format", "mp4")
           .order("created_at", { ascending: false })
-          .limit(100)
+          .limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),
     wantsSops
-      ? supabase.from("niche_bend_jobs").select(SOP_SELECT).eq("saved", true).order("created_at", { ascending: false }).limit(100)
+      ? supabase.from("niche_bend_jobs").select(SOP_SELECT).eq("saved", true).order("created_at", { ascending: false }).limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),
   ]);
 
@@ -66,11 +70,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   for (const row of imagesResult.data ?? []) {
     const images: string[] = Array.isArray(row.images) ? row.images : [];
     images.forEach((image, index) => {
+      // `fileUrl` and `thumbnailUrl` would otherwise be the exact same
+      // multi-MB base64 string, doubling the response body for nothing --
+      // the client falls back to thumbnailUrl for downloads too.
       assets.push({
         id: `image-${row.id}-${index}`,
         type: "image",
         title: row.prompt,
-        fileUrl: image,
+        fileUrl: null,
         thumbnailUrl: image,
         sizeBytes: estimateBase64Bytes(image),
         category: row.model,

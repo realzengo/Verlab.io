@@ -6,6 +6,8 @@ import type {
   AdminTeamMember,
   AdminToolKey,
   AdminUser,
+  CreditsAdminUser,
+  CreditsOverview,
   FeatureFlag,
   PlanDistribution,
   PricingPlan,
@@ -326,6 +328,155 @@ export async function getPlanDefinitions(supabase: SupabaseClient): Promise<Pric
   const rows = (data as PlanDefinitionRow[]) ?? [];
   if (rows.length === 0) return PRICING_PLANS;
   return rows.map(planRowToPricingPlan);
+}
+
+const ACTION_TONES: ToolTone[] = ["blue", "violet", "amber", "green", "rose", "sky"];
+
+// action_key values are dotted/underscored pricing.ts config keys (e.g.
+// "niche_bend.analyze_scrape", "image.nano_banana_pro") -- humanized
+// generically rather than via a hand-maintained label map, so this never
+// drifts out of sync with new keys added to pricing.ts.
+function humanizeActionKey(key: string | null): string {
+  if (!key) return "Other";
+  return key
+    .replace(/[._]/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export async function getCreditsOverview(): Promise<CreditsOverview> {
+  const admin = createAdminClient();
+  const since30 = new Date();
+  since30.setUTCDate(since30.getUTCDate() - 29);
+
+  const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }] = await Promise.all([
+    listAllUsers(),
+    admin.from("profiles").select("id, full_name, plan, credits"),
+    admin
+      .from("credit_transactions")
+      .select("id, user_id, amount, feature, action_key, granted_by, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    admin
+      .from("credit_transactions")
+      .select("user_id, amount, action_key, created_at")
+      .gte("created_at", since30.toISOString()),
+  ]);
+
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "—"]));
+  const profileById = new Map(
+    (profiles ?? []).map((p) => [p.id, p as { full_name: string | null; plan: AdminUser["plan"]; credits: number }])
+  );
+  const nameFor = (userId: string) =>
+    profileById.get(userId)?.full_name || emailById.get(userId)?.split("@")[0] || "Unknown";
+
+  const totalOutstanding = (profiles ?? []).reduce((sum, p) => sum + (p.credits ?? 0), 0);
+
+  const days = last30Days();
+  const byDay = new Map(days.map((d) => [d, { spent: 0, granted: 0 }]));
+  const spendByActionMap = new Map<string, number>();
+  const spendByUserMap = new Map<string, number>();
+
+  const todayStr = days[days.length - 1];
+  const since7Str = days[days.length - 7];
+
+  let spentToday = 0;
+  let spentLast7Days = 0;
+  let spentLast30Days = 0;
+
+  for (const row of ledger30Rows ?? []) {
+    const day = (row.created_at as string).slice(0, 10);
+    const amount = row.amount as number;
+    const bucket = byDay.get(day);
+
+    if (amount < 0) {
+      const spent = -amount;
+      if (bucket) bucket.spent += spent;
+      spentLast30Days += spent;
+      if (day === todayStr) spentToday += spent;
+      if (day >= since7Str) spentLast7Days += spent;
+      const key = (row.action_key as string | null) ?? "other";
+      spendByActionMap.set(key, (spendByActionMap.get(key) ?? 0) + spent);
+      spendByUserMap.set(row.user_id, (spendByUserMap.get(row.user_id) ?? 0) + spent);
+    } else if (bucket) {
+      bucket.granted += amount;
+    }
+  }
+
+  const dailySeries = days.map((date) => ({ date, ...byDay.get(date)! }));
+
+  const spendByAction = [...spendByActionMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([actionKey, amount], i) => ({
+      actionKey,
+      label: humanizeActionKey(actionKey === "other" ? null : actionKey),
+      amount,
+      tone: ACTION_TONES[i % ACTION_TONES.length],
+    }));
+
+  const topSpenders = [...spendByUserMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([userId, spent30d]) => {
+      const profile = profileById.get(userId);
+      return {
+        id: userId,
+        name: nameFor(userId),
+        email: emailById.get(userId) ?? "—",
+        plan: profile?.plan ?? "core",
+        spent30d,
+        balance: profile?.credits ?? 0,
+      };
+    });
+
+  const recentTransactions = (recentTxRows ?? []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    userName: nameFor(row.user_id),
+    userEmail: emailById.get(row.user_id) ?? "—",
+    amount: row.amount,
+    feature: row.feature,
+    actionKey: row.action_key,
+    grantedBy: row.granted_by,
+    createdAt: row.created_at,
+  }));
+
+  return {
+    totalOutstanding,
+    spentToday,
+    spentLast7Days,
+    spentLast30Days,
+    dailySeries,
+    spendByAction,
+    topSpenders,
+    recentTransactions,
+  };
+}
+
+export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
+  const admin = createAdminClient();
+  const [authUsers, { data: profiles }] = await Promise.all([
+    listAllUsers(),
+    admin.from("profiles").select("id, full_name, plan, credits"),
+  ]);
+
+  const profileById = new Map(
+    (profiles ?? []).map((p) => [p.id, p as { full_name: string | null; plan: AdminUser["plan"]; credits: number }])
+  );
+
+  return authUsers.map((u) => {
+    const profile = profileById.get(u.id);
+    return {
+      id: u.id,
+      name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
+      email: u.email ?? "",
+      plan: profile?.plan ?? "core",
+      credits: profile?.credits ?? 0,
+    };
+  });
 }
 
 export async function getOverviewData() {

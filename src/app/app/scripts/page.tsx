@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight,
   Check,
   Copy,
   Download,
@@ -18,8 +17,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
+import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { PlasticButton } from "@/components/ui/plastic-button";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { TopUpModal } from "@/components/TopUpModal";
+import { BorderTrail } from "@/components/ui/BorderTrail";
 
 const PLACEHOLDER =
   "Describe the video you want to create, and add reference videos to help write a viral script.";
@@ -129,51 +134,62 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
       className={cn(
-        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-slate-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.1)] transition-colors hover:bg-slate-200/70 dark:bg-zinc-900 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:hover:bg-zinc-800",
-        isDragOver && "bg-slate-200/70 dark:bg-zinc-800",
+        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer rounded-xl bg-gradient-to-br from-blue-300/60 via-indigo-200/40 to-blue-400/60 p-px transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:from-blue-400/80 hover:via-indigo-300/60 hover:to-blue-500/80",
+        "dark:from-blue-400/40 dark:via-indigo-400/20 dark:to-blue-300/40 dark:hover:from-blue-400/70 dark:hover:via-indigo-400/45 dark:hover:to-blue-300/70",
+        isDragOver && "-translate-y-0.5 from-blue-400/90 via-indigo-300/70 to-blue-500/90 dark:from-blue-400/80 dark:via-indigo-400/55 dark:to-blue-300/80",
         isUploading && "pointer-events-none opacity-70"
       )}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        className="hidden"
-        onChange={(event) => {
-          const selected = event.target.files?.[0];
-          if (selected) onSelect(selected);
-          event.target.value = "";
-        }}
-      />
-      {isUploading ? (
-        <>
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-          <span className="text-xs font-medium text-slate-500">Reading file…</span>
-        </>
-      ) : file ? (
-        <>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClear();
-            }}
-            aria-label={`Remove ${label}`}
-            className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/90 p-1 text-slate-500 opacity-0 shadow-sm transition-opacity duration-150 hover:text-slate-700 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-zinc-800/90 dark:text-slate-300 dark:hover:text-white"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-          <Icon className="h-6 w-6 text-blue-500" />
-          <span className="max-w-[90%] truncate px-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-            {file.name}
-          </span>
-        </>
-      ) : (
-        <>
-          <Icon className="h-6 w-6 text-slate-400" />
-          <span className="text-sm font-medium text-slate-500">{label}</span>
-        </>
-      )}
+      <div
+        className={cn(
+          "relative flex h-full w-full flex-col items-center justify-center gap-2.5 overflow-hidden rounded-[11px] bg-white/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.05)] backdrop-blur-md transition-colors duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:bg-white/90 group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),inset_0_-1px_2px_rgba(0,0,0,0.05),0_16px_32px_-14px_rgba(15,23,42,0.22)]",
+          "dark:bg-zinc-950/90 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:group-hover:bg-zinc-900/90 dark:group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_-2px_3px_rgba(0,0,0,0.6),0_16px_32px_-14px_rgba(0,0,0,0.65)]",
+          isDragOver && "bg-white/95 dark:bg-zinc-900/95"
+        )}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          className="hidden"
+          onChange={(event) => {
+            const selected = event.target.files?.[0];
+            if (selected) onSelect(selected);
+            event.target.value = "";
+          }}
+        />
+        {isUploading ? (
+          <>
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            <span className="text-xs font-medium text-slate-500">Reading file…</span>
+          </>
+        ) : file ? (
+          <>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClear();
+              }}
+              aria-label={`Remove ${label}`}
+              className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/90 p-1 text-slate-500 opacity-0 shadow-sm transition-opacity duration-150 hover:text-slate-700 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-zinc-800/90 dark:text-slate-300 dark:hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <Icon className="h-6 w-6 text-blue-500" />
+            <span className="max-w-[90%] truncate px-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+              {file.name}
+            </span>
+          </>
+        ) : (
+          <>
+            <Icon className="h-6 w-6 text-slate-400 transition-colors duration-300 group-hover:text-blue-500 dark:group-hover:text-blue-400" />
+            <span className="text-sm font-medium text-slate-500 transition-colors duration-300 group-hover:text-slate-700 dark:group-hover:text-slate-300">
+              {label}
+            </span>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -193,6 +209,7 @@ export default function ScriptWriterPage() {
   const [uploadingKind, setUploadingKind] = useState<ReferenceKind | null>(null);
   const [viewingScript, setViewingScript] = useState<ScriptHistoryItem | null>(null);
   const [copiedModal, setCopiedModal] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const modalStreamRef = useRef<HTMLDivElement>(null);
@@ -312,9 +329,18 @@ export default function ScriptWriterPage() {
       });
 
       if (!response.ok || !response.body) {
+        if (response.status === 402) {
+          setShowTopUp(true);
+          return;
+        }
         const data = await response.json().catch(() => null);
         throw new Error(data?.error ?? "Failed to generate script.");
       }
+
+      // generate-script/route.ts charges before it ever starts streaming, so
+      // the balance has already changed by the time this response resolves
+      // — no need to wait for the stream to finish reading.
+      notifyCreditsChanged();
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -409,66 +435,92 @@ export default function ScriptWriterPage() {
       <div className="relative mx-auto w-full max-w-3xl pt-8 sm:pt-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Scriptwriter</h1>
-        <p className="mt-2 text-slate-500">
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
+          Scriptwriter
+        </h1>
+        <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
           Create engaging scripts for your videos with AI-powered writing assistance.
         </p>
       </div>
 
       {/* Prompter */}
-      <div className="mt-8 flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:flex-row">
-        {/* Text Input Area */}
-        <div className="flex flex-1 gap-3">
-          <textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={PLACEHOLDER}
-            disabled={isGenerating}
-            className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white"
-          />
+      <div className="group relative mt-8">
+        {/* Focused ambient glow — two soft blobs give the glass something
+            textured to refract, instead of one flat wash. */}
+        <div aria-hidden="true" className="pointer-events-none absolute -inset-20 -z-10 overflow-hidden">
+          <div className="absolute -left-10 -top-16 h-56 w-72 rounded-full bg-blue-500/25 blur-[90px] transition-opacity duration-500 dark:bg-blue-500/35" />
+          <div className="absolute -right-6 -bottom-12 h-48 w-64 rounded-full bg-indigo-500/0 blur-[90px] transition-opacity duration-500 dark:bg-indigo-500/25" />
         </div>
 
-        {/* Square Drop Zones */}
-        <div className="flex w-full flex-col gap-3 md:w-[280px]">
-          <div className="flex gap-3">
-            <DropZone
-              label="Transcript"
-              icon={FileText}
-              file={transcriptFile}
-              isUploading={uploadingKind === "transcript"}
-              onSelect={(file) => saveReferenceFile("transcript", file)}
-              onClear={() => clearReferenceFile("transcript")}
-            />
-            <DropZone
-              label="SOP"
-              icon={FileBadge}
-              file={sopFile}
-              isUploading={uploadingKind === "sop"}
-              onSelect={(file) => saveReferenceFile("sop", file)}
-              onClear={() => clearReferenceFile("sop")}
-            />
-          </div>
+        {/* Border wrapper — a thin static border plus an animated light
+            trail that travels the perimeter for a premium, "alive" edge. */}
+        <div
+          className={cn(
+            "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
+            "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]",
+            "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.14),0_16px_40px_-16px_rgba(37,99,235,0.35)]",
+            "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_32px_70px_-20px_rgba(37,99,235,0.7)]"
+          )}
+        >
+          <BorderTrail
+            size={140}
+            className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-70 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
+            transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
+          />
 
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="group flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 py-3 font-medium text-white shadow-sm transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                Generate
-                <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />
-              </>
+          <div
+            className={cn(
+              "relative flex flex-col gap-6 rounded-[calc(1rem-1px)] bg-white/60 p-5 backdrop-blur-2xl backdrop-saturate-150 md:flex-row",
+              "dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(9,9,11,0)_45%)]"
             )}
-          </button>
+          >
+            {/* Text Input Area */}
+            <div className="relative flex flex-1 gap-3">
+              <textarea
+                ref={textareaRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={PLACEHOLDER}
+                disabled={isGenerating}
+                className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="relative hidden w-px self-stretch bg-gradient-to-b from-transparent via-slate-200 to-transparent dark:via-white/10 md:block" />
+
+            {/* Square Drop Zones */}
+            <div className="relative flex w-full flex-col gap-3 md:w-[280px]">
+              <div className="flex gap-3">
+                <DropZone
+                  label="Transcript"
+                  icon={FileText}
+                  file={transcriptFile}
+                  isUploading={uploadingKind === "transcript"}
+                  onSelect={(file) => saveReferenceFile("transcript", file)}
+                  onClear={() => clearReferenceFile("transcript")}
+                />
+                <DropZone
+                  label="SOP"
+                  icon={FileBadge}
+                  file={sopFile}
+                  isUploading={uploadingKind === "sop"}
+                  onSelect={(file) => saveReferenceFile("sop", file)}
+                  onClear={() => clearReferenceFile("sop")}
+                />
+              </div>
+
+              <PlasticButton
+                text="Generate"
+                loading={isGenerating}
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                className="w-full py-3"
+                trailing={<CreditCost amount={TOOL_CREDIT_COSTS.script.generation} className="text-blue-200/80" />}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -640,9 +692,7 @@ export default function ScriptWriterPage() {
                     >
                       {copiedResult ? "Copied" : "Copy"}
                     </Button>
-                    <Button type="button" variant="primary" size="sm" icon={Sparkles} onClick={handleGenerateAnother}>
-                      Generate Another
-                    </Button>
+                    <PlasticButton text="Generate Another" onClick={handleGenerateAnother} />
                   </div>
                 )}
               </div>
@@ -803,6 +853,8 @@ export default function ScriptWriterPage() {
           );
         })()}
       </div>
+
+      <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
     </div>
   );
 }

@@ -228,7 +228,9 @@ export default async function AppHome() {
     <div className="flex flex-col gap-4 pt-8 sm:pt-12">
       <section>
         <div className="mb-6 text-center">
-          <h1 className="text-lg font-bold text-heading sm:text-2xl">Hello {displayName(user)}, what would you like to create today?</h1>
+          <h1 className="bg-gradient-to-b from-heading to-heading/60 bg-clip-text text-[26px] font-semibold leading-[1.15] tracking-[-0.02em] text-transparent sm:text-[34px]">
+            Hello {displayName(user)}, what would you like to create today?
+          </h1>
         </div>
         <div className="mb-8 grid grid-cols-3 gap-2 sm:mb-12 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-4">
           {QUICK_ACTIONS.map((action) => (

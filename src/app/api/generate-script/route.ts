@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { streamText, type LanguageModel, type ModelMessage } from "ai";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "@/lib/server/gemini-client";
 import { CLAUDE_MAX_OUTPUT_TOKENS, anthropicModel } from "@/lib/server/anthropic-client";
+import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -122,6 +124,18 @@ export async function POST(request: NextRequest): Promise<Response> {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
 
+  // Charged here, before any model is touched -- nothing has hit the network
+  // yet at this point, so a 402 costs nothing (unlike generate-image, no
+  // response has been sent).
+  try {
+    await chargeUser(user.id, TOOL_CREDIT_COSTS.script.generation, "Script Generation", "script.generation");
+  } catch (creditError) {
+    if (creditError instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
+    }
+    throw creditError;
+  }
+
   const history = Array.isArray(body.history) ? body.history : [];
   const messages: ModelMessage[] = [
     ...history.map((entry) => ({ role: entry.role, content: entry.content }) satisfies ModelMessage),
@@ -175,6 +189,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         }
       }
 
+      // No candidate produced any output at all -- no value was delivered,
+      // so refund the charge made above before erroring.
+      await refundUser(user.id, TOOL_CREDIT_COSTS.script.generation, "Script Generation refund", "script.generation");
       controller.error(new Error("All script-generation models are currently unavailable."));
     },
   });

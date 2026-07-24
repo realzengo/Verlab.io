@@ -36,10 +36,16 @@ export async function generateImageWithFal(
   resolution: "512px" | "1K" | "2K" | "4K",
   width: number,
   height: number,
-  quality: "auto" | "low" | "medium" | "high"
+  quality: "auto" | "low" | "medium" | "high",
+  referenceImage?: string
 ): Promise<string> {
   const apiKey = process.env.FAL_API_KEY;
   const falModel = FAL_MODEL_SLUG[model];
+  // Every slug above has a sibling `/edit` endpoint that takes the same
+  // params plus `image_urls` (live-confirmed for all three: fal-ai/nano-banana/edit,
+  // fal-ai/nano-banana-pro/edit, openai/gpt-image-2/edit -- data-URI strings
+  // work directly in image_urls, no upload step needed).
+  const endpoint = referenceImage ? `${falModel}/edit` : falModel;
 
   // openai/gpt-image-2 doesn't take `aspect_ratio` at all (confirmed live
   // against fal's API docs) -- it wants a `image_size` object, so passing
@@ -65,7 +71,11 @@ export async function generateImageWithFal(
     body.quality = quality;
   }
 
-  const response = await fetch(`https://fal.run/${falModel}`, {
+  if (referenceImage) {
+    body.image_urls = [referenceImage];
+  }
+
+  const response = await fetch(`https://fal.run/${endpoint}`, {
     method: "POST",
     headers: { Authorization: `Key ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -8,6 +8,7 @@ import { ChevronDown, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { Logo, LogoMark } from "@/components/ui/Logo";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
+import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +47,10 @@ function NicheNavSection() {
               onClick={() => toggle(niche)}
               disabled={count === 0 && !isActive}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                isActive ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
+                "flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40",
+                isActive
+                  ? "border-accent-line bg-accent text-heading"
+                  : "text-body hover:bg-app hover:text-heading"
               )}
             >
               <span className="truncate">{niche}</span>
@@ -70,8 +73,20 @@ export function Sidebar({
   const [openGroups, setOpenGroups] = useState<string[]>(["Tools"]);
   const [popoverGroup, setPopoverGroup] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
   const showNicheSection = pathname === "/app/niches" && !collapsed;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -119,7 +134,7 @@ export function Sidebar({
     >
       <div
         className={cn(
-          "flex items-center justify-between px-4 py-5",
+          "flex items-center justify-between border-b border-hairline px-4 py-5",
           collapsed && "md:justify-center md:px-0"
         )}
       >
@@ -127,7 +142,10 @@ export function Sidebar({
           type="button"
           onClick={() => setCollapsed((v) => !v)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none md:flex"
+          className={cn(
+            "hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none md:flex",
+            collapsed && "md:gap-0"
+          )}
         >
           <LogoMark
             className={cn(
@@ -157,7 +175,7 @@ export function Sidebar({
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3">
         {SIDEBAR_NAV.map((item) => {
           if (!item.subItems) {
             const active = pathname === item.href;
@@ -168,13 +186,20 @@ export function Sidebar({
                 onClick={onCloseMobile}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus:outline-none focus-visible:outline-none",
-                  collapsed && "md:justify-center md:px-0",
-                  active ? "bg-accent text-primary" : "text-body hover:bg-app hover:text-heading"
+                  "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  collapsed && "md:justify-center md:gap-0 md:px-0",
+                  active
+                    ? "border-accent-line bg-accent font-semibold text-heading"
+                    : "text-body hover:bg-app hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon className="h-4.5 w-4.5 shrink-0" />
+                <item.icon
+                  className={cn(
+                    "h-4.5 w-4.5 shrink-0 transition-colors",
+                    active ? "text-primary" : "text-subtle group-hover:text-body"
+                  )}
+                />
                 <span
                   className={cn(
                     "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
@@ -201,16 +226,21 @@ export function Sidebar({
                 onClick={() => (collapsed ? togglePopover(item.label) : toggleGroup(item.label))}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors rounded-lg cursor-pointer",
+                  "flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   collapsed && "md:justify-center md:px-0",
                   groupActive
-                    ? "text-slate-900 dark:text-white"
-                    : "text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white"
+                    ? "text-heading"
+                    : "text-body hover:bg-app hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <span className="flex items-center gap-3">
-                  <item.icon className="h-4.5 w-4.5 shrink-0" />
+                <span className={cn("flex items-center gap-3", collapsed && "md:gap-0")}>
+                  <item.icon
+                    className={cn(
+                      "h-4.5 w-4.5 shrink-0 transition-colors",
+                      groupActive ? "text-primary" : "text-subtle"
+                    )}
+                  />
                   <span
                     className={cn(
                       "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
@@ -222,7 +252,7 @@ export function Sidebar({
                 </span>
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out",
+                    "h-4 w-4 shrink-0 text-subtle transition-transform duration-300 ease-in-out",
                     collapsed && "md:hidden",
                     !isOpen && "rotate-180"
                   )}
@@ -237,7 +267,7 @@ export function Sidebar({
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="ml-4 pl-4 border-l border-slate-200 dark:border-zinc-800 flex flex-col gap-1 pt-1">
+                    <div className="ml-[19px] flex flex-col gap-1 border-l border-hairline pl-4 pt-1">
                       {item.subItems.map((subItem, index) => {
                         const active = pathname === subItem.href;
                         return (
@@ -248,16 +278,16 @@ export function Sidebar({
                             aria-current={active ? "page" : undefined}
                             style={{ transitionDelay: isOpen ? `${index * 30}ms` : "0ms" }}
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all duration-200 ease-out",
-                              isOpen
-                                ? "translate-y-0 opacity-100"
-                                : "-translate-y-1 opacity-0",
+                              "flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm outline-none transition-all duration-200 ease-out focus:outline-none focus-visible:outline-none",
+                              isOpen ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
                               active
-                                ? "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-medium"
-                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+                                ? "border-accent-line bg-accent font-semibold text-heading"
+                                : "text-subtle hover:bg-app hover:text-body"
                             )}
                           >
-                            <subItem.icon className="h-4 w-4 shrink-0" />
+                            <subItem.icon
+                              className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-subtle")}
+                            />
                             <span className="truncate">{subItem.title}</span>
                           </Link>
                         );
@@ -273,9 +303,9 @@ export function Sidebar({
                   <div
                     ref={popoverRef}
                     style={{ position: "fixed", top: popoverPos.top, left: popoverPos.left }}
-                    className="z-50 w-56 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl p-2 flex flex-col gap-1"
+                    className="z-50 flex w-56 flex-col gap-1 rounded-2xl border border-hairline bg-surface p-2 shadow-card-hover"
                   >
-                    <p className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-zinc-500">
+                    <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-subtle">
                       {item.label}
                     </p>
                     {item.subItems.map((subItem) => {
@@ -290,13 +320,15 @@ export function Sidebar({
                           }}
                           aria-current={active ? "page" : undefined}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all",
+                            "flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm outline-none transition-all focus:outline-none focus-visible:outline-none",
                             active
-                              ? "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white font-medium"
-                              : "text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+                              ? "border-accent-line bg-accent font-semibold text-heading"
+                              : "text-subtle hover:bg-app hover:text-body"
                           )}
                         >
-                          <subItem.icon className="h-4 w-4 shrink-0" />
+                          <subItem.icon
+                            className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-subtle")}
+                          />
                           <span className="truncate">{subItem.title}</span>
                         </Link>
                       );
@@ -314,8 +346,15 @@ export function Sidebar({
       <SidebarFooter
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((v) => !v)}
+        onOpenSearch={() => setSearchOpen(true)}
         onNavigate={onCloseMobile}
       />
+
+      {searchOpen &&
+        createPortal(
+          <CommandPalette isOpen={searchOpen} onClose={() => setSearchOpen(false)} />,
+          document.body
+        )}
     </aside>
   );
 }

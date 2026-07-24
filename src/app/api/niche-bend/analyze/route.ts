@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { createJob } from "@/lib/server/niche-bend-job-store";
+import { getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
@@ -44,6 +46,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (hasManualVideos && manualVideos!.length < 3) {
     return NextResponse.json({ error: "Provide at least 3 manually pasted videos" }, { status: 400 });
+  }
+
+  // Worst-case pre-check: which branch (manual/cache-hit/scrape) actually
+  // runs isn't known until runPipeline executes in the background, so gate
+  // on the most expensive one here. This only ever over-protects margin,
+  // never under-protects it -- the real, branch-specific charge happens
+  // inside runPipeline (see niche-bend-job-store.ts).
+  const balance = await getUserCredits(user.id);
+  if (balance < TOOL_CREDIT_COSTS.nicheBend.analyzeScrape) {
+    return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
   const job = await createJob(supabase, user.id, {

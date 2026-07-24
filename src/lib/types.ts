@@ -505,6 +505,59 @@ export interface PlanDistribution {
   tone: ToolTone;
 }
 
+export interface CreditSpendPoint {
+  date: string;
+  spent: number;
+  granted: number;
+}
+
+export interface CreditActionShare {
+  actionKey: string;
+  label: string;
+  amount: number;
+  tone: ToolTone;
+}
+
+export interface CreditTopSpender {
+  id: string;
+  name: string;
+  email: string;
+  plan: "core" | "pro" | "scale";
+  spent30d: number;
+  balance: number;
+}
+
+export interface CreditLedgerEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  amount: number;
+  feature: string;
+  actionKey: string | null;
+  grantedBy: string | null;
+  createdAt: string;
+}
+
+export interface CreditsOverview {
+  totalOutstanding: number;
+  spentToday: number;
+  spentLast7Days: number;
+  spentLast30Days: number;
+  dailySeries: CreditSpendPoint[];
+  spendByAction: CreditActionShare[];
+  topSpenders: CreditTopSpender[];
+  recentTransactions: CreditLedgerEntry[];
+}
+
+export interface CreditsAdminUser {
+  id: string;
+  name: string;
+  email: string;
+  plan: "core" | "pro" | "scale";
+  credits: number;
+}
+
 export type LibraryAssetType = "image" | "video" | "sop";
 
 export interface LibraryAsset {

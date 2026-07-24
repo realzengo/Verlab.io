@@ -57,11 +57,14 @@ export function StepAnalyze({
   return (
     <div className="animate-bend-in mx-auto flex max-w-2xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
       <div>
-        <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent">
+        <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-hairline bg-surface shadow-card">
           <Wand2 className="h-5 w-5 text-primary" />
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight text-heading sm:text-4xl">Niche bend it.</h1>
-        <p className="mx-auto mt-3 max-w-lg text-body">
+
+        <h1 className="bg-gradient-to-b from-heading to-heading/75 bg-clip-text text-4xl font-semibold tracking-tighter text-transparent sm:text-5xl">
+          Niche bend it.
+        </h1>
+        <p className="mx-auto mt-3.5 max-w-lg text-[15px] leading-relaxed text-body/90 sm:text-base">
           Paste a YouTube or TikTok link — we&apos;ll reverse-engineer the format and hand you three ways to make it
           yours.
         </p>

@@ -114,7 +114,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={closeModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
           <div className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
               <h2 className="text-lg font-semibold text-heading">Invite admin</h2>

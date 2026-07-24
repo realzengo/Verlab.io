@@ -9,6 +9,8 @@ import {
   researchChannel,
   researchFromManualVideos,
 } from "./niche-bend-ai";
+import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
+import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   NicheBendCandidate,
@@ -140,6 +142,12 @@ async function updateJob(
 }
 
 async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Promise<void> {
+  // Tracks the charge actually made in whichever branch below runs, so the
+  // outer catch can refund exactly that amount/key if the branch's real work
+  // then fails -- a charge made before scrapeChannelVideos/researchChannel
+  // etc. shouldn't be kept if no value was ever delivered.
+  let charged: { amount: number; actionKey: string } | null = null;
+
   try {
     const hasManualVideos = Boolean(job.manual_videos && job.manual_videos.length > 0);
 
@@ -154,6 +162,21 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
 
     if (hasManualVideos) {
       await updateJob(supabase, job.id, { status: "identifying_format" });
+      try {
+        await chargeUser(
+          job.user_id,
+          TOOL_CREDIT_COSTS.nicheBend.analyzeManualVideos,
+          "Niche Bend Analysis (manual videos)",
+          "niche_bend.analyze_manual_videos"
+        );
+        charged = { amount: TOOL_CREDIT_COSTS.nicheBend.analyzeManualVideos, actionKey: "niche_bend.analyze_manual_videos" };
+      } catch (creditError) {
+        if (creditError instanceof InsufficientCreditsError) {
+          await updateJob(supabase, job.id, { status: "failed", error_message: "Insufficient credits" });
+          return;
+        }
+        console.error("[credits] Charge failed, proceeding without charge:", creditError);
+      }
       const outcome = await researchFromManualVideos(
         job.source_url || undefined,
         job.platform,
@@ -174,6 +197,21 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
 
     if (cached) {
       await updateJob(supabase, job.id, { status: "generating_bends" });
+      try {
+        await chargeUser(
+          job.user_id,
+          TOOL_CREDIT_COSTS.nicheBend.analyzeCacheHit,
+          "Niche Bend Analysis (cached)",
+          "niche_bend.analyze_cache_hit"
+        );
+        charged = { amount: TOOL_CREDIT_COSTS.nicheBend.analyzeCacheHit, actionKey: "niche_bend.analyze_cache_hit" };
+      } catch (creditError) {
+        if (creditError instanceof InsufficientCreditsError) {
+          await updateJob(supabase, job.id, { status: "failed", error_message: "Insufficient credits" });
+          return;
+        }
+        console.error("[credits] Charge failed, proceeding without charge:", creditError);
+      }
       const outcome = await regenerateCandidates(cached.conversation, cached.analysis);
       await setCachedResearch(cacheKey, { analysis: cached.analysis, conversation: outcome.conversation });
       await updateJob(supabase, job.id, {
@@ -186,6 +224,21 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
     }
 
     await updateJob(supabase, job.id, { status: "reading_videos" });
+    try {
+      await chargeUser(
+        job.user_id,
+        TOOL_CREDIT_COSTS.nicheBend.analyzeScrape,
+        "Niche Bend Analysis",
+        "niche_bend.analyze_scrape"
+      );
+      charged = { amount: TOOL_CREDIT_COSTS.nicheBend.analyzeScrape, actionKey: "niche_bend.analyze_scrape" };
+    } catch (creditError) {
+      if (creditError instanceof InsufficientCreditsError) {
+        await updateJob(supabase, job.id, { status: "failed", error_message: "Insufficient credits" });
+        return;
+      }
+      console.error("[credits] Charge failed, proceeding without charge:", creditError);
+    }
     const outcome = await researchChannel(job.source_url, job.platform, job.video_type);
     await updateJob(supabase, job.id, { status: "generating_bends" });
     await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
@@ -197,6 +250,9 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
     });
   } catch (error) {
     console.error("[niche-bend] Analysis pipeline failed:", error);
+    if (charged) {
+      await refundUser(job.user_id, charged.amount, "Niche Bend Analysis refund", charged.actionKey);
+    }
     try {
       await updateJob(supabase, job.id, { status: "failed", error_message: humanizeError(error) });
     } catch (writeError) {
@@ -384,7 +440,7 @@ export async function startSopGeneration(
   // on this same job — otherwise resolveStatus would keep surfacing it.
   await updateJob(supabase, job.id, { chosen_bend: chosen, status: "generating_sop", error_message: null });
 
-  after(() => runSopGeneration(supabase, job.id, job.conversation ?? [], analysis, chosen));
+  after(() => runSopGeneration(supabase, job.id, job.user_id, job.conversation ?? [], analysis, chosen));
 
   return { ...job, chosen_bend: chosen, status: "generating_sop", error_message: null };
 }
@@ -392,15 +448,27 @@ export async function startSopGeneration(
 async function runSopGeneration(
   supabase: SupabaseClient,
   jobId: string,
+  userId: string,
   conversation: MessageParam[],
   analysis: NicheBendChannelAnalysis,
   chosen: NicheBendCandidate
 ): Promise<void> {
+  try {
+    await chargeUser(userId, TOOL_CREDIT_COSTS.nicheBend.sop, "SOP Generation", "niche_bend.sop");
+  } catch (creditError) {
+    if (creditError instanceof InsufficientCreditsError) {
+      await updateJob(supabase, jobId, { status: "ready", error_message: "Insufficient credits" });
+      return;
+    }
+    console.error("[credits] Charge failed, proceeding without charge:", creditError);
+  }
+
   let content;
   try {
     content = await generateSopContent(conversation, analysis, chosen);
   } catch (error) {
     console.error("[niche-bend] SOP generation failed:", error);
+    await refundUser(userId, TOOL_CREDIT_COSTS.nicheBend.sop, "SOP Generation refund", "niche_bend.sop");
     try {
       await updateJob(supabase, jobId, { status: "ready", error_message: humanizeError(error) });
     } catch (writeError) {
