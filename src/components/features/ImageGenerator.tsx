@@ -467,9 +467,9 @@ export function ImageGenerator() {
         type="button"
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-all duration-200 active:scale-[0.97]",
-          "border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-800 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] hover:border-slate-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_6px_rgba(15,23,42,0.08)]",
-          "dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-200 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:from-zinc-700/90 dark:hover:to-zinc-800",
+          "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-colors duration-150 active:scale-[0.97]",
+          "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+          "dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:border-white/15 dark:hover:bg-white/[0.07]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
         )}
       >
@@ -484,7 +484,7 @@ export function ImageGenerator() {
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
           aria-label="Remove reference image"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-500 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-300 hover:text-slate-800 active:scale-[0.97] dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-400 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:text-slate-200"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.97] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-white/15 dark:hover:bg-white/[0.07] dark:hover:text-slate-200"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -793,9 +793,7 @@ export function ImageGenerator() {
             <div
               className={cn(
                 "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-                "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]",
-                "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.14),0_16px_40px_-16px_rgba(37,99,235,0.35)]",
-                "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_32px_70px_-20px_rgba(37,99,235,0.7)]"
+                "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]"
               )}
             >
               <BorderTrail
@@ -838,12 +836,11 @@ export function ImageGenerator() {
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     aria-expanded={isSettingsOpen}
                     className={cn(
-                      "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-all duration-200 active:scale-[0.97]",
-                      "border-slate-200/80 bg-gradient-to-b from-white to-slate-50 text-slate-800 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_1px_2px_rgba(15,23,42,0.06)] hover:border-slate-300 hover:shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_2px_6px_rgba(15,23,42,0.08)]",
-                      "dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-zinc-800/90 dark:to-zinc-900/90 dark:text-slate-200 dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.4)] dark:hover:border-white/[0.14] dark:hover:from-zinc-700/90 dark:hover:to-zinc-800",
+                      "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-colors duration-150 active:scale-[0.97]",
+                      "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                      "dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:border-white/15 dark:hover:bg-white/[0.07]",
                       "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
-                      isSettingsOpen &&
-                        "border-blue-400/60 shadow-[0_0_0_3px_rgba(59,130,246,0.12),0_1px_2px_rgba(15,23,42,0.06)] dark:border-blue-400/40 dark:shadow-[0_0_0_3px_rgba(59,130,246,0.16),0_1px_2px_rgba(0,0,0,0.4)]"
+                      isSettingsOpen && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
                     )}
                   >
                     <SlidersHorizontal className={cn("h-3.5 w-3.5 transition-colors", isSettingsOpen && "text-blue-500 dark:text-blue-400")} />

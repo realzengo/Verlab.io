@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, Loader2, Lock, ShieldCheck } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { SettingsCardHeader } from "@/components/settings/SettingsCardHeader";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export function PasswordSecurityTab() {
+  const [editing, setEditing] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -41,63 +39,83 @@ export function PasswordSecurityTab() {
     setPassword("");
     setConfirmPassword("");
     setSaved(true);
+    setEditing(false);
   }
 
   return (
-    <Card className="max-w-2xl">
-      <SettingsCardHeader
-        icon={ShieldCheck}
-        title="Password & security"
-        description="Keep your account protected with a strong password."
-      />
+    <div>
+      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0">Security</h2>
 
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
-          New password
-          <div className="relative max-w-sm">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 8 characters"
-              autoComplete="new-password"
-              className="w-full rounded-xl border border-hairline bg-surface py-2.5 pl-10 pr-3.5 text-sm text-heading placeholder:text-subtle transition-colors focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
-            />
-          </div>
-        </label>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex-1">
+          <p className="font-medium text-black text-sm sm:text-base">Password</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Keep your account protected with a strong password.</p>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
-          Confirm new password
-          <div className="relative max-w-sm">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
-            <input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="Re-enter your new password"
-              autoComplete="new-password"
-              className="w-full rounded-xl border border-hairline bg-surface py-2.5 pl-10 pr-3.5 text-sm text-heading placeholder:text-subtle transition-colors focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
-            />
-          </div>
-        </label>
+          {editing ? (
+            <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2 max-w-sm">
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                autoFocus
+                className="rounded-md border border-gray-300 px-3 py-2 sm:py-1.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Re-enter your new password"
+                autoComplete="new-password"
+                className="rounded-md border border-gray-300 px-3 py-2 sm:py-1.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+              />
 
-        {error && <p className="text-sm text-danger">{error}</p>}
-        {saved && !error && (
-          <p className="flex items-center gap-1.5 text-sm text-success">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Password updated.
-          </p>
-        )}
+              {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="mt-2 flex justify-end border-t border-hairline pt-6">
-          <Button type="submit" variant="primary" size="md" disabled={isSaving}>
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-          </Button>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-4 py-2 sm:py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setError(null);
+                    setPassword("");
+                    setConfirmPassword("");
+                  }}
+                  className="px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="mt-2 text-black text-sm tracking-widest">••••••••</p>
+              {saved && <p className="mt-1 text-xs text-gray-500">Password updated.</p>}
+            </>
+          )}
         </div>
-      </form>
-    </Card>
+
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setSaved(false);
+              setEditing(true);
+            }}
+            className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

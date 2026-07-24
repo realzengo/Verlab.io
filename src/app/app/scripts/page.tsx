@@ -457,9 +457,7 @@ export default function ScriptWriterPage() {
         <div
           className={cn(
             "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-            "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]",
-            "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.14),0_16px_40px_-16px_rgba(37,99,235,0.35)]",
-            "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_32px_70px_-20px_rgba(37,99,235,0.7)]"
+            "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]"
           )}
         >
           <BorderTrail

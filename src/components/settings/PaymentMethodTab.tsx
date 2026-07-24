@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Crown, FileText, Gauge, Sparkles, Wallet, Zap } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { SettingsCardHeader } from "@/components/settings/SettingsCardHeader";
+import Link from "next/link";
+import { Loader2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface PlanDefinition {
@@ -56,88 +54,55 @@ export function PaymentMethodTab() {
   }, []);
 
   return (
-    <Card className="max-w-2xl">
-      <SettingsCardHeader
-        icon={Wallet}
-        title="Payment methods"
-        description="Your plan and usage at a glance."
-      />
+    <div>
+      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0">Plan</h2>
 
-      <div className="mt-6 flex items-center justify-between">
-        <h3 className="font-semibold text-heading">Current plan</h3>
-        <Button variant="secondary" size="sm" icon={Zap} href="/pricing">
-          View other plans
-        </Button>
-      </div>
-
-      {!loaded ? (
-        <div className="mt-4 h-40 animate-pulse rounded-card-sm bg-app" />
-      ) : !currentPlan ? (
-        <div className="mt-4 flex flex-col items-center gap-2 rounded-card-sm border border-dashed border-hairline bg-app px-6 py-10 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-primary">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <p className="mt-1 text-sm font-semibold text-heading">No active plan</p>
-          <p className="max-w-xs text-sm text-body">
-            You&apos;re not subscribed to a paid plan yet. Choose one to unlock Pro features.
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div>
+          <p className="font-medium text-black text-sm sm:text-base">Current plan</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{currentPlan?.info ?? "Your plan and usage at a glance."}</p>
+          <p className="mt-2 text-black text-sm">
+            {!loaded ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            ) : currentPlan ? (
+              <span className="font-semibold">
+                {currentPlan.name} · ${currentPlan.price_monthly}/month
+              </span>
+            ) : (
+              "No active plan"
+            )}
           </p>
-          <Button
-            variant="primary"
-            size="lg"
-            href="/pricing"
-            className="mt-3"
-            style={{ boxShadow: "none" }}
-          >
-            Choose a plan
-          </Button>
         </div>
-      ) : (
-        <div className="mt-4 overflow-hidden rounded-card-sm border border-hairline bg-surface shadow-card">
-          <div className="flex items-center gap-3 p-6">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white">
-              <Crown className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-lg font-bold text-heading">{currentPlan.name}</p>
-              <p className="truncate text-sm text-body">{currentPlan.info}</p>
-            </div>
-          </div>
+        <Link
+          href="/pricing"
+          className={
+            loaded && !currentPlan
+              ? "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors"
+              : "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+          }
+        >
+          {loaded && !currentPlan ? "Choose a plan" : "View other plans"}
+        </Link>
+      </div>
 
-          <div className="flex items-center justify-between border-t border-hairline bg-app px-6 py-4">
-            <span className="text-sm text-subtle">Price</span>
-            <span className="text-lg font-bold text-heading">
-              ${currentPlan.price_monthly} <span className="text-sm font-normal text-subtle">/month</span>
-            </span>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div>
+          <p className="font-medium text-black text-sm sm:text-base">Daily transcripts</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Included in every plan.</p>
         </div>
-      )}
-
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-card-sm border border-hairline bg-surface p-4 transition-shadow hover:shadow-card">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-primary">
-              <Gauge className="h-4 w-4" />
-            </span>
-            <p className="text-sm font-medium text-heading">Daily transcripts</p>
-          </div>
-          <div className="mt-3 h-1.5 w-full rounded-full bg-hairline">
-            <div className="h-1.5 w-full rounded-full bg-gradient-to-r from-primary to-primary-hover" />
-          </div>
-          <p className="mt-2 text-sm font-semibold text-heading">Unlimited</p>
-        </div>
-        <div className="rounded-card-sm border border-hairline bg-surface p-4 transition-shadow hover:shadow-card">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-primary">
-              <FileText className="h-4 w-4" />
-            </span>
-            <p className="text-sm font-medium text-heading">Transcripts this month</p>
-          </div>
-          <div className="mt-3 h-1.5 w-full rounded-full bg-hairline">
-            <div className="h-1.5 rounded-full bg-gradient-to-r from-primary to-primary-hover" style={{ width: "100%" }} />
-          </div>
-          <p className="mt-2 text-sm font-semibold text-heading">{transcriptsThisMonth ?? "—"}</p>
+        <div className="mt-3 sm:mt-0 flex items-center gap-1.5 text-gray-400 text-sm">
+          <Lock className="h-3.5 w-3.5" />
+          Unlimited
         </div>
       </div>
-    </Card>
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div>
+          <p className="font-medium text-black text-sm sm:text-base">Transcripts this month</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Resets on the 1st of each month.</p>
+        </div>
+        <p className="mt-2 sm:mt-0 text-black text-sm font-semibold">{transcriptsThisMonth ?? "—"}</p>
+      </div>
+    </div>
   );
 }

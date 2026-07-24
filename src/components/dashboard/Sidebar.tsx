@@ -127,15 +127,15 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-surface transition-transform duration-300 ease-in-out md:sticky md:top-0 md:translate-x-0 md:shrink-0 md:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "md:w-[76px]" : "md:w-64"
+        collapsed ? "lg:w-[76px]" : "lg:w-64"
       )}
     >
       <div
         className={cn(
           "flex items-center justify-between border-b border-hairline px-4 py-5",
-          collapsed && "md:justify-center md:px-0"
+          collapsed && "lg:justify-center lg:px-0"
         )}
       >
         <button
@@ -143,25 +143,25 @@ export function Sidebar({
           onClick={() => setCollapsed((v) => !v)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
-            "hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none md:flex",
-            collapsed && "md:gap-0"
+            "hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none lg:flex",
+            collapsed && "lg:gap-0"
           )}
         >
           <LogoMark
             className={cn(
               "h-7 w-7 shrink-0 -rotate-90 text-heading transition-all duration-300 ease-in-out",
-              collapsed && "md:h-8 md:w-8 md:rotate-0"
+              collapsed && "lg:h-8 lg:w-8 lg:rotate-0"
             )}
           />
           <Logo
             height={24}
             className={cn(
               "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-              collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[170px] md:opacity-100"
+              collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[170px] lg:opacity-100"
             )}
           />
         </button>
-        <div className="flex items-center gap-1.5 md:hidden">
+        <div className="flex items-center gap-1.5 lg:hidden">
           <LogoMark className="h-7 w-7 shrink-0 -rotate-90 text-heading" />
           <Logo height={24} />
         </div>
@@ -169,7 +169,7 @@ export function Sidebar({
           type="button"
           onClick={onCloseMobile}
           aria-label="Close menu"
-          className="text-subtle hover:text-body md:hidden"
+          className="text-subtle hover:text-body lg:hidden"
         >
           <X className="h-5 w-5" />
         </button>
@@ -187,7 +187,7 @@ export function Sidebar({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
-                  collapsed && "md:justify-center md:gap-0 md:px-0",
+                  collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-accent-line bg-accent font-semibold text-heading"
                     : "text-body hover:bg-app hover:text-heading"
@@ -203,7 +203,7 @@ export function Sidebar({
                 <span
                   className={cn(
                     "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-                    collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                    collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
                   )}
                 >
                   {item.label}
@@ -227,14 +227,14 @@ export function Sidebar({
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
                   "flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                  collapsed && "md:justify-center md:px-0",
+                  collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"
                     : "text-body hover:bg-app hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
-                <span className={cn("flex items-center gap-3", collapsed && "md:gap-0")}>
+                <span className={cn("flex items-center gap-3", collapsed && "lg:gap-0")}>
                   <item.icon
                     className={cn(
                       "h-4.5 w-4.5 shrink-0 transition-colors",
@@ -244,7 +244,7 @@ export function Sidebar({
                   <span
                     className={cn(
                       "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-                      collapsed ? "md:max-w-0 md:opacity-0" : "md:max-w-[160px] md:opacity-100"
+                      collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
                     )}
                   >
                     {item.label}
@@ -253,7 +253,7 @@ export function Sidebar({
                 <ChevronDown
                   className={cn(
                     "h-4 w-4 shrink-0 text-subtle transition-transform duration-300 ease-in-out",
-                    collapsed && "md:hidden",
+                    collapsed && "lg:hidden",
                     !isOpen && "rotate-180"
                   )}
                 />

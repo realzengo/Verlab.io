@@ -228,7 +228,7 @@ export default async function AppHome() {
     <div className="flex flex-col gap-4 pt-8 sm:pt-12">
       <section>
         <div className="mb-6 text-center">
-          <h1 className="bg-gradient-to-b from-heading to-heading/60 bg-clip-text text-[26px] font-semibold leading-[1.15] tracking-[-0.02em] text-transparent sm:text-[34px]">
+          <h1 className="bg-gradient-to-b from-heading to-heading/60 bg-clip-text text-xl font-semibold leading-[1.15] tracking-[-0.02em] text-transparent sm:text-2xl">
             Hello {displayName(user)}, what would you like to create today?
           </h1>
         </div>
@@ -237,9 +237,9 @@ export default async function AppHome() {
             <Link
               key={action.label}
               href={action.href}
-              className="group flex flex-col items-center gap-1.5 rounded-xl border border-hairline bg-surface px-2 py-3 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-gradient-to-br hover:from-primary hover:to-primary-hover hover:shadow-card-hover dark:border-white/5 dark:bg-white/[0.04] dark:shadow-none dark:hover:border-transparent dark:hover:bg-none dark:hover:bg-btn-primary dark:hover:shadow-none sm:flex-row sm:gap-3 sm:rounded-2xl sm:px-5 sm:py-4"
+              className="group flex flex-col items-center gap-1.5 rounded-xl border border-hairline bg-surface px-2 py-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:bg-gradient-to-br hover:from-primary hover:to-primary-hover hover:shadow-card-hover dark:border-white/5 dark:bg-white/[0.04] dark:shadow-none dark:hover:border-primary/40 dark:hover:bg-gradient-to-br dark:hover:from-primary dark:hover:to-primary-hover dark:hover:shadow-blue sm:flex-row sm:gap-3 sm:rounded-2xl sm:px-5 sm:py-4"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-primary/15 text-primary transition-colors group-hover:bg-white/15 group-hover:text-white group-hover:ring-1 group-hover:ring-inset group-hover:ring-white/40 dark:bg-gradient-to-br dark:from-zinc-600 dark:to-zinc-900 dark:text-white dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),inset_0_-2px_2px_0_rgba(0,0,0,0.4),0_2px_6px_0_rgba(0,0,0,0.5)] dark:ring-1 dark:ring-white/10 dark:group-hover:bg-transparent dark:group-hover:ring-white/10 sm:h-10 sm:w-10 sm:rounded-xl">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-primary/15 text-primary transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-1 group-hover:ring-inset group-hover:ring-white/40 dark:bg-gradient-to-br dark:from-zinc-600 dark:to-zinc-900 dark:text-white dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),inset_0_-2px_2px_0_rgba(0,0,0,0.4),0_2px_6px_0_rgba(0,0,0,0.5)] dark:ring-1 dark:ring-white/10 dark:group-hover:bg-white/10 dark:group-hover:ring-white/25 dark:group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] sm:h-10 sm:w-10 sm:rounded-xl">
                 <action.icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </span>
               <span className="text-center text-[11px] font-semibold text-heading transition-colors group-hover:text-white sm:text-sm">

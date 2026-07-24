@@ -167,21 +167,20 @@ export function VideoDownloader() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-24">
+    <div className="mx-auto flex w-full max-w-2xl min-h-[calc(100dvh-4.5rem)] flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24">
       <div className="relative text-center">
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-8 -z-10 flex justify-center">
           <div className="h-24 w-72 rounded-full bg-primary/25 blur-[70px] dark:bg-primary/35" />
         </div>
-        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl">
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-[2.25rem] font-extrabold leading-tight tracking-tight text-transparent sm:text-6xl">
           Video Downloader
         </h1>
-        <p className="mx-auto mt-3 max-w-xs text-xs font-medium leading-relaxed tracking-wide text-body/60 sm:max-w-sm sm:text-sm">
-          Download videos from YouTube, TikTok, and Facebook —{" "}
-          <span className="text-body/80">10 downloads use just 1 credit.</span>
+        <p className="mx-auto mt-2 max-w-[15rem] text-[0.7rem] font-medium leading-relaxed tracking-wide text-body/60 sm:mt-3 sm:max-w-sm sm:text-xs">
+          Download videos from YouTube, TikTok, and Facebook
         </p>
       </div>
 
-      <div className="relative mt-8 sm:mt-12">
+      <div className="relative mt-6 sm:mt-12">
         {/* Ambient glow behind the card, matching the app's premium panel style */}
         <div aria-hidden="true" className="pointer-events-none absolute -inset-16 -z-10 overflow-hidden">
           <div className="absolute left-1/2 top-0 h-56 w-80 -translate-x-1/2 rounded-full bg-blue-500/20 blur-[100px] dark:bg-blue-500/30" />
@@ -194,10 +193,10 @@ export function VideoDownloader() {
             transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
           />
 
-          <div className="relative overflow-hidden rounded-[calc(1rem-1px)] bg-white/70 p-6 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
-            <div className="flex items-stretch gap-3">
+          <div className="relative overflow-hidden rounded-[calc(1rem-1px)] bg-white/70 p-4 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
+            <div className="flex items-stretch gap-2 sm:gap-3">
               <div className="relative min-w-0 flex-1">
-                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                <Link2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500 sm:left-4" />
                 <input
                   type="url"
                   inputMode="url"
@@ -208,8 +207,8 @@ export function VideoDownloader() {
                     resetJob();
                     setUrl(event.target.value);
                   }}
-                  placeholder="Paste video URL here..."
-                  className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-base text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-shadow duration-200 placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4"
+                  placeholder="Paste video URL"
+                  className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-3.5 pl-10 pr-3 text-base text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-shadow duration-200 placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4 sm:pl-11 sm:pr-4"
                 />
               </div>
 
@@ -220,7 +219,7 @@ export function VideoDownloader() {
                 aria-label={
                   state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
                 }
-                className="relative flex w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
+                className="relative flex w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
                 style={{
                   background:
                     state === "ready"
@@ -276,10 +275,10 @@ export function VideoDownloader() {
               {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
                 <span
                   key={id}
-                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 p-2 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 sm:px-3 sm:py-1"
                 >
                   <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
                 </span>
               ))}
             </div>

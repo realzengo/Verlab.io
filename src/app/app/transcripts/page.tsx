@@ -349,7 +349,7 @@ export default function TranscriptsPage() {
       <div className="relative">
         <div className="pointer-events-none absolute -top-20 left-1/2 h-48 w-[34rem] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
 
-        <Card className="relative flex flex-col gap-5 overflow-hidden border-primary/15 shadow-card-hover">
+        <Card className="relative flex flex-col gap-5 overflow-hidden border-primary/15 shadow-none">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
           <div className="flex items-center gap-3">
@@ -394,10 +394,10 @@ export default function TranscriptsPage() {
               {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
                 <span
                   key={id}
-                  className="flex items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-subtle transition-colors hover:border-primary/25 hover:text-heading"
+                  className="flex items-center gap-1.5 rounded-full border border-hairline bg-app p-1.5 text-subtle transition-colors hover:border-primary/25 hover:text-heading sm:px-2.5 sm:py-1"
                 >
                   <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
                 </span>
               ))}
             </div>
@@ -428,7 +428,15 @@ export default function TranscriptsPage() {
           </div>
 
           {rows.length === 0 ? (
-            <Card className="py-10 text-center text-sm text-body">No transcripts yet — paste a link above to get started.</Card>
+            <Card className="flex flex-col items-center gap-3 py-14 text-center shadow-none">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-heading">No transcripts yet</p>
+                <p className="mt-1 text-xs text-subtle">Paste a link above to get started.</p>
+              </div>
+            </Card>
           ) : (
             <TranscriptHistoryTable
               rows={rows}
@@ -460,7 +468,7 @@ export default function TranscriptsPage() {
                 </p>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,240px)_1fr] lg:grid-cols-[minmax(0,280px)_1fr]">
                 <div className="flex flex-col gap-3">
                   <div className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-card border border-hairline bg-ink">
                     {activeRow.video_url ? (

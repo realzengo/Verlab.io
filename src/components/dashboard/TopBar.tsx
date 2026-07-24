@@ -30,7 +30,8 @@ export function TopBar({
     pathname.startsWith("/app/transcripts") ||
     pathname.startsWith("/app/mcp") ||
     pathname.startsWith("/app/image-generator") ||
-    pathname.startsWith("/app/downloads");
+    pathname.startsWith("/app/downloads") ||
+    pathname.startsWith("/app/settings");
 
   return (
     <div className="relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
@@ -39,7 +40,7 @@ export function TopBar({
           type="button"
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="shrink-0 rounded-lg p-1 text-body hover:bg-accent md:hidden"
+          className="shrink-0 rounded-lg p-1 text-body hover:bg-accent lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </button>

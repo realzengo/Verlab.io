@@ -6,10 +6,13 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { cn } from "@/lib/utils";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const isHome = usePathname() === "/app";
+  const pathname = usePathname();
+  const isHome = pathname === "/app";
+  const isSettings = pathname.startsWith("/app/settings");
 
   const topBarAndMain = (
     <>
@@ -20,14 +23,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <NicheSidebarProvider>
-      <div className="flex min-h-screen w-full bg-app">
+      <div className={cn("flex min-h-screen w-full", isSettings ? "bg-white" : "bg-app")}>
         <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
         {mobileNavOpen && (
           <div
             aria-hidden="true"
             onClick={() => setMobileNavOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
           />
         )}
 

@@ -241,7 +241,7 @@ const IconButton = forwardRef<
       aria-label={label}
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-40 disabled:pointer-events-none",
-        active ? "border-primary bg-accent text-primary" : "border-hairline bg-surface text-body hover:bg-app hover:text-heading"
+        active ? "border-transparent bg-accent text-primary" : "border-hairline bg-surface text-body hover:bg-app hover:text-heading"
       )}
     >
       <Icon className={cn("h-4 w-4", active && "fill-current")} />

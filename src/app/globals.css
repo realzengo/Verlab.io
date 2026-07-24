@@ -65,24 +65,11 @@
   --white: #fff;
   --black: #000;
   --transparent: transparent;
-
-  /* AppHome background — soft brand-blue/indigo mesh glow on a near-white
-     base, mirrors --aurora-dark below so light/dark read as one system. */
-  --aurora-light: radial-gradient(ellipse 55% 45% at 18% 18%, rgba(51, 92, 255, 0.16) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 85% 12%, rgba(99, 102, 241, 0.14) 0%, transparent 60%),
-    radial-gradient(ellipse 45% 45% at 78% 82%, rgba(139, 92, 246, 0.08) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 40% at 8% 88%, rgba(51, 92, 255, 0.07) 0%, transparent 60%);
 }
 
 .dark {
   --background: #09090b;
   --foreground: #f2f2f3;
-
-  /* AppHome background — calm navy/blue mesh glow, mirrors --aurora-light above. */
-  --aurora-dark: radial-gradient(ellipse at 20% 25%, #2547c7 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 15%, #1e3a8a 0%, transparent 55%),
-    radial-gradient(ellipse at 60% 75%, #12224f 0%, transparent 60%),
-    radial-gradient(ellipse at 10% 85%, #0a1230 0%, transparent 60%);
 
   /* Kept identical to :root — brand blue stays fixed, no lavender/indigo shift in dark mode. */
   --color-primary: #335cff;
@@ -234,18 +221,6 @@ body {
   }
   .animate-tooltip-bounce {
     animation: tooltip-bounce 1.6s ease-in-out infinite;
-  }
-
-  @keyframes aurora {
-    from {
-      background-position: 50% 50%, 50% 50%;
-    }
-    to {
-      background-position: 350% 50%, 350% 50%;
-    }
-  }
-  .animate-aurora {
-    animation: aurora 60s linear infinite;
   }
 
   @keyframes shimmer-sweep {
