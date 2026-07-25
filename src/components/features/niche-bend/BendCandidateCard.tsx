@@ -41,6 +41,7 @@ export function BendCandidateCard({
   return (
     <Card
       hoverLift
+      padded={false}
       role="button"
       tabIndex={0}
       onClick={onSelect}
@@ -51,7 +52,7 @@ export function BendCandidateCard({
         }
       }}
       className={cn(
-        "group relative flex cursor-pointer flex-col gap-3 outline-none",
+        "group relative flex cursor-pointer flex-col overflow-hidden outline-none",
         selected && "ring-2 ring-primary"
       )}
     >
@@ -61,67 +62,63 @@ export function BendCandidateCard({
         </span>
       )}
 
-      <h3 className="pr-6 text-base font-bold text-heading">{candidate.nicheName}</h3>
-      <Badge className="w-fit">{candidate.angle}</Badge>
-      <ul className="mt-1 flex flex-col gap-2">
-        {candidate.exampleTitles.map((title, i) => (
-          <li key={i} className="flex gap-1.5 text-sm leading-snug text-body">
-            <span className="shrink-0 font-semibold text-primary">→</span>
-            {title}
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <h3 className="pr-6 text-base font-bold text-heading">{candidate.nicheName}</h3>
+        <Badge className="w-fit">{candidate.angle}</Badge>
+        <ul className="mt-1 flex flex-col gap-2">
+          {candidate.exampleTitles.map((title, i) => (
+            <li key={i} className="flex gap-1.5 text-sm leading-snug text-body">
+              <span className="shrink-0 font-semibold text-primary">→</span>
+              {title}
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-center gap-3 rounded-card bg-surface/75 opacity-0 backdrop-blur-sm transition-opacity duration-150",
-          busy ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-        )}
-      >
+      <div className="flex items-center justify-between gap-2 border-t border-hairline bg-app/60 px-3 py-2.5">
         {busy ? (
-          <span className="relative flex h-9 w-9 items-center justify-center" role="status">
-            <span className="absolute h-8 w-8 animate-craft-glow rounded-full bg-primary/50 blur-lg" />
-            <Sparkles className="relative h-5 w-5 animate-pulse text-primary" />
-            <span className="sr-only">Working…</span>
+          <span className="flex w-full items-center justify-center gap-2 py-0.5 text-xs font-semibold text-primary" role="status">
+            <span className="relative flex h-4 w-4 items-center justify-center">
+              <span className="absolute h-4 w-4 animate-craft-glow rounded-full bg-primary/50 blur-[3px]" />
+              <Sparkles className="relative h-3.5 w-3.5 animate-pulse" />
+            </span>
+            Working…
           </span>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={(event) => stopAndRun(event, onToggleSaved)}
-              className="flex flex-col items-center gap-1.5 text-xs font-semibold text-heading"
-            >
-              <span
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                title="Save"
+                onClick={(event) => stopAndRun(event, onToggleSaved)}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl border border-hairline bg-surface shadow-card transition-colors",
-                  saved && "border-primary bg-accent text-primary"
+                  "flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface text-subtle transition-colors hover:border-primary/30 hover:text-primary",
+                  saved && "border-primary/40 bg-accent text-primary"
                 )}
               >
                 <Bookmark className={cn("h-4 w-4", saved && "fill-primary")} />
-              </span>
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={(event) => stopAndRun(event, onRegenerate)}
-              className="flex flex-col items-center gap-1.5 text-xs font-semibold text-heading"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-hairline bg-surface shadow-card">
+                <span className="sr-only">Save</span>
+              </button>
+              <button
+                type="button"
+                title={`Regenerate this direction · ${TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} credits`}
+                onClick={(event) => stopAndRun(event, onRegenerate)}
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 text-subtle transition-colors hover:border-primary/30 hover:text-primary"
+              >
                 <RotateCw className="h-4 w-4" />
-              </span>
-              Regenerate
-              <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} bullet={false} className="font-normal text-subtle" />
-            </button>
+                <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} bullet={false} className="text-[11px] font-semibold" />
+              </button>
+            </div>
+
             <button
               type="button"
+              title="Generate a full SOP for this direction"
               onClick={(event) => stopAndRun(event, onUseNow)}
-              className="flex flex-col items-center gap-1.5 text-xs font-semibold text-heading"
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-btn-primary px-3 text-xs font-semibold text-white shadow-card transition-colors hover:bg-btn-primary-hover"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary bg-primary text-white shadow-card">
-                <Sparkles className="h-4 w-4" />
-              </span>
+              <Sparkles className="h-3.5 w-3.5" />
               Get SOP
-              <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} bullet={false} className="font-normal text-subtle" />
+              <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} bullet={false} className="text-[11px] font-normal text-white/80" />
             </button>
           </>
         )}

@@ -27,11 +27,11 @@ export function Nav() {
           <Image
             src="/logo-wordmark.png"
             alt="Verlab"
-            width={764}
-            height={160}
+            width={5697}
+            height={1419}
             unoptimized
             priority
-            className="h-7 w-auto shrink-0 dark:invert"
+            className="h-8 w-auto shrink-0 dark:invert"
           />
         </Link>
 

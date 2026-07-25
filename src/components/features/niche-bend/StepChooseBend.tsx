@@ -1,45 +1,15 @@
 "use client";
 
-import { Check, Sparkles } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import type { NicheBendCandidate, NicheBendChannelAnalysis } from "@/lib/types";
 import { Accordion } from "@/components/ui/Accordion";
 import { Button } from "@/components/ui/Button";
-import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
-import { useFakeStepProgress } from "@/lib/niche-bend/useFakeStepProgress";
 import { BendCandidateCard } from "./BendCandidateCard";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
 import { ChannelAnalysisSummary } from "./ChannelAnalysisSummary";
-
-// The SOP is written in two long structured-output passes (hooks/structure,
-// then frameworks/retention/reference) that together can take a few minutes
-// — these phrases give that wait a sense of real, ordered progress instead of
-// a single static "Generating…" label sitting there unchanged the whole time.
-const SOP_LOADING_PHRASES = [
-  "Reviewing your hook style…",
-  "Writing the hook playbook…",
-  "Mapping the script structure…",
-  "Building storytelling frameworks…",
-  "Finalizing retention mechanics…",
-];
-
-function SopGeneratingStatus() {
-  const phaseIndex = useFakeStepProgress(true, SOP_LOADING_PHRASES.length, {
-    minDelayMs: 12_000,
-    maxDelayMs: 18_000,
-  });
-
-  return (
-    <span className="inline-flex items-center gap-2.5" role="status">
-      <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
-        <span className="absolute h-4 w-4 animate-craft-glow rounded-full bg-white/70 blur-[3px]" />
-        <Sparkles className="relative h-3.5 w-3.5 animate-pulse" />
-      </span>
-      {SOP_LOADING_PHRASES[phaseIndex]}
-    </span>
-  );
-}
+import { SopGeneratingModal } from "./SopGeneratingModal";
 
 interface StepChooseBendProps {
   analysis: NicheBendChannelAnalysis;
@@ -52,7 +22,6 @@ interface StepChooseBendProps {
   onToggleSaved: (id: 1 | 2 | 3) => void;
   onRegenerate: () => void;
   onRegenerateOne: (id: 1 | 2 | 3) => void;
-  onGenerateSop: () => void;
   onGenerateSopFor: (id: 1 | 2 | 3) => void;
   sopSubmitting: boolean;
   sopError: string | null;
@@ -69,7 +38,6 @@ export function StepChooseBend({
   onToggleSaved,
   onRegenerate,
   onRegenerateOne,
-  onGenerateSop,
   onGenerateSopFor,
   sopSubmitting,
   sopError,
@@ -115,46 +83,14 @@ export function StepChooseBend({
             ))}
       </div>
 
-      {!selectedCandidate && sopError && (
-        <div className="sticky bottom-0 z-10 border-t border-hairline bg-surface/95 px-4 py-4 shadow-[0_-12px_24px_-16px_rgba(0,0,0,0.35)] backdrop-blur">
-          <p className="mx-auto max-w-3xl text-sm text-danger">{sopError}</p>
+      {sopError && (
+        <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {sopError}
         </div>
       )}
 
-      {selectedCandidate && (
-        <div className="sticky bottom-0 z-10 border-t border-hairline bg-surface/95 px-4 py-4 shadow-[0_-12px_24px_-16px_rgba(0,0,0,0.35)] backdrop-blur">
-          <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
-                <Check className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Your direction</p>
-                <p className="truncate text-sm font-semibold text-heading">{selectedCandidate.nicheName}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {sopError && <p className="text-sm text-danger">{sopError}</p>}
-              <PlasticButton
-                className="w-full py-3 text-base sm:w-auto"
-                text="Generate my SOP"
-                trailing={
-                  sopSubmitting ? undefined : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} className="text-blue-200/80" />
-                    </>
-                  )
-                }
-                loading={sopSubmitting}
-                loadingText={<SopGeneratingStatus />}
-                onClick={onGenerateSop}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <SopGeneratingModal open={sopSubmitting} nicheName={selectedCandidate?.nicheName} />
     </div>
   );
 }

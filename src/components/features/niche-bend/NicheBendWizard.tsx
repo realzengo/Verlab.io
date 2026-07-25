@@ -526,7 +526,6 @@ export function NicheBendWizard() {
           onToggleSaved={(id) => dispatch({ type: "TOGGLE_SAVED", id })}
           onRegenerate={handleRegenerate}
           onRegenerateOne={handleRegenerateOne}
-          onGenerateSop={() => handleGenerateSop()}
           onGenerateSopFor={(id) => handleGenerateSop(id)}
           sopSubmitting={state.sopSubmitting}
           sopError={state.sopError}
