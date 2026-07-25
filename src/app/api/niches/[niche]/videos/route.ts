@@ -1,122 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { mapTrendingVideoRow, TRENDING_VIDEO_COLUMNS, type TrendingVideoRow } from "@/lib/server/trending-videos";
-import { NICHE_HASHTAGS, isNicheName, type NicheName } from "@/lib/niches-catalog";
+import {
+  GLOBAL_REGION,
+  isNicheCacheStale,
+  refreshNicheVideoCache,
+  type VideoPlatform,
+} from "@/lib/server/niche-video-refresh";
+import { isNicheName, NICHE_ORDER, type NicheName } from "@/lib/niches-catalog";
 
-// Let this route run long enough to cover a real SociaVault scrape without
-// the platform silently killing the function mid-request (which used to
-// leave the frontend spinner hanging with no response ever coming back). 60s
-// is the hard cap on Vercel's Hobby tier, so it's a safe upper bound everywhere.
+// How many niches to backfill in one shot when the "All niches" view has
+// zero cached rows for the requested platform/country — e.g. a country
+// nobody has filtered by yet has no cached rows anywhere, since only a
+// specific-niche request scrapes (see the isAllNiches gate below). Kept
+// small (unlike the cron's rotation) since this runs inline in a
+// user-facing request against the 60s route timeout.
+const ALL_NICHES_WARM_COUNT = 3;
+const ALL_NICHES_WARM_TARGET = 30;
+
+// Let this route run long enough to cover a real scrape (SociaVault or
+// YouTube) without the platform silently killing the function mid-request
+// (which used to leave the frontend spinner hanging with no response ever
+// coming back). 60s is the hard cap on Vercel's Hobby tier, so it's a safe
+// upper bound everywhere.
 export const maxDuration = 60;
-
-// Cache-aside knobs. Unlike a flat one-time batch size, the pool a niche
-// needs to satisfy a request now scales with how deep the caller has
-// paginated — page 3 at limit=20 needs 60 cached rows, not a fixed 150 —
-// which is what gives the "infinite" pagination feel: the cache grows on
-// demand as the user keeps hitting Next, instead of being capped upfront.
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const BACKFILL_BUFFER = 40;
-// Lock TTL: long enough to cover a full SociaVault scrape across a niche's
-// hashtags, short enough that a crashed request doesn't wedge the niche for a day.
-const LOCK_TTL_MS = 2 * 60 * 1000;
-
-type SupabaseAdmin = ReturnType<typeof createAdminClient>;
-
-async function isCacheStale(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  niche: string
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("trending_videos")
-    .select("refreshed_at")
-    .eq("niche_category", niche)
-    .order("refreshed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return true;
-
-  return Date.now() - new Date(data.refreshed_at).getTime() >= CACHE_TTL_MS;
-}
-
-// Atomically flips this niche's lock row from idle (or abandoned-stale) to
-// refreshing, so concurrent requests for the same niche don't each kick off
-// their own scrape — only the request that wins the claim scrapes.
-async function claimNicheRefresh(admin: SupabaseAdmin, niche: string): Promise<boolean> {
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - LOCK_TTL_MS).toISOString();
-
-  const { data: updated, error: updateError } = await admin
-    .from("niche_video_refresh_locks")
-    .update({ status: "refreshing", started_at: now.toISOString() })
-    .eq("niche_category", niche)
-    .or(`status.eq.idle,started_at.lt.${staleBefore}`)
-    .select("niche_category");
-
-  if (!updateError && updated && updated.length > 0) return true;
-
-  // No lock row exists yet for this niche — first-ever request. Insert one;
-  // if a concurrent request beat us to it, the primary key conflict means
-  // we lost the race and simply skip scraping this time.
-  const { error: insertError } = await admin
-    .from("niche_video_refresh_locks")
-    .insert({ niche_category: niche, status: "refreshing", started_at: now.toISOString() });
-
-  return !insertError;
-}
-
-async function releaseNicheRefresh(admin: SupabaseAdmin, niche: string): Promise<void> {
-  await admin
-    .from("niche_video_refresh_locks")
-    .update({ status: "idle", finished_at: new Date().toISOString() })
-    .eq("niche_category", niche);
-}
-
-// Returns whether new rows were actually written, so the caller knows
-// whether re-querying Supabase afterward is worth doing.
-async function refreshNicheCache(admin: SupabaseAdmin, niche: NicheName, targetCount: number): Promise<boolean> {
-  const claimed = await claimNicheRefresh(admin, niche);
-  if (!claimed) return false;
-
-  try {
-    const scraped = await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER);
-    if (scraped.length === 0) return false;
-
-    const { error: upsertError } = await admin.from("trending_videos").upsert(
-      scraped.map((v) => ({
-        id: v.id,
-        title: v.title,
-        views: v.views,
-        view_count: v.viewCount,
-        like_count: v.likeCount,
-        comment_count: v.commentCount,
-        share_count: v.shareCount,
-        follower_count: v.followerCount,
-        cover_url: v.coverUrl,
-        video_url: v.videoUrl,
-        author: v.author,
-        avatar_url: v.avatarUrl,
-        hashtag: v.hashtag,
-        niche_category: niche,
-        region: "global",
-        posted_at: v.postedAt,
-        refreshed_at: new Date().toISOString(),
-      })),
-      { onConflict: "id" }
-    );
-    if (upsertError) {
-      console.error("[niches/videos] upsert failed:", upsertError.message);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[niches/videos] SociaVault scrape failed:", err);
-    return false;
-  } finally {
-    await releaseNicheRefresh(admin, niche);
-  }
-}
 
 export async function GET(
   request: NextRequest,
@@ -154,19 +62,23 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limit = Math.min(50, Math.max(1, Number(searchParams.get("limit")) || 20));
   const style = searchParams.get("style") ?? "all";
-  const platform = searchParams.get("platform") ?? "all";
+  const platformParam = searchParams.get("platform") ?? "all";
+  const platform: VideoPlatform | "all" =
+    platformParam === "tiktok" || platformParam === "youtube" ? platformParam : "all";
   const timeWindow = searchParams.get("timeWindow") ?? "all";
+  // A YouTube regionCode (e.g. "US"); empty/omitted means worldwide. TikTok
+  // has no region concept, so this only ever narrows the YouTube slice of
+  // results (see the `region` filter in buildPageQuery below). Validated as
+  // exactly 2 letters (not just trusted from the query string) since it gets
+  // interpolated into a PostgREST `.or()` filter expression below.
+  const rawCountry = (searchParams.get("country") ?? "").trim().toUpperCase();
+  const country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : "";
   const viewsMin = searchParams.get("viewsMin");
   const viewsMax = searchParams.get("viewsMax");
   const followersMin = searchParams.get("followersMin");
   const followersMax = searchParams.get("followersMax");
   const postedAfter = searchParams.get("postedAfter");
   const postedBefore = searchParams.get("postedBefore");
-
-  // Live data is TikTok-only right now — no point querying or scraping.
-  if (platform !== "all" && platform !== "tiktok") {
-    return NextResponse.json({ videos: [], page, limit, hasMore: false });
-  }
 
   // Builds (and rebuilds, after a possible backfill) the same filtered page
   // query. Fetches one extra row past `limit` so hasMore can be derived
@@ -175,6 +87,12 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
     let query = supabase.from("trending_videos").select(TRENDING_VIDEO_COLUMNS);
 
     if (!isAllNiches) query = query.eq("niche_category", niche);
+    if (platform !== "all") query = query.eq("platform", platform);
+
+    // TikTok rows are always tagged region='global' (SociaVault has no
+    // country param) — the OR keeps them visible under a country filter
+    // instead of being hidden alongside non-matching YouTube rows.
+    if (country) query = query.or(`platform.neq.youtube,region.eq.${country}`);
 
     if (style === "ai-generated") {
       query = query.ilike("hashtag", "%ai%");
@@ -212,17 +130,27 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   let rows = (data ?? []) as TrendingVideoRow[];
   let pageRows = rows.slice(0, limit);
 
-  // Cache-aside: only niche-scoped feeds are backed by the on-demand
-  // SociaVault scrape (the "all" feed reads whatever's already cached across
-  // every niche, which is always plenty). Trigger a backfill when either this
-  // page ran past the end of what's cached, or — only on page 1, so we're
-  // not re-scraping on every paginate — the pool has simply gone stale.
-  if (!isAllNiches) {
+  // Cache-aside: only a specific (niche, platform) pair is backed by an
+  // on-demand scrape — the "all" feed (either dimension) reads whatever's
+  // already cached, since there's no single provider to refresh against a
+  // blended view. Trigger a backfill when either this page ran past the end
+  // of what's cached, or — only on page 1, so we're not re-scraping on every
+  // paginate — the pool has simply gone stale.
+  if (!isAllNiches && platform !== "all") {
+    // Only YouTube is region-scoped — a TikTok request ignores `country` and
+    // always checks/refreshes the single 'global' TikTok pool.
+    const region = platform === "youtube" && country ? country : GLOBAL_REGION;
     const ranOutOfCache = pageRows.length < limit;
-    const staleFirstPage = page === 1 && (await isCacheStale(supabase, niche));
+    const staleFirstPage = page === 1 && (await isNicheCacheStale(supabase, niche, platform, region));
 
     if (ranOutOfCache || staleFirstPage) {
-      const wrote = await refreshNicheCache(createAdminClient(), niche as NicheName, offset + limit);
+      const wrote = await refreshNicheVideoCache(
+        createAdminClient(),
+        niche as NicheName,
+        platform,
+        offset + limit,
+        region
+      );
       if (wrote) {
         ({ data, error } = await buildPageQuery());
         if (error) {
@@ -232,6 +160,27 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
         pageRows = rows.slice(0, limit);
       }
     }
+  } else if (isAllNiches && platform !== "all" && page === 1 && pageRows.length === 0) {
+    // The blended "All niches" feed never scrapes on its own — it only
+    // reads whatever a specific-niche request has already cached (see the
+    // branch above). That leaves it permanently empty for any
+    // platform/country combo nobody has viewed via a specific niche yet
+    // (e.g. a country just added to the filter). Warm a handful of niches
+    // inline so picking a new filter from this default view actually
+    // produces something instead of silently staying empty forever.
+    const region = platform === "youtube" && country ? country : GLOBAL_REGION;
+    const admin = createAdminClient();
+    await Promise.all(
+      NICHE_ORDER.slice(0, ALL_NICHES_WARM_COUNT).map((n) =>
+        refreshNicheVideoCache(admin, n, platform, ALL_NICHES_WARM_TARGET, region)
+      )
+    );
+    ({ data, error } = await buildPageQuery());
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    rows = (data ?? []) as TrendingVideoRow[];
+    pageRows = rows.slice(0, limit);
   }
 
   return NextResponse.json({

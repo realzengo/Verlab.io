@@ -7,14 +7,12 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { McpBackground } from "@/components/mcp/McpBackground";
-import { cn } from "@/lib/utils";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
   const isHome = pathname === "/app";
   const isMcp = pathname === "/app/mcp";
-  const isSettings = pathname.startsWith("/app/settings");
 
   const topBarAndMain = (
     <>
@@ -25,7 +23,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <NicheSidebarProvider>
-      <div className={cn("flex min-h-screen w-full", isSettings ? "bg-white" : "bg-app")}>
+      <div className="flex min-h-screen w-full bg-app">
         <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
         {mobileNavOpen && (

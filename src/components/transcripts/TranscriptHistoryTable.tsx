@@ -221,6 +221,28 @@ function FilterDropdown<T extends string>({
   );
 }
 
+function CoverThumbnail({ src, alt }: { src: string | null; alt?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(src) && !failed;
+
+  return (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink text-white">
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src!}
+          alt={alt ?? ""}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <PlayCircle className="h-4 w-4 text-white/70" />
+      )}
+    </div>
+  );
+}
+
 const IconButton = forwardRef<
   HTMLButtonElement,
   {
@@ -527,14 +549,7 @@ export function TranscriptHistoryTable({
                         aria-label={`Select ${row.title ?? "transcript"}`}
                       />
                     </div>
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink text-white">
-                      {row.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.cover_url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                      ) : (
-                        <PlayCircle className="h-4 w-4" />
-                      )}
-                    </div>
+                    <CoverThumbnail src={row.cover_url} alt={row.title ?? ""} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="line-clamp-2 text-sm font-medium text-heading">{row.title ?? row.source_url}</p>
@@ -630,14 +645,7 @@ export function TranscriptHistoryTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink text-white">
-                        {row.cover_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={row.cover_url} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                        ) : (
-                          <PlayCircle className="h-4 w-4" />
-                        )}
-                      </div>
+                      <CoverThumbnail src={row.cover_url} alt={row.title ?? ""} />
                       <div className="min-w-0">
                         <p className="line-clamp-2 max-w-[220px] text-sm font-medium text-heading">
                           {row.title ?? row.source_url}

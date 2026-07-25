@@ -46,31 +46,31 @@ export default async function CreditHistorySettingsPage() {
     <div>
       {/* Overview section */}
       <div>
-        <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0">Overview</h2>
+        <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0 text-heading">Overview</h2>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Available credits</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Your remaining AI credit balance.</p>
-            <p className="mt-2 text-black text-sm font-semibold">{credits.toLocaleString()}</p>
+            <p className="font-medium text-heading text-sm sm:text-base">Available credits</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">Your remaining AI credit balance.</p>
+            <p className="mt-2 text-heading text-sm font-semibold">{credits.toLocaleString()}</p>
           </div>
           <Link
             href="/app/settings/subscription"
-            className="mt-3 sm:mt-0 self-start px-4 py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors"
+            className="mt-3 sm:mt-0 self-start px-4 py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Top up
           </Link>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Current plan</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Your active subscription plan.</p>
-            <p className="mt-2 text-black text-sm font-semibold">{PLAN_LABELS[plan] ?? plan}</p>
+            <p className="font-medium text-heading text-sm sm:text-base">Current plan</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">Your active subscription plan.</p>
+            <p className="mt-2 text-heading text-sm font-semibold">{PLAN_LABELS[plan] ?? plan}</p>
           </div>
           <Link
             href="/app/settings/subscription"
-            className="mt-3 sm:mt-0 self-start px-4 py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="mt-3 sm:mt-0 self-start px-4 py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
           >
             Manage plan
           </Link>
@@ -79,24 +79,24 @@ export default async function CreditHistorySettingsPage() {
 
       {/* History section */}
       <div>
-        <h2 className="font-bold text-lg mb-6 mt-10">History</h2>
+        <h2 className="font-bold text-lg mb-6 mt-10 text-heading">History</h2>
 
         {history.length === 0 ? (
-          <p className="py-4 text-sm text-gray-500">Your credit usage will appear here.</p>
+          <p className="py-4 text-sm text-body">Your credit usage will appear here.</p>
         ) : (
           <div>
             {history.map((tx) => (
               <div
                 key={tx.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0"
+                className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0"
               >
                 <div>
-                  <p className="font-medium text-black text-sm sm:text-base">{tx.feature}</p>
-                  <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{formatTransactionDate(tx.created_at)}</p>
+                  <p className="font-medium text-heading text-sm sm:text-base">{tx.feature}</p>
+                  <p className="text-body text-xs sm:text-sm mt-0.5">{formatTransactionDate(tx.created_at)}</p>
                 </div>
                 <p
                   className={`mt-2 sm:mt-0 text-sm font-semibold ${
-                    tx.amount < 0 ? "text-red-500" : "text-green-600"
+                    tx.amount < 0 ? "text-danger" : "text-success"
                   }`}
                 >
                   {tx.amount < 0 ? "-" : "+"}

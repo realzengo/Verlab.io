@@ -146,16 +146,6 @@ function McpPreview() {
   );
 }
 
-function ApiPreview() {
-  return (
-    <div className="w-full max-w-[220px] rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left font-mono text-[10.5px] shadow-card">
-      <p className="text-primary">POST /v1/bend</p>
-      <p className="mt-1 truncate text-body">Authorization: Bearer sk_live_•••</p>
-      <p className="mt-1 text-success">200 OK</p>
-    </div>
-  );
-}
-
 const TOOLS = [
   {
     title: "Niche Bender",
@@ -201,21 +191,12 @@ const TOOLS = [
     href: "/app/mcp",
     preview: <McpPreview />,
   },
-  {
-    title: "API Access",
-    description: "Full REST API access to every Verlab tool for your own pipeline.",
-    href: "/app/settings/api",
-    preview: <ApiPreview />,
-    beta: true,
-    cta: "Get API key",
-  },
 ] satisfies {
   title: string;
   description: string;
   href: string;
   preview: React.ReactNode;
   beta?: boolean;
-  cta?: string;
 }[];
 
 export default async function AppHome() {
@@ -257,7 +238,6 @@ export default async function AppHome() {
               href={tool.href}
               previewSlot={tool.preview}
               beta={tool.beta}
-              cta={tool.cta}
             />
           ))}
         </div>

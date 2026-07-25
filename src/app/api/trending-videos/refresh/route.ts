@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
+import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 
 function isAuthorized(request: NextRequest): boolean {
@@ -30,7 +31,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // The trending set changes entirely between refreshes, so replace rather
     // than upsert — otherwise videos that fall out of trending would linger.
-    const { error: deleteError } = await admin.from("trending_videos").delete().neq("id", "");
+    // Scoped to platform='tiktok' so this doesn't wipe out the YouTube pool,
+    // which is refreshed independently (and far less often, due to quota) by
+    // /api/youtube-videos/refresh.
+    const { error: deleteError } = await admin.from("trending_videos").delete().eq("platform", "tiktok");
     if (deleteError) throw new Error(deleteError.message);
 
     const { error: insertError } = await admin.from("trending_videos").insert(
@@ -49,7 +53,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         avatar_url: v.avatarUrl,
         hashtag: v.hashtag,
         niche_category: nicheForHashtag(v.hashtag),
-        region: "global",
+        platform: "tiktok",
+        region: GLOBAL_REGION,
         posted_at: v.postedAt,
         refreshed_at: new Date().toISOString(),
       }))

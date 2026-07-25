@@ -12,6 +12,22 @@ interface PillDropdownOption {
   icon?: string;
   invertDark?: boolean;
   description?: string;
+  ratio?: string;
+}
+
+function RatioIcon({ ratio, className }: { ratio: string; className?: string }) {
+  const [w, h] = ratio.split(":").map(Number);
+  const size = 14;
+  const width = w >= h ? size : Math.max(3, Math.round((size * w) / h));
+  const height = h >= w ? size : Math.max(3, Math.round((size * h) / w));
+
+  return (
+    <span
+      aria-hidden="true"
+      className={className}
+      style={{ width, height, display: "inline-block", borderRadius: 2, border: "1.5px solid currentColor" }}
+    />
+  );
 }
 
 interface PillDropdownProps {
@@ -73,6 +89,11 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix 
               height={13}
               className={cn("h-[13px] w-[13px] shrink-0 object-contain", current.invertDark && "dark:invert")}
             />
+          </span>
+        )}
+        {current?.ratio && (
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400">
+            <RatioIcon ratio={current.ratio} />
           </span>
         )}
         <span className="whitespace-nowrap tracking-[-0.01em]">
@@ -138,6 +159,16 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix 
                         height={14}
                         className={cn("h-3.5 w-3.5 shrink-0 object-contain", option.invertDark && "dark:invert")}
                       />
+                    </span>
+                  )}
+                  {option.ratio && (
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center",
+                        selected ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"
+                      )}
+                    >
+                      <RatioIcon ratio={option.ratio} />
                     </span>
                   )}
                   <span className="min-w-0 flex-1">

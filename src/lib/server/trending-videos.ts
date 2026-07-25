@@ -17,10 +17,11 @@ export interface TrendingVideoRow {
   hashtag: string;
   niche_category: string | null;
   posted_at: string | null;
+  platform: "tiktok" | "youtube";
 }
 
 export const TRENDING_VIDEO_COLUMNS =
-  "id, title, views, view_count, like_count, comment_count, share_count, follower_count, cover_url, video_url, author, avatar_url, hashtag, niche_category, posted_at";
+  "id, title, views, view_count, like_count, comment_count, share_count, follower_count, cover_url, video_url, author, avatar_url, hashtag, niche_category, posted_at, platform";
 
 // niche_category is backfilled going forward, but rows ingested before that
 // column existed fall back to the hashtag-derived niche so old cache entries
@@ -42,5 +43,6 @@ export function mapTrendingVideoRow(row: TrendingVideoRow): TrendingVideo {
     hashtag: row.hashtag,
     niche: row.niche_category ?? nicheForHashtag(row.hashtag),
     postedAt: row.posted_at,
+    platform: row.platform,
   };
 }

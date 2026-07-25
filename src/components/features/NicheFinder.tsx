@@ -17,6 +17,7 @@ import {
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   VideoFilterBar,
+  type VideoCountry,
   type VideoPlatformFilter,
   type VideoRangeFilters,
   type VideoTimeWindow,
@@ -126,6 +127,14 @@ function gradientForId(id: string): string {
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length];
 }
 
+const PLATFORM_BADGE: Record<TrendingVideo["platform"], { label: string; className: string }> = {
+  tiktok: { label: "TikTok", className: "bg-red-600" },
+  // YouTube's own red (#FF0000) rather than reusing tiktok's bg-red-600 —
+  // close enough to each other otherwise that the two badges would be hard
+  // to tell apart at a glance.
+  youtube: { label: "YouTube", className: "bg-[#FF0000]" },
+};
+
 function formatCompactNumber(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (count >= 1_000) return `${(count / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
@@ -225,8 +234,13 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/35" />
 
         <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
-          <span className="rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-            TikTok
+          <span
+            className={cn(
+              "rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white",
+              PLATFORM_BADGE[video.platform].className
+            )}
+          >
+            {PLATFORM_BADGE[video.platform].label}
           </span>
           {video.hashtag && (
             <span className="rounded-md bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
@@ -249,7 +263,7 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
           href={video.videoUrl}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`Watch "${video.title}" on TikTok`}
+          aria-label={`Watch "${video.title}" on ${PLATFORM_BADGE[video.platform].label}`}
           className="absolute inset-0 flex items-center justify-center opacity-90 transition-opacity group-hover:opacity-100"
         >
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-card-hover">
@@ -373,6 +387,7 @@ export function NicheFinder({
 }) {
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
+  const [videoCountry, setVideoCountry] = useState<VideoCountry>("");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
@@ -391,7 +406,7 @@ export function NicheFinder({
   // Reset to page 1 whenever a filter (not the page itself) changes.
   // Adjusting state during render — rather than in an effect — avoids an
   // extra commit/fetch round-trip.
-  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`;
+  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${videoCountry}:${JSON.stringify(videoRangeFilters)}`;
   const [lastFiltersKey, setLastFiltersKey] = useState(filtersKey);
   if (filtersKey !== lastFiltersKey) {
     setLastFiltersKey(filtersKey);
@@ -440,6 +455,7 @@ export function NicheFinder({
           platform: videoPlatform,
           timeWindow: videoTimeWindow,
         });
+        if (videoCountry) qs.set("country", videoCountry);
         if (videoRangeFilters.viewsMin) qs.set("viewsMin", videoRangeFilters.viewsMin);
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
@@ -478,7 +494,7 @@ export function NicheFinder({
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [activeNiche, videoPlatform, videoTimeWindow, videoRangeFilters, effectiveVideoPage, filtersKey]);
+  }, [activeNiche, videoPlatform, videoTimeWindow, videoCountry, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
   return (
     <section>
@@ -492,6 +508,8 @@ export function NicheFinder({
           onPlatformChange={setVideoPlatform}
           timeWindow={videoTimeWindow}
           onTimeWindowChange={setVideoTimeWindow}
+          country={videoCountry}
+          onCountryChange={setVideoCountry}
           filters={videoRangeFilters}
           onApply={setVideoRangeFilters}
           onClear={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
@@ -535,10 +553,6 @@ export function NicheFinder({
             {activeNiche
               ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
               : "Loading videos…"}
-          </div>
-        ) : videoPlatform !== "all" && videoPlatform !== "tiktok" ? (
-          <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            Live video data for YouTube is coming soon — currently sourced from TikTok only.
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">

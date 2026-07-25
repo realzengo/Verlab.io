@@ -121,32 +121,32 @@ export default function AccountSettingsPage() {
           {initials(name || email || "?")}
         </div>
         <div>
-          <p className="font-semibold text-lg">{name || "Unnamed"}</p>
-          <p className="text-gray-500 text-sm">{email}</p>
+          <p className="font-semibold text-lg text-heading">{name || "Unnamed"}</p>
+          <p className="text-body text-sm">{email}</p>
           <button
             type="button"
             onClick={() => {
               setNameDraft(name);
               setEditingName(true);
             }}
-            className="text-blue-600 text-sm font-medium hover:underline"
+            className="text-primary text-sm font-medium hover:underline"
           >
             Edit
           </button>
         </div>
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mb-4 text-sm text-danger">{error}</p>}
 
       {/* Profile section */}
       <div>
-        <h2 className="font-bold text-lg mb-6 mt-10">Profile</h2>
+        <h2 className="font-bold text-lg mb-6 mt-10 text-heading">Profile</h2>
 
         {/* Full name row */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Full name</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">The name displayed on your account.</p>
+            <p className="font-medium text-heading text-sm sm:text-base">Full name</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">The name displayed on your account.</p>
             {editingName ? (
               <form onSubmit={handleSaveName} className="mt-2 flex flex-wrap items-center gap-2">
                 <input
@@ -155,25 +155,25 @@ export default function AccountSettingsPage() {
                   onChange={(event) => setNameDraft(event.target.value)}
                   placeholder="Your name"
                   autoFocus
-                  className="rounded-md border border-gray-300 px-3 py-2 sm:py-1.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                  className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
                 <button
                   type="submit"
                   disabled={savingName}
-                  className="px-4 py-2 sm:py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+                  className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingName(false)}
-                  className="px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
                 >
                   Cancel
                 </button>
               </form>
             ) : (
-              <p className="mt-2 text-black text-sm">{name || "—"}</p>
+              <p className="mt-2 text-heading text-sm">{name || "—"}</p>
             )}
           </div>
           {!editingName && (
@@ -183,7 +183,7 @@ export default function AccountSettingsPage() {
                 setNameDraft(name);
                 setEditingName(true);
               }}
-              className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
             >
               Edit
             </button>
@@ -191,10 +191,10 @@ export default function AccountSettingsPage() {
         </div>
 
         {/* Email row */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Email</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Used for login and notifications.</p>
+            <p className="font-medium text-heading text-sm sm:text-base">Email</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">Used for login and notifications.</p>
             {editingEmail ? (
               <form onSubmit={handleSaveEmail} className="mt-2 flex flex-wrap items-center gap-2">
                 <input
@@ -203,27 +203,27 @@ export default function AccountSettingsPage() {
                   onChange={(event) => setEmailDraft(event.target.value)}
                   placeholder="you@example.com"
                   autoFocus
-                  className="rounded-md border border-gray-300 px-3 py-2 sm:py-1.5 text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                  className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
                 <button
                   type="submit"
                   disabled={savingEmail}
-                  className="px-4 py-2 sm:py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+                  className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingEmail(false)}
-                  className="px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
                 >
                   Cancel
                 </button>
               </form>
             ) : (
               <>
-                <p className="mt-2 text-black text-sm">{email || "—"}</p>
-                {emailNotice && <p className="mt-1 text-xs text-gray-500">{emailNotice}</p>}
+                <p className="mt-2 text-heading text-sm">{email || "—"}</p>
+                {emailNotice && <p className="mt-1 text-xs text-body">{emailNotice}</p>}
               </>
             )}
           </div>
@@ -234,7 +234,7 @@ export default function AccountSettingsPage() {
                 setEmailDraft(email);
                 setEditingEmail(true);
               }}
-              className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
             >
               Edit
             </button>
@@ -244,30 +244,30 @@ export default function AccountSettingsPage() {
 
       {/* Account actions section */}
       <div>
-        <h2 className="font-bold text-lg mb-6 mt-10">Account</h2>
+        <h2 className="font-bold text-lg mb-6 mt-10 text-heading">Account</h2>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Log out</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Sign out of your account on this device.</p>
+            <p className="font-medium text-heading text-sm sm:text-base">Log out</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">Sign out of your account on this device.</p>
           </div>
           <button
             type="button"
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors disabled:opacity-50"
           >
             {isLoggingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log out"}
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
-            <p className="font-medium text-black text-sm sm:text-base">Delete account</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
+            <p className="font-medium text-heading text-sm sm:text-base">Delete account</p>
+            <p className="text-body text-xs sm:text-sm mt-0.5">
               Permanently delete your account and all associated data. This cannot be undone.
             </p>
-            {deleteError && <p className="mt-2 text-sm text-red-600">{deleteError}</p>}
+            {deleteError && <p className="mt-2 text-sm text-danger">{deleteError}</p>}
           </div>
           <button
             type="button"

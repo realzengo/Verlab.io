@@ -39,10 +39,20 @@ interface SociaVaultAwemeItem {
 interface SociaVaultHashtagSearchResponse {
   success?: boolean;
   data?: {
-    aweme_list?: SociaVaultAwemeItem[];
+    // Despite the name, SociaVault serializes this as a JSON object keyed
+    // "0", "1", "2"... (not a real array) — normalize with toAwemeArray
+    // below rather than assuming Array.isArray/spread will work on it.
+    aweme_list?: SociaVaultAwemeItem[] | Record<string, SociaVaultAwemeItem>;
     cursor?: number;
     has_more?: number;
   };
+}
+
+function toAwemeArray(
+  list: SociaVaultAwemeItem[] | Record<string, SociaVaultAwemeItem> | undefined
+): SociaVaultAwemeItem[] {
+  if (!list) return [];
+  return Array.isArray(list) ? list : Object.values(list);
 }
 
 async function searchHashtagPage(hashtag: string, cursor: number): Promise<SociaVaultHashtagSearchResponse["data"]> {
@@ -91,7 +101,7 @@ async function searchHashtag(hashtag: string, targetCount: number): Promise<Soci
 
   for (let page = 0; page < MAX_PAGES_PER_HASHTAG && items.length < targetCount; page++) {
     const data = await searchHashtagPage(hashtag, cursor);
-    if (Array.isArray(data?.aweme_list)) items.push(...data.aweme_list);
+    items.push(...toAwemeArray(data?.aweme_list));
     if (!data?.has_more) break;
     cursor = data.cursor ?? cursor;
   }

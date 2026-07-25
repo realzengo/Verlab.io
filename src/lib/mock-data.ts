@@ -6,7 +6,6 @@ export * from "./mock/scripts";
 export * from "./mock/transcripts";
 export * from "./mock/downloads";
 export * from "./mock/pricing";
-export * from "./mock/api-keys";
 export * from "./mock/faq";
 export * from "./mock/nav";
 export * from "./mock/tools";

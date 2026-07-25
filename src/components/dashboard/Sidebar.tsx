@@ -22,7 +22,7 @@ function NicheNavSection() {
       <div className="flex items-center justify-between px-2">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wide text-subtle">Niches</p>
-          <p className="text-[10px] font-medium text-subtle">All on TikTok</p>
+          <p className="text-[10px] font-medium text-subtle">TikTok &amp; YouTube</p>
         </div>
         {selected.size > 0 && (
           <button
@@ -38,16 +38,14 @@ function NicheNavSection() {
       <div className="flex flex-col gap-0.5">
         {data.availableNiches.map((niche) => {
           const isActive = selected.has(niche);
-          const count = data.counts[niche] ?? 0;
           return (
             <button
               key={niche}
               type="button"
               aria-pressed={isActive}
               onClick={() => toggle(niche)}
-              disabled={count === 0 && !isActive}
               className={cn(
-                "flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40",
+                "flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left text-sm font-medium transition-all",
                 isActive
                   ? "border-accent-line bg-accent text-heading"
                   : "text-body hover:bg-app hover:text-heading"

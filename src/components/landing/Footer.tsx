@@ -25,7 +25,6 @@ const COLUMNS = [
     title: "Company",
     links: [
       { label: "Pricing", href: "/pricing" },
-      { label: "Developer API", href: "/app/settings/api" },
       { label: "Log in", href: "/app" },
       { label: "Get started", href: "/app" },
     ],

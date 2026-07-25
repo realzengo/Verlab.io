@@ -56,7 +56,7 @@ const MODEL_OPTIONS = [
 ];
 
 const ASPECT_RATIOS = ["9:16", "16:9", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"];
-const ASPECT_RATIO_OPTIONS = ASPECT_RATIOS.map((value) => ({ value, label: value }));
+const ASPECT_RATIO_OPTIONS = ASPECT_RATIOS.map((value) => ({ value, label: value, ratio: value }));
 
 const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({
   value: String(value),

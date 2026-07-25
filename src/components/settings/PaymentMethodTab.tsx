@@ -55,15 +55,15 @@ export function PaymentMethodTab() {
 
   return (
     <div>
-      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0">Plan</h2>
+      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0 text-heading">Plan</h2>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
         <div>
-          <p className="font-medium text-black text-sm sm:text-base">Current plan</p>
-          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{currentPlan?.info ?? "Your plan and usage at a glance."}</p>
-          <p className="mt-2 text-black text-sm">
+          <p className="font-medium text-heading text-sm sm:text-base">Current plan</p>
+          <p className="text-body text-xs sm:text-sm mt-0.5">{currentPlan?.info ?? "Your plan and usage at a glance."}</p>
+          <p className="mt-2 text-heading text-sm">
             {!loaded ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-subtle" />
             ) : currentPlan ? (
               <span className="font-semibold">
                 {currentPlan.name} · ${currentPlan.price_monthly}/month
@@ -77,31 +77,31 @@ export function PaymentMethodTab() {
           href="/pricing"
           className={
             loaded && !currentPlan
-              ? "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-black transition-colors"
-              : "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+              ? "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
+              : "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
           }
         >
           {loaded && !currentPlan ? "Choose a plan" : "View other plans"}
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
         <div>
-          <p className="font-medium text-black text-sm sm:text-base">Daily transcripts</p>
-          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Included in every plan.</p>
+          <p className="font-medium text-heading text-sm sm:text-base">Daily transcripts</p>
+          <p className="text-body text-xs sm:text-sm mt-0.5">Included in every plan.</p>
         </div>
-        <div className="mt-3 sm:mt-0 flex items-center gap-1.5 text-gray-400 text-sm">
+        <div className="mt-3 sm:mt-0 flex items-center gap-1.5 text-subtle text-sm">
           <Lock className="h-3.5 w-3.5" />
           Unlimited
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
         <div>
-          <p className="font-medium text-black text-sm sm:text-base">Transcripts this month</p>
-          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">Resets on the 1st of each month.</p>
+          <p className="font-medium text-heading text-sm sm:text-base">Transcripts this month</p>
+          <p className="text-body text-xs sm:text-sm mt-0.5">Resets on the 1st of each month.</p>
         </div>
-        <p className="mt-2 sm:mt-0 text-black text-sm font-semibold">{transcriptsThisMonth ?? "—"}</p>
+        <p className="mt-2 sm:mt-0 text-heading text-sm font-semibold">{transcriptsThisMonth ?? "—"}</p>
       </div>
     </div>
   );

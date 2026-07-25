@@ -39,6 +39,7 @@ export interface TrendingVideo {
   hashtag: string;
   niche: string;
   postedAt: string | null;
+  platform: "tiktok" | "youtube";
 }
 
 export interface Niche {

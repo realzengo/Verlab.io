@@ -39,7 +39,12 @@ export default async function NichesPage() {
     if (!row.niche_category) continue;
     nicheCounts[row.niche_category] = (nicheCounts[row.niche_category] ?? 0) + 1;
   }
-  const availableNiches = NICHE_ORDER.filter((niche) => (nicheCounts[niche] ?? 0) > 0);
+  // Every niche is listed regardless of whether it has cached videos yet —
+  // picking an empty one just triggers the on-demand scrape in
+  // /api/niches/[niche]/videos (see the "Fetching fresh ... videos" state in
+  // NicheFinder), rather than hiding niches until something else happens to
+  // have warmed their cache first.
+  const availableNiches: string[] = [...NICHE_ORDER];
 
   return (
     <div className="mt-4 flex flex-col gap-6 sm:mt-6 sm:gap-10">

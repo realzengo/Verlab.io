@@ -15,7 +15,6 @@ const TABS: NavEntry[] = [
   { label: "Subscription", href: "/app/settings/subscription" },
   { label: "Credit History", href: "/app/settings/credits" },
   { label: "Payment Method", href: "/app/settings/payment-method" },
-  { label: "API Keys", href: "/app/settings/api" },
   { label: "Password & Security", href: "/app/settings/security" },
 ];
 
@@ -23,14 +22,14 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   return (
-    <div className="bg-white text-gray-900">
+    <div className="bg-app text-heading">
       <div className="max-w-4xl mx-auto pt-6 px-4 pb-12 sm:pt-10 sm:px-6 sm:pb-16 md:px-8">
         <Link href="/app" className="text-xl font-medium flex items-center gap-2 mb-4 sm:text-2xl sm:mb-6">
           <ArrowLeft className="h-5 w-5" />
           Settings
         </Link>
 
-        <nav className="border-b border-gray-200 mb-6 flex gap-4 overflow-x-auto sm:mb-8 sm:gap-6">
+        <nav className="border-b border-hairline mb-6 flex gap-4 overflow-x-auto sm:mb-8 sm:gap-6">
           {TABS.map((tab) => {
             const active = pathname === tab.href;
             return (
@@ -41,8 +40,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 className={cn(
                   "whitespace-nowrap text-sm pb-2 px-1 transition-colors",
                   active
-                    ? "border-b-2 border-blue-600 text-black font-medium"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "border-b-2 border-primary text-heading font-medium"
+                    : "text-subtle hover:text-heading"
                 )}
               >
                 {tab.label}
