@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
   BookmarkX,
@@ -13,6 +14,7 @@ import {
   ImageIcon,
   MoreHorizontal,
   Sparkles,
+  X,
 } from "lucide-react";
 import { setBendSaved } from "@/lib/api/niche-bend";
 import type { LibraryAsset, LibraryAssetType } from "@/lib/types";
@@ -76,6 +78,7 @@ export default function LibraryPage() {
   const [assets, setAssets] = useState<LibraryAsset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<LibraryAsset | null>(null);
 
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -147,14 +150,20 @@ export default function LibraryPage() {
   }
 
   function handleDownload(asset: LibraryAsset) {
-    // Images only ever populate thumbnailUrl (see /api/library) since it's
-    // the same data URL fileUrl would've been -- fall back to it here.
+    // Images only ever populate thumbnailUrl (see /api/library) -- fall
+    // back to it here. It's a same-origin /api/library/image/... URL that
+    // serves the actual bytes with a Content-Disposition filename, not a
+    // data URL, so a plain anchor click is enough to trigger the download.
     const url = asset.fileUrl ?? (asset.type === "image" ? asset.thumbnailUrl : null);
     if (!url) return;
     if (url.startsWith("data:")) {
       const extension = url.slice(5, url.indexOf(";")).split("/")[1] ?? "jpg";
       const slug = asset.title.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
       downloadDataUrl(url, `${slug}.${extension}`);
+    } else if (asset.type === "image") {
+      const link = document.createElement("a");
+      link.href = `${url}${url.includes("?") ? "&" : "?"}download=1`;
+      link.click();
     } else {
       window.open(url, "_blank");
     }
@@ -310,7 +319,7 @@ export default function LibraryPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleDownload(asset)}
+                  onClick={() => setPreviewAsset(asset)}
                   className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-zinc-100 dark:bg-zinc-900"
                 >
                   <AssetThumbnail asset={asset} />
@@ -383,6 +392,74 @@ export default function LibraryPage() {
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {previewAsset && (
+          <motion.div
+            key="preview-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md dark:bg-black/80"
+            onClick={() => setPreviewAsset(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 4 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(event) => event.stopPropagation()}
+              className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_40px_120px_-24px_rgba(15,23,42,0.25),0_0_0_1px_rgba(15,23,42,0.03)] dark:border-white/10 dark:bg-[#0b0b0e] dark:shadow-[0_40px_120px_-24px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.05)]"
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewAsset(null)}
+                aria-label="Close"
+                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="flex min-h-[30vh] flex-1 items-center justify-center bg-slate-100 p-6 dark:bg-black">
+                <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
+                  <AssetThumbnail asset={previewAsset} />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 border-t border-slate-200 p-5 dark:border-white/[0.08]">
+                <div>
+                  <p className="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white/90">
+                    {previewAsset.title}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-zinc-500">
+                    {previewAsset.category} · Created {formatRelativeTime(previewAsset.createdAt)}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(previewAsset)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

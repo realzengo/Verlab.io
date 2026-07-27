@@ -1142,91 +1142,114 @@ export function ImageGenerator() {
         </div>
       </div>
 
-      {previewItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setPreviewItem(null)}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            className="flex w-full max-w-3xl flex-col-reverse overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[32rem] sm:flex-row dark:bg-zinc-950"
+      <AnimatePresence>
+        {previewItem && (
+          <motion.div
+            key="preview-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md sm:overflow-y-auto sm:p-10 dark:bg-black/80"
+            onClick={() => setPreviewItem(null)}
           >
-            <div className="flex w-full flex-col p-5 sm:w-72 sm:shrink-0 sm:overflow-y-auto">
-              <div className="flex items-start justify-between gap-2">
-                <p className="line-clamp-3 text-sm font-medium text-slate-900 dark:text-white">{previewItem.prompt}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(previewItem.prompt).then(() => {
-                      setPromptCopied(true);
-                      setTimeout(() => setPromptCopied(false), 1500);
-                    });
-                  }}
-                  aria-label="Copy prompt"
-                  className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
-                >
-                  {promptCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 4 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(event) => event.stopPropagation()}
+              className="relative flex h-[100dvh] w-full flex-col-reverse overflow-hidden bg-white dark:bg-[#0b0b0e] sm:h-auto sm:max-h-[min(88vh,880px)] sm:w-fit sm:max-w-full sm:flex-row sm:overflow-y-auto sm:rounded-[28px] sm:border sm:border-slate-200 sm:shadow-[0_40px_120px_-24px_rgba(15,23,42,0.25),0_0_0_1px_rgba(15,23,42,0.03)] dark:sm:border-white/10 dark:sm:shadow-[0_40px_120px_-24px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.05)]"
+            >
+              {/* Metadata panel — a mobile bottom sheet (rounded top, grab handle,
+                  safe-area padding) that becomes a plain side panel at sm+ */}
+              <div className="relative z-[1] -mt-5 flex max-h-[46dvh] w-full shrink-0 flex-col gap-5 overflow-y-auto rounded-t-[24px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-16px_32px_-24px_rgba(15,23,42,0.25)] dark:bg-[#0b0b0e] dark:shadow-[0_-16px_32px_-24px_rgba(0,0,0,0.7)] sm:z-auto sm:mt-0 sm:max-h-none sm:w-[292px] sm:gap-6 sm:rounded-none sm:p-6 sm:pb-6 sm:shadow-none">
+                <div className="mx-auto h-1 w-9 shrink-0 rounded-full bg-slate-200 dark:bg-white/15 sm:hidden" />
+
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="line-clamp-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-900 dark:text-white/90">
+                    {previewItem.prompt}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(previewItem.prompt).then(() => {
+                        setPromptCopied(true);
+                        setTimeout(() => setPromptCopied(false), 1500);
+                      });
+                    }}
+                    aria-label="Copy prompt"
+                    className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    {promptCopied ? <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+
+                <dl className="flex flex-col gap-2.5 border-t border-slate-200 pt-5 text-[13px] dark:border-white/[0.08]">
+                  {(
+                    [
+                      ["Model", previewItem.model],
+                      ["Dimensions", previewDims ? `${previewDims.width} × ${previewDims.height}` : "—"],
+                      ["File size", getDataUrlSize(previewItem.src)],
+                      ["Media type", getMimeType(previewItem.src)],
+                      ["Created on", formatDate(previewItem.createdAt)],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between gap-4">
+                      <dt className="text-slate-400 dark:text-white/40">{label}</dt>
+                      <dd className="text-right font-medium text-slate-700 dark:text-white/85">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-auto flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const extension = getMimeType(previewItem.src).split("/")[1] ?? "jpg";
+                      const slug = previewItem.prompt.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
+                      downloadDataUrl(previewItem.src, `${slug}.${extension}`);
+                    }}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98] sm:py-2.5"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openDataUrlInNewTab(previewItem.src)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08] sm:py-2.5"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View
+                  </button>
+                </div>
               </div>
 
-              <dl className="mt-4 grid grid-cols-2 gap-y-2 text-xs">
-                <dt className="text-slate-400">Model</dt>
-                <dd className="text-right text-slate-700 dark:text-slate-300">{previewItem.model}</dd>
-
-                <dt className="text-slate-400">Dimensions</dt>
-                <dd className="text-right text-slate-700 dark:text-slate-300">
-                  {previewDims ? `${previewDims.width} × ${previewDims.height}` : "—"}
-                </dd>
-
-                <dt className="text-slate-400">File size</dt>
-                <dd className="text-right text-slate-700 dark:text-slate-300">{getDataUrlSize(previewItem.src)}</dd>
-
-                <dt className="text-slate-400">Media type</dt>
-                <dd className="text-right text-slate-700 dark:text-slate-300">{getMimeType(previewItem.src)}</dd>
-
-                <dt className="text-slate-400">Created on</dt>
-                <dd className="text-right text-slate-700 dark:text-slate-300">{formatDate(previewItem.createdAt)}</dd>
-              </dl>
-
-              <div className="mt-5 flex gap-2">
+              {/* Image, sized to its own aspect ratio rather than cropped into a fixed box.
+                  flex-1 + a height floor on mobile: it always fills whatever the bottom
+                  sheet leaves behind, so a long prompt can never push the close button
+                  off-screen, and non-matching ratios simply letterbox (as in Photos/Google Photos). */}
+              <div className="relative flex min-h-[30dvh] flex-1 items-center justify-center bg-slate-100 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:bg-black sm:max-h-[min(88vh,880px)] sm:min-h-0 sm:flex-none sm:shrink-0 sm:p-6">
                 <button
                   type="button"
-                  onClick={() => {
-                    const extension = getMimeType(previewItem.src).split("/")[1] ?? "jpg";
-                    const slug = previewItem.prompt.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
-                    downloadDataUrl(previewItem.src, `${slug}.${extension}`);
-                  }}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+                  onClick={() => setPreviewItem(null)}
+                  aria-label="Close"
+                  className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white sm:top-3 sm:h-8 sm:w-8"
                 >
-                  <Download className="h-4 w-4" />
-                  Download
+                  <X className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openDataUrlInNewTab(previewItem.src)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-200 dark:bg-zinc-800 dark:text-slate-200 dark:hover:bg-zinc-700"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  View
-                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element -- generated image preview from a stored data URL */}
+                <img
+                  src={previewItem.src}
+                  alt=""
+                  className="h-auto max-h-full w-auto max-w-full object-contain sm:max-h-[min(80vh,780px)] sm:max-w-[min(64vw,780px)] sm:rounded-xl"
+                />
               </div>
-            </div>
-
-            <div className="relative h-64 shrink-0 bg-slate-100 sm:h-auto sm:flex-1 dark:bg-zinc-900">
-              <button
-                type="button"
-                onClick={() => setPreviewItem(null)}
-                aria-label="Close"
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition-colors hover:bg-white dark:bg-zinc-800/90 dark:text-slate-300 dark:hover:bg-zinc-700"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              {/* eslint-disable-next-line @next/next/no-img-element -- generated image preview from a stored data URL */}
-              <img src={previewItem.src} alt="" className="h-full w-full object-cover" />
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
     </div>

@@ -117,14 +117,14 @@ export default function McpPage() {
                   <div className="min-w-0 flex-1 pt-0.5">
                     <h4 className="text-sm font-bold text-heading sm:text-base">{step.title}</h4>
                     {i === 0 ? (
-                      <div className="mt-2 flex items-center gap-2 rounded-full border border-hairline bg-app py-1.5 pl-3 pr-1.5 sm:pl-4">
-                        <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">{MCP_URL}</span>
+                      <div className="mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-full border border-hairline bg-app py-1 pl-2.5 pr-1">
+                        <span className="min-w-0 truncate font-mono text-xs text-body">{MCP_URL}</span>
                         <button
                           type="button"
                           onClick={handleCopy}
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors sm:px-3.5 sm:py-2 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
                         >
-                          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                           {copied ? "Copied" : "Copy"}
                         </button>
                       </div>

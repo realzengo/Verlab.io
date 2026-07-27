@@ -8,7 +8,8 @@ type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary: "bg-btn-primary text-white hover:bg-btn-primary-hover hover:-translate-y-px active:scale-95",
-  secondary: "bg-surface text-heading border border-hairline hover:bg-app btn-secondary",
+  secondary:
+    "bg-btn-secondary text-heading border border-btn-secondary-border hover:bg-btn-secondary-hover hover:-translate-y-px active:scale-95 btn-secondary",
   ghost: "bg-transparent text-heading hover:bg-accent",
   text: "bg-transparent text-primary hover:underline underline-offset-4 px-0",
   white: "btn-white bg-white text-primary hover:bg-[#f2f4ff] hover:-translate-y-px",

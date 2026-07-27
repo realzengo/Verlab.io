@@ -12,6 +12,9 @@
      buttons don't shift color; not redefined in .dark. */
   --color-btn-primary: #335cff;
   --color-btn-primary-hover: #2246d6;
+  --color-btn-secondary: rgba(17, 24, 39, 0.04);
+  --color-btn-secondary-hover: rgba(17, 24, 39, 0.075);
+  --color-btn-secondary-border: rgba(17, 24, 39, 0.14);
   --color-accent: #eff2ff;
   --color-accent-line: #dbe2ff;
 
@@ -74,6 +77,9 @@
   /* Kept identical to :root — brand blue stays fixed, no lavender/indigo shift in dark mode. */
   --color-primary: #335cff;
   --color-primary-hover: #2246d6;
+  --color-btn-secondary: rgba(255, 255, 255, 0.06);
+  --color-btn-secondary-hover: rgba(255, 255, 255, 0.1);
+  --color-btn-secondary-border: rgba(255, 255, 255, 0.16);
   --color-accent: rgba(99, 102, 241, 0.08);
   --color-accent-line: rgba(99, 102, 241, 0.2);
 
@@ -122,6 +128,9 @@
   --color-primary-hover: var(--color-primary-hover);
   --color-btn-primary: var(--color-btn-primary);
   --color-btn-primary-hover: var(--color-btn-primary-hover);
+  --color-btn-secondary: var(--color-btn-secondary);
+  --color-btn-secondary-hover: var(--color-btn-secondary-hover);
+  --color-btn-secondary-border: var(--color-btn-secondary-border);
   --color-accent: var(--color-accent);
   --color-accent-line: var(--color-accent-line);
   --color-heading: var(--color-heading);
@@ -170,7 +179,7 @@
 
   --font-sans: "Open Sauce One", sans-serif;
   --font-heading: "Open Sauce One", sans-serif;
-  --font-logo: "Roboto", sans-serif;
+  --font-logo: "Open Sauce One", sans-serif;
 }
 
 html {
@@ -264,6 +273,214 @@ body {
   .animate-indeterminate-bar {
     animation: indeterminate-bar 1.3s ease-in-out infinite;
   }
+
+  @keyframes bend-cursor {
+    0% { left: 16.667%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    3% { left: 16.667%; top: 25%; transform: translate(-50%, -50%) scale(0.7); }
+    10% { left: 16.667%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    16.667% { left: 50%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    19.667% { left: 50%; top: 25%; transform: translate(-50%, -50%) scale(0.7); }
+    26.667% { left: 50%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    33.333% { left: 83.333%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    36.333% { left: 83.333%; top: 25%; transform: translate(-50%, -50%) scale(0.7); }
+    43.333% { left: 83.333%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+    50% { left: 83.333%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    53% { left: 83.333%; top: 75%; transform: translate(-50%, -50%) scale(0.7); }
+    60% { left: 83.333%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    66.667% { left: 50%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    69.667% { left: 50%; top: 75%; transform: translate(-50%, -50%) scale(0.7); }
+    76.667% { left: 50%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    83.333% { left: 16.667%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    86.333% { left: 16.667%; top: 75%; transform: translate(-50%, -50%) scale(0.7); }
+    93.333% { left: 16.667%; top: 75%; transform: translate(-50%, -50%) scale(1); }
+    100% { left: 16.667%; top: 25%; transform: translate(-50%, -50%) scale(1); }
+  }
+  .animate-bend-cursor {
+    animation: bend-cursor 6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  @keyframes bend-ripple {
+    0% {
+      transform: translate(-50%, -50%) scale(0.4);
+      opacity: 0.55;
+    }
+    30%, 100% {
+      transform: translate(-50%, -50%) scale(1.9);
+      opacity: 0;
+    }
+  }
+  .animate-bend-ripple {
+    animation: bend-ripple 1s ease-out infinite;
+  }
+
+  @keyframes bend-select {
+    0%, 8% {
+      background-color: var(--accent-tint);
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-2px) scale(1.035);
+      box-shadow:
+        0 10px 20px -8px color-mix(in srgb, var(--accent) 55%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    16.667%, 100% {
+      background-color: var(--color-surface);
+      border-color: var(--color-hairline);
+      color: var(--color-subtle);
+      transform: translateY(0) scale(1);
+      box-shadow: none;
+    }
+  }
+  .animate-bend-select {
+    animation: bend-select 6s ease-in-out infinite;
+  }
+
+  @keyframes bend-check {
+    0%, 4% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    8% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+    12%, 14% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    20%, 100% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+  }
+  .animate-bend-check {
+    animation: bend-check 6s ease-in-out infinite;
+  }
+
+  @keyframes line-grow {
+    0%, 100% {
+      transform: scaleX(1);
+    }
+    50% {
+      transform: scaleX(0.4);
+    }
+  }
+  .animate-line-grow {
+    animation: line-grow 2.4s ease-in-out infinite;
+  }
+
+  @keyframes caret-blink {
+    0%, 49% {
+      opacity: 1;
+    }
+    50%, 100% {
+      opacity: 0;
+    }
+  }
+  .animate-caret-blink {
+    animation: caret-blink 1s step-end infinite;
+  }
+
+  @keyframes zoom {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.3);
+    }
+  }
+
+  /* Opacity dips to 0 right at the loop seam (0%/100%) so the zoom's hard
+     reset back to scale(1) happens while the image is invisible, instead
+     of as a visible jump-cut. */
+  @keyframes sky-fade {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    8%,
+    92% {
+      opacity: 0.4;
+    }
+  }
+  .animate-sky-zoom {
+    animation:
+      zoom 18s linear infinite,
+      sky-fade 18s ease-in-out infinite;
+  }
+
+  @keyframes tunnel-flow-y {
+    from {
+      background-position-y: 0;
+    }
+    to {
+      background-position-y: 64px;
+    }
+  }
+
+  @keyframes tunnel-flow-x {
+    from {
+      background-position-x: 0;
+    }
+    to {
+      background-position-x: 64px;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-14px);
+    }
+  }
+
+  /* Floor and ceiling each sit at an opposite translateZ off the same
+     rotateX(90deg), so both need the reversed direction for their grid
+     to flow forward in sync with the left/right walls. */
+  .tunnel .plane-floor,
+  .tunnel .plane-ceiling {
+    animation: tunnel-flow-y 2.4s linear infinite reverse;
+  }
+  .tunnel .plane-left,
+  .tunnel .plane-right {
+    animation: tunnel-flow-x 2.4s linear infinite;
+  }
+}
+
+/* Infinite forward-moving 4-wall tunnel — floor, ceiling, and both side walls
+   are separate planes rotated into a box around a shared perspective origin,
+   all converging on a single center vanishing point. Background stays
+   transparent so it layers over the sky gradient behind it. */
+.tunnel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 520px;
+  perspective-origin: 50% 50%;
+  background: transparent;
+}
+.tunnel .plane {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.25) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.25) 2px, transparent 2px);
+  background-size: 64px 64px;
+}
+.tunnel .plane-floor {
+  transform: rotateX(90deg) translateZ(-200px);
+}
+.tunnel .plane-ceiling {
+  transform: rotateX(90deg) translateZ(200px);
+}
+.tunnel .plane-left {
+  transform: rotateY(90deg) translateZ(-620px);
+}
+.tunnel .plane-right {
+  transform: rotateY(90deg) translateZ(620px);
 }
 
 .btn-glow,
@@ -303,10 +520,14 @@ body {
     inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   transform: translateY(0.5px) scale(0.99);
 }
-.btn-bevel.btn-secondary,
-.btn-bevel.btn-secondary:hover,
+.btn-bevel.btn-secondary {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.btn-bevel.btn-secondary:hover {
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.08);
+}
 .btn-bevel.btn-secondary:active {
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 .btn-bevel.btn-secondary::before {
   content: none;
@@ -341,6 +562,11 @@ body {
 .dark .btn-bevel.btn-white::before {
   content: none;
 }
+.dark .btn-bevel.btn-secondary,
+.dark .btn-bevel.btn-secondary:hover,
+.dark .btn-bevel.btn-secondary:active {
+  box-shadow: none;
+}
 
 .btn-bevel.btn-glow,
 .btn-bevel.glow-btn {
@@ -364,4 +590,95 @@ body {
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.3),
     inset 0 0 0 1px rgba(0, 0, 0, 0.08),
     var(--shadow-blue);
+}
+
+/* Liquid Glass — Apple-style frosted, refractive pill.
+   Meant to sit over imagery/color, not a flat surface, so it has
+   something behind it to blur and bend light through. */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.09));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -1px 8px rgba(255, 255, 255, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 1px rgba(255, 255, 255, 0.45),
+    0 12px 32px rgba(0, 0, 0, 0.28),
+    0 3px 10px rgba(0, 0, 0, 0.16);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.4s ease, background 0.4s ease;
+}
+/* Specular highlight arc rolling across the top of the curved glass */
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: radial-gradient(130% 110% at 50% -30%, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0) 55%);
+  pointer-events: none;
+}
+/* Glossy sheen that sweeps across the surface on hover, like light catching the glass */
+.liquid-glass::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -45%;
+  z-index: 0;
+  width: 35%;
+  height: 220%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: rotate(20deg);
+  pointer-events: none;
+  transition: left 0.9s cubic-bezier(0.19, 1, 0.22, 1);
+}
+.liquid-glass:hover::after {
+  left: 130%;
+}
+.liquid-glass > * {
+  position: relative;
+  z-index: 1;
+}
+.liquid-glass:hover {
+  transform: translateY(-1.5px) scale(1.015);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.13));
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 0 -1px 8px rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 1px 1px rgba(255, 255, 255, 0.55),
+    0 18px 44px rgba(0, 0, 0, 0.32),
+    0 5px 14px rgba(0, 0, 0, 0.2);
+}
+.liquid-glass:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 0.15s;
+}
+
+/* Blue-tinted glass puck for an icon nested inside a .liquid-glass control */
+.liquid-glass-puck {
+  background: linear-gradient(165deg, rgba(117, 163, 255, 0.95), rgba(29, 90, 220, 0.92));
+  backdrop-filter: blur(8px) saturate(160%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.22),
+    0 3px 10px rgba(29, 111, 255, 0.5);
+  transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+.liquid-glass:hover .liquid-glass-puck {
+  transform: translateX(2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass,
+  .liquid-glass::after,
+  .liquid-glass-puck {
+    transition: none;
+  }
 }

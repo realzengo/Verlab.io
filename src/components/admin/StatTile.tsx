@@ -3,19 +3,29 @@ import { Card } from "@/components/ui/Card";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { cn } from "@/lib/utils";
 
+type Tone = "blue" | "violet" | "green" | "amber";
+
+const TONE_CLASSES: Record<Tone, string> = {
+  blue: "bg-accent text-primary",
+  violet: "bg-[#f3e8ff] text-[#7c3aed] dark:bg-violet-400/15 dark:text-violet-300",
+  green: "bg-success-tint text-success",
+  amber: "bg-warning-tint text-warning",
+};
+
 interface StatTileProps {
   label: string;
   value: string;
   icon: LucideIcon;
+  tone?: Tone;
   delta?: { value: string; direction: "up" | "down"; isGood: boolean; period: string };
   trend?: number[];
 }
 
-export function StatTile({ label, value, icon: Icon, delta, trend }: StatTileProps) {
+export function StatTile({ label, value, icon: Icon, tone = "blue", delta, trend }: StatTileProps) {
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" hoverLift>
       <div className="flex items-start justify-between">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-primary">
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", TONE_CLASSES[tone])}>
           <Icon className="h-[18px] w-[18px]" />
         </span>
         {trend && trend.length > 1 && <Sparkline data={trend} positive={delta?.isGood ?? true} />}

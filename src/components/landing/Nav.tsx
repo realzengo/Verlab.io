@@ -4,7 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
+import { StarIcon } from "@/components/landing/StarIcon";
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
@@ -13,7 +15,7 @@ const NAV_LINKS = [
 ];
 
 const CTA_CLASSES =
-  "inline-flex items-center gap-2 rounded-full bg-btn-primary px-6 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-px hover:bg-btn-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
+  "inline-flex items-center gap-2 rounded-full bg-btn-primary px-6 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-px hover:bg-btn-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
 export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -23,16 +25,17 @@ export function Nav() {
     <header className="fixed top-0 z-50 w-full bg-surface/80 backdrop-blur-md">
       <div className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left: logo */}
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex items-center gap-2.5">
           <Image
-            src="/logo-wordmark.png"
-            alt="Verlab"
-            width={5697}
-            height={1419}
+            src="/logo-icon.png"
+            alt=""
+            width={2363}
+            height={2363}
             unoptimized
             priority
-            className="h-8 w-auto shrink-0 dark:invert"
+            className="h-9 w-9 shrink-0"
           />
+          <Logo height={30} showStudio={false} />
         </Link>
 
         {/* Center: Features + Pricing + Affiliates, grouped and truly centered */}
@@ -53,7 +56,7 @@ export function Nav() {
         {/* Right: primary CTA only */}
         <div className="hidden md:flex">
           <Link href="/app" className={CTA_CLASSES}>
-            <Zap className="h-4 w-4" />
+            <StarIcon className="h-4 w-4" />
             Try Verlab
           </Link>
         </div>
@@ -84,7 +87,7 @@ export function Nav() {
               </Link>
             ))}
             <Link href="/app" onClick={() => setMobileOpen(false)} className={`${CTA_CLASSES} mt-2 justify-center`}>
-              <Zap className="h-4 w-4" />
+              <StarIcon className="h-4 w-4" />
               Try Verlab
             </Link>
           </div>

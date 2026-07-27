@@ -23,7 +23,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="bg-app text-heading">
-      <div className="max-w-4xl mx-auto pt-6 px-4 pb-12 sm:pt-10 sm:px-6 sm:pb-16 md:px-8">
+      <div className="w-full pt-6 px-4 pb-12 sm:pt-10 sm:px-6 sm:pb-16 md:px-8">
         <Link href="/app" className="text-xl font-medium flex items-center gap-2 mb-4 sm:text-2xl sm:mb-6">
           <ArrowLeft className="h-5 w-5" />
           Settings

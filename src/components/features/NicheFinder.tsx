@@ -17,7 +17,6 @@ import {
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   VideoFilterBar,
-  type VideoCountry,
   type VideoPlatformFilter,
   type VideoRangeFilters,
   type VideoTimeWindow,
@@ -387,7 +386,6 @@ export function NicheFinder({
 }) {
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
-  const [videoCountry, setVideoCountry] = useState<VideoCountry>("");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
@@ -406,7 +404,7 @@ export function NicheFinder({
   // Reset to page 1 whenever a filter (not the page itself) changes.
   // Adjusting state during render — rather than in an effect — avoids an
   // extra commit/fetch round-trip.
-  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${videoCountry}:${JSON.stringify(videoRangeFilters)}`;
+  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`;
   const [lastFiltersKey, setLastFiltersKey] = useState(filtersKey);
   if (filtersKey !== lastFiltersKey) {
     setLastFiltersKey(filtersKey);
@@ -455,7 +453,6 @@ export function NicheFinder({
           platform: videoPlatform,
           timeWindow: videoTimeWindow,
         });
-        if (videoCountry) qs.set("country", videoCountry);
         if (videoRangeFilters.viewsMin) qs.set("viewsMin", videoRangeFilters.viewsMin);
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
@@ -494,7 +491,7 @@ export function NicheFinder({
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [activeNiche, videoPlatform, videoTimeWindow, videoCountry, videoRangeFilters, effectiveVideoPage, filtersKey]);
+  }, [activeNiche, videoPlatform, videoTimeWindow, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
   return (
     <section>
@@ -508,8 +505,6 @@ export function NicheFinder({
           onPlatformChange={setVideoPlatform}
           timeWindow={videoTimeWindow}
           onTimeWindowChange={setVideoTimeWindow}
-          country={videoCountry}
-          onCountryChange={setVideoCountry}
           filters={videoRangeFilters}
           onApply={setVideoRangeFilters}
           onClear={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}

@@ -1,67 +1,69 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Logo } from "@/components/ui/Logo";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { europaGrotesk } from "@/lib/fonts";
+import { LogoMark } from "@/components/ui/Logo";
 
-const COLUMNS = [
+type LinkGroup = { heading: string; links: { label: string; href: string }[] };
+
+const LINK_GROUPS: LinkGroup[] = [
   {
-    title: "Product",
+    heading: "Generate Videos",
     links: [
-      { label: "Niche Bending", href: "#niche-bending" },
-      { label: "Niche Finder", href: "#features" },
-      { label: "SOP Builder", href: "#features" },
-      { label: "Script Maker", href: "#features" },
+      { label: "Niche Bending", href: "/app/bend" },
+      { label: "Script Generator", href: "/app/scripts" },
+      { label: "Image Generator", href: "/app/image-generator" },
+      { label: "Video Library", href: "/app/library" },
+    ],
+  },
+  {
+    heading: "AI Tools",
+    links: [
+      { label: "Niche Explorer", href: "/app/niches" },
+      { label: "Transcript Extractor", href: "/app/transcripts" },
+      { label: "MCP Connect", href: "/app/mcp" },
+      { label: "Downloads", href: "/app/downloads" },
+    ],
+  },
+  {
+    heading: "Product",
+    links: [
       { label: "Pricing", href: "/pricing" },
+      { label: "How it Works", href: "/#workflow" },
+      { label: "FAQ", href: "/#faq" },
+      { label: "Affiliates", href: "/affiliates" },
     ],
   },
   {
-    title: "Platforms",
+    heading: "Legal",
     links: [
-      { label: "TikTok", href: "#" },
-      { label: "Instagram Reels", href: "#" },
-      { label: "YouTube Shorts", href: "#" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "Pricing", href: "/pricing" },
-      { label: "Log in", href: "/app" },
-      { label: "Get started", href: "/app" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Terms", href: "/legal/terms" },
-      { label: "Privacy", href: "/legal/privacy" },
-      { label: "Refunds", href: "/legal/refunds" },
+      { label: "Terms of Service", href: "/legal/terms" },
+      { label: "Privacy Policy", href: "/legal/privacy" },
+      { label: "Refund Policy", href: "/legal/refunds" },
+      { label: "Log In", href: "/login" },
     ],
   },
 ];
 
+const SOCIAL_LINKS = [
+  { label: "TikTok", href: "#", src: "/social-tiktok-mono.png" },
+  { label: "Instagram", href: "#", src: "/social-instagram-mono.png" },
+  { label: "YouTube", href: "#", src: "/social-youtube-mono.png" },
+];
+
 export function Footer() {
   return (
-    <footer className="border-t border-hairline bg-app">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-5 sm:gap-8">
-          <div className="col-span-2 sm:col-span-1">
-            <Link href="/" className="flex items-center">
-              <Logo height={22} />
-            </Link>
-            <p className="mt-3 max-w-[220px] text-[13px] leading-[1.6] text-subtle">
-              Bend any viral niche into your own — TikTok, Reels &amp; Shorts.
-            </p>
-          </div>
-
-          {COLUMNS.map((column) => (
-            <div key={column.title}>
-              <span className="text-xs font-bold uppercase tracking-wide text-heading">{column.title}</span>
-              <ul className="mt-3.5 flex flex-col gap-2.5">
-                {column.links.map((link) => (
+    <footer className="w-full bg-surface px-8 pb-8 pt-2">
+      <div className="flex w-full flex-col rounded-3xl bg-black p-6 md:p-10">
+        <div className="mb-10 grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 lg:grid-cols-4">
+          {LINK_GROUPS.map((group) => (
+            <div key={group.heading}>
+              <h3 className="mb-4 text-lg font-bold text-white">{group.heading}</h3>
+              <ul className="flex flex-col gap-3">
+                {group.links.map((link) => (
                   <li key={link.label}>
-                    <a href={link.href} className="text-sm text-body hover:text-primary">
+                    <Link href={link.href} className="text-sm font-medium text-white/50 transition-colors hover:text-white">
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -69,32 +71,23 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-10 flex flex-col items-center gap-4 border-t border-hairline pt-[22px] text-[13px] text-subtle sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} Verlab. All rights reserved.</span>
-          <div className="flex items-center gap-2.5">
-            <ThemeToggle className="h-8 w-8" />
-            <a
-              href="https://www.instagram.com/verlab.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-surface"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-subtle">
-                <rect x="2" y="2" width="20" height="20" rx="5" />
-                <circle cx="12" cy="12" r="4.5" />
-                <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none" />
-              </svg>
-            </a>
-            <a
-              href="#"
-              aria-label="YouTube"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-surface"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-subtle">
-                <path d="M22 8.7s-.2-1.6-.8-2.3c-.8-.9-1.7-.9-2.1-1C16.4 5.2 12 5.2 12 5.2h0s-4.4 0-7.1.2c-.4 0-1.3.1-2.1 1-.6.7-.8 2.3-.8 2.3S1.8 10.6 1.8 12.5v1.8c0 1.9.2 3.8.2 3.8s.2 1.6.8 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.3.2 7.3.2s4.4 0 7.1-.2c.4 0 1.3-.1 2.1-1 .6-.7.8-2.3.8-2.3s.2-1.9.2-3.8v-1.8c0-1.9-.2-3.8-.2-3.8zM9.7 15.5v-6l5.8 3-5.8 3z" />
-              </svg>
-            </a>
+        <div className="flex w-full flex-col items-center justify-between gap-6 sm:flex-row">
+          <Link href="/" className="flex items-center gap-2.5">
+            <LogoMark className="h-7 w-7 shrink-0 text-white" />
+            <span className={`${europaGrotesk.className} text-2xl font-bold tracking-tight text-white`}>Verlab</span>
+          </Link>
+
+          <div className="flex gap-3">
+            {SOCIAL_LINKS.map(({ label, href, src }) => (
+              <a
+                key={label}
+                href={href}
+                aria-label={label}
+                className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-80 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:opacity-100"
+              >
+                <Image src={src} alt={label} width={24} height={24} unoptimized className="h-6 w-6 object-contain" />
+              </a>
+            ))}
           </div>
         </div>
       </div>

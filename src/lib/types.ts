@@ -489,6 +489,20 @@ export interface FeatureFlag {
   rolloutPct: number;
 }
 
+export type PromoRewardType = "credits" | "discount_percent";
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  rewardType: PromoRewardType;
+  rewardValue: number;
+  maxUses: number | null;
+  usedCount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export type AdminRole = "owner" | "admin" | "support";
 
 export interface AdminTeamMember {

@@ -8,33 +8,6 @@ import { cn } from "@/lib/utils";
 
 export type VideoPlatformFilter = "all" | "tiktok" | "youtube";
 export type VideoTimeWindow = "all" | "7d" | "30d";
-// A YouTube regionCode, or "" for worldwide (no bias). Only YouTube search
-// supports a country signal — TikTok results (via SociaVault) are always
-// global, so this only ever narrows the YouTube slice of "All platforms".
-export type VideoCountry = string;
-
-export const COUNTRY_OPTIONS: { id: VideoCountry; label: string }[] = [
-  { id: "", label: "Worldwide" },
-  { id: "US", label: "United States" },
-  { id: "GB", label: "United Kingdom" },
-  { id: "CA", label: "Canada" },
-  { id: "AU", label: "Australia" },
-  { id: "IE", label: "Ireland" },
-  { id: "NZ", label: "New Zealand" },
-  { id: "IN", label: "India" },
-  { id: "PH", label: "Philippines" },
-  { id: "NG", label: "Nigeria" },
-  { id: "ZA", label: "South Africa" },
-  { id: "DE", label: "Germany" },
-  { id: "FR", label: "France" },
-  { id: "NL", label: "Netherlands" },
-  { id: "BR", label: "Brazil" },
-  { id: "MX", label: "Mexico" },
-  { id: "JP", label: "Japan" },
-  { id: "KR", label: "South Korea" },
-  { id: "SG", label: "Singapore" },
-  { id: "ID", label: "Indonesia" },
-];
 
 export interface VideoRangeFilters {
   viewsMin: string;
@@ -341,8 +314,6 @@ export function VideoFilterBar({
   onPlatformChange,
   timeWindow,
   onTimeWindowChange,
-  country,
-  onCountryChange,
   filters,
   onApply,
   onClear,
@@ -351,8 +322,6 @@ export function VideoFilterBar({
   onPlatformChange: (platform: VideoPlatformFilter) => void;
   timeWindow: VideoTimeWindow;
   onTimeWindowChange: (window: VideoTimeWindow) => void;
-  country: VideoCountry;
-  onCountryChange: (country: VideoCountry) => void;
   filters: VideoRangeFilters;
   onApply: (filters: VideoRangeFilters) => void;
   onClear: () => void;
@@ -410,22 +379,6 @@ export function VideoFilterBar({
         value={timeWindow}
         onChange={onTimeWindowChange}
       />
-
-      <span aria-hidden="true" className="hidden h-6 w-px bg-hairline sm:block" />
-
-      <select
-        aria-label="Country"
-        value={country}
-        onChange={(event) => onCountryChange(event.target.value)}
-        title="Only narrows YouTube results — TikTok has no country data"
-        className="rounded-full border border-hairline/60 bg-app px-3.5 py-2 text-[12.5px] font-semibold text-body outline-none focus:border-primary sm:text-[13px]"
-      >
-        {COUNTRY_OPTIONS.map((option) => (
-          <option key={option.id || "worldwide"} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
 
       <div ref={containerRef} className="relative">
         <Button

@@ -11,6 +11,7 @@ import type {
   FeatureFlag,
   PlanDistribution,
   PricingPlan,
+  PromoCode,
   SignupPoint,
   SystemJob,
   SystemJobStatus,
@@ -271,6 +272,39 @@ export async function getFeatureFlags(): Promise<FeatureFlag[]> {
   }));
 }
 
+const PROMO_CODE_SELECT = "id, code, reward_type, reward_value, max_uses, used_count, expires_at, is_active, created_at";
+
+export function mapPromoCodeRow(row: {
+  id: string;
+  code: string;
+  reward_type: string;
+  reward_value: number;
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}): PromoCode {
+  return {
+    id: row.id,
+    code: row.code,
+    rewardType: row.reward_type as PromoCode["rewardType"],
+    rewardValue: row.reward_value,
+    maxUses: row.max_uses,
+    usedCount: row.used_count,
+    expiresAt: row.expires_at,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getPromoCodes(): Promise<PromoCode[]> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("promo_codes").select(PROMO_CODE_SELECT).order("created_at", { ascending: false });
+
+  return (data ?? []).map(mapPromoCodeRow);
+}
+
 export async function getAdminTeam(): Promise<AdminTeamMember[]> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -480,14 +514,18 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
 }
 
 export async function getOverviewData() {
-  const [signupSeries, usage, planDistribution, activityLog, systemJobs, { users }] = await Promise.all([
-    getSignupSeries(),
-    getUsageData(),
-    getPlanDistribution(),
-    getActivityLog(7),
-    getSystemJobs(20),
-    getAdminUsers(),
-  ]);
+  const [signupSeries, usage, planDistribution, activityLog, systemJobs, { users }, creditsOverview, promoCodes, featureFlags] =
+    await Promise.all([
+      getSignupSeries(),
+      getUsageData(),
+      getPlanDistribution(),
+      getActivityLog(7),
+      getSystemJobs(20),
+      getAdminUsers(),
+      getCreditsOverview(),
+      getPromoCodes(),
+      getFeatureFlags(),
+    ]);
 
   return {
     totalUsers: users.length,
@@ -507,5 +545,11 @@ export async function getOverviewData() {
     activityLog,
     systemJobs,
     jobSuccessRatePct: computeJobSuccessRate(systemJobs),
+    creditsOutstanding: creditsOverview.totalOutstanding,
+    creditsSpentToday: creditsOverview.spentToday,
+    creditsSpentLast7Days: creditsOverview.spentLast7Days,
+    activePromoCodes: promoCodes.filter((c) => c.isActive).length,
+    enabledFeatureFlags: featureFlags.filter((f) => f.enabled).length,
+    totalFeatureFlags: featureFlags.length,
   };
 }

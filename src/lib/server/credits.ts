@@ -138,6 +138,34 @@ export async function adjustCreditsAsAdmin(
   return data as number;
 }
 
+/**
+ * Generic "add credits + log a ledger row" primitive for grants that aren't
+ * a charge-refund (e.g. promo code redemption) -- reuses refund_credits()
+ * (see 20260723120000_credit_system_extensions.sql) since a promo grant and
+ * a refund are structurally identical (increment balance, log a positive
+ * transaction row); only the feature label differs. Throws on failure,
+ * unlike refundUser() below which is best-effort.
+ */
+export async function grantCredits(userId: string, amount: number, feature: string, actionKey?: string): Promise<number> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error("amount must be a positive integer");
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("refund_credits", {
+    p_user_id: userId,
+    p_amount: amount,
+    p_feature: feature,
+    p_action_key: actionKey ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as number;
+}
+
 export async function refundUser(userId: string, amount: number, feature: string, actionKey: string): Promise<void> {
   if (amount <= 0) return;
   try {

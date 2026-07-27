@@ -1,16 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { McpBackground } from "@/components/mcp/McpBackground";
+import { cn } from "@/lib/utils";
+
+// Keeps the backdrop mounted for the sidebar's 300ms slide-out so it fades
+// out in sync instead of disappearing the instant the panel starts closing.
+const SIDEBAR_TRANSITION_MS = 300;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [showBackdrop, setShowBackdrop] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (mobileNavOpen) {
+      setShowBackdrop(true);
+      return;
+    }
+    const timeout = setTimeout(() => setShowBackdrop(false), SIDEBAR_TRANSITION_MS);
+    return () => clearTimeout(timeout);
+  }, [mobileNavOpen]);
   const isHome = pathname === "/app";
   const isMcp = pathname === "/app/mcp";
 
@@ -26,11 +41,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-app">
         <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
-        {mobileNavOpen && (
+        {showBackdrop && (
           <div
             aria-hidden="true"
             onClick={() => setMobileNavOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className={cn(
+              "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ease-in-out lg:hidden",
+              mobileNavOpen ? "opacity-100" : "opacity-0"
+            )}
           />
         )}
 

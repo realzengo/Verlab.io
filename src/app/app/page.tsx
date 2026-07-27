@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { CheckCircle2, Captions, PenSquare, Plug, SquareDashed, SquarePlay, TrendingUp, Wand2, Zap } from "lucide-react";
+import { Download, Image as ImageIcon, Sparkles, SquareDashed, SquarePlay, TrendingUp, Wand2, Zap } from "lucide-react";
 import { ToolCard } from "@/components/dashboard/ToolCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,16 +60,30 @@ function NicheFinderPreview() {
   );
 }
 
-function SopPreview() {
-  const rows = ["Hook formula", "Script structure", "Pacing rules"];
+function ImageGeneratorPreview() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-card-sm border border-hairline bg-gradient-to-br from-accent to-primary/15 shadow-card">
+        <ImageIcon className="h-6 w-6 text-primary" />
+      </div>
+      <div className="flex items-center gap-1.5 rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left shadow-card">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="text-xs font-medium text-heading">Generating thumbnail...</span>
+      </div>
+    </div>
+  );
+}
+
+function DownloaderPreview() {
   return (
     <div className="flex w-full max-w-[220px] flex-col gap-1.5 rounded-card-sm border border-hairline bg-surface p-3 text-left shadow-card">
-      {rows.map((row) => (
-        <div key={row} className="flex items-center gap-2 text-xs text-heading">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-          {row}
-        </div>
-      ))}
+      <div className="flex items-center gap-2">
+        <Download className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="truncate text-xs font-medium text-heading">tiktok.com/@creator/video</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div className="h-full w-2/3 rounded-full bg-primary" />
+      </div>
     </div>
   );
 }
@@ -109,43 +123,6 @@ function ScriptPreview() {
   );
 }
 
-function LibraryPreview() {
-  const items = [
-    { icon: Wand2, label: "Bend SOP" },
-    { icon: Captions, label: "Transcript" },
-    { icon: PenSquare, label: "Script" },
-  ];
-  return (
-    <div className="flex w-full max-w-[220px] flex-col gap-1.5">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="flex items-center gap-2 rounded-card-sm border border-hairline bg-surface px-3 py-2 text-left shadow-card"
-        >
-          <item.icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className="text-xs font-medium text-heading">{item.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function McpPreview() {
-  return (
-    <div className="flex w-full max-w-[220px] flex-col gap-2 rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left shadow-card">
-      <div className="flex items-center gap-2">
-        <Plug className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Connected</span>
-      </div>
-      <p className="truncate font-mono text-[11px] text-heading">api.verlab.io/mcp/v1/sse</p>
-      <div className="flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-primary">Claude</span>
-        <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-primary">ChatGPT</span>
-      </div>
-    </div>
-  );
-}
-
 const TOOLS = [
   {
     title: "Niche Bender",
@@ -158,13 +135,6 @@ const TOOLS = [
     description: "Discover trending faceless niches on TikTok, ranked by momentum score.",
     href: "/app/niches",
     preview: <NicheFinderPreview />,
-  },
-  {
-    title: "SOP Builder",
-    description: "Reverse-engineer any niche's hook, structure, and pacing into a repeatable SOP.",
-    href: "/app/bend",
-    preview: <SopPreview />,
-    beta: true,
   },
   {
     title: "Transcript Extractor",
@@ -180,16 +150,16 @@ const TOOLS = [
     beta: true,
   },
   {
-    title: "Library",
-    description: "Every transcript, SOP, and script saved and searchable in one place.",
-    href: "/app/library",
-    preview: <LibraryPreview />,
+    title: "Image Generator",
+    description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",
+    href: "/app/image-generator",
+    preview: <ImageGeneratorPreview />,
   },
   {
-    title: "MCP",
-    description: "Connect Verlab to Claude or ChatGPT to bend niches and pull transcripts right from chat.",
-    href: "/app/mcp",
-    preview: <McpPreview />,
+    title: "Downloader",
+    description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
+    href: "/app/downloads",
+    preview: <DownloaderPreview />,
   },
 ] satisfies {
   title: string;

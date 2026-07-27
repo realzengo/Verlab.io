@@ -2,21 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/types";
 
-// There's no dedicated `user_assets` table -- this unifies the three real
+// There's no dedicated `user_assets` table -- this unifies the real
 // sources the app already writes to instead of introducing a new table
-// nothing else populates. `downloads` is filtered to format='mp4' only:
-// it can also hold format='mp3' (audio extractions), but there's no Audio
-// tab in the UI yet, so mp3 rows are intentionally left out for now rather
-// than mislabeled as video.
-const IMAGE_SELECT = "id, prompt, model, images, created_at";
-const VIDEO_SELECT = "id, title, source_url, platform, created_at";
+// nothing else populates. The Video tab intentionally has no source yet:
+// it's reserved for output from future video-generation tools, not the
+// `downloads` table (ingested/downloaded videos are a separate concern).
+//
+// `image_generations.images` holds raw base64 data URLs (up to 4K res,
+// multi-MB each as text) with no separate thumbnail column yet. Selecting
+// that column here for up to 40 rows produced multi-tens-of-MB JSON
+// responses -- slow to transfer/parse client-side, and large enough to hit
+// serverless response-size limits outright (the "Couldn't load your
+// library" error). `outputs` already records how many images each row has,
+// so the list can stay byte-light; actual image bytes are served lazily,
+// one at a time, from /api/library/image/[id]/[index].
+const IMAGE_SELECT = "id, prompt, model, outputs, created_at";
 const SOP_SELECT = "id, analysis, chosen_bend, created_at";
-
-function estimateBase64Bytes(dataUrl: string): number {
-  const base64 = dataUrl.split(",")[1] ?? "";
-  const padding = base64.match(/=+$/)?.[0].length ?? 0;
-  return Math.max(0, Math.round((base64.length * 3) / 4 - padding));
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -34,23 +35,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const sort = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
 
   const wantsImages = type === "all" || type === "image";
-  const wantsVideos = type === "all" || type === "video";
   const wantsSops = type === "all" || type === "sop";
 
-  // Capped well below the old 100: `image_generations.images` holds raw
-  // base64 data URLs (up to 4K res, multi-MB each as text) with no separate
-  // thumbnail column yet, so every row fetched here is pure payload weight
-  // on the Library grid's initial paint.
-  const [imagesResult, videosResult, sopsResult] = await Promise.all([
+  // Capped well below the old 100 to bound how many lazy image requests
+  // one Library page load can fan out into.
+  const [imagesResult, sopsResult] = await Promise.all([
     wantsImages
-      ? supabase.from("image_generations").select(IMAGE_SELECT).order("created_at", { ascending: false }).limit(40)
-      : Promise.resolve({ data: [] as never[], error: null }),
-    wantsVideos
       ? supabase
-          .from("downloads")
-          .select(VIDEO_SELECT)
-          .eq("status", "complete")
-          .eq("format", "mp4")
+          .from("image_generations")
+          .select(IMAGE_SELECT)
+          .eq("status", "completed")
           .order("created_at", { ascending: false })
           .limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),
@@ -59,7 +53,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       : Promise.resolve({ data: [] as never[], error: null }),
   ]);
 
-  for (const result of [imagesResult, videosResult, sopsResult]) {
+  for (const result of [imagesResult, sopsResult]) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
     }
@@ -68,35 +62,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const assets: LibraryAsset[] = [];
 
   for (const row of imagesResult.data ?? []) {
-    const images: string[] = Array.isArray(row.images) ? row.images : [];
-    images.forEach((image, index) => {
-      // `fileUrl` and `thumbnailUrl` would otherwise be the exact same
-      // multi-MB base64 string, doubling the response body for nothing --
-      // the client falls back to thumbnailUrl for downloads too.
+    for (let index = 0; index < row.outputs; index++) {
+      // Actual image bytes are fetched lazily by the client, one per asset,
+      // from this URL -- the list response never carries image data itself.
       assets.push({
         id: `image-${row.id}-${index}`,
         type: "image",
         title: row.prompt,
         fileUrl: null,
-        thumbnailUrl: image,
-        sizeBytes: estimateBase64Bytes(image),
+        thumbnailUrl: `/api/library/image/${row.id}/${index}`,
+        sizeBytes: null,
         category: row.model,
         createdAt: row.created_at,
       });
-    });
-  }
-
-  for (const row of videosResult.data ?? []) {
-    assets.push({
-      id: `video-${row.id}`,
-      type: "video",
-      title: row.title || row.source_url,
-      fileUrl: `/api/downloads/file/${row.id}`,
-      thumbnailUrl: null,
-      sizeBytes: null,
-      category: row.platform,
-      createdAt: row.created_at,
-    });
+    }
   }
 
   for (const row of sopsResult.data ?? []) {

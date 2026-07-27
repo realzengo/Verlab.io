@@ -4,6 +4,7 @@ import "@fontsource/open-sauce-one/500.css";
 import "@fontsource/open-sauce-one/600.css";
 import "@fontsource/open-sauce-one/700.css";
 import "@fontsource/open-sauce-one/800.css";
+import "@fontsource/open-sauce-one/900.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";

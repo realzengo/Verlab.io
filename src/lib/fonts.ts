@@ -1,0 +1,8 @@
+import localFont from "next/font/local";
+
+export const europaGrotesk = localFont({
+  src: "../fonts/EuropaGroteskSH-DemiBold.woff2",
+  weight: "700",
+  style: "normal",
+  display: "swap",
+});
