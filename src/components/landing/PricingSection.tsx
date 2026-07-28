@@ -6,7 +6,10 @@ import { PricingComparisonTable } from "@/components/pricing/PricingComparisonTa
 
 export async function PricingSection() {
   const supabase = await createClient();
-  const plans = await getPlanDefinitions(supabase);
+  const [plans, { data: { user } }] = await Promise.all([
+    getPlanDefinitions(supabase),
+    supabase.auth.getUser(),
+  ]);
 
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-28 sm:px-6 sm:pb-[90px] sm:pt-40 lg:px-8">
@@ -23,7 +26,7 @@ export async function PricingSection() {
       </div>
 
       <div className="mt-8 sm:mt-10">
-        <PricingTable plans={plans} ctaHref="/app" />
+        <PricingTable plans={plans} ctaHref="/app" authenticated={!!user} />
       </div>
 
       <div className="mt-8 overflow-x-auto sm:mt-12">

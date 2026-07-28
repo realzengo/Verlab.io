@@ -48,6 +48,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const [redeeming, setRedeeming] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -55,9 +56,24 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
 
   async function handleCheckout() {
     setIsCheckingOut(true);
+    setCheckoutError(null);
     try {
-      // Wire this up to your actual checkout/payment endpoint.
-    } finally {
+      const res = await fetch("/api/checkout/credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: selectedPack }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.url) {
+        setCheckoutError(data.error ?? "Could not start checkout");
+        setIsCheckingOut(false);
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch {
+      setCheckoutError("Could not start checkout. Please try again.");
       setIsCheckingOut(false);
     }
   }
@@ -256,6 +272,8 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
             <span className="text-sm text-subtle">Total due today</span>
             <span className="text-lg font-semibold tabular-nums text-heading">{activePack.price}</span>
           </div>
+
+          {checkoutError && <p className="mb-3 text-xs text-danger">{checkoutError}</p>}
 
           <div className="flex gap-3">
             <button
