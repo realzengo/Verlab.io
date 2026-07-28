@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Eye } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 
@@ -67,21 +68,22 @@ export function VideoMarqueeSection() {
   const track = [...VIDEOS, ...VIDEOS];
 
   return (
-    <section className="relative w-full overflow-hidden bg-surface pb-10 pt-8 sm:pb-16 sm:pt-12">
-      <div className="mb-5 flex flex-col items-center justify-center gap-2 sm:mb-8">
-        <span className="text-center text-2xl font-light tracking-tight text-heading sm:text-4xl">
-          Create Profitable <span className="font-black">Niches</span>
-        </span>
-        <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-1 animate-bounce text-subtle sm:mt-2">
-          <path d="M8 3v9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          <path d="M4 9L8 13L12 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-
+    <section className="relative w-full overflow-hidden bg-surface py-10 sm:py-16">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[420px] -translate-y-1/2 bg-[radial-gradient(ellipse_60%_100%_at_50%_50%,var(--color-accent),transparent_70%)] opacity-70"
       />
+
+      <div className="relative z-20 mb-2 pl-32 sm:mb-3 sm:pl-56">
+        <Image
+          src="/create-profitable-niches.png"
+          alt="Create profitable niches"
+          width={1500}
+          height={384}
+          className="h-auto w-[180px] sm:w-[250px]"
+          priority
+        />
+      </div>
 
       <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-surface to-transparent md:w-64" />
       <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-surface to-transparent md:w-64" />
