@@ -34,6 +34,14 @@ const SUPPORTED_PLATFORMS = [
 
 type PageView = "history" | "result";
 
+// referrerPolicy is a valid global HTML attribute (browsers apply it to
+// <video>'s resource fetch), but React's VideoHTMLAttributes type omits it —
+// spreading a separately-typed object sidesteps the excess-property check
+// that a literal `referrerPolicy="no-referrer"` prop would trigger.
+const VIDEO_REFERRER_POLICY: { referrerPolicy: React.HTMLAttributeReferrerPolicy } = {
+  referrerPolicy: "no-referrer",
+};
+
 const LANGUAGES = ["Original", "English", "Spanish", "Portuguese", "French"];
 
 // Simulated progress for the extraction popup: jumps quickly at first, then
@@ -476,10 +484,10 @@ export default function TranscriptsPage() {
                         key={activeRow.video_url}
                         src={activeRow.video_url}
                         poster={activeRow.cover_url || undefined}
-                        referrerPolicy="no-referrer"
                         controls
                         playsInline
                         className="h-full w-full object-cover"
+                        {...VIDEO_REFERRER_POLICY}
                       />
                     ) : activeRow.embed_url ? (
                       <iframe
