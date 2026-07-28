@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
-import { Check, CircleDot, Eye, Heart, MessageCircle, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { Check, CircleDot, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Gates a card's motion loop to when it actually scrolls into view, instead
@@ -71,9 +72,12 @@ function CardShell({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[2.5rem] bg-slate-50 p-2.5 shadow-sm">
-      <div className="relative flex h-[500px] flex-col overflow-hidden rounded-[2rem] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-        <div aria-hidden className="absolute inset-x-0 top-0 z-0 h-[65%] bg-gradient-to-b from-blue-500 to-white">
+    <div className="rounded-[1.25rem] bg-slate-50 p-2.5 shadow-sm">
+      <div className="relative flex h-[500px] flex-col overflow-hidden rounded-[1.25rem] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 z-0 h-[65%] rounded-t-[1.25rem] border-4 border-white bg-gradient-to-b from-blue-500 to-white"
+        >
           <div aria-hidden className="absolute inset-0" style={DOT_PATTERN} />
         </div>
 
@@ -297,10 +301,19 @@ function DocLine({
   );
 }
 
-/** Header status chip: "Analyzing" while the beam is still working through
- * the lines, crossfading to "Formula Extracted" once the last one resolves.
- * Fixed width + right-aligned so the text swap never shifts the header. */
-function StatusPill({ active }: { active: boolean }) {
+/** Header status chip: scanning label while the card is still working
+ * through its content, crossfading to a "done" label once resolved.
+ * Fixed width + right-aligned so the text swap never shifts the header.
+ * Used by Card 2's formula mockup ("Analyzing" → "Extracted", 7.2s loop). */
+function StatusPill({
+  active,
+  scanningText = "Analyzing",
+  doneText = "Extracted",
+}: {
+  active: boolean;
+  scanningText?: string;
+  doneText?: string;
+}) {
   return (
     <div className="relative h-4 w-[104px] shrink-0">
       <span
@@ -310,7 +323,7 @@ function StatusPill({ active }: { active: boolean }) {
         )}
       >
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
-        Analyzing
+        {scanningText}
       </span>
       <span
         className={cn(
@@ -321,7 +334,7 @@ function StatusPill({ active }: { active: boolean }) {
         <span className="flex h-3 w-3 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
           <Check className="h-2 w-2" strokeWidth={3.5} />
         </span>
-        Extracted
+        {doneText}
       </span>
     </div>
   );
@@ -366,102 +379,159 @@ function FormulaMockup({ active }: { active: boolean }) {
   );
 }
 
-/** Phase 1 (0-36%): the winning video, with its engagement numbers
- * beside it — the same proof-of-virality language as Step 1's card,
- * establishing this is the same hook, about to be rewritten. */
-function SourceVideoPhase({ active }: { active: boolean }) {
+function FolderPageLines() {
   return (
-    <div className={cn("absolute inset-0 flex items-center justify-center gap-2.5", active && "animate-bend-video")}>
-      <div className="relative h-[168px] w-[110px] overflow-hidden rounded-xl border border-white/40 shadow-xl">
-        <Image src="/hook-thumb-2.png" alt="" fill sizes="110px" className="object-cover" />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/40 to-transparent"
-        />
-        <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[7px] font-semibold text-white backdrop-blur-md">
-          <Eye className="h-2 w-2" />
-          2.6M
-        </span>
-        <span className="absolute inset-x-0 bottom-1.5 text-center text-[9px] font-extrabold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-          the hook
-        </span>
-      </div>
-      <div className="flex flex-col items-center gap-3">
-        <span className="flex flex-col items-center gap-0.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white shadow-md">
-            <Heart className="h-3 w-3 fill-white" />
-          </span>
-          <span className="text-[6.5px] font-bold text-slate-500">657K</span>
-        </span>
-        <span className="flex flex-col items-center gap-0.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white shadow-md">
-            <MessageCircle className="h-3 w-3" />
-          </span>
-          <span className="text-[6.5px] font-bold text-slate-500">233K</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** Phase 2 (32-66%): a beat between input and output — the pill names
- * what's happening to the video before the document backing it shows up. */
-function BendPillPhase({ active }: { active: boolean }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-500 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-white opacity-0 shadow-xl shadow-emerald-500/40",
-          active && "animate-bend-pill",
-        )}
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        Script Bend
-      </span>
-    </div>
-  );
-}
-
-const BEND_LINE_WIDTHS = [92, 100, 78, 88, 60] as const;
-
-/** Phase 3 (62-100%): the rewritten script resolves as a document — same
- * hook and structure, new topic — echoing Step 2's doc-card language so
- * the three steps read as one continuous pipeline. */
-function ScriptDocPhase({ active }: { active: boolean }) {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div
-        className={cn(
-          "w-5/6 overflow-hidden rounded-2xl bg-white p-4 opacity-0 shadow-xl ring-1 ring-slate-900/[0.04]",
-          active && "animate-bend-doc",
-        )}
-      >
-        <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2.5">
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-            <Sparkles className="h-2.5 w-2.5" />
-          </span>
-          <span className="text-[8px] font-extrabold uppercase tracking-wider text-slate-700">Script Bend</span>
+    <div className="box-border flex h-full w-full flex-col gap-1.25 rounded-[13px] bg-gradient-to-b from-[#f6f5fa] via-[#e4e2ef] to-[#d2d0e0] p-[10px_11px_8px] shadow-[0_4px_16px_rgba(0,0,0,0.30),_0_1px_4px_rgba(0,0,0,0.14)]">
+      <div className="h-1 w-full rounded-full bg-[#b6b4ca]" />
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="flex gap-1.25">
+          <div className="h-1 flex-1 rounded-full bg-[#b6b4ca]" />
+          <div className="h-1 flex-[0.6] rounded-full bg-[#b6b4ca] opacity-55" />
         </div>
-        <div className="mt-3 space-y-2">
-          {BEND_LINE_WIDTHS.map((width, i) => (
-            <div
+      ))}
+    </div>
+  );
+}
+
+function FolderBackSVG() {
+  return (
+    <svg viewBox="0 0 244 188" fill="none" className="block h-full w-full" style={{ overflow: "visible" }} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="folderBackGrad" x1="0" y1="0" x2="244" y2="188" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="35%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#1e3a8a" />
+        </linearGradient>
+        <linearGradient id="folderBackSheen" x1="0" y1="0" x2="0" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.055" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="244" height="188" rx="22" ry="22" fill="url(#folderBackGrad)" />
+      <rect x="0" y="0" width="244" height="90" rx="22" ry="22" fill="url(#folderBackSheen)" />
+    </svg>
+  );
+}
+
+const FOLDER_PAGES = [
+  {
+    closed: { rotate: -3.5, x: -38, y: 4 },
+    open: { rotate: -14, x: -84, y: -78 },
+    transition: { type: "spring" as const, duration: 0.58, bounce: 0.15, stiffness: 155, damping: 20 },
+    zIndex: 4,
+  },
+  {
+    closed: { rotate: 0, x: 0, y: 0 },
+    open: { rotate: 2, x: 2, y: -90 },
+    transition: { type: "spring" as const, duration: 0.53, bounce: 0.12, stiffness: 185, damping: 23 },
+    zIndex: 5,
+  },
+  {
+    closed: { rotate: 4, x: 42, y: 3 },
+    open: { rotate: 14, x: 84, y: -78 },
+    transition: { type: "spring" as const, duration: 0.56, bounce: 0.17, stiffness: 165, damping: 20 },
+    zIndex: 4,
+  },
+] as const;
+
+/** Payoff beat for "Bend & Dominate": hovering the card fans the pages out
+ * of the folder, standing in for the finished script your bent SOP
+ * produces. When the user isn't hovering, it also self-plays the same
+ * open/close beat every 5s so the card doesn't read as static while idle. */
+function FolderMockup({ active }: { active: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!active || hovered) return;
+    let closeTimeout: ReturnType<typeof setTimeout>;
+    const interval = setInterval(() => {
+      setAutoOpen(true);
+      closeTimeout = setTimeout(() => setAutoOpen(false), 1600);
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(closeTimeout);
+    };
+  }, [active, hovered]);
+
+  const isOpen = hovered || autoOpen;
+
+  return (
+    <div
+      aria-hidden
+      onMouseEnter={() => {
+        setHovered(true);
+        setAutoOpen(false);
+      }}
+      onMouseLeave={() => setHovered(false)}
+      className="relative h-[172px] w-[203px] select-none"
+    >
+      <div className="absolute left-0 top-0 h-[220px] w-[260px] origin-top-left scale-[0.78]">
+        <div className="relative h-full w-full animate-float-tiny">
+          {/* Folder back */}
+          <div className="absolute bottom-[12px] left-[16px] right-[16px] top-[16px] z-[2]">
+            <FolderBackSVG />
+          </div>
+
+          {/* Pages */}
+          {FOLDER_PAGES.map((p, i) => (
+            <motion.div
               key={i}
-              className={cn("h-2 rounded-full bg-slate-100 opacity-0", active && "animate-bend-doc-line")}
-              style={{ width: `${width}%`, animationDelay: active ? `${i * 0.22}s` : undefined }}
-            />
+              initial={p.closed}
+              animate={isOpen ? p.open : p.closed}
+              transition={p.transition}
+              className="absolute left-1/2 top-3.5 h-32 w-24 rounded-[13px]"
+              style={{ marginLeft: -48, zIndex: p.zIndex }}
+            >
+              <FolderPageLines />
+            </motion.div>
           ))}
+
+          {/* Front flap */}
+          <motion.div
+            animate={{ rotateX: isOpen ? -45 : 0 }}
+            transition={{ type: "spring", duration: 0.52, bounce: 0.18 }}
+            className="absolute bottom-[11px] left-[15px] right-[15px] z-[8] h-[132px]"
+            style={{ transformOrigin: "bottom center", overflow: "visible" }}
+          >
+            <svg
+              viewBox="0 0 210 150"
+              preserveAspectRatio="none"
+              className="block h-full w-full"
+              style={{ overflow: "visible", filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.25))" }}
+            >
+              <defs>
+                <linearGradient id="folderFlapGrad" x1="0" y1="22" x2="0" y2="150" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="rgba(147,197,253,0.55)" />
+                  <stop offset="28%" stopColor="rgba(96,165,250,0.70)" />
+                  <stop offset="62%" stopColor="rgba(37,99,235,0.85)" />
+                  <stop offset="100%" stopColor="rgba(30,58,138,0.96)" />
+                </linearGradient>
+                <linearGradient id="folderFlapEdge" x1="0" y1="0" x2="0" y2="150" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
+                  <stop offset="60%" stopColor="rgba(255,255,255,0.05)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M 14 0 L 64 0 Q 74 0 79 9 L 86 22 L 196 22 Q 210 22 210 36 L 210 136 Q 210 150 196 150 L 14 150 Q 0 150 0 136 L 0 14 Q 0 0 14 0 Z"
+                fill="url(#folderFlapGrad)"
+              />
+              <path
+                d="M 14 0 L 64 0 Q 74 0 79 9 L 86 22 L 196 22 Q 210 22 210 36"
+                fill="none"
+                stroke="url(#folderFlapEdge)"
+                strokeWidth="1.2"
+              />
+            </svg>
+            <div
+              className="pointer-events-none absolute left-0 top-[22px] h-[45%] w-[55%]"
+              style={{ background: "radial-gradient(ellipse at 18% 8%, rgba(255,255,255,0.14) 0%, transparent 70%)" }}
+            />
+          </motion.div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function GenerateMockup({ active }: { active: boolean }) {
-  return (
-    <div className="relative h-full w-full" aria-hidden>
-      <SourceVideoPhase active={active} />
-      <BendPillPhase active={active} />
-      <ScriptDocPhase active={active} />
     </div>
   );
 }
@@ -501,7 +571,7 @@ function StepThreeCard() {
         title="Bend & Dominate"
         description="Keep the psychology, swap the topic, and generate your non-competitive script."
       >
-        <GenerateMockup active={inView} />
+        <FolderMockup active={inView} />
       </CardShell>
     </div>
   );
@@ -509,10 +579,10 @@ function StepThreeCard() {
 
 export function VerlabProcess() {
   return (
-    <section className="w-full py-24">
+    <section className="w-full pb-14 pt-10 sm:pb-24 sm:pt-16">
       <div className="text-center">
         <span
-          className="relative mb-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)]"
+          className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
           style={{
             backgroundImage:
               "linear-gradient(160deg, #e2e8f0 0%, #94a3b8 10%, #334155 32%, #0b1220 52%, #1e293b 70%, #64748b 88%, #cbd5e1 100%)",
@@ -536,7 +606,7 @@ export function VerlabProcess() {
         </p>
       </div>
 
-      <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-8 px-8 sm:px-6 md:grid-cols-3 md:px-4">
+      <div className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-5 sm:mt-10 sm:gap-8 sm:px-6 md:grid-cols-3 md:px-4">
         <StepOneCard />
         <StepTwoCard />
         <StepThreeCard />

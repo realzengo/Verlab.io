@@ -5,7 +5,6 @@ import { Calendar, ChevronRight, Layers } from "lucide-react";
 import { Nav } from "@/components/landing/Nav";
 import { Footer } from "@/components/landing/Footer";
 import { LegalToc } from "@/components/legal/LegalToc";
-import { ReadingProgress } from "@/components/legal/ReadingProgress";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
 
 export type LegalSection = {
@@ -43,7 +42,6 @@ export function LegalPageLayout({
   return (
     <div className="flex min-h-screen flex-col bg-app">
       <Nav />
-      <ReadingProgress />
       <main className="flex-1">
         {/* Hero */}
         <div className="relative isolate overflow-hidden">

@@ -87,8 +87,8 @@ export default function Testimonial2() {
   const row3 = testimonials.slice(6, 9);
 
   return (
-    <div className="relative w-full py-20 overflow-hidden bg-white dark:bg-background text-neutral-900 dark:text-white">
-      <div className="max-w-7xl mx-auto px-4 text-center mb-12">
+    <div className="relative w-full py-12 sm:py-20 overflow-hidden bg-white dark:bg-background text-neutral-900 dark:text-white">
+      <div className="max-w-7xl mx-auto px-4 text-center mb-8 sm:mb-12">
         <span
           className="relative mb-8 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)]"
           style={{
@@ -119,7 +119,7 @@ export default function Testimonial2() {
         <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-white dark:from-black to-transparent z-20 pointer-events-none"></div>
 
         {/* Content Rows */}
-        <div className="relative z-10 flex flex-col gap-8 py-12 items-center justify-center overflow-hidden">
+        <div className="relative z-10 flex flex-col gap-5 py-8 sm:gap-8 sm:py-12 items-center justify-center overflow-hidden">
           {[row1, row2, row3].map((row, rowIndex) => (
             <motion.div
               key={rowIndex}
@@ -148,7 +148,7 @@ export default function Testimonial2() {
       {/* Modal */}
       <AnimatePresence>
         {selected && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}

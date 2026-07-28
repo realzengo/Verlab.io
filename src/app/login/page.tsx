@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Logo, LogoMark } from "@/components/ui/Logo";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
 const INPUT_CLASSES =
@@ -266,10 +265,6 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen w-full bg-app">
-      <div className="absolute right-4 top-4 z-10 lg:right-6 lg:top-6">
-        <ThemeToggle />
-      </div>
-
       <BrandPanel />
 
       <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-16 sm:px-8">

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowRight, BadgeCheck, Filter, Images, Play, Sparkles, Wand2 } from "lucide-react";
+import { ArrowDown, ArrowRight, BadgeCheck, Check, Filter, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function GlassCard({
@@ -175,7 +175,7 @@ function NicheBendCard() {
 
 export function AnimatedFeatureSection() {
   return (
-    <section className="my-10 md:my-16">
+    <section className="mt-10 mb-2 md:mt-16">
       <div className="relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-[28px] bg-[#6aa7dc] sm:h-[487px] sm:rounded-[24px]">
         {/* Background — z-0: deep-space gradient + an animated starfield texture on top of it */}
         <div
@@ -270,9 +270,11 @@ export function AnimatedFeatureSection() {
               <div className="min-w-0 text-left">
                 <div className="flex items-center gap-1 text-xs font-semibold text-white">
                   <span className="truncate">zex2d</span>
-                  <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#1d9bf0]" />
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#1d9bf0]">
+                    <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />
+                  </span>
                 </div>
-                <p className="text-[10px] text-white/70">480M subscribers &middot; 070 videos</p>
+                <p className="text-[10px] text-white/70">30M views &middot; 070 videos</p>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-1.5">

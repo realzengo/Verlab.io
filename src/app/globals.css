@@ -557,6 +557,20 @@ body {
     animation: float-soft 7s ease-in-out infinite;
   }
 
+  /* Barely-there idle bob for the VerlabProcess folder card — reads as
+     "alive" without competing with the open/close hover animation. */
+  @keyframes float-tiny {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+  .animate-float-tiny {
+    animation: float-tiny 5s ease-in-out infinite;
+  }
+
   @keyframes blob-drift-a {
     0%, 100% {
       transform: translate(-25%, -50%) scale(1);
@@ -770,95 +784,86 @@ body {
     animation: tag-pop 7.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
   }
 
-  /* Card 3: three phases crossfade through the same 8s loop — the source
-     video (0-36%) shrinks away into a "Script Bend" pill (32-66%), which
-     resolves into the rewritten script as a document (62-100%), echoing
-     Card 2's doc-card language. Each phase is a full-bleed absolutely
-     positioned layer, so only opacity/transform differ between them. */
-  @keyframes bend-video {
-    0%, 28% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-    36% {
-      opacity: 0;
-      transform: scale(0.85) translateY(-10px);
-    }
-    36.1%, 96% {
+  /* Card 3: a self-drawing growth curve pays off "Bend & Dominate" — the
+     view count climbing off the back of the bent script. The line
+     (graph-draw) and its gradient area (graph-fill) share one 6s clock so
+     the fill reveals left-to-right in lockstep with the stroke, both
+     drawing over the first 3s (ease-out, per the brief) before holding at
+     full for a beat. The arrowhead (graph-arrow) pops in right as the line
+     tip arrives rather than sitting there from frame one. All three fade
+     out together at the loop seam (matching this file's other cards) so
+     the reset back to a blank chart happens while invisible. */
+  @keyframes graph-draw {
+    0% {
+      stroke-dashoffset: 100;
       opacity: 0;
     }
-    100% {
+    3% {
       opacity: 1;
-      transform: scale(1) translateY(0);
+    }
+    50% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    88% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    96%, 100% {
+      stroke-dashoffset: 100;
+      opacity: 0;
     }
   }
-  .animate-bend-video {
-    animation: bend-video 8s ease-in-out infinite;
+  .animate-graph-draw {
+    animation: graph-draw 6s ease-out infinite;
   }
 
-  @keyframes bend-pill {
-    0%, 32% {
+  @keyframes graph-fill {
+    0% {
+      clip-path: inset(0 100% 0 0);
       opacity: 0;
-      transform: scale(0.6);
     }
-    40% {
+    3% {
       opacity: 1;
-      transform: scale(1.08);
     }
-    46%, 58% {
+    50% {
+      clip-path: inset(0 0% 0 0);
+      opacity: 1;
+    }
+    88% {
+      clip-path: inset(0 0% 0 0);
+      opacity: 1;
+    }
+    96%, 100% {
+      clip-path: inset(0 100% 0 0);
+      opacity: 0;
+    }
+  }
+  .animate-graph-fill {
+    animation: graph-fill 6s ease-out infinite;
+  }
+
+  @keyframes graph-arrow {
+    0%, 46% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+    56%, 88% {
       opacity: 1;
       transform: scale(1);
     }
-    66%, 100% {
+    96%, 100% {
       opacity: 0;
-      transform: scale(0.85);
+      transform: scale(0.4);
     }
   }
-  .animate-bend-pill {
-    animation: bend-pill 8s ease-in-out infinite;
-  }
-
-  @keyframes bend-doc {
-    0%, 62% {
-      opacity: 0;
-      transform: scale(0.92) translateY(8px);
-    }
-    72% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-    92%, 96% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(0.92) translateY(8px);
-    }
-  }
-  .animate-bend-doc {
-    animation: bend-doc 8s ease-in-out infinite;
-  }
-
-  @keyframes bend-doc-line {
-    0%, 70% {
-      opacity: 0;
-      transform: translateX(-4px);
-    }
-    78% {
-      opacity: 1;
-      transform: translateX(0);
-    }
-    92%, 96% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(-4px);
-    }
-  }
-  .animate-bend-doc-line {
-    animation: bend-doc-line 8s ease-out infinite;
+  .animate-graph-arrow {
+    animation: graph-arrow 6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    transform-origin: 0px 0px;
   }
 
   /* Floor and ceiling each sit at an opposite translateZ off the same
@@ -871,6 +876,38 @@ body {
   .tunnel .plane-left,
   .tunnel .plane-right {
     animation: tunnel-flow-x 2.4s linear infinite;
+  }
+
+  /* VideoMarqueeSection track — content is duplicated 2x, so a 50% shift
+     is a seamless one-loop scroll rather than needing to track full width. */
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  .animate-marquee {
+    animation: marquee 40s linear infinite;
+  }
+  /* Hover-to-pause has to live here, unlayered, alongside the animation
+     itself — a Tailwind `hover:[animation-play-state:paused]` utility sits
+     in `@layer utilities`, which always loses to this unlayered rule
+     regardless of specificity, so it would silently never apply. */
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+
+  /* ToolsMarqueeSection scrolls via JS (drag + autoplay) rather than a CSS
+     transform, so the native scrollbar is hidden but the element stays
+     scrollable by wheel/touch/trackpad and programmatic scrollLeft. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -1084,6 +1121,65 @@ body {
 .liquid-glass:active {
   transform: translateY(0) scale(0.98);
   transition-duration: 0.15s;
+}
+
+/* Comparison section "winner" card — a comet of light orbiting the border
+   (conic-gradient masked down to a 1.5px ring via mask-composite: exclude)
+   plus a slow-breathing ambient glow behind the card. Reads as the premium
+   pick against the plain "Other Tools" card next to it. */
+@property --winner-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.comparison-winner-border {
+  position: relative;
+}
+.comparison-winner-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--winner-border-angle),
+    transparent 0deg,
+    transparent 250deg,
+    rgba(147, 179, 255, 0.85) 295deg,
+    #335cff 325deg,
+    rgba(147, 179, 255, 0.85) 345deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .comparison-winner-border::before {
+    animation: winner-border-spin 4s linear infinite;
+  }
+  @keyframes winner-border-spin {
+    to {
+      --winner-border-angle: 360deg;
+    }
+  }
+
+  @keyframes winner-glow-breathe {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scale(0.97);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.015);
+    }
+  }
+  .animate-winner-glow {
+    animation: winner-glow-breathe 3.2s ease-in-out infinite;
+  }
 }
 
 /* Blue-tinted glass puck for an icon nested inside a .liquid-glass control */

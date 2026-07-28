@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
@@ -19,7 +20,13 @@ function systemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function applyTheme(resolved: ResolvedTheme) {
+// Dark mode is only available inside the authenticated app/admin shells —
+// the marketing site, login, and signup pages must always render light.
+function isThemedRoute(pathname: string) {
+  return pathname.startsWith("/app") || pathname.startsWith("/admin");
+}
+
+function applyDark(dark: boolean) {
   const root = document.documentElement;
 
   // Toggling `.dark` flips CSS variables consumed by many elements' own
@@ -30,7 +37,7 @@ function applyTheme(resolved: ResolvedTheme) {
   blocker.textContent = "*,*::before,*::after{transition:none!important;animation-duration:0s!important;}";
   document.head.appendChild(blocker);
 
-  root.classList.toggle("dark", resolved === "dark");
+  root.classList.toggle("dark", dark);
 
   // Force style recalculation under the blocker before removing it.
   window.getComputedStyle(blocker).opacity;
@@ -40,6 +47,7 @@ function applyTheme(resolved: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [theme, setThemeState] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
@@ -51,17 +59,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setThemeState(stored);
     setResolvedTheme(resolved);
-    applyTheme(resolved);
   }, []);
+
+  useEffect(() => {
+    applyDark(isThemedRoute(pathname ?? "") && resolvedTheme === "dark");
+  }, [pathname, resolvedTheme]);
 
   useEffect(() => {
     if (theme !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const resolved = systemTheme();
-      setResolvedTheme(resolved);
-      applyTheme(resolved);
-    };
+    const onChange = () => setResolvedTheme(systemTheme());
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
   }, [theme]);
@@ -69,9 +76,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback((next: Theme) => {
     localStorage.setItem(STORAGE_KEY, next);
     setThemeState(next);
-    const resolved = next === "system" ? systemTheme() : next;
-    setResolvedTheme(resolved);
-    applyTheme(resolved);
+    setResolvedTheme(next === "system" ? systemTheme() : next);
   }, []);
 
   const value = useMemo(() => ({ theme, resolvedTheme, setTheme }), [theme, resolvedTheme, setTheme]);

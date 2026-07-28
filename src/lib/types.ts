@@ -231,13 +231,6 @@ export interface ToolTileData {
   tone?: ToolTone;
 }
 
-export interface FeatureGridItem {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  badge?: string;
-}
-
 export type NicheBendPlatform = "youtube" | "tiktok";
 
 export type NicheBendVideoType = "shorts" | "long-form";

@@ -54,7 +54,7 @@ export function Nav() {
               href="/"
               className={cn(
                 "flex shrink-0 items-center transition-all duration-300 ease-in-out",
-                isScrolled ? "-ml-3 sm:-ml-4" : "ml-2 sm:ml-1",
+                isScrolled ? "-ml-3.5 sm:-ml-4" : "ml-0.5 sm:ml-1",
               )}
             >
               <Image
@@ -64,7 +64,7 @@ export function Nav() {
                 height={2768}
                 unoptimized
                 priority
-                className="h-10 w-auto dark:hidden sm:h-12"
+                className="h-9 w-auto dark:hidden sm:h-11"
               />
               <Image
                 src="/landing-header-logo-dark.png"
@@ -73,7 +73,7 @@ export function Nav() {
                 height={237}
                 unoptimized
                 priority
-                className="hidden h-10 w-auto dark:block sm:h-12"
+                className="hidden h-9 w-auto dark:block sm:h-11"
               />
             </Link>
 

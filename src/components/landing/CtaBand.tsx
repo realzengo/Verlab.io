@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 export function CtaBand() {
   return (
     <section className="w-full px-4 pb-2 pt-14 text-center sm:px-6 sm:pb-3 sm:pt-20 lg:px-8">
-      <div className="relative overflow-hidden rounded-card-lg px-5 py-24 text-white sm:px-6 sm:py-32">
+      <div className="relative overflow-hidden rounded-card-lg px-5 py-14 text-white sm:px-6 sm:py-32">
         <Image
           src="/cta-bg.png"
           alt=""

@@ -2,6 +2,18 @@ import type { FaqItem } from "@/lib/types";
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
+    id: "faq-niche-bending",
+    question: "What is Niche Bending?",
+    answer:
+      "It answers \"what is your channel about?\" Instead of copying an existing niche, it bends underexplored angles into one that's yours — helping you stand out and find a Blue Ocean instead of competing head-on.",
+  },
+  {
+    id: "faq-script-bending",
+    question: "What is Script Bending?",
+    answer:
+      "It answers \"what do I post?\" It bends proven script structures into videos for your niche, so AI can handle about 95% of the writing and you can scale a whole network of channels from it.",
+  },
+  {
     id: "faq-cancel",
     question: "Can I cancel my plan?",
     answer:

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "@fontsource/open-sauce-one/400.css";
 import "@fontsource/open-sauce-one/500.css";
 import "@fontsource/open-sauce-one/600.css";
@@ -14,6 +15,9 @@ import "./globals.css";
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
+    var path = window.location.pathname;
+    var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0;
+    if (!isAppRoute) return;
     var stored = localStorage.getItem("verlab-theme");
     var dark = stored === "dark" || (stored !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.classList.toggle("dark", dark);
@@ -34,10 +38,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

@@ -62,17 +62,17 @@ export function ComparisonSection() {
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
-        <h2 className="text-5xl font-black uppercase tracking-tight text-slate-900 md:text-6xl">
-          Before vs After Verlab
+        <h2 className="text-5xl font-medium tracking-tight text-slate-900 md:text-6xl">
+          Before VS After <span className="font-black">Verlab</span>
         </h2>
         <p className="mt-4 text-lg text-slate-500">
           Verlab doesn&apos;t replace your voice. It multiplies it.
         </p>
       </div>
 
-      <div className="mx-auto mt-16 grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-6 sm:mt-16 sm:gap-8 lg:grid-cols-2">
         {/* Card 1: Other Tools */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-10 shadow-sm md:p-14">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-10 md:p-14">
           <div className="pointer-events-none absolute right-0 top-0 -z-10 h-full w-2/3 opacity-40">
             <IntersectingCirclesPattern dotClassName="fill-slate-400 stroke-none" />
           </div>
@@ -97,7 +97,11 @@ export function ComparisonSection() {
         </div>
 
         {/* Card 2: With Verlab */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] md:p-14">
+        <div className="comparison-winner-border relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:p-10 md:p-14">
+          <div
+            aria-hidden
+            className="animate-winner-glow pointer-events-none absolute -inset-4 -z-20 rounded-[2rem] bg-blue-500/25 blur-2xl"
+          />
           <div className="pointer-events-none absolute right-0 top-0 -z-10 h-full w-2/3 opacity-40">
             <IntersectingCirclesPattern dotClassName="fill-blue-500 stroke-none drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
           </div>
@@ -125,7 +129,7 @@ export function ComparisonSection() {
         </div>
       </div>
 
-      <div className="mt-16 text-center">
+      <div className="mt-10 text-center sm:mt-16">
         <button
           type="button"
           className={cn(
