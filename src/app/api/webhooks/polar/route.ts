@@ -3,7 +3,7 @@ import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks"
 import type { Order } from "@polar-sh/sdk/models/components/order.js";
 import type { Subscription } from "@polar-sh/sdk/models/components/subscription.js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { grantCredits } from "@/lib/server/credits";
+import { grantCredits, deductCredits, getUserCredits } from "@/lib/server/credits";
 import { findCreditPackByProductId, findSubscriptionPlanByProductId } from "@/lib/config/polar";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -66,9 +66,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       case "order.paid":
         await handleOrderPaid(admin, event.data);
         break;
+      case "order.refunded":
+        await handleOrderRefunded(admin, event.data);
+        break;
       case "subscription.created":
       case "subscription.active":
       case "subscription.updated":
+      case "subscription.past_due":
+      case "subscription.uncanceled":
+        // All mirror subscription.status verbatim onto profiles, so any
+        // lifecycle event that doesn't need bespoke handling (unlike
+        // .revoked below, which additionally downgrades the plan) can share
+        // this one path -- proxy.ts's paywall gate reads subscription_status
+        // + subscription_current_period_end off the result to decide access,
+        // including the past_due grace window.
         await syncSubscriptionState(admin, event.data);
         break;
       case "subscription.canceled":
@@ -117,6 +128,37 @@ async function handleOrderPaid(admin: AdminClient, order: Order) {
   const pack = findCreditPackByProductId(order.productId);
   if (!pack) return;
   await grantCredits(userId, pack.credits, "Credit top-up", `polar.topup.${pack.packId}`);
+}
+
+/**
+ * Claws back credits when a one-time top-up order is refunded (in full or in
+ * part -- refundedAmount/totalAmount gives the fraction). Floored at the
+ * user's current balance rather than throwing InsufficientCreditsError, so a
+ * refund on already-spent credits claws back whatever's left instead of
+ * failing the whole webhook (Polar retries on non-2xx, which would just
+ * redeliver the same unsatisfiable deduction forever).
+ *
+ * Deliberately does NOT touch subscription_status for subscription orders --
+ * that's driven entirely by Polar's own subscription.* lifecycle events (see
+ * the switch above), so refund handling and subscription-state handling
+ * never race to set the same field from two different code paths.
+ */
+async function handleOrderRefunded(admin: AdminClient, order: Order) {
+  const userId = order.customer.externalId;
+  if (!userId || !order.productId || order.subscriptionId) return;
+
+  const pack = findCreditPackByProductId(order.productId);
+  if (!pack) return;
+
+  const refundFraction = order.totalAmount > 0 ? order.refundedAmount / order.totalAmount : 1;
+  const creditsToClaw = Math.round(pack.credits * Math.min(1, Math.max(0, refundFraction)));
+  if (creditsToClaw <= 0) return;
+
+  const currentBalance = await getUserCredits(userId);
+  const actualClaw = Math.min(creditsToClaw, currentBalance);
+  if (actualClaw <= 0) return;
+
+  await deductCredits(userId, actualClaw, "Refund clawback", `polar.refund.${pack.packId}`);
 }
 
 async function syncSubscriptionState(admin: AdminClient, subscription: Subscription) {
