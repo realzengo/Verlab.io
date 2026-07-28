@@ -10,11 +10,11 @@ export function Hero() {
       <div className="relative flex w-full justify-center">
         <div
           aria-hidden
-          className="pointer-events-none absolute left-0 top-1/2 -z-10 h-64 w-1/2 -translate-x-1/4 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
+          className="animate-blob-a pointer-events-none absolute left-0 top-1/2 -z-10 h-64 w-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-1/2 -z-10 h-64 w-1/2 translate-x-1/4 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
+          className="animate-blob-b pointer-events-none absolute right-0 top-1/2 -z-10 h-64 w-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl md:h-80 md:w-80"
         />
 
         <h1 className="relative max-w-6xl text-[26px] font-bold leading-[1.15] tracking-[-0.5px] text-heading sm:text-[72px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[84px]">

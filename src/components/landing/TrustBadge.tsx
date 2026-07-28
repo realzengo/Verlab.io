@@ -2,7 +2,7 @@ import { Star } from "lucide-react";
 
 export function TrustBadge() {
   return (
-    <div className="mb-5 inline-flex items-center justify-center rounded-full border border-hairline bg-surface px-2 py-0.5 sm:px-2.5 sm:py-1 md:mb-8">
+    <div className="mb-8 inline-flex items-center justify-center rounded-full border border-hairline bg-surface px-2 py-0.5 sm:px-2.5 sm:py-1 md:mb-12">
       <span className="inline-flex items-center">
         <span className="inline-flex gap-0.5">
           {Array.from({ length: 5 }).map((_, i) => (

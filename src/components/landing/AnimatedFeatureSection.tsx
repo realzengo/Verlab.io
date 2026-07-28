@@ -11,16 +11,18 @@ function GlassCard({
   scale,
   tilt,
   className,
+  floatDelay = 0,
   children,
 }: {
   position: string;
   scale: string;
   tilt: string;
   className?: string;
+  floatDelay?: number;
   children: ReactNode;
 }) {
   return (
-    <div className={cn("absolute", position, scale)}>
+    <div className={cn("absolute animate-float", position, scale)} style={{ animationDelay: `${floatDelay}s` }}>
       <div className={tilt}>
         <div
           className={cn(
@@ -245,6 +247,7 @@ export function AnimatedFeatureSection() {
             scale="origin-top-left scale-[0.34] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(-8deg)] sm:[transform:perspective(1000px)_rotateY(10deg)_rotateX(4deg)]"
             className="w-[270px]"
+            floatDelay={0}
           >
             <NicheBendCard />
           </GlassCard>
@@ -254,6 +257,7 @@ export function AnimatedFeatureSection() {
             scale="origin-top-right sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
             tilt="[transform:perspective(1000px)_rotateY(-10deg)_rotateX(4deg)]"
             className="w-[270px]"
+            floatDelay={1.4}
           >
             <div className="flex items-center gap-2">
               <Image
@@ -298,6 +302,7 @@ export function AnimatedFeatureSection() {
             scale="origin-bottom-right scale-[0.42] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(7deg)] sm:[transform:perspective(1000px)_rotateY(-6deg)_rotateX(4deg)]"
             className="w-[270px]"
+            floatDelay={2.8}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-white">

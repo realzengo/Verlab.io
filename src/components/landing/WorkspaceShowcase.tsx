@@ -1,14 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Compass, Library, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { label: "Niche Bending", icon: Wand2, active: true },
-  { label: "Niche Finder", icon: Compass, active: false },
-  { label: "SOP Builder", icon: ClipboardList, active: false },
-  { label: "Library", icon: Library, active: false },
+  { label: "Niche Bending", icon: Wand2 },
+  { label: "Niche Finder", icon: Compass },
+  { label: "SOP Builder", icon: ClipboardList },
+  { label: "Library", icon: Library },
 ];
 
 export function WorkspaceShowcase() {
+  const [activeTab, setActiveTab] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setActiveTab((v) => (v + 1) % TABS.length), 2600);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <section className="mx-auto max-w-6xl px-4 pt-4 pb-14 sm:px-6 sm:pt-5 sm:pb-[90px] lg:px-8">
       <div className="mx-auto mb-8 max-w-xl text-center sm:mb-10">
@@ -22,20 +33,32 @@ export function WorkspaceShowcase() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card md:min-h-[420px] md:grid-cols-[230px_1fr]">
+      <div className="grid grid-cols-1 overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-shadow duration-300 hover:shadow-card-hover md:min-h-[420px] md:grid-cols-[230px_1fr]">
         <div className="border-b border-hairline bg-app p-4 md:border-b-0 md:border-r md:p-[18px]">
-          {TABS.map((tab) => (
-            <div
-              key={tab.label}
-              className={cn(
-                "mb-1 flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-body",
-                tab.active && "bg-accent font-semibold text-primary"
-              )}
-            >
-              <tab.icon className="h-4 w-4" strokeWidth={1.8} />
-              {tab.label}
-            </div>
-          ))}
+          {TABS.map((tab, i) => {
+            const active = i === activeTab;
+            return (
+              <button
+                key={tab.label}
+                type="button"
+                onClick={() => setActiveTab(i)}
+                className={cn(
+                  "relative mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-sm font-medium text-body transition-colors duration-300",
+                  active && "font-semibold text-primary"
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="workspace-tab-highlight"
+                    className="absolute inset-0 rounded-[10px] bg-accent"
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  />
+                )}
+                <tab.icon className="relative z-10 h-4 w-4" strokeWidth={1.8} />
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            );
+          })}
 
           <div className="mt-3.5 rounded-xl border border-hairline bg-surface p-3">
             <h5 className="text-[13px] font-bold text-heading">Momentum tracking</h5>
@@ -54,8 +77,9 @@ export function WorkspaceShowcase() {
         <div className="bg-gradient-to-b from-surface to-app p-4 sm:p-[22px]">
           <div className="mb-4 flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-between">
             <span className="text-[13px] font-semibold text-body sm:text-sm">Medical Malpractice → Corporate Fraud — bend preview</span>
-            <span className="shrink-0 rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-white shadow-blue">
-              Bend it
+            <span className="relative shrink-0 overflow-hidden rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-white shadow-blue">
+              <span className="absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer-sweep" />
+              <span className="relative">Bend it</span>
             </span>
           </div>
 
@@ -63,9 +87,18 @@ export function WorkspaceShowcase() {
             <span className="absolute left-3 top-3 rounded-full bg-white/16 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
               ● Hook · 0:03
             </span>
-            <div className="absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center text-[16px] font-extrabold leading-[1.2] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.5)] sm:text-[19px] sm:leading-[1.15]">
-              The trade that erased <span className="text-[#ffe600]">a nation&rsquo;s pension fund</span>
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, scale: 1.03 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-1/2 top-1/2 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center text-[16px] font-extrabold leading-[1.2] text-white [text-shadow:0_2px_8px_rgba(0,0,0,.5)] sm:text-[19px] sm:leading-[1.15]"
+              >
+                The trade that erased <span className="text-[#ffe600]">a nation&rsquo;s pension fund</span>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div className="mt-4 rounded-xl border border-hairline bg-surface p-3 sm:mt-[18px]">

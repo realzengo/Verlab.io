@@ -1,12 +1,13 @@
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
-import { LoopSteps } from "@/components/landing/LoopSteps";
+import { VerlabProcess } from "@/components/landing/VerlabProcess";
 import { WorkspaceShowcase } from "@/components/landing/WorkspaceShowcase";
 import { AnimatedFeatureSection } from "@/components/landing/AnimatedFeatureSection";
 import { FeatureGrid } from "@/components/landing/FeatureGrid";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { CtaBand } from "@/components/landing/CtaBand";
 import { Faq } from "@/components/landing/Faq";
+import { ComparisonSection } from "@/components/landing/ComparisonSection";
 import { Footer } from "@/components/landing/Footer";
 
 export default function Home() {
@@ -15,12 +16,13 @@ export default function Home() {
       <Nav />
       <main className="flex-1">
         <Hero />
-        <LoopSteps />
+        <VerlabProcess />
         <WorkspaceShowcase />
         <AnimatedFeatureSection />
         <FeatureGrid />
 
         <Testimonials />
+        <ComparisonSection />
         <Faq />
         <CtaBand />
       </main>

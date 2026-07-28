@@ -7,21 +7,21 @@ export function CtaBand() {
     <section className="w-full px-4 pb-2 pt-14 text-center sm:px-6 sm:pb-3 sm:pt-20 lg:px-8">
       <div className="relative overflow-hidden rounded-card-lg px-5 py-24 text-white sm:px-6 sm:py-32">
         <Image
-          src="/cta-bg.jpg?v=2"
+          src="/cta-bg.png"
           alt=""
           fill
           aria-hidden
           sizes="(min-width: 1024px) 1024px, 100vw"
-          className="object-cover"
+          className="object-cover object-bottom"
           unoptimized
         />
         <div aria-hidden className="absolute inset-0 bg-black/30" />
         <div className="relative">
           <h2 className="text-[26px] font-bold leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
-            Start bending viral niches today
+            Ready to Get Started?
           </h2>
           <p className="mt-3 text-base text-white/80 sm:text-[17px]">
-            Free to try — 5 transcripts a day, no card. Upgrade any time from $10/mo.
+            Join thousands of satisfied customers and transform your workflow today.
           </p>
           <Link
             href="/app"
