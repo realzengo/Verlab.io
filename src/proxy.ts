@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminEmail } from "@/lib/server/admin";
 
@@ -8,7 +8,8 @@ import { isAdminEmail } from "@/lib/server/admin";
 const PAST_DUE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  let pendingCookies: { name: string; value: string; options?: CookieOptions }[] = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,10 +21,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
+          pendingCookies = cookiesToSet;
         },
       },
     }
@@ -35,32 +33,33 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Single place responses get built, so a refreshed session's cookies (set
+  // via the Supabase client above) always ride along -- including on
+  // redirects, which the previous per-branch NextResponse.redirect() calls
+  // would otherwise drop.
+  function buildResponse(redirectTo?: URL) {
+    const res = redirectTo ? NextResponse.redirect(redirectTo) : NextResponse.next({ request: { headers: requestHeaders } });
+    pendingCookies.forEach(({ name, value, options }) => res.cookies.set(name, value, options ?? {}));
+    return res;
+  }
+
   if (pathname.startsWith("/checkout") && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
-    return NextResponse.redirect(loginUrl);
+    return buildResponse(loginUrl);
   }
 
   if (pathname.startsWith("/app")) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return buildResponse(loginUrl);
     }
 
-    // Deliberately NOT checked for /checkout -- that's the Polar redirect
-    // target right after payment, before the webhook has necessarily landed.
-    // It polls the DB itself (see /checkout/success) and only hands off into
-    // /app once subscription_status/credits actually reflect the payment, so
-    // this gate can stay strict without racing the webhook.
-    //
-    // Also not checked for /app/settings -- a lapsed/past-grace subscriber
-    // still needs to reach Subscription/Payment Method to fix their card or
-    // resume (see billing/portal route) or view Credit History. Its shared
-    // tabbed layout (settings/layout.tsx) links all five tabs together, so
-    // this is scoped to the whole settings tree, not just /subscription --
-    // otherwise the other tabs would look broken (click -> bounced to
-    // /pricing). None of the actual paid tools live under /app/settings.
+    // Not checked for /app/settings -- a lapsed/past-grace subscriber still
+    // needs to reach Subscription/Payment Method to fix their card or resume
+    // (see billing/portal route) or view Credit History. None of the actual
+    // paid tools live under /app/settings.
     if (!isAdminEmail(user.email) && !pathname.startsWith("/app/settings")) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -82,8 +81,12 @@ export async function proxy(request: NextRequest) {
         profile?.subscription_status === "trialing" ||
         isWithinPastDueGrace;
 
+      // No redirect: the dashboard itself still renders (blurred, inert,
+      // with a paywall modal on top -- see AppShell.tsx) instead of bouncing
+      // straight to /pricing. This header is how that server-rendered layout
+      // finds out, since middleware and the layout run in separate contexts.
       if (!hasActiveSubscription) {
-        return NextResponse.redirect(new URL("/pricing", request.url));
+        requestHeaders.set("x-paywalled", "1");
       }
     }
   }
@@ -92,18 +95,18 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return buildResponse(loginUrl);
     }
     if (!isAdminEmail(user.email)) {
-      return NextResponse.redirect(new URL("/app", request.url));
+      return buildResponse(new URL("/app", request.url));
     }
   }
 
   if ((pathname === "/login" || pathname === "/signup") && user) {
-    return NextResponse.redirect(new URL("/app", request.url));
+    return buildResponse(new URL("/app", request.url));
   }
 
-  return response;
+  return buildResponse();
 }
 
 export const config = {
