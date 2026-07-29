@@ -1,20 +1,20 @@
-import { google } from "@ai-sdk/google";
+import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject, generateText, type ModelMessage } from "ai";
 import { z } from "zod";
-import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "./gemini-client";
+import { CLAUDE_MAX_OUTPUT_TOKENS, anthropicModel } from "./anthropic-client";
 
 export class NicheReportAiError extends Error {}
 
-// Mirrors niche-trend-ai.ts's two-pass grounded-research pattern (Gemini
-// can't combine Google Search grounding with structured output in one call)
-// but personalized: the research prompt itself is built from the creator's
-// form answers instead of running generically.
+// Runs entirely on Claude/Anthropic (not Gemini) -- Claude's native
+// web_search tool gives the same live-grounding capability Gemini's
+// googleSearch tool did, on billing that's already working. Still two
+// passes (research-with-search, then a separate schema-extraction call)
+// since generateObject doesn't accept tools -- same reason niche-trend-ai.ts
+// splits its Gemini calls the same way.
 const GROUNDED_SYSTEM_PROMPT = `You are Verlab's niche research analyst. You track currently-trending faceless short-form video niches across TikTok and YouTube (Shorts and long-form). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
 
-// Used only when the grounded pass fails (e.g. Google Search grounding has a
-// much tighter quota than plain generation, so it's the one that runs out
-// first) -- same personality, but explicitly told not to claim live
-// verification it doesn't have.
+// Used only when the grounded pass fails -- same personality, but
+// explicitly told not to claim live verification it doesn't have.
 const FALLBACK_SYSTEM_PROMPT = `You are Verlab's niche research analyst. Live web search is temporarily unavailable, so you're working from your own training knowledge of faceless short-form video niches on TikTok and YouTube (Shorts and long-form) instead of real-time search. Be upfront about that limitation in tone -- describe niches as durable/growing rather than claiming anything is happening "right now," and don't fabricate precise view counts, only give plausible, clearly-approximate figures. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
 
 const SampleVideoSchema = z.object({ title: z.string(), views: z.string() });
@@ -56,7 +56,7 @@ export interface NicheFinderAnswers {
 export interface NicheReportResult {
   niches: NicheReportEntry[];
   // false when the grounded (live web search) pass failed and this fell
-  // back to Gemini's own training knowledge instead -- the widget shows a
+  // back to Claude's own training knowledge instead -- the widget shows a
   // notice in that case rather than silently presenting stale info as live.
   live: boolean;
 }
@@ -64,7 +64,7 @@ export interface NicheReportResult {
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheReportAiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
-  throw new NicheReportAiError(`Gemini request failed: ${message}`);
+  throw new NicheReportAiError(`Claude request failed: ${message}`);
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
@@ -114,13 +114,13 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
 
   const { text: researchText } = await withTimeout(
     generateText({
-      model: geminiModel,
+      model: anthropicModel,
       system: GROUNDED_SYSTEM_PROMPT,
       messages,
-      tools: { google_search: google.tools.googleSearch({}) },
+      tools: { web_search: anthropic.tools.webSearch_20260209({ maxUses: 8 }) },
     }),
     200_000,
-    `Gemini took too long to respond (over 200s).`
+    `Claude took too long to respond (over 200s).`
   );
 
   const extractionPrompt = `Based on your research above, structure every niche you found into the required format: name, platform (youtube/tiktok/both), category, description, whyForYou (tie it directly to this specific creator's answers, even for niches you included as wildcards outside their stated interests), angle (one concrete starter video idea respecting their format/production-style/budget answers), momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
@@ -133,23 +133,21 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
 
   const { object } = await withTimeout(
     generateObject({
-      model: geminiModel,
+      model: anthropicModel,
       system: GROUNDED_SYSTEM_PROMPT,
       messages: messagesWithExtraction,
       schema: NicheReportSchema,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: Math.min(4000, CLAUDE_MAX_OUTPUT_TOKENS),
     }),
     120_000,
-    `Gemini took too long to respond (over 120s).`
+    `Claude took too long to respond (over 120s).`
   );
   return object.niches;
 }
 
 // No search tool involved -- a single structured-output call straight from
-// Gemini's training knowledge. Deliberately cheaper (one call, not two) as
-// well as more resilient: Google Search grounding has its own, much
-// tighter quota separate from plain generation, so this path can still
-// succeed even when that quota is exhausted.
+// Claude's training knowledge. Cheaper (one call, not two) and a safety net
+// if the web_search tool itself has a transient issue.
 async function researchViralNichesFallback(answers: NicheFinderAnswers): Promise<NicheReportEntry[]> {
   const prompt = `Live web search is unavailable right now. From your own knowledge, name 5-7 faceless short-form video niches on ${PLATFORM_LABEL[answers.platform]} that have shown durable, real growth (not necessarily breaking news-fresh, but genuinely popular niches you're confident about).
 
@@ -160,14 +158,14 @@ Weight your picks toward ones that plausibly fit THIS creator's interests, backg
 
   const { object } = await withTimeout(
     generateObject({
-      model: geminiModel,
+      model: anthropicModel,
       system: FALLBACK_SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
       schema: NicheReportSchema,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: Math.min(4000, CLAUDE_MAX_OUTPUT_TOKENS),
     }),
     120_000,
-    `Gemini took too long to respond (over 120s).`
+    `Claude took too long to respond (over 120s).`
   );
   return object.niches;
 }
@@ -177,7 +175,7 @@ export async function researchViralNiches(answers: NicheFinderAnswers): Promise<
     const niches = await researchViralNichesGrounded(answers);
     return { niches, live: true };
   } catch (groundedError) {
-    console.error("[niche-report-ai] grounded research failed, falling back to non-grounded Gemini:", groundedError);
+    console.error("[niche-report-ai] grounded research failed, falling back to non-grounded Claude:", groundedError);
     try {
       const niches = await researchViralNichesFallback(answers);
       return { niches, live: false };
