@@ -2,17 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { CLAUDE_MAX_OUTPUT_TOKENS, nicheBendModel } from "@/lib/server/cloudflare-client";
+import { OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "@/lib/server/openrouter-client";
 import type { TranscriptLine } from "@/lib/types";
 
 const TranslateSchema = z.object({
   lines: z.array(z.string()),
 });
 
-// Kept small: the Cloudflare model is more likely to return exactly one
+// Kept small: smaller batches are more likely to return exactly one
 // translated line per input line — and thus pass the count check below —
-// when asked to translate 20 lines at a time instead of an entire transcript
-// in one JSON array.
+// than asking for an entire transcript in one JSON array.
 const BATCH_SIZE = 20;
 const MAX_ATTEMPTS = 2;
 
@@ -21,9 +20,9 @@ async function translateBatch(texts: string[], targetLanguage: string): Promise<
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const { object } = await generateObject({
-        model: nicheBendModel,
+        model: openrouterInstructModel,
         schema: TranslateSchema,
-        maxOutputTokens: Math.min(8000, CLAUDE_MAX_OUTPUT_TOKENS),
+        maxOutputTokens: Math.min(8000, OPENROUTER_MAX_OUTPUT_TOKENS),
         system: `You translate short-form video caption lines into ${targetLanguage}. Return exactly one translated string per input line, in the same order, with no commentary. Keep translations concise and natural enough to read as on-screen captions.`,
         prompt: JSON.stringify(texts),
       });

@@ -1,16 +1,14 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject, generateText, type ModelMessage } from "ai";
 import { z } from "zod";
-import { CLAUDE_MAX_OUTPUT_TOKENS, anthropicModel } from "./anthropic-client";
+import { OPENROUTER_MAX_OUTPUT_TOKENS, nicheTrendResearchModel, openrouterInstructModel } from "./openrouter-client";
 
 export class NicheReportAiError extends Error {}
 
-// Runs entirely on Claude/Anthropic (not Gemini) -- Claude's native
-// web_search tool gives the same live-grounding capability Gemini's
-// googleSearch tool did, on billing that's already working. Still two
-// passes (research-with-search, then a separate schema-extraction call)
-// since generateObject doesn't accept tools -- same reason niche-trend-ai.ts
-// splits its Gemini calls the same way.
+// Runs entirely on OpenRouter: Perplexity's Sonar model for the grounded
+// (live web search) research pass -- natively search-grounded, same as
+// niche-trend-ai.ts's cron -- then a plain instruct model to shape that
+// research into the schema, since Sonar isn't a reliable structured-output
+// model itself.
 const GROUNDED_SYSTEM_PROMPT = `You are Verlab's niche research analyst. You track currently-trending faceless short-form video niches across TikTok and YouTube (Shorts and long-form). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
 
 // Used only when the grounded pass fails -- same personality, but
@@ -56,15 +54,15 @@ export interface NicheFinderAnswers {
 export interface NicheReportResult {
   niches: NicheReportEntry[];
   // false when the grounded (live web search) pass failed and this fell
-  // back to Claude's own training knowledge instead -- the widget shows a
-  // notice in that case rather than silently presenting stale info as live.
+  // back to training knowledge instead -- the widget shows a notice in that
+  // case rather than silently presenting stale info as live.
   live: boolean;
 }
 
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheReportAiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
-  throw new NicheReportAiError(`Claude request failed: ${message}`);
+  throw new NicheReportAiError(`OpenRouter request failed: ${message}`);
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
@@ -114,13 +112,12 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
 
   const { text: researchText } = await withTimeout(
     generateText({
-      model: anthropicModel,
+      model: nicheTrendResearchModel,
       system: GROUNDED_SYSTEM_PROMPT,
       messages,
-      tools: { web_search: anthropic.tools.webSearch_20260209({ maxUses: 8 }) },
     }),
     200_000,
-    `Claude took too long to respond (over 200s).`
+    `OpenRouter took too long to respond (over 200s).`
   );
 
   const extractionPrompt = `Based on your research above, structure every niche you found into the required format: name, platform (youtube/tiktok/both), category, description, whyForYou (tie it directly to this specific creator's answers, even for niches you included as wildcards outside their stated interests), angle (one concrete starter video idea respecting their format/production-style/budget answers), momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
@@ -133,21 +130,21 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
 
   const { object } = await withTimeout(
     generateObject({
-      model: anthropicModel,
+      model: openrouterInstructModel,
       system: GROUNDED_SYSTEM_PROMPT,
       messages: messagesWithExtraction,
       schema: NicheReportSchema,
-      maxOutputTokens: Math.min(4000, CLAUDE_MAX_OUTPUT_TOKENS),
+      maxOutputTokens: Math.min(4000, OPENROUTER_MAX_OUTPUT_TOKENS),
     }),
     120_000,
-    `Claude took too long to respond (over 120s).`
+    `OpenRouter took too long to respond (over 120s).`
   );
   return object.niches;
 }
 
-// No search tool involved -- a single structured-output call straight from
-// Claude's training knowledge. Cheaper (one call, not two) and a safety net
-// if the web_search tool itself has a transient issue.
+// No search model involved -- a single structured-output call straight from
+// the instruct model's training knowledge. Cheaper (one call, not two) and
+// a safety net if the research pass itself has a transient issue.
 async function researchViralNichesFallback(answers: NicheFinderAnswers): Promise<NicheReportEntry[]> {
   const prompt = `Live web search is unavailable right now. From your own knowledge, name 5-7 faceless short-form video niches on ${PLATFORM_LABEL[answers.platform]} that have shown durable, real growth (not necessarily breaking news-fresh, but genuinely popular niches you're confident about).
 
@@ -158,14 +155,14 @@ Weight your picks toward ones that plausibly fit THIS creator's interests, backg
 
   const { object } = await withTimeout(
     generateObject({
-      model: anthropicModel,
+      model: openrouterInstructModel,
       system: FALLBACK_SYSTEM_PROMPT,
       messages: [{ role: "user", content: prompt }],
       schema: NicheReportSchema,
-      maxOutputTokens: Math.min(4000, CLAUDE_MAX_OUTPUT_TOKENS),
+      maxOutputTokens: Math.min(4000, OPENROUTER_MAX_OUTPUT_TOKENS),
     }),
     120_000,
-    `Claude took too long to respond (over 120s).`
+    `OpenRouter took too long to respond (over 120s).`
   );
   return object.niches;
 }
@@ -175,7 +172,7 @@ export async function researchViralNiches(answers: NicheFinderAnswers): Promise<
     const niches = await researchViralNichesGrounded(answers);
     return { niches, live: true };
   } catch (groundedError) {
-    console.error("[niche-report-ai] grounded research failed, falling back to non-grounded Claude:", groundedError);
+    console.error("[niche-report-ai] grounded research failed, falling back to non-grounded OpenRouter call:", groundedError);
     try {
       const niches = await researchViralNichesFallback(answers);
       return { niches, live: false };

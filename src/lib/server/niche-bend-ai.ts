@@ -1,7 +1,7 @@
 import { generateObject, type ModelMessage } from "ai";
 import { z } from "zod";
 import { ApifyScraperError, scrapeChannelVideos } from "./apify-client";
-import { CLAUDE_MAX_OUTPUT_TOKENS, nicheBendModel } from "./cloudflare-client";
+import { OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "./openrouter-client";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
@@ -18,7 +18,7 @@ const SYSTEM_PROMPT = `You are Verlab's niche-bending strategist: an expert shor
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheBendAiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
-  throw new NicheBendAiError(`Claude request failed: ${message}`);
+  throw new NicheBendAiError(`OpenRouter request failed: ${message}`);
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
@@ -42,14 +42,14 @@ async function runExtract<Schema extends z.ZodTypeAny>(
   try {
     const { object } = await withTimeout(
       generateObject({
-        model: nicheBendModel,
+        model: openrouterInstructModel,
         system: SYSTEM_PROMPT,
         messages,
         schema,
-        maxOutputTokens: Math.min(opts.maxOutputTokens, CLAUDE_MAX_OUTPUT_TOKENS),
+        maxOutputTokens: Math.min(opts.maxOutputTokens, OPENROUTER_MAX_OUTPUT_TOKENS),
       }),
       wallClockTimeoutMs,
-      `Claude took too long to respond (over ${Math.round(wallClockTimeoutMs / 1000)}s). Try again.`
+      `OpenRouter took too long to respond (over ${Math.round(wallClockTimeoutMs / 1000)}s). Try again.`
     );
     return {
       object: object as z.infer<Schema>,

@@ -7,9 +7,9 @@ const openrouter = createOpenAICompatible({
   name: "openrouter",
   baseURL: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
-  // Same reasoning as cloudflare-client.ts: the generic OpenAI-compatible
-  // provider only sends response_format when told the backend supports it,
-  // otherwise generateObject's structured calls fail outright.
+  // The generic OpenAI-compatible provider only sends response_format when
+  // told the backend supports it -- otherwise generateObject's structured
+  // calls fail outright.
   supportsStructuredOutputs: true,
 });
 
@@ -20,7 +20,8 @@ export const NICHE_TREND_RESEARCH_MODEL = "perplexity/sonar";
 export const nicheTrendResearchModel = openrouter(NICHE_TREND_RESEARCH_MODEL);
 
 // Plain instruct model with reliable JSON mode, for passes that don't need
-// search grounding (schema extraction, script generation).
+// search grounding: script generation, niche-bend SOP/candidate extraction,
+// transcript translation, and niche-report schema extraction/fallback.
 export const OPENROUTER_INSTRUCT_MODEL = "openai/gpt-4o-mini";
 export const openrouterInstructModel = openrouter(OPENROUTER_INSTRUCT_MODEL);
 
