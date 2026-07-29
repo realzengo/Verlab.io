@@ -14,7 +14,15 @@ import { cn } from "@/lib/utils";
 // out in sync instead of disappearing the instant the panel starts closing.
 const SIDEBAR_TRANSITION_MS = 300;
 
-export function AppShell({ children, isPaywalled }: { children: React.ReactNode; isPaywalled: boolean }) {
+export function AppShell({
+  children,
+  isPaywalled,
+  hasNeverPaid,
+}: {
+  children: React.ReactNode;
+  isPaywalled: boolean;
+  hasNeverPaid: boolean;
+}) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackdrop, setShowBackdrop] = useState(false);
   const pathname = usePathname();
@@ -39,7 +47,7 @@ export function AppShell({ children, isPaywalled }: { children: React.ReactNode;
 
   return (
     <NicheSidebarProvider>
-      {isPaywalled && <PaywallModal />}
+      {isPaywalled && <PaywallModal hasNeverPaid={hasNeverPaid} />}
 
       {/* inert (not just pointer-events-none) also pulls this out of the tab
           order and blocks all input while paywalled, matching the modal's

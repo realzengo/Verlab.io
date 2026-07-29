@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
  * already non-interactive (inert), so this is the only path forward besides
  * logging out.
  */
-export function PaywallModal() {
+export function PaywallModal({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -23,8 +23,14 @@ export function PaywallModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-3xl border border-hairline bg-surface p-8 text-center shadow-card-hover">
-        <h2 className="text-xl font-bold text-heading">Verlab is currently paid only</h2>
-        <p className="mt-2 text-sm text-body">All features are available with a subscription.</p>
+        <h2 className="text-xl font-bold text-heading">
+          {hasNeverPaid ? "Verlab is currently paid only" : "Your subscription has ended"}
+        </h2>
+        <p className="mt-2 text-sm text-body">
+          {hasNeverPaid
+            ? "All features are available with a subscription."
+            : "Resubscribe to get back into your dashboard."}
+        </p>
 
         <button
           type="button"
