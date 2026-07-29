@@ -157,7 +157,12 @@ const browseNicheVideosTool: McpToolDefinition = {
   name: "browse_niche_videos",
   title: "Browse trending niche videos",
   description:
-    "Browses Verlab's cached trending TikTok/YouTube videos for a content niche (e.g. 'History', 'Crime', 'Finance'), or 'all' niches blended together. Useful for researching what's currently working in a niche before writing a script.",
+    "Browses Verlab's cached trending TikTok/YouTube videos for a SPECIFIC niche the user already named (e.g. " +
+    "'History', 'Crime', 'Finance'), or 'all' niches blended together as a raw feed. Useful for researching what's " +
+    "currently working in a niche the user already picked, before writing a script. Do NOT use this for an " +
+    "open-ended 'find me a niche' / 'what niche should I start' / 'help me pick a niche' request -- use find_niche " +
+    "for that instead, even if you could technically answer with niche='all' here. This tool has no concept of " +
+    "the user's own interests/background/budget; find_niche does.",
   inputSchema: {
     niche: z.string().describe("A niche name (see Verlab's niche list) or 'all'."),
     platform: z.enum(["tiktok", "youtube", "all"]).optional().describe("Defaults to all."),
@@ -214,11 +219,14 @@ const findNicheTool: McpToolDefinition = {
   name: "find_niche",
   title: "Find a content niche",
   description:
-    "Opens an interactive form asking the user seven quick questions -- what they could talk about for hours, " +
-    "channels they already watch, YouTube or TikTok, long-form vs Shorts, how they want videos made, any " +
-    "background/skill to pull from, and monthly budget -- then researches what's actually going viral right now " +
-    "on their chosen platform and returns a full niche report (5-7 niches, each with real current example " +
-    "videos, a momentum score/trend, and a personalized starter angle). Call with no arguments to show the form; " +
+    "THE tool for 'find me a niche', 'what niche should I start', 'help me pick a niche', or any other open-ended " +
+    "request to find/pick/suggest a content niche -- call this immediately for those, even a bare one-line " +
+    "request, rather than answering from browse_niche_videos or your own reasoning. Opens an interactive form " +
+    "asking the user seven quick questions -- what they could talk about for hours, channels they already watch, " +
+    "YouTube or TikTok, long-form vs Shorts, how they want videos made, any background/skill to pull from, and " +
+    "monthly budget -- then researches what's actually going viral right now on their chosen platform and returns " +
+    "a full niche report (5-7 niches, each with real current example videos, a momentum score/trend, and a " +
+    "personalized starter angle). Call with no arguments to show the form; " +
     "the widget calls this same tool again with the filled-in answers once the user submits, which kicks off the " +
     "research -- that can take up to a couple minutes, so a 'processing' result means poll " +
     "check_niche_report_status with the returned id until it's done. Also callable directly with answers already " +
