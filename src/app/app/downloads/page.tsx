@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { VideoDownloader } from "@/components/features/VideoDownloader";
 
-// The video downloader has been retired -- see /api/downloads/create.
 export default function DownloadsPage() {
-  redirect("/app");
+  return <VideoDownloader />;
 }

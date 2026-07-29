@@ -1,8 +1,88 @@
-import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { recordUsageEvent } from "@/lib/server/usage";
+import {
+  detectDownloadPlatform,
+  fetchDownloadLink,
+  humanizeVideoProviderError,
+} from "@/lib/server/video-provider";
+import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
 
-// The downloader product has been retired -- new downloads are disabled here
-// while /api/downloads/status, /file, and /preview stay live so users who
-// already have files in their history can still reach them.
-export async function POST(): Promise<NextResponse> {
-  return NextResponse.json({ error: "The video downloader is no longer available" }, { status: 410 });
+async function runDownload(supabase: SupabaseClient, id: string, url: string, format: DownloadFormat): Promise<void> {
+  try {
+    await supabase.from("downloads").update({ status: "processing" }).eq("id", id);
+    const result = await fetchDownloadLink(url, format, (percent) => {
+      void supabase.from("downloads").update({ progress: percent }).eq("id", id);
+    });
+    // Storing the provider's direct URL for now — provider-signed URLs can
+    // expire, so re-hosting into Supabase Storage is the natural next step
+    // if "Download Again" needs to keep working long-term.
+    await supabase
+      .from("downloads")
+      .update({ status: "complete", progress: 100, title: result.title, file_path: result.directUrl })
+      .eq("id", id);
+  } catch (error) {
+    console.error(
+      "[downloads] download failed:",
+      error,
+      error instanceof Error && error.cause ? { cause: error.cause } : ""
+    );
+    await supabase
+      .from("downloads")
+      .update({ status: "failed", error_message: humanizeVideoProviderError(error) })
+      .eq("id", id);
+  }
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  let body: { url?: string; format?: DownloadFormat };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const url = body.url?.trim();
+  if (!url) {
+    return NextResponse.json({ error: "url is required" }, { status: 400 });
+  }
+
+  const formatOption = getDownloadFormatOption(body.format ?? "");
+  if (!formatOption) {
+    return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
+  }
+  const format = formatOption.value;
+
+  const platform = detectDownloadPlatform(url);
+  if (!platform) {
+    return NextResponse.json(
+      { error: "Only TikTok, YouTube, and Facebook links are supported" },
+      { status: 400 }
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("downloads")
+    .insert({ user_id: user.id, source_url: url, platform, format, status: "queued" })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "Could not start download" }, { status: 500 });
+  }
+
+  void runDownload(supabase, data.id, url, format);
+  void recordUsageEvent("downloader", user.id, { downloadId: data.id });
+
+  return NextResponse.json({ id: data.id });
 }

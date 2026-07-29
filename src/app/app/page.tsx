@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { Image as ImageIcon, Sparkles, SquareDashed, SquarePlay, TrendingUp, Wand2, Zap } from "lucide-react";
+import { Download, Image as ImageIcon, Sparkles, SquareDashed, SquarePlay, TrendingUp, Wand2, Zap } from "lucide-react";
 import { ToolCard } from "@/components/dashboard/ToolCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -74,6 +74,20 @@ function ImageGeneratorPreview() {
   );
 }
 
+function DownloaderPreview() {
+  return (
+    <div className="flex w-full max-w-[220px] flex-col gap-1.5 rounded-card-sm border border-hairline bg-surface p-3 text-left shadow-card">
+      <div className="flex items-center gap-2">
+        <Download className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="truncate text-xs font-medium text-heading">tiktok.com/@creator/video</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div className="h-full w-2/3 rounded-full bg-primary" />
+      </div>
+    </div>
+  );
+}
+
 function TranscriptPreview() {
   return (
     <div className="flex w-full max-w-[220px] flex-col gap-1.5 text-left">
@@ -140,6 +154,12 @@ const TOOLS = [
     description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",
     href: "/app/image-generator",
     preview: <ImageGeneratorPreview />,
+  },
+  {
+    title: "Downloader",
+    description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
+    href: "/app/downloads",
+    preview: <DownloaderPreview />,
   },
 ] satisfies {
   title: string;

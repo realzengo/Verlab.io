@@ -282,6 +282,10 @@ export function VideoDownloader() {
                 </span>
               ))}
             </div>
+
+            <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-400 dark:text-zinc-500">
+              Only download content you own or have permission to reuse.
+            </p>
           </div>
         </div>
       </div>
