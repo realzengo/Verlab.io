@@ -25,6 +25,7 @@ interface FindNicheData {
   id?: string;
   platform?: Platform;
   niches?: NicheReportEntry[];
+  live?: boolean;
   note?: string;
   error_message?: string;
 }
@@ -211,7 +212,7 @@ function renderVideoList(videos: NicheReportVideo[]): string {
   `;
 }
 
-function renderReport(platform: Platform, niches: NicheReportEntry[]) {
+function renderReport(platform: Platform, niches: NicheReportEntry[], live: boolean) {
   stopLoadingRotation();
   const blocks = niches
     .map(
@@ -244,11 +245,16 @@ function renderReport(platform: Platform, niches: NicheReportEntry[]) {
     <div class="nr-doc">
       <div class="nr-doc-icon">🚀</div>
       <h1 class="nr-doc-title">Your Niche Report</h1>
-      <p class="nr-doc-sub">Live research on what's going viral right now, matched to what you told me.</p>
+      <p class="nr-doc-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>
       <div class="nr-doc-meta">
         <span class="nr-meta-pill">${niches.length} niches</span>
         <span class="nr-meta-pill">${PLATFORM_ICON[platform]} ${escapeHtml(PLATFORM_LABEL[platform])}</span>
       </div>
+      ${
+        live
+          ? ""
+          : `<div class="nr-callout nr-callout-amber nr-live-notice">⚠️ Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results — momentum and view counts here are approximate.</div>`
+      }
       <hr class="nr-divider">
       ${blocks}
       <button type="button" class="nr-restart" id="nf-restart">↺ Start over</button>
@@ -277,7 +283,7 @@ function failResearch(message: string) {
 
 function applyResult(data: FindNicheData | null) {
   if (data?.stage === "result" && data.niches) {
-    renderReport(data.platform ?? "both", data.niches);
+    renderReport(data.platform ?? "both", data.niches, data.live ?? true);
     return;
   }
   if (data?.stage === "processing" && data.id) {
@@ -303,7 +309,7 @@ async function pollReport(id: string) {
       if (result.isError) continue;
       const data = result.structuredContent as FindNicheData | undefined;
       if (data?.stage === "result" && data.niches) {
-        renderReport(data.platform ?? "both", data.niches);
+        renderReport(data.platform ?? "both", data.niches, data.live ?? true);
         return;
       }
       if (data?.stage === "error") {

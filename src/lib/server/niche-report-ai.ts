@@ -9,7 +9,13 @@ export class NicheReportAiError extends Error {}
 // can't combine Google Search grounding with structured output in one call)
 // but personalized: the research prompt itself is built from the creator's
 // form answers instead of running generically.
-const SYSTEM_PROMPT = `You are Verlab's niche research analyst. You track currently-trending faceless short-form video niches across TikTok and YouTube (Shorts and long-form). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
+const GROUNDED_SYSTEM_PROMPT = `You are Verlab's niche research analyst. You track currently-trending faceless short-form video niches across TikTok and YouTube (Shorts and long-form). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
+
+// Used only when the grounded pass fails (e.g. Google Search grounding has a
+// much tighter quota than plain generation, so it's the one that runs out
+// first) -- same personality, but explicitly told not to claim live
+// verification it doesn't have.
+const FALLBACK_SYSTEM_PROMPT = `You are Verlab's niche research analyst. Live web search is temporarily unavailable, so you're working from your own training knowledge of faceless short-form video niches on TikTok and YouTube (Shorts and long-form) instead of real-time search. Be upfront about that limitation in tone -- describe niches as durable/growing rather than claiming anything is happening "right now," and don't fabricate precise view counts, only give plausible, clearly-approximate figures. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
 
 const SampleVideoSchema = z.object({ title: z.string(), views: z.string() });
 
@@ -47,6 +53,14 @@ export interface NicheFinderAnswers {
   budget: number | null;
 }
 
+export interface NicheReportResult {
+  niches: NicheReportEntry[];
+  // false when the grounded (live web search) pass failed and this fell
+  // back to Gemini's own training knowledge instead -- the widget shows a
+  // notice in that case rather than silently presenting stale info as live.
+  live: boolean;
+}
+
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheReportAiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
@@ -71,16 +85,20 @@ const PLATFORM_LABEL: Record<NicheReportPlatform, string> = {
   both: "both YouTube and TikTok",
 };
 
-export async function researchViralNiches(answers: NicheFinderAnswers): Promise<NicheReportEntry[]> {
-  const researchPrompt = `Research short-form video niches that are going VIRAL RIGHT NOW on ${PLATFORM_LABEL[answers.platform]}. Use web search to ground every claim in real, currently-circulating videos -- do not invent titles or view counts.
-
-Here's the creator you're researching for:
-- What they could talk about for hours: ${answers.interests || "(not given)"}
+function answersBlock(answers: NicheFinderAnswers): string {
+  return `- What they could talk about for hours: ${answers.interests || "(not given)"}
 - Channels they already like: ${answers.channelsTheyLike || "(not given)"}
 - Long-form or Shorts: ${answers.format}
 - How they want videos made: ${answers.productionStyle}
 - Background/skill to pull from: ${answers.background || "(not given)"}
-- Monthly budget: ${answers.budget != null ? `$${answers.budget}/mo` : "(not given)"}
+- Monthly budget: ${answers.budget != null ? `$${answers.budget}/mo` : "(not given)"}`;
+}
+
+async function researchViralNichesGrounded(answers: NicheFinderAnswers): Promise<NicheReportEntry[]> {
+  const researchPrompt = `Research short-form video niches that are going VIRAL RIGHT NOW on ${PLATFORM_LABEL[answers.platform]}. Use web search to ground every claim in real, currently-circulating videos -- do not invent titles or view counts.
+
+Here's the creator you're researching for:
+${answersBlock(answers)}
 
 Find 5-7 distinct niches that are currently gaining real momentum, weighted toward ones that plausibly fit THIS creator's interests, background, and constraints -- but don't force a fit that isn't real; include at least 1-2 niches outside their stated interests if those are genuinely exploding right now, so they see the full picture. For each niche, note:
 - name and category
@@ -94,22 +112,16 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
 
   const messages: ModelMessage[] = [{ role: "user", content: researchPrompt }];
 
-  let researchText: string;
-  try {
-    const { text } = await withTimeout(
-      generateText({
-        model: geminiModel,
-        system: SYSTEM_PROMPT,
-        messages,
-        tools: { google_search: google.tools.googleSearch({}) },
-      }),
-      200_000,
-      `Gemini took too long to respond (over 200s).`
-    );
-    researchText = text;
-  } catch (error) {
-    wrapProviderError(error);
-  }
+  const { text: researchText } = await withTimeout(
+    generateText({
+      model: geminiModel,
+      system: GROUNDED_SYSTEM_PROMPT,
+      messages,
+      tools: { google_search: google.tools.googleSearch({}) },
+    }),
+    200_000,
+    `Gemini took too long to respond (over 200s).`
+  );
 
   const extractionPrompt = `Based on your research above, structure every niche you found into the required format: name, platform (youtube/tiktok/both), category, description, whyForYou (tie it directly to this specific creator's answers, even for niches you included as wildcards outside their stated interests), angle (one concrete starter video idea respecting their format/production-style/budget answers), momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
 
@@ -119,20 +131,58 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
     { role: "user", content: extractionPrompt },
   ];
 
+  const { object } = await withTimeout(
+    generateObject({
+      model: geminiModel,
+      system: GROUNDED_SYSTEM_PROMPT,
+      messages: messagesWithExtraction,
+      schema: NicheReportSchema,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+    }),
+    120_000,
+    `Gemini took too long to respond (over 120s).`
+  );
+  return object.niches;
+}
+
+// No search tool involved -- a single structured-output call straight from
+// Gemini's training knowledge. Deliberately cheaper (one call, not two) as
+// well as more resilient: Google Search grounding has its own, much
+// tighter quota separate from plain generation, so this path can still
+// succeed even when that quota is exhausted.
+async function researchViralNichesFallback(answers: NicheFinderAnswers): Promise<NicheReportEntry[]> {
+  const prompt = `Live web search is unavailable right now. From your own knowledge, name 5-7 faceless short-form video niches on ${PLATFORM_LABEL[answers.platform]} that have shown durable, real growth (not necessarily breaking news-fresh, but genuinely popular niches you're confident about).
+
+Here's the creator you're researching for:
+${answersBlock(answers)}
+
+Weight your picks toward ones that plausibly fit THIS creator's interests, background, and constraints -- but include at least 1-2 solid niches outside their stated interests too, so they see the full picture. For each niche, give: name, category, description, platform (youtube/tiktok/both), momentumScore (0-100, relative to the others), momentumTrend, whyForYou (tied to this specific creator's answers), angle (one concrete starter video idea respecting their format/production-style/budget), and sampleVideos (plausible representative example titles + approximate view counts you're aware of -- mark them as approximate, don't fabricate false precision).`;
+
+  const { object } = await withTimeout(
+    generateObject({
+      model: geminiModel,
+      system: FALLBACK_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+      schema: NicheReportSchema,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+    }),
+    120_000,
+    `Gemini took too long to respond (over 120s).`
+  );
+  return object.niches;
+}
+
+export async function researchViralNiches(answers: NicheFinderAnswers): Promise<NicheReportResult> {
   try {
-    const { object } = await withTimeout(
-      generateObject({
-        model: geminiModel,
-        system: SYSTEM_PROMPT,
-        messages: messagesWithExtraction,
-        schema: NicheReportSchema,
-        maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      }),
-      120_000,
-      `Gemini took too long to respond (over 120s).`
-    );
-    return object.niches;
-  } catch (error) {
-    wrapProviderError(error);
+    const niches = await researchViralNichesGrounded(answers);
+    return { niches, live: true };
+  } catch (groundedError) {
+    console.error("[niche-report-ai] grounded research failed, falling back to non-grounded Gemini:", groundedError);
+    try {
+      const niches = await researchViralNichesFallback(answers);
+      return { niches, live: false };
+    } catch (fallbackError) {
+      wrapProviderError(fallbackError);
+    }
   }
 }

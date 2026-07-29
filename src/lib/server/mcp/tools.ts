@@ -278,10 +278,10 @@ const findNicheTool: McpToolDefinition = {
     if (insertError || !row) return errorResult(insertError?.message ?? "Could not start the niche report");
 
     const work = (async () => {
-      const niches = await researchViralNiches(answers);
-      await admin.from("niche_reports").update({ status: "complete", niches }).eq("id", row.id);
-      recordUsageEvent("mcp", userId, { action: "nicheReport.research", reportId: row.id });
-      return niches;
+      const { niches, live } = await researchViralNiches(answers);
+      await admin.from("niche_reports").update({ status: "complete", niches, live }).eq("id", row.id);
+      recordUsageEvent("mcp", userId, { action: "nicheReport.research", reportId: row.id, live });
+      return { niches, live };
     })();
 
     const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
@@ -302,7 +302,7 @@ const findNicheTool: McpToolDefinition = {
         .eq("id", row.id);
     });
 
-    return jsonResult({ stage: "result", id: row.id, platform, niches: outcome });
+    return jsonResult({ stage: "result", id: row.id, platform, niches: outcome.niches, live: outcome.live });
   },
 };
 
@@ -315,7 +315,7 @@ const checkNicheReportStatusTool: McpToolDefinition = {
     const admin = createAdminClient();
     const { data } = await admin
       .from("niche_reports")
-      .select("id, status, platform, niches, error_message")
+      .select("id, status, platform, niches, live, error_message")
       .eq("id", String(args.id))
       .eq("user_id", userId)
       .maybeSingle();
@@ -325,7 +325,7 @@ const checkNicheReportStatusTool: McpToolDefinition = {
     if (data.status === "processing") {
       return jsonResult({ stage: "processing", id: data.id, platform: data.platform, note: "Still researching — try again shortly." });
     }
-    return jsonResult({ stage: "result", id: data.id, platform: data.platform, niches: data.niches });
+    return jsonResult({ stage: "result", id: data.id, platform: data.platform, niches: data.niches, live: data.live });
   },
 };
 

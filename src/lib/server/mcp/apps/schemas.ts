@@ -115,6 +115,7 @@ export const FindNicheCardSchema = {
   id: z.string().optional(),
   platform: z.enum(["youtube", "tiktok", "both"]).optional(),
   niches: z.array(nicheReportEntry).optional(),
+  live: z.boolean().optional(),
   note: z.string().optional(),
   error_message: z.string().optional(),
 };
