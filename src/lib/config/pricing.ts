@@ -57,6 +57,15 @@ const TRANSCRIPTS_EXTRACT_COST_USD = 0.015 * 2;
 const TRANSCRIPTS_TRANSLATE_COST_USD = 0.0005 * 3;
 // video-download-api.com / savenow.to per-download charge.
 const DOWNLOADS_CREATE_COST_USD = 0.01;
+// One ScrapeCreators channel-listing call for video URLs+views (see
+// scrapeChannelVideosWithUrls in apify-client.ts). Priced for the YouTube
+// worst case (2 parallel calls: channel info + shorts list); TikTok is a
+// single call and costs less in practice.
+const CREATOR_ANALYSIS_SCRAPE_COST_USD = 0.015 * 2;
+// One Claude Sonnet 5 call (anthropic-client.ts pricing) over ~5 aggregated
+// video transcripts (~6000 input tokens: titles + concatenated transcript
+// text) producing one ~180-word paragraph (~300 output tokens).
+const CREATOR_ANALYSIS_LLM_COST_USD = (6000 / 1e6) * 3 + (300 / 1e6) * 15;
 
 export const TOOL_CREDIT_COSTS = {
   nicheBend: {
@@ -79,6 +88,16 @@ export const TOOL_CREDIT_COSTS = {
   },
   downloads: {
     create: creditsForCost(DOWNLOADS_CREATE_COST_USD),
+  },
+  creatorAnalysis: {
+    // 5 real transcript extractions (transcripts.extract cost each) + one
+    // channel-listing scrape + one LLM summary call, charged as a single
+    // flat fee regardless of how many of the 5 transcripts actually succeed
+    // (analyze_creator proceeds on partial success -- see tools.ts).
+    analyze:
+      5 * creditsForCost(TRANSCRIPTS_EXTRACT_COST_USD) +
+      creditsForCost(CREATOR_ANALYSIS_SCRAPE_COST_USD) +
+      creditsForCost(CREATOR_ANALYSIS_LLM_COST_USD),
   },
   video: {
     // Client-side FFmpeg WASM compression -- zero server compute. chargeUser

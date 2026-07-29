@@ -24,6 +24,7 @@ const WIDGETS = [
   "image-gallery-card",
   "transcript-card",
   "download-card",
+  "creator-profile-card",
 ];
 
 async function buildWidget(name) {

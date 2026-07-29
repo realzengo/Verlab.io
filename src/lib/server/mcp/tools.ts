@@ -17,6 +17,8 @@ import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import { isNicheName } from "@/lib/niches-catalog";
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
+import { scrapeChannelVideosWithUrls, detectCreatorPlatform, type ScrapedChannelVideo } from "@/lib/server/apify-client";
+import { analyzeCreatorTranscripts } from "@/lib/server/creator-analysis";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
 // from the MCP connector token by verifyMcpToken — see mcp-auth.ts). There
@@ -530,6 +532,143 @@ const checkDownloadStatusTool: McpToolDefinition = {
   },
 };
 
+// Bounded-concurrency transcript fetching: fetchTranscript() takes up to
+// ~120s per call, and this tool fetches for up to 5 videos. Fully sequential
+// (5x120s = 600s) can exceed the MCP route's own maxDuration=300s, which
+// would kill the invocation mid-flight and leave the job stuck at
+// "processing" forever (its .catch() never runs). A small worker pool caps
+// concurrency instead of firing all 5 (or all 1) at once against
+// ScrapeCreators.
+async function fetchTranscriptsBounded(
+  videos: ScrapedChannelVideo[],
+  concurrency: number
+): Promise<{ video: ScrapedChannelVideo; text: string }[]> {
+  const queue = [...videos];
+  const results: { video: ScrapedChannelVideo; text: string }[] = [];
+
+  async function worker() {
+    for (let video = queue.shift(); video; video = queue.shift()) {
+      try {
+        const result = await fetchTranscript(video.url);
+        results.push({ video, text: result.lines.map((line) => line.text).join(" ") });
+      } catch (error) {
+        console.error(`[analyze_creator] transcript failed for ${video.url}:`, error);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return results;
+}
+
+const CREATOR_ANALYSIS_VIDEO_COUNT = 5;
+
+const analyzeCreatorTool: McpToolDefinition = {
+  name: "analyze_creator",
+  title: "Analyze a creator's content strategy",
+  description:
+    "Deep-dive analysis of ONE specific TikTok or YouTube creator's content strategy: scrapes their top " +
+    `${CREATOR_ANALYSIS_VIDEO_COUNT} highest-viewed videos, extracts the real transcripts from each, and writes ` +
+    "up how they structure hooks, pacing, and delivery -- grounded in the actual transcript text, with real view " +
+    "counts per video. Use this when the user wants to reverse-engineer, copy, 'steal', or study what makes a " +
+    "specific creator's content work (e.g. 'analyze this creator', 'break down their style', 'steal their " +
+    "content'). Different from browse_niche_videos, which surveys many different creators across a whole niche " +
+    "rather than one creator's own catalog in depth. Charges credits (see get_credit_balance).",
+  inputSchema: { url: z.string().describe("A TikTok or YouTube creator/channel profile URL.") },
+  handler: async (userId, args) => {
+    const url = String(args.url ?? "").trim();
+    if (!url) return errorResult("url is required");
+
+    const platform = detectCreatorPlatform(url);
+    if (!platform) return errorResult("Only TikTok and YouTube channel/profile links are supported");
+
+    const cost = TOOL_CREDIT_COSTS.creatorAnalysis.analyze;
+    try {
+      await chargeUser(userId, cost, "Creator Analysis", "creatorAnalysis.analyze");
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) return errorResult("Insufficient credits");
+      throw error;
+    }
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("creator_analyses")
+      .insert({ user_id: userId, source_url: url, platform, status: "processing" })
+      .select("id")
+      .single();
+
+    if (insertError || !row) {
+      await refundUser(userId, cost, "Creator Analysis refund", "creatorAnalysis.analyze");
+      return errorResult(insertError?.message ?? "Could not start analysis");
+    }
+
+    const work = (async () => {
+      const channel = await scrapeChannelVideosWithUrls(url, platform, CREATOR_ANALYSIS_VIDEO_COUNT);
+      const transcribed = await fetchTranscriptsBounded(channel.videos, 2);
+      if (transcribed.length === 0) {
+        throw new Error("Could not extract a transcript from any of this creator's top videos.");
+      }
+
+      const summary = await analyzeCreatorTranscripts(
+        channel.channelName,
+        transcribed.map(({ video, text }) => ({ title: video.title, views: video.views, text }))
+      );
+
+      const videos = channel.videos.map((video) => ({ title: video.title, views: video.views, url: video.url }));
+      await admin
+        .from("creator_analyses")
+        .update({ status: "complete", channel_name: channel.channelName, videos, summary })
+        .eq("id", row.id);
+      recordUsageEvent("mcp", userId, { action: "creatorAnalysis.analyze", analysisId: row.id });
+      return { channelName: channel.channelName, videos, summary };
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        id: row.id,
+        status: "processing",
+        note: "Still analyzing — call check_creator_analysis_status with this id shortly.",
+      });
+    }
+
+    work.catch(async (error) => {
+      // Unlike the other async tools' late-failure paths (which only mark
+      // the row failed), this one refunds -- the flat cost here (~5
+      // transcripts + an LLM call) is high enough that a failed job
+      // shouldn't just eat the user's credits with nothing to show for it.
+      await admin
+        .from("creator_analyses")
+        .update({ status: "failed", error_message: error instanceof Error ? error.message : "Analysis failed" })
+        .eq("id", row.id);
+      await refundUser(userId, cost, "Creator Analysis refund", "creatorAnalysis.analyze");
+    });
+
+    return jsonResult({ id: row.id, status: "complete", ...outcome });
+  },
+};
+
+const checkCreatorAnalysisStatusTool: McpToolDefinition = {
+  name: "check_creator_analysis_status",
+  title: "Check creator analysis status",
+  description: "Checks the status of an in-progress analyze_creator call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("creator_analyses")
+      .select("id, status, channel_name, videos, summary, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    const { channel_name, ...rest } = data;
+    return jsonResult({ ...rest, channelName: channel_name });
+  },
+};
+
 export const MCP_TOOLS: McpToolDefinition[] = [
   getCreditBalanceTool,
   listScriptsTool,
@@ -542,4 +681,6 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   checkTranscriptStatusTool,
   downloadVideoTool,
   checkDownloadStatusTool,
+  analyzeCreatorTool,
+  checkCreatorAnalysisStatusTool,
 ];

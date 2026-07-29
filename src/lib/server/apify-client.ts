@@ -221,7 +221,9 @@ async function scrapeChannelVideosViaApify(
 // https://docs.scrapecreators.com/v1/youtube/channel-videos.
 
 interface ScrapeCreatorsTikTokProfileVideoItem {
+  aweme_id?: string;
   desc?: string;
+  share_url?: string;
   statistics?: { play_count?: number };
   author?: { unique_id?: string; nickname?: string; avatar_medium?: { url_list?: string[] } };
 }
@@ -321,5 +323,112 @@ async function scrapeChannelVideosViaScrapeCreators(
   return platform === "youtube"
     ? scrapeCreatorsYoutubeChannel(url, videoType, limit)
     : scrapeCreatorsTikTokChannel(url, limit);
+}
+
+// --- Channel-video listing WITH per-video URLs, for analyze_creator ---
+//
+// Niche Bend's ScrapedChannel above never keeps a per-video URL -- it only
+// needs title+views for its LLM-facing prompts. analyze_creator needs the
+// URL too (to feed each video into fetchTranscript). ScrapeCreators-only
+// (no Apify fallback): its responses are confirmed (via public docs) to
+// carry a real, working video URL per item, and it's the same provider
+// transcript extraction already depends on, so this introduces no new
+// failure mode. YouTube is restricted to the Shorts listing endpoint ONLY
+// (never /v1/youtube/channel-videos) because detectTranscriptPlatform() in
+// video-provider.ts doesn't recognize long-form youtube.com/watch URLs --
+// a long-form video's transcript could never be extracted downstream even
+// if it were scraped here.
+
+export type CreatorPlatform = "tiktok" | "youtube";
+
+export function detectCreatorPlatform(url: string): CreatorPlatform | null {
+  if (/tiktok\.com/i.test(url)) return "tiktok";
+  if (/youtube\.com|youtu\.be/i.test(url)) return "youtube";
+  return null;
+}
+
+export interface ScrapedChannelVideo {
+  title: string;
+  views: string;
+  url: string;
+}
+
+export interface ScrapedChannelWithUrls {
+  channelName: string;
+  avatarUrl?: string;
+  videos: ScrapedChannelVideo[];
+}
+
+async function scrapeCreatorsTikTokChannelWithUrls(url: string, limit: number): Promise<ScrapedChannelWithUrls> {
+  const handle = extractTikTokHandle(url);
+  const data = await scrapeCreatorsGet<ScrapeCreatorsTikTokProfileVideosResponse>("/v3/tiktok/profile/videos", {
+    handle,
+    sort_by: "popular",
+  });
+
+  const items = data.aweme_list ?? [];
+  if (items.length === 0) {
+    throw new ApifyScraperError("not_found", "No videos found for that TikTok profile.");
+  }
+
+  const author = items[0].author;
+  const channelName = author?.nickname?.trim() || (author?.unique_id ? `@${author.unique_id}` : `@${handle}`);
+
+  return {
+    channelName,
+    avatarUrl: author?.avatar_medium?.url_list?.[0],
+    videos: items
+      .slice(0, limit)
+      .map((item) => ({
+        title: (item.desc ?? "").trim() || "Untitled",
+        views: humanizeViewCount(Number(item.statistics?.play_count) || 0),
+        url: item.share_url ?? "",
+      }))
+      .filter((video) => video.url),
+  };
+}
+
+async function scrapeCreatorsYoutubeShortsWithUrls(url: string, limit: number): Promise<ScrapedChannelWithUrls> {
+  const channelParams = extractYoutubeChannelParams(url);
+  const [infoRes, listRes] = await Promise.all([
+    scrapeCreatorsGet<ScrapeCreatorsChannelInfoResponse>("/v1/youtube/channel", channelParams),
+    scrapeCreatorsGet<{ shorts?: (ScrapeCreatorsChannelVideoItem & { id?: string; url?: string })[] }>(
+      "/v1/youtube/channel/shorts",
+      { ...channelParams, sort: "popular" }
+    ),
+  ]);
+
+  const items = listRes.shorts ?? [];
+  if (items.length === 0) {
+    throw new ApifyScraperError("not_found", "No Shorts found for that YouTube channel.");
+  }
+
+  return {
+    channelName: infoRes.name?.trim() || url,
+    avatarUrl: infoRes.avatar?.image?.sources?.[0]?.url,
+    videos: items
+      .slice(0, limit)
+      .map((item) => ({
+        title: item.title?.trim() || "Untitled",
+        views: humanizeViewCount(Number(item.viewCountInt) || 0),
+        // ScrapeCreators' shorts-listing `url` field is a plain
+        // watch?v=... link (confirmed live) even though the video came from
+        // the Shorts-only endpoint -- detectTranscriptPlatform() in
+        // video-provider.ts only recognizes /shorts/ paths, so the URL is
+        // rebuilt from the video `id` rather than trusted as-is.
+        url: item.id ? `https://www.youtube.com/shorts/${item.id}` : "",
+      }))
+      .filter((video) => video.url),
+  };
+}
+
+export async function scrapeChannelVideosWithUrls(
+  url: string,
+  platform: CreatorPlatform,
+  limit = 5
+): Promise<ScrapedChannelWithUrls> {
+  return platform === "youtube"
+    ? scrapeCreatorsYoutubeShortsWithUrls(url, limit)
+    : scrapeCreatorsTikTokChannelWithUrls(url, limit);
 }
 

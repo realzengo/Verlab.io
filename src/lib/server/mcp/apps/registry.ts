@@ -6,6 +6,7 @@ import { scriptCardHtml } from "./generated/script-card";
 import { imageGalleryCardHtml } from "./generated/image-gallery-card";
 import { transcriptCardHtml } from "./generated/transcript-card";
 import { downloadCardHtml } from "./generated/download-card";
+import { creatorProfileCardHtml } from "./generated/creator-profile-card";
 import {
   StatCardSchema,
   ListCardSchema,
@@ -14,6 +15,7 @@ import {
   ImageGalleryCardSchema,
   TranscriptCardSchema,
   DownloadCardSchema,
+  CreatorProfileCardSchema,
 } from "./schemas";
 
 interface WidgetDefinition {
@@ -46,6 +48,11 @@ const WIDGETS = {
     html: downloadCardHtml,
     outputSchema: DownloadCardSchema,
   },
+  creatorProfileCard: {
+    resourceUri: "ui://verlab/creator-profile-card.html",
+    html: creatorProfileCardHtml,
+    outputSchema: CreatorProfileCardSchema,
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
 // Maps each of the 11 MCP tool names to its widget. Several tools
@@ -64,6 +71,8 @@ export const TOOL_WIDGETS: Record<string, WidgetDefinition> = {
   check_transcript_status: WIDGETS.transcriptCard,
   download_video: WIDGETS.downloadCard,
   check_download_status: WIDGETS.downloadCard,
+  analyze_creator: WIDGETS.creatorProfileCard,
+  check_creator_analysis_status: WIDGETS.creatorProfileCard,
 };
 
 // Resources are registered once per unique URI (not once per tool) --

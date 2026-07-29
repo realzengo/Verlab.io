@@ -86,3 +86,13 @@ export const DownloadCardSchema = {
   note: z.string().optional(),
   error_message: z.string().nullable().optional(),
 };
+
+export const CreatorProfileCardSchema = {
+  id: z.string(),
+  status: z.string(),
+  channelName: z.string().nullable().optional(),
+  videos: z.array(z.object({ title: z.string(), views: z.string(), url: z.string() })).optional(),
+  summary: z.string().nullable().optional(),
+  note: z.string().optional(),
+  error_message: z.string().nullable().optional(),
+};
