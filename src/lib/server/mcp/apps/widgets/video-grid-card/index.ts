@@ -40,7 +40,6 @@ function render(data: VideoGridData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
-        <img src="https://verlab.io/logo-icon.png" alt="">
         <span class="v-title">Verlab Trending</span>
       </div>
       <div class="v-grid">${cards || `<div class="v-empty">No videos found.</div>`}</div>

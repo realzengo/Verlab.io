@@ -28,7 +28,6 @@ function render(data: DownloadData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
-        <img src="https://verlab.io/logo-icon.png" alt="">
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Download")}</span>
       </div>
       ${body}

@@ -15,7 +15,6 @@ function render(data: StatData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
-        <img src="https://verlab.io/logo-icon.png" alt="">
         <span class="v-title">Verlab</span>
       </div>
       <div class="v-stat">

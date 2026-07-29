@@ -24,7 +24,6 @@ function render(data: ImageData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
-        <img src="https://verlab.io/logo-icon.png" alt="">
         <span class="v-title">Verlab Image</span>
         <span class="v-spacer"></span>
         ${data?.status ? `<span class="v-pill">${escapeHtml(data.status)}</span>` : ""}

@@ -38,7 +38,7 @@ function render(data: TranscriptData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
-        ${data?.coverUrl ? `<img src="${data.coverUrl}" alt="">` : `<img src="https://verlab.io/logo-icon.png" alt="">`}
+        ${data?.coverUrl ? `<img src="${data.coverUrl}" alt="">` : ""}
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Transcript")}</span>
         <span class="v-spacer"></span>
         ${watchUrl ? `<button class="v-btn" id="watch-btn">Watch</button>` : ""}
