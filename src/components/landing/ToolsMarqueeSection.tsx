@@ -9,7 +9,6 @@ import {
   Compass,
   ClipboardList,
   PenSquare,
-  Download,
   CloudCog,
   Plug,
   ArrowRight,
@@ -32,7 +31,6 @@ const TOOLS: MarqueeTool[] = [
   { title: "Niche Finder", icon: Compass, tone: "violet" },
   { title: "SOP Builder", icon: ClipboardList, tone: "sky" },
   { title: "Script Maker", icon: PenSquare, tone: "blue" },
-  { title: "Download Media", icon: Download, tone: "amber" },
   { title: "Cloud Library", icon: CloudCog, tone: "green" },
   { title: "MCP", icon: Plug, tone: "rose" },
 ];

@@ -21,7 +21,6 @@ const LINK_GROUPS: LinkGroup[] = [
       { label: "Niche Explorer", href: "/app/niches" },
       { label: "Transcript Extractor", href: "/app/transcripts" },
       { label: "MCP Connect", href: "/app/mcp" },
-      { label: "Downloads", href: "/app/downloads" },
     ],
   },
   {
@@ -57,7 +56,6 @@ const MOBILE_FOOTER_LINKS: { label: string; href: string }[] = [
   { label: "MCP", href: "/app/mcp" },
   { label: "FAQ", href: "/#faq" },
   { label: "Library", href: "/app/library" },
-  { label: "Downloads", href: "/app/downloads" },
   { label: "Affiliates", href: "/affiliates" },
 ];
 

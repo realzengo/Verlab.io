@@ -7,13 +7,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Compass,
-  Download,
   Eye,
   EyeOff,
   FileText,
   Loader2,
   Lock,
   Mail,
+  PenSquare,
   Star,
   TriangleAlert,
 } from "lucide-react";
@@ -50,7 +50,7 @@ function GoogleIcon() {
 const FEATURES = [
   { icon: Compass, label: "Niche Finder", desc: "Spot non-competitive niches before they blow up." },
   { icon: FileText, label: "Transcript Extractor", desc: "Pull clean captions from any video in seconds." },
-  { icon: Download, label: "Clip Downloader", desc: "Grab TikTok, Reels & Shorts, no watermark." },
+  { icon: PenSquare, label: "Scriptwriter", desc: "Turn a hook into a full script in minutes." },
 ];
 
 function BrandPanel() {
