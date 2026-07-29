@@ -1,7 +1,6 @@
-import { google } from "@ai-sdk/google";
 import { generateObject, generateText, type ModelMessage } from "ai";
 import { z } from "zod";
-import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "./gemini-client";
+import { OPENROUTER_MAX_OUTPUT_TOKENS, nicheTrendResearchModel, openrouterInstructModel } from "./openrouter-client";
 
 export class NicheTrendAiError extends Error {}
 
@@ -32,7 +31,7 @@ export type NicheTrend = z.infer<typeof NicheTrendSchema>;
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheTrendAiError) throw error;
   const message = error instanceof Error ? error.message : String(error);
-  throw new NicheTrendAiError(`Gemini request failed: ${message}`);
+  throw new NicheTrendAiError(`OpenRouter request failed: ${message}`);
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
@@ -48,10 +47,11 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: s
 }
 
 export async function discoverTrendingNiches(): Promise<NicheTrend[]> {
-  // Pass 1: grounded free-text research. Gemini can't combine Google Search
-  // grounding with structured/object output in one call the way Claude
-  // combined `web_search` with `output_config.format`, so the live research
-  // and the schema extraction have to be two separate calls.
+  // Pass 1: grounded free-text research via Perplexity's Sonar (natively
+  // search-grounded through OpenRouter, no separate tool wiring needed).
+  // Still split from extraction into two calls: Sonar isn't a reliable
+  // structured-output model, so a second, plain instruct model shapes the
+  // research text into the schema instead.
   const researchPrompt = `Research currently-trending FACELESS short-form video niches right now across TikTok, YouTube Shorts, and Instagram Reels. Use web search to ground every claim in real, currently-circulating videos.
 
 Find 7-10 distinct niches, and make sure the set you return is NOT all narration-over-footage — deliberately include a mix across all three faceless production styles:
@@ -75,13 +75,12 @@ Use at most 8 searches. Do not invent video titles or view counts — if you can
   try {
     const { text } = await withTimeout(
       generateText({
-        model: geminiModel,
+        model: nicheTrendResearchModel,
         system: SYSTEM_PROMPT,
         messages,
-        tools: { google_search: google.tools.googleSearch({}) },
       }),
       200_000,
-      `Gemini took too long to respond (over 200s).`
+      `OpenRouter took too long to respond (over 200s).`
     );
     researchText = text;
   } catch (error) {
@@ -101,14 +100,14 @@ Use at most 8 searches. Do not invent video titles or view counts — if you can
   try {
     const { object } = await withTimeout(
       generateObject({
-        model: geminiModel,
+        model: openrouterInstructModel,
         system: SYSTEM_PROMPT,
         messages: messagesWithExtraction,
         schema: NicheTrendsSchema,
-        maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: Math.min(4000, OPENROUTER_MAX_OUTPUT_TOKENS),
       }),
       120_000,
-      `Gemini took too long to respond (over 120s).`
+      `OpenRouter took too long to respond (over 120s).`
     );
     return object.niches;
   } catch (error) {

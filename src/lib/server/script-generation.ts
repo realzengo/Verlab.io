@@ -1,12 +1,12 @@
 import { streamText, type LanguageModel, type ModelMessage } from "ai";
-import { GEMINI_MAX_OUTPUT_TOKENS, geminiModel } from "@/lib/server/gemini-client";
+import { OPENROUTER_INSTRUCT_MODEL, OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "@/lib/server/openrouter-client";
 import { CLAUDE_MAX_OUTPUT_TOKENS, anthropicModel } from "@/lib/server/anthropic-client";
 
 // Shared between the streaming web route (api/generate-script) and the MCP
 // tool (which needs the full text in one shot, not a stream) so the model
 // fallback order and prompt stay a single source of truth.
 export const MODEL_CANDIDATES: { model: LanguageModel; maxOutputTokens: number; label: string }[] = [
-  { model: geminiModel, maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS, label: "gemini-flash-latest" },
+  { model: openrouterInstructModel, maxOutputTokens: OPENROUTER_MAX_OUTPUT_TOKENS, label: OPENROUTER_INSTRUCT_MODEL },
   { model: anthropicModel, maxOutputTokens: CLAUDE_MAX_OUTPUT_TOKENS, label: "claude-sonnet-5" },
 ];
 
