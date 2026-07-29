@@ -96,3 +96,25 @@ export const CreatorProfileCardSchema = {
   note: z.string().optional(),
   error_message: z.string().nullable().optional(),
 };
+
+const nicheReportVideo = z.object({ title: z.string(), views: z.string() });
+const nicheReportEntry = z.object({
+  name: z.string(),
+  platform: z.enum(["youtube", "tiktok", "both"]),
+  category: z.string(),
+  description: z.string(),
+  whyForYou: z.string(),
+  angle: z.string(),
+  momentumScore: z.number(),
+  momentumTrend: z.enum(["up", "down", "flat"]),
+  sampleVideos: z.array(nicheReportVideo),
+});
+
+export const FindNicheCardSchema = {
+  stage: z.enum(["form", "processing", "result", "error"]),
+  id: z.string().optional(),
+  platform: z.enum(["youtube", "tiktok", "both"]).optional(),
+  niches: z.array(nicheReportEntry).optional(),
+  note: z.string().optional(),
+  error_message: z.string().optional(),
+};

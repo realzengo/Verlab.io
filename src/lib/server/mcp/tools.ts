@@ -15,6 +15,7 @@ import {
 } from "@/lib/server/video-provider";
 import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import { isNicheName } from "@/lib/niches-catalog";
+import { researchViralNiches, type NicheFinderAnswers } from "@/lib/server/niche-report-ai";
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
 import { scrapeChannelVideosWithUrls, detectCreatorPlatform, type ScrapedChannelVideo } from "@/lib/server/apify-client";
@@ -197,6 +198,126 @@ const browseNicheVideosTool: McpToolDefinition = {
         avatarUrl: signThumbUrl(video.avatarUrl),
       })),
     });
+  },
+};
+
+const NICHE_REPORT_PLATFORMS = ["youtube", "tiktok", "both"] as const;
+const NICHE_FINDER_FORMATS = ["long-form", "shorts", "not-sure"] as const;
+const NICHE_FINDER_STYLES = ["ai-visuals", "animation", "real-footage", "no-preference"] as const;
+
+// Free (no chargeUser call) -- matches browse_niche_videos/get_credit_balance.
+// Worth revisiting if usage climbs: unlike those, this runs a live
+// Google-Search-grounded Gemini research pass plus an extraction pass per
+// call (see niche-report-ai.ts), which isn't free to Verlab even though it's
+// free to the user.
+const findNicheTool: McpToolDefinition = {
+  name: "find_niche",
+  title: "Find a content niche",
+  description:
+    "Opens an interactive form asking the user seven quick questions -- what they could talk about for hours, " +
+    "channels they already watch, YouTube or TikTok, long-form vs Shorts, how they want videos made, any " +
+    "background/skill to pull from, and monthly budget -- then researches what's actually going viral right now " +
+    "on their chosen platform and returns a full niche report (5-7 niches, each with real current example " +
+    "videos, a momentum score/trend, and a personalized starter angle). Call with no arguments to show the form; " +
+    "the widget calls this same tool again with the filled-in answers once the user submits, which kicks off the " +
+    "research -- that can take up to a couple minutes, so a 'processing' result means poll " +
+    "check_niche_report_status with the returned id until it's done. Also callable directly with answers already " +
+    "filled in if the user just describes themselves in chat instead of using the form. Use when the user wants " +
+    "help finding, picking, or narrowing down a YouTube/TikTok niche to start a channel in, or wants to know " +
+    "what niches are trending/going viral right now.",
+  inputSchema: {
+    interests: z.string().optional().describe("What they could talk about for hours -- obsessions, rabbit holes, stuff they already know too much about."),
+    channelsTheyLike: z.string().optional().describe("Channels/creators they already watch or like, names or @handles."),
+    platform: z.enum(NICHE_REPORT_PLATFORMS).optional().describe("YouTube, TikTok, or both. Defaults to both."),
+    format: z.enum(NICHE_FINDER_FORMATS).optional().describe("Long-form or Shorts. Defaults to not-sure."),
+    productionStyle: z.enum(NICHE_FINDER_STYLES).optional().describe("How they want the videos made. Defaults to no-preference."),
+    background: z.string().optional().describe("Any job, background, or skill to pull from."),
+    budget: z.number().optional().describe("Monthly production budget in USD."),
+  },
+  handler: async (userId, args) => {
+    const interests = String(args.interests ?? "").trim();
+    const channelsTheyLike = String(args.channelsTheyLike ?? "").trim();
+    const background = String(args.background ?? "").trim();
+
+    // Nothing to research yet -- this is the initial call that just opens
+    // the form. The widget re-calls this same tool (via app.callServerTool)
+    // with real answers once the user hits submit.
+    if (!interests && !channelsTheyLike) {
+      return jsonResult({ stage: "form" });
+    }
+
+    const platform = (NICHE_REPORT_PLATFORMS as readonly string[]).includes(String(args.platform))
+      ? (args.platform as (typeof NICHE_REPORT_PLATFORMS)[number])
+      : "both";
+    const format = (NICHE_FINDER_FORMATS as readonly string[]).includes(String(args.format))
+      ? (args.format as (typeof NICHE_FINDER_FORMATS)[number])
+      : "not-sure";
+    const productionStyle = (NICHE_FINDER_STYLES as readonly string[]).includes(String(args.productionStyle))
+      ? (args.productionStyle as (typeof NICHE_FINDER_STYLES)[number])
+      : "no-preference";
+    const budgetNum = Number(args.budget);
+    const budget = Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : null;
+
+    const answers: NicheFinderAnswers = { interests, channelsTheyLike, platform, format, productionStyle, background, budget };
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("niche_reports")
+      .insert({ user_id: userId, platform, answers, status: "processing" })
+      .select("id")
+      .single();
+
+    if (insertError || !row) return errorResult(insertError?.message ?? "Could not start the niche report");
+
+    const work = (async () => {
+      const niches = await researchViralNiches(answers);
+      await admin.from("niche_reports").update({ status: "complete", niches }).eq("id", row.id);
+      recordUsageEvent("mcp", userId, { action: "nicheReport.research", reportId: row.id });
+      return niches;
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        stage: "processing",
+        id: row.id,
+        platform,
+        note: "Still researching — call check_niche_report_status with this id shortly.",
+      });
+    }
+
+    work.catch(async (error) => {
+      await admin
+        .from("niche_reports")
+        .update({ status: "failed", error_message: error instanceof Error ? error.message : "Research failed" })
+        .eq("id", row.id);
+    });
+
+    return jsonResult({ stage: "result", id: row.id, platform, niches: outcome });
+  },
+};
+
+const checkNicheReportStatusTool: McpToolDefinition = {
+  name: "check_niche_report_status",
+  title: "Check niche report status",
+  description: "Checks the status of an in-progress find_niche research call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("niche_reports")
+      .select("id, status, platform, niches, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    if (data.status === "failed") return jsonResult({ stage: "error", error_message: data.error_message ?? "Research failed" });
+    if (data.status === "processing") {
+      return jsonResult({ stage: "processing", id: data.id, platform: data.platform, note: "Still researching — try again shortly." });
+    }
+    return jsonResult({ stage: "result", id: data.id, platform: data.platform, niches: data.niches });
   },
 };
 
@@ -674,6 +795,8 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   listScriptsTool,
   listLibraryTool,
   browseNicheVideosTool,
+  findNicheTool,
+  checkNicheReportStatusTool,
   generateScriptTool,
   generateImageTool,
   checkImageStatusTool,

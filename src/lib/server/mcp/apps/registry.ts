@@ -7,6 +7,7 @@ import { imageGalleryCardHtml } from "./generated/image-gallery-card";
 import { transcriptCardHtml } from "./generated/transcript-card";
 import { downloadCardHtml } from "./generated/download-card";
 import { creatorProfileCardHtml } from "./generated/creator-profile-card";
+import { nicheFinderCardHtml } from "./generated/niche-finder-card";
 import {
   StatCardSchema,
   ListCardSchema,
@@ -16,6 +17,7 @@ import {
   TranscriptCardSchema,
   DownloadCardSchema,
   CreatorProfileCardSchema,
+  FindNicheCardSchema,
 } from "./schemas";
 
 interface WidgetDefinition {
@@ -53,9 +55,14 @@ const WIDGETS = {
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
+  nicheFinderCard: {
+    resourceUri: "ui://verlab/niche-finder-card.html",
+    html: nicheFinderCardHtml,
+    outputSchema: FindNicheCardSchema,
+  },
 } as const satisfies Record<string, WidgetDefinition>;
 
-// Maps each of the 11 MCP tool names to its widget. Several tools
+// Maps each of the 16 MCP tool names to its widget. Several tools
 // intentionally share one widget/resource (e.g. an async tool and its
 // check_*_status counterpart show the same card in either the "processing"
 // or "complete" state).
@@ -64,6 +71,8 @@ export const TOOL_WIDGETS: Record<string, WidgetDefinition> = {
   list_scripts: WIDGETS.listCard,
   list_library: WIDGETS.listCard,
   browse_niche_videos: WIDGETS.videoGridCard,
+  find_niche: WIDGETS.nicheFinderCard,
+  check_niche_report_status: WIDGETS.nicheFinderCard,
   generate_script: WIDGETS.scriptCard,
   generate_image: WIDGETS.imageGalleryCard,
   check_image_status: WIDGETS.imageGalleryCard,
