@@ -9,7 +9,7 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { BendCandidateCard } from "./BendCandidateCard";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
 import { ChannelAnalysisSummary } from "./ChannelAnalysisSummary";
-import { SopGeneratingModal } from "./SopGeneratingModal";
+import { SopGeneratingCard } from "./SopGeneratingCard";
 
 interface StepChooseBendProps {
   analysis: NicheBendChannelAnalysis;
@@ -64,24 +64,27 @@ export function StepChooseBend({
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        {candidatesRegenerating || !candidates
-          ? [0, 1, 2].map((i) => <BendCandidateSkeleton key={i} />)
-          : candidates.map((candidate) => (
-              <BendCandidateCard
-                key={candidate.id}
-                candidate={candidate}
-                selected={selectedCandidateId === candidate.id}
-                saved={savedCandidateIds.includes(candidate.id)}
-                regenerating={regeneratingCandidateId === candidate.id}
-                submittingSop={selectedCandidateId === candidate.id && sopSubmitting}
-                onSelect={() => onSelect(candidate.id)}
-                onToggleSaved={() => onToggleSaved(candidate.id)}
-                onRegenerate={() => onRegenerateOne(candidate.id)}
-                onUseNow={() => onGenerateSopFor(candidate.id)}
-              />
-            ))}
-      </div>
+      {sopSubmitting ? (
+        <SopGeneratingCard nicheName={selectedCandidate?.nicheName} />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {candidatesRegenerating || !candidates
+            ? [0, 1, 2].map((i) => <BendCandidateSkeleton key={i} />)
+            : candidates.map((candidate) => (
+                <BendCandidateCard
+                  key={candidate.id}
+                  candidate={candidate}
+                  selected={selectedCandidateId === candidate.id}
+                  saved={savedCandidateIds.includes(candidate.id)}
+                  regenerating={regeneratingCandidateId === candidate.id}
+                  onSelect={() => onSelect(candidate.id)}
+                  onToggleSaved={() => onToggleSaved(candidate.id)}
+                  onRegenerate={() => onRegenerateOne(candidate.id)}
+                  onUseNow={() => onGenerateSopFor(candidate.id)}
+                />
+              ))}
+        </div>
+      )}
 
       {sopError && (
         <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
@@ -89,8 +92,6 @@ export function StepChooseBend({
           {sopError}
         </div>
       )}
-
-      <SopGeneratingModal open={sopSubmitting} nicheName={selectedCandidate?.nicheName} />
     </div>
   );
 }

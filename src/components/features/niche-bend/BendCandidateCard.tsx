@@ -14,7 +14,6 @@ export function BendCandidateCard({
   selected,
   saved,
   regenerating,
-  submittingSop,
   onSelect,
   onToggleSaved,
   onRegenerate,
@@ -24,13 +23,12 @@ export function BendCandidateCard({
   selected: boolean;
   saved: boolean;
   regenerating: boolean;
-  submittingSop: boolean;
   onSelect: () => void;
   onToggleSaved: () => void;
   onRegenerate: () => void;
   onUseNow: () => void;
 }) {
-  const busy = regenerating || submittingSop;
+  const busy = regenerating;
 
   const stopAndRun = (event: MouseEvent, run: () => void) => {
     event.stopPropagation();
