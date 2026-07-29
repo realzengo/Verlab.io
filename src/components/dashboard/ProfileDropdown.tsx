@@ -35,7 +35,7 @@ function avatarUrl(user: User | null): string | null {
 }
 
 const NAV_LINKS = [
-  { label: "Upgrade", href: "/app/settings/subscription", icon: ArrowUpCircle },
+  { label: "Upgrade", href: "/pricing", icon: ArrowUpCircle },
   { label: "Settings", href: "/app/settings", icon: Settings },
   { label: "Earn with clippie", href: "/affiliates", icon: CircleDollarSign },
 ];
