@@ -193,16 +193,6 @@ export interface ComparisonRow {
   scale: boolean | string;
 }
 
-export interface ApiKey {
-  id: string;
-  label: string;
-  keyPreview: string;
-  createdAt: string;
-  lastUsedAt?: string;
-  scopes: string[];
-  revoked?: boolean;
-}
-
 export interface FaqItem {
   id: string;
   question: string;

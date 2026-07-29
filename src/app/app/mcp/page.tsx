@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, Play } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { LogoMark } from "@/components/ui/Logo";
-import { McpConnectSection, MCP_URL } from "@/components/mcp/McpConnectSection";
+import { McpConnectSection } from "@/components/mcp/McpConnectSection";
 
 const CONNECT_TABS = [
   { id: "claude", label: "For Claude", icon: ClaudeIcon },
@@ -30,23 +30,86 @@ const CONNECT_STEPS: Record<string, { title: string; description: string }[]> = 
   ],
 };
 
+interface McpTokenResponse {
+  token: { keyPrefix: string; createdAt: string } | null;
+}
+
 export default function McpPage() {
   const [activeTab, setActiveTab] = useState("claude");
   const [copied, setCopied] = useState(false);
+
+  const [connectorUrl, setConnectorUrl] = useState<string | null>(null);
+  const [hasStoredToken, setHasStoredToken] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/mcp-token");
+        if (!res.ok) throw new Error("Could not load connector status");
+        const data: McpTokenResponse = await res.json();
+        if (!cancelled) setHasStoredToken(Boolean(data.token));
+      } catch {
+        if (!cancelled) setError("Could not load your connector status.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleGenerate() {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/mcp-token", { method: "POST" });
+      if (!res.ok) throw new Error("Could not generate a connector link");
+      const data: { url: string } = await res.json();
+      setConnectorUrl(data.url);
+      setHasStoredToken(true);
+    } catch {
+      setError("Could not generate a connector link. Try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
 
   const activeTabConfig = CONNECT_TABS.find((tab) => tab.id === activeTab) ?? CONNECT_TABS[0];
   const ActivePlatformIcon = activeTabConfig.icon;
   const platformLabel = activeTab === "claude" ? "Claude" : "ChatGPT";
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(`https://${MCP_URL}`);
+    if (!connectorUrl) return;
+    await navigator.clipboard.writeText(connectorUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const linkFieldText = isLoading
+    ? "Loading…"
+    : connectorUrl
+      ? connectorUrl
+      : hasStoredToken
+        ? "Regenerate to view your link"
+        : "Generate a connector link below";
+
   return (
     <div className="w-full py-8">
-      <McpConnectSection compact />
+      <McpConnectSection
+        compact
+        connectorUrl={connectorUrl}
+        hasStoredToken={hasStoredToken}
+        isLoading={isLoading}
+        isGenerating={isGenerating}
+        onGenerate={handleGenerate}
+      />
+
+      {error && <p className="mx-auto mt-2 max-w-5xl text-center text-sm text-danger">{error}</p>}
 
       <div className="mx-auto mt-14 max-w-5xl text-center sm:mt-20 lg:mt-28">
         <h2 className="text-2xl font-black tracking-[-1px] text-heading sm:text-[32px] lg:text-[36px]">
@@ -118,14 +181,25 @@ export default function McpPage() {
                     <h4 className="text-sm font-bold text-heading sm:text-base">{step.title}</h4>
                     {i === 0 ? (
                       <div className="mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-full border border-hairline bg-app py-1 pl-2.5 pr-1">
-                        <span className="min-w-0 truncate font-mono text-xs text-body">{MCP_URL}</span>
+                        <span className="min-w-0 truncate font-mono text-xs text-body">{linkFieldText}</span>
                         <button
                           type="button"
-                          onClick={handleCopy}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+                          onClick={connectorUrl ? handleCopy : handleGenerate}
+                          disabled={isLoading || isGenerating}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
                         >
-                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                          {copied ? "Copied" : "Copy"}
+                          {connectorUrl ? (
+                            <>
+                              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {copied ? "Copied" : "Copy"}
+                            </>
+                          ) : isGenerating ? (
+                            "Generating…"
+                          ) : hasStoredToken ? (
+                            "Regenerate"
+                          ) : (
+                            "Generate"
+                          )}
                         </button>
                       </div>
                     ) : (
@@ -166,14 +240,17 @@ export default function McpPage() {
 
               <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-hairline bg-app p-4 sm:mt-5 sm:min-h-[180px] sm:rounded-2xl sm:p-5">
                 <div className="flex w-full max-w-[280px] items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-1.5 sm:pl-4">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">{MCP_URL}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">{linkFieldText}</span>
                   <button
                     type="button"
-                    onClick={handleCopy}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors sm:px-3.5 sm:py-2 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+                    onClick={connectorUrl ? handleCopy : handleGenerate}
+                    disabled={isLoading || isGenerating}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 sm:px-3.5 sm:py-2 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
                   >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {copied ? "Copied" : "Copy"}
+                    {connectorUrl ? (
+                      copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />
+                    ) : null}
+                    {connectorUrl ? (copied ? "Copied" : "Copy") : isGenerating ? "Generating…" : hasStoredToken ? "Regenerate" : "Generate"}
                   </button>
                 </div>
               </div>
@@ -196,7 +273,7 @@ export default function McpPage() {
                     <span className="text-sm font-semibold text-heading">Verlab</span>
                   </div>
                   <div className="mt-2.5 truncate rounded-lg bg-app px-2.5 py-1.5 font-mono text-xs text-subtle">
-                    {MCP_URL}
+                    {linkFieldText}
                   </div>
                   <span className="mt-2.5 block w-full rounded-full bg-primary py-2 text-center text-xs font-semibold text-white">
                     Connect

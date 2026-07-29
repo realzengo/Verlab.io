@@ -1,0 +1,509 @@
+import { z } from "zod";
+import type { ModelMessage } from "ai";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserCredits, chargeUser, refundUser, InsufficientCreditsError } from "@/lib/server/credits";
+import { recordUsageEvent } from "@/lib/server/usage";
+import { TOOL_CREDIT_COSTS, getImageGenerationCost, slugifyModelName } from "@/lib/config/pricing";
+import { generateScriptText, buildSystemPrompt } from "@/lib/server/script-generation";
+import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
+import {
+  fetchTranscript,
+  fetchDownloadLink,
+  detectTranscriptPlatform,
+  detectDownloadPlatform,
+  humanizeVideoProviderError,
+} from "@/lib/server/video-provider";
+import { getNicheVideosPage } from "@/lib/server/niche-video-query";
+import { isNicheName } from "@/lib/niches-catalog";
+import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
+
+// Every tool below is scoped to a single Verlab user (`userId`, resolved
+// from the MCP connector token by verifyMcpToken — see mcp-auth.ts). There
+// is no cookie session on this path, so all DB access goes through the
+// service-role client rather than the per-request client the web app's API
+// routes use.
+//
+// Credit costs are never re-derived here — always imported from
+// src/lib/config/pricing.ts / applied via src/lib/server/credits.ts, the
+// same primitives the web routes use, so MCP and web charges can never
+// drift apart.
+
+function textResult(text: string) {
+  return { content: [{ type: "text" as const, text }] };
+}
+
+function jsonResult(data: unknown) {
+  return textResult(JSON.stringify(data, null, 2));
+}
+
+function errorResult(message: string) {
+  return { content: [{ type: "text" as const, text: message }], isError: true as const };
+}
+
+// Bounded wait before an async job (image/transcript/download) falls back to
+// "still processing" — MCP tool calls can hold the connection open longer
+// than a browser tab, but Claude/ChatGPT's own per-call timeout isn't
+// something Verlab controls, so results are returned as soon as they're
+// ready rather than always waiting the full budget.
+const ASYNC_TOOL_BUDGET_MS = 55_000;
+
+async function withBudget<T>(work: Promise<T>, budgetMs: number): Promise<T | "timeout"> {
+  const timeout = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), budgetMs));
+  return Promise.race([work, timeout]);
+}
+
+export interface McpToolDefinition {
+  name: string;
+  title: string;
+  description: string;
+  inputSchema: Record<string, z.ZodTypeAny>;
+  handler: (userId: string, args: Record<string, unknown>) => Promise<ReturnType<typeof textResult>>;
+}
+
+const getCreditBalanceTool: McpToolDefinition = {
+  name: "get_credit_balance",
+  title: "Get credit balance",
+  description: "Returns the Verlab account's current credit balance.",
+  inputSchema: {},
+  handler: async (userId) => {
+    const credits = await getUserCredits(userId);
+    return jsonResult({ credits });
+  },
+};
+
+const listScriptsTool: McpToolDefinition = {
+  name: "list_scripts",
+  title: "List generated scripts",
+  description: "Lists the most recent scripts generated on this Verlab account (up to 100).",
+  inputSchema: {},
+  handler: async (userId) => {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("scripts")
+      .select("id, prompt, content, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) return errorResult(error.message);
+    return jsonResult({ scripts: data });
+  },
+};
+
+const listLibraryTool: McpToolDefinition = {
+  name: "list_library",
+  title: "List library assets",
+  description: "Lists saved images and SOPs in this Verlab account's library.",
+  inputSchema: {
+    type: z.enum(["all", "image", "sop"]).optional().describe("Filter by asset type. Defaults to all."),
+  },
+  handler: async (userId, args) => {
+    const type = (args.type as "all" | "image" | "sop" | undefined) ?? "all";
+    const admin = createAdminClient();
+    const wantsImages = type === "all" || type === "image";
+    const wantsSops = type === "all" || type === "sop";
+
+    const [imagesResult, sopsResult] = await Promise.all([
+      wantsImages
+        ? admin
+            .from("image_generations")
+            .select("id, prompt, model, outputs, created_at")
+            .eq("user_id", userId)
+            .eq("status", "completed")
+            .order("created_at", { ascending: false })
+            .limit(40)
+        : Promise.resolve({ data: [] as never[], error: null }),
+      wantsSops
+        ? admin
+            .from("niche_bend_jobs")
+            .select("id, analysis, chosen_bend, created_at")
+            .eq("user_id", userId)
+            .eq("saved", true)
+            .order("created_at", { ascending: false })
+            .limit(40)
+        : Promise.resolve({ data: [] as never[], error: null }),
+    ]);
+
+    if (imagesResult.error) return errorResult(imagesResult.error.message);
+    if (sopsResult.error) return errorResult(sopsResult.error.message);
+
+    return jsonResult({ images: imagesResult.data, sops: sopsResult.data });
+  },
+};
+
+const browseNicheVideosTool: McpToolDefinition = {
+  name: "browse_niche_videos",
+  title: "Browse trending niche videos",
+  description:
+    "Browses Verlab's cached trending TikTok/YouTube videos for a content niche (e.g. 'History', 'Crime', 'Finance'), or 'all' niches blended together. Useful for researching what's currently working in a niche before writing a script.",
+  inputSchema: {
+    niche: z.string().describe("A niche name (see Verlab's niche list) or 'all'."),
+    platform: z.enum(["tiktok", "youtube", "all"]).optional().describe("Defaults to all."),
+    page: z.number().int().min(1).optional().describe("Defaults to 1."),
+    limit: z.number().int().min(1).max(50).optional().describe("Defaults to 20."),
+  },
+  handler: async (_userId, args) => {
+    const niche = String(args.niche ?? "all");
+    const isAllNiches = niche === "all";
+    if (!isAllNiches && !isNicheName(niche)) {
+      return errorResult(`Unknown niche "${niche}"`);
+    }
+
+    const platform = args.platform === "tiktok" || args.platform === "youtube" ? args.platform : "all";
+    const page = Math.max(1, Number(args.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(args.limit) || 20));
+
+    const result = await getNicheVideosPage(niche, isAllNiches, {
+      page,
+      limit,
+      style: "all",
+      platform,
+      timeWindow: "all",
+      country: "",
+      viewsMin: null,
+      viewsMax: null,
+      followersMin: null,
+      followersMax: null,
+      postedAfter: null,
+      postedBefore: null,
+    });
+
+    return jsonResult(result);
+  },
+};
+
+const generateScriptTool: McpToolDefinition = {
+  name: "generate_script",
+  title: "Generate a script",
+  description:
+    "Generates a short-form video script (or 10 video ideas) by applying a competitor's SOP and example transcripts to a new topic. Charges credits (see get_credit_balance).",
+  inputSchema: {
+    message: z.string().describe("The topic, or an instruction like 'give me 10 ideas' or 'script this'."),
+    sop: z.string().optional().describe("The competitor channel's SOP/style notes, if known."),
+    transcripts: z.string().optional().describe("Example transcripts from the competitor channel, if known."),
+  },
+  handler: async (userId, args) => {
+    const message = String(args.message ?? "").trim();
+    if (!message) return errorResult("message is required");
+
+    const cost = TOOL_CREDIT_COSTS.script.generation;
+    try {
+      await chargeUser(userId, cost, "Script Generation", "script.generation");
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) return errorResult("Insufficient credits");
+      throw error;
+    }
+
+    const systemPrompt = buildSystemPrompt(
+      String(args.sop ?? "").trim() || "No SOP provided.",
+      String(args.transcripts ?? "").trim() || "No transcripts provided.",
+      message
+    );
+    const messages: ModelMessage[] = [{ role: "user", content: message }];
+
+    try {
+      const text = await generateScriptText(systemPrompt, messages);
+      const admin = createAdminClient();
+      await admin.from("scripts").insert({ user_id: userId, prompt: message, content: text });
+      recordUsageEvent("mcp", userId, { action: "script.generation" });
+      return textResult(text);
+    } catch (error) {
+      await refundUser(userId, cost, "Script Generation refund", "script.generation");
+      return errorResult(error instanceof Error ? error.message : "Script generation failed");
+    }
+  },
+};
+
+const IMAGE_MODELS = Object.keys(IMAGE_MODEL_MAP);
+const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"] as const;
+
+const generateImageTool: McpToolDefinition = {
+  name: "generate_image",
+  title: "Generate an image",
+  description: "Generates one or more AI images from a text prompt. Charges credits (see get_credit_balance).",
+  inputSchema: {
+    prompt: z.string().describe("What to generate."),
+    model: z.enum(IMAGE_MODELS as [string, ...string[]]).describe("Which image model to use."),
+    aspectRatio: z.enum(ASPECT_RATIOS).optional().describe("Defaults to 1:1."),
+    outputs: z.number().int().min(1).max(4).optional().describe("Number of images, 1-4. Defaults to 1."),
+    quality: z.enum(["auto", "low", "medium", "high"]).optional().describe("Defaults to auto."),
+    resolution: z.enum(["512px", "1K", "2K", "4K"]).optional().describe("Defaults to 1K."),
+  },
+  handler: async (userId, args) => {
+    const prompt = String(args.prompt ?? "").trim();
+    if (!prompt) return errorResult("prompt is required");
+
+    const model = String(args.model ?? "");
+    if (!(model in IMAGE_MODEL_MAP)) return errorResult("model must be one of the supported options");
+
+    const aspectRatio = (args.aspectRatio as string) ?? "1:1";
+    const outputs = Math.min(4, Math.max(1, Number(args.outputs) || 1));
+    const quality = (args.quality as "auto" | "low" | "medium" | "high") ?? "auto";
+    const resolution = (args.resolution as "512px" | "1K" | "2K" | "4K") ?? "1K";
+
+    const resolvedModel = resolveQualityModel(model, quality);
+    const cost = getImageGenerationCost({
+      model: resolvedModel,
+      resolution,
+      quality,
+      outputs,
+      hasReferenceImage: false,
+    });
+
+    const balance = await getUserCredits(userId);
+    if (balance < cost) return errorResult("Insufficient credits");
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("image_generations")
+      .insert({ user_id: userId, prompt, model, aspect_ratio: aspectRatio, outputs, images: [], status: "generating" })
+      .select("id")
+      .single();
+
+    if (insertError || !row) return errorResult(insertError?.message ?? "Could not start generation");
+
+    const work = (async () => {
+      const images = await generateImages({ prompt, model, aspectRatio, outputs, quality, resolution });
+      await chargeUser(userId, cost, "Image Generation", `image.${slugifyModelName(resolvedModel)}`);
+      await admin.from("image_generations").update({ images, status: "completed" }).eq("id", row.id);
+      recordUsageEvent("image", userId, { model, aspectRatio, outputs, source: "mcp" });
+      return images;
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        id: row.id,
+        status: "generating",
+        note: "Still generating — call check_image_status with this id shortly.",
+      });
+    }
+
+    work.catch(async (error) => {
+      const message = error instanceof Error ? error.message : "Could not generate images";
+      await admin.from("image_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
+    });
+
+    return jsonResult({ id: row.id, status: "completed", images: outcome });
+  },
+};
+
+const checkImageStatusTool: McpToolDefinition = {
+  name: "check_image_status",
+  title: "Check image generation status",
+  description: "Checks the status of an in-progress generate_image call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("image_generations")
+      .select("id, status, images, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    return jsonResult(data);
+  },
+};
+
+const extractTranscriptTool: McpToolDefinition = {
+  name: "extract_transcript",
+  title: "Extract a video transcript",
+  description:
+    "Extracts the transcript (with timestamps) from a TikTok, Instagram Reels, or YouTube Shorts URL. Charges credits (see get_credit_balance).",
+  inputSchema: { url: z.string().describe("A TikTok, Instagram Reels, or YouTube Shorts URL.") },
+  handler: async (userId, args) => {
+    const url = String(args.url ?? "").trim();
+    if (!url) return errorResult("url is required");
+
+    const platform = detectTranscriptPlatform(url);
+    if (!platform) return errorResult("Only TikTok, Instagram Reels, and YouTube Shorts links are supported");
+
+    const cost = TOOL_CREDIT_COSTS.transcripts.extract;
+    try {
+      await chargeUser(userId, cost, "Transcript Extraction", "transcripts.extract");
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) return errorResult("Insufficient credits");
+      throw error;
+    }
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("transcripts")
+      .insert({ user_id: userId, source_url: url, platform, status: "processing" })
+      .select("id")
+      .single();
+
+    if (insertError || !row) {
+      await refundUser(userId, cost, "Transcript Extraction refund", "transcripts.extract");
+      return errorResult(insertError?.message ?? "Could not start extraction");
+    }
+
+    const work = (async () => {
+      const result = await fetchTranscript(url);
+      await admin
+        .from("transcripts")
+        .update({
+          status: "complete",
+          title: result.title,
+          cover_url: result.coverUrl,
+          duration_seconds: result.durationSeconds,
+          video_url: result.videoUrl,
+          embed_url: result.embedUrl,
+          lines: result.lines,
+        })
+        .eq("id", row.id);
+      recordUsageEvent("transcripts", userId, { transcriptId: row.id, source: "mcp" });
+      return result;
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        id: row.id,
+        status: "processing",
+        note: "Still extracting — call check_transcript_status with this id shortly.",
+      });
+    }
+
+    work.catch(async (error) => {
+      await admin
+        .from("transcripts")
+        .update({ status: "failed", error_message: humanizeVideoProviderError(error) })
+        .eq("id", row.id);
+    });
+
+    return jsonResult({ id: row.id, status: "complete", ...outcome });
+  },
+};
+
+const checkTranscriptStatusTool: McpToolDefinition = {
+  name: "check_transcript_status",
+  title: "Check transcript extraction status",
+  description: "Checks the status of an in-progress extract_transcript call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("transcripts")
+      .select("id, status, title, lines, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    return jsonResult(data);
+  },
+};
+
+const DOWNLOAD_FORMATS = DOWNLOAD_FORMAT_OPTIONS.map((option) => option.value) as [DownloadFormat, ...DownloadFormat[]];
+
+const downloadVideoTool: McpToolDefinition = {
+  name: "download_video",
+  title: "Download a video",
+  description:
+    "Downloads a TikTok, YouTube, or Facebook video (or extracts its audio) and returns a direct file URL. Charges credits (see get_credit_balance). Format options: " +
+    DOWNLOAD_FORMAT_OPTIONS.map((option) => `${option.value} (${option.label})`).join(", "),
+  inputSchema: {
+    url: z.string().describe("A TikTok, YouTube, or Facebook URL."),
+    format: z.enum(DOWNLOAD_FORMATS).optional().describe("Defaults to 720 (MP4 720p)."),
+  },
+  handler: async (userId, args) => {
+    const url = String(args.url ?? "").trim();
+    if (!url) return errorResult("url is required");
+
+    const formatOption = getDownloadFormatOption(String(args.format ?? "720"));
+    if (!formatOption) return errorResult("Unsupported format");
+    const format: DownloadFormat = formatOption.value;
+
+    const platform = detectDownloadPlatform(url);
+    if (!platform) return errorResult("Only TikTok, YouTube, and Facebook links are supported");
+
+    const cost = TOOL_CREDIT_COSTS.downloads.create;
+    try {
+      await chargeUser(userId, cost, "Video Download", "downloads.create");
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) return errorResult("Insufficient credits");
+      throw error;
+    }
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("downloads")
+      .insert({ user_id: userId, source_url: url, platform, format, status: "processing" })
+      .select("id")
+      .single();
+
+    if (insertError || !row) {
+      await refundUser(userId, cost, "Video Download refund", "downloads.create");
+      return errorResult(insertError?.message ?? "Could not start download");
+    }
+
+    const work = (async () => {
+      const result = await fetchDownloadLink(url, format, (percent) => {
+        void admin.from("downloads").update({ progress: percent }).eq("id", row.id);
+      });
+      await admin
+        .from("downloads")
+        .update({ status: "complete", progress: 100, title: result.title, file_path: result.directUrl })
+        .eq("id", row.id);
+      recordUsageEvent("downloader", userId, { downloadId: row.id, source: "mcp" });
+      return result;
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        id: row.id,
+        status: "processing",
+        note: "Still downloading — call check_download_status with this id shortly.",
+      });
+    }
+
+    work.catch(async (error) => {
+      await admin
+        .from("downloads")
+        .update({ status: "failed", error_message: humanizeVideoProviderError(error) })
+        .eq("id", row.id);
+    });
+
+    return jsonResult({ id: row.id, status: "complete", title: outcome.title, url: outcome.directUrl });
+  },
+};
+
+const checkDownloadStatusTool: McpToolDefinition = {
+  name: "check_download_status",
+  title: "Check video download status",
+  description: "Checks the status of an in-progress download_video call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("downloads")
+      .select("id, status, progress, title, file_path, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    return jsonResult(data);
+  },
+};
+
+export const MCP_TOOLS: McpToolDefinition[] = [
+  getCreditBalanceTool,
+  listScriptsTool,
+  listLibraryTool,
+  browseNicheVideosTool,
+  generateScriptTool,
+  generateImageTool,
+  checkImageStatusTool,
+  extractTranscriptTool,
+  checkTranscriptStatusTool,
+  downloadVideoTool,
+  checkDownloadStatusTool,
+];
