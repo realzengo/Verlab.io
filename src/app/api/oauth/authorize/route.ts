@@ -37,9 +37,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const callback = new URL(redirectUri);
   if (state) callback.searchParams.set("state", state);
 
+  // 303 (not the 307 NextResponse.redirect() defaults to) so the browser
+  // switches to GET on the client's redirect_uri regardless of this request
+  // having been a POST -- 307/308 preserve the method, which made Claude's
+  // OAuth callback (GET-only) reject the redirect as "Method Not Allowed".
   if (decision !== "approve") {
     callback.searchParams.set("error", "access_denied");
-    return NextResponse.redirect(callback.toString());
+    return NextResponse.redirect(callback.toString(), 303);
   }
 
   const code = await issueAuthorizationCode({
@@ -52,5 +56,5 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   callback.searchParams.set("code", code);
-  return NextResponse.redirect(callback.toString());
+  return NextResponse.redirect(callback.toString(), 303);
 }
