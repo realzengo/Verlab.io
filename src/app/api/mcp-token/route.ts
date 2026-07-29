@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMcpToken, issueMcpToken, revokeMcpToken } from "@/lib/server/mcp-auth";
 
-// One fixed URL for every user — see src/app/api/mcp/route.ts. Identity
-// comes from the Authorization header the user configures when adding the
-// connector, not from anything in the URL, so this never needs a per-user
-// value and can be shown/copied freely without ever being regenerated.
-function connectorUrl(request: Request): string {
-  return new URL("/api/mcp", request.url).toString();
+function connectorUrl(request: Request, token: string): string {
+  return new URL(`/api/mcp/${token}`, request.url).toString();
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,7 +17,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const existing = await getActiveMcpToken(user.id);
-  return NextResponse.json({ url: connectorUrl(request), token: existing });
+  return NextResponse.json({ token: existing });
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -35,7 +31,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const token = await issueMcpToken(user.id);
-  return NextResponse.json({ url: connectorUrl(request), apiKey: token });
+  return NextResponse.json({ url: connectorUrl(request, token) });
 }
 
 export async function DELETE(): Promise<NextResponse> {

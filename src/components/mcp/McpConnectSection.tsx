@@ -8,74 +8,33 @@ import { cn } from "@/lib/utils";
 export interface McpConnectSectionProps {
   className?: string;
   compact?: boolean;
-  /** Fixed, same for every user — safe to show and copy at any time. */
+  /** The full connector URL with its raw secret — only ever populated right after (re)generating. */
   connectorUrl: string | null;
-  /** The raw API key secret — only populated right after (re)generating. */
-  apiKey: string | null;
-  /** Whether an active (but not currently visible) key already exists from a prior visit. */
+  /** Whether an active (but not currently visible) token already exists from a prior visit. */
   hasStoredToken: boolean;
   isLoading: boolean;
   isGenerating: boolean;
   onGenerate: () => void;
 }
 
-function CopyField({
-  value,
-  placeholder,
-  action,
-}: {
-  value: string | null;
-  placeholder: string;
-  action: { label: string; onClick: () => void; disabled?: boolean } | { copy: string };
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const isCopyAction = "copy" in action;
-
-  const handleClick = async () => {
-    if (isCopyAction) {
-      await navigator.clipboard.writeText(action.copy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } else {
-      action.onClick();
-    }
-  };
-
-  return (
-    <div className="mx-auto mt-3 flex w-full max-w-md items-center gap-2 rounded-full border-2 border-black/10 bg-white p-1.5 pl-4 dark:border-white/15 dark:bg-black">
-      <span className="min-w-0 flex-1 truncate text-left font-mono text-sm text-slate-700 dark:text-slate-200">
-        {value ?? placeholder}
-      </span>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={!isCopyAction && action.disabled}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
-      >
-        {isCopyAction ? (
-          <>
-            {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-            {copied ? "Copied" : "Copy"}
-          </>
-        ) : (
-          action.label
-        )}
-      </button>
-    </div>
-  );
-}
-
 export function McpConnectSection({
   className,
   compact = false,
   connectorUrl,
-  apiKey,
   hasStoredToken,
   isLoading,
   isGenerating,
   onGenerate,
 }: McpConnectSectionProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!connectorUrl) return;
+    await navigator.clipboard.writeText(connectorUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <section
       className={cn(
@@ -107,44 +66,49 @@ export function McpConnectSection({
             ChatGPT. Get real insights, ask, plan, create directly in chat.
           </p>
 
-          <p className="mx-auto mt-6 max-w-md text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:mt-8 dark:text-slate-500">
-            1. Connector URL
-          </p>
-          <CopyField
-            value={isLoading ? null : connectorUrl}
-            placeholder="Loading…"
-            action={{ copy: connectorUrl ?? "" }}
-          />
-
-          <p className="mx-auto mt-5 max-w-md text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">
-            2. API key (for the Authorization header)
-          </p>
-          <CopyField
-            value={isLoading ? null : apiKey}
-            placeholder={hasStoredToken ? "Regenerate to view your key" : "Generate a key below"}
-            action={
-              apiKey
-                ? { copy: apiKey }
-                : {
-                    label: isGenerating ? "Generating…" : hasStoredToken ? "Regenerate" : "Generate key",
-                    onClick: onGenerate,
-                    disabled: isLoading || isGenerating,
-                  }
-            }
-          />
-          {apiKey && (
+          <div className="mx-auto mt-6 flex w-full max-w-md items-center gap-2 rounded-full border-2 border-black/10 bg-white p-1.5 pl-4 sm:mt-8 sm:pl-6 dark:border-white/15 dark:bg-black">
+            <span className="min-w-0 flex-1 truncate text-left font-mono text-sm text-slate-700 sm:text-base dark:text-slate-200">
+              {isLoading
+                ? "Loading…"
+                : connectorUrl
+                  ? connectorUrl
+                  : hasStoredToken
+                    ? "Connector link generated — regenerate to view it again"
+                    : "No connector link yet"}
+            </span>
+            {connectorUrl ? (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={isLoading || isGenerating}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+              >
+                {isGenerating ? "Generating…" : hasStoredToken ? "Regenerate" : "Generate link"}
+              </button>
+            )}
+          </div>
+          {connectorUrl && (
             <p className="mx-auto mt-2 max-w-md text-xs text-slate-500 dark:text-slate-500">
-              Save this key now — for your security we can&apos;t show it again. Lost it? Regenerate below.
+              Save this link now — for your security we can&apos;t show it again. Lost it? Regenerate below.
             </p>
           )}
-          {!apiKey && hasStoredToken && (
+          {!connectorUrl && hasStoredToken && (
             <button
               type="button"
               onClick={onGenerate}
               disabled={isLoading || isGenerating}
               className="mx-auto mt-2 block text-xs font-medium text-primary hover:underline disabled:opacity-50"
             >
-              {isGenerating ? "Generating…" : "Regenerate API key"}
+              {isGenerating ? "Generating…" : "Regenerate connector link"}
             </button>
           )}
         </div>

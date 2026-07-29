@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Play } from "lucide-react";
+import { Check, Copy, Play } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { LogoMark } from "@/components/ui/Logo";
 import { McpConnectSection } from "@/components/mcp/McpConnectSection";
@@ -13,41 +13,32 @@ const CONNECT_TABS = [
 
 const CONNECT_STEPS: Record<string, { title: string; description: string }[]> = {
   claude: [
+    { title: "Copy MCP link", description: "" },
     {
-      title: "Copy your URL and API key",
-      description: "Grab both values from the top of this page.",
-    },
-    {
-      title: "Add a custom connector",
-      description:
-        "In Claude, go to Settings > Connectors > Add custom connector. Paste the URL, then open Request headers and add Authorization with value Bearer <your API key>.",
+      title: "Paste the link",
+      description: 'In Claude, go to Settings > Connectors > Add custom connector, then paste the link.',
     },
     { title: "Restart & you're set", description: "Restart Claude Desktop to load the Verlab tools and start chatting." },
   ],
   chatgpt: [
+    { title: "Copy MCP link", description: "" },
     {
-      title: "Copy your URL and API key",
-      description: "Grab both values from the top of this page.",
+      title: "Paste the link",
+      description: 'In ChatGPT, go to Settings > Connected Apps > Add MCP Server, then paste the link.',
     },
-    {
-      title: "Add an MCP server",
-      description:
-        "In ChatGPT, go to Settings > Connectors > Create. Paste the URL, then under Authentication choose Custom header and add Authorization with value Bearer <your API key>.",
-    },
-    { title: "You're set", description: "Start a chat and ask about any creator, video, or script idea." },
+    { title: "Log in and done", description: "Log in with your Verlab account and that's it!" },
   ],
 };
 
 interface McpTokenResponse {
-  url: string;
   token: { keyPrefix: string; createdAt: string } | null;
 }
 
 export default function McpPage() {
   const [activeTab, setActiveTab] = useState("claude");
+  const [copied, setCopied] = useState(false);
 
   const [connectorUrl, setConnectorUrl] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
   const [hasStoredToken, setHasStoredToken] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -60,10 +51,7 @@ export default function McpPage() {
         const res = await fetch("/api/mcp-token");
         if (!res.ok) throw new Error("Could not load connector status");
         const data: McpTokenResponse = await res.json();
-        if (!cancelled) {
-          setConnectorUrl(data.url);
-          setHasStoredToken(Boolean(data.token));
-        }
+        if (!cancelled) setHasStoredToken(Boolean(data.token));
       } catch {
         if (!cancelled) setError("Could not load your connector status.");
       } finally {
@@ -80,13 +68,12 @@ export default function McpPage() {
     setError(null);
     try {
       const res = await fetch("/api/mcp-token", { method: "POST" });
-      if (!res.ok) throw new Error("Could not generate an API key");
-      const data: { url: string; apiKey: string } = await res.json();
+      if (!res.ok) throw new Error("Could not generate a connector link");
+      const data: { url: string } = await res.json();
       setConnectorUrl(data.url);
-      setApiKey(data.apiKey);
       setHasStoredToken(true);
     } catch {
-      setError("Could not generate an API key. Try again.");
+      setError("Could not generate a connector link. Try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -96,12 +83,26 @@ export default function McpPage() {
   const ActivePlatformIcon = activeTabConfig.icon;
   const platformLabel = activeTab === "claude" ? "Claude" : "ChatGPT";
 
+  const handleCopy = async () => {
+    if (!connectorUrl) return;
+    await navigator.clipboard.writeText(connectorUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const linkFieldText = isLoading
+    ? "Loading…"
+    : connectorUrl
+      ? connectorUrl
+      : hasStoredToken
+        ? "Regenerate to view your link"
+        : "Generate a connector link below";
+
   return (
     <div className="w-full py-8">
       <McpConnectSection
         compact
         connectorUrl={connectorUrl}
-        apiKey={apiKey}
         hasStoredToken={hasStoredToken}
         isLoading={isLoading}
         isGenerating={isGenerating}
@@ -178,7 +179,32 @@ export default function McpPage() {
                   </span>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <h4 className="text-sm font-bold text-heading sm:text-base">{step.title}</h4>
-                    <p className="mt-1.5 text-sm leading-relaxed text-body">{step.description}</p>
+                    {i === 0 ? (
+                      <div className="mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-full border border-hairline bg-app py-1 pl-2.5 pr-1">
+                        <span className="min-w-0 truncate font-mono text-xs text-body">{linkFieldText}</span>
+                        <button
+                          type="button"
+                          onClick={connectorUrl ? handleCopy : handleGenerate}
+                          disabled={isLoading || isGenerating}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+                        >
+                          {connectorUrl ? (
+                            <>
+                              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {copied ? "Copied" : "Copy"}
+                            </>
+                          ) : isGenerating ? (
+                            "Generating…"
+                          ) : hasStoredToken ? (
+                            "Regenerate"
+                          ) : (
+                            "Generate"
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-sm leading-relaxed text-body">{step.description}</p>
+                    )}
                   </div>
                 </li>
               ))}
@@ -197,9 +223,8 @@ export default function McpPage() {
         </h2>
 
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-body sm:mt-4 sm:text-base">
-          Integrate Verlab into your AI workflow in under 60 seconds. One connector URL for every Verlab user, plus a
-          personal API key you keep private — connect it to your preferred LLM and start extracting viral insights
-          instantly.
+          Integrate Verlab into your AI workflow in under 60 seconds. Copy your unique MCP URL, connect it to your
+          preferred LLM, and start extracting viral insights instantly.
         </p>
 
         <div className="relative isolate mt-8 overflow-hidden rounded-2xl border border-hairline bg-surface p-5 sm:mt-12 sm:rounded-[32px] sm:p-8">
@@ -211,23 +236,27 @@ export default function McpPage() {
           <div className="grid grid-cols-1 gap-8 text-left sm:gap-10 lg:grid-cols-3 lg:gap-0 lg:divide-x lg:divide-hairline">
             <div className="lg:px-8">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-subtle">Step 01</span>
-              <h3 className="mt-1 text-base font-bold text-heading sm:text-lg">Copy URL &amp; API Key</h3>
+              <h3 className="mt-1 text-base font-bold text-heading sm:text-lg">Copy Your MCP URL</h3>
 
-              <div className="mt-4 flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-xl border border-hairline bg-app p-4 sm:mt-5 sm:min-h-[180px] sm:rounded-2xl sm:p-5">
-                <div className="flex w-full max-w-[280px] items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-3">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">
-                    {connectorUrl ?? "verlab.io/api/mcp"}
-                  </span>
-                </div>
-                <div className="flex w-full max-w-[280px] items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-3">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">
-                    Authorization: Bearer •••
-                  </span>
+              <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-hairline bg-app p-4 sm:mt-5 sm:min-h-[180px] sm:rounded-2xl sm:p-5">
+                <div className="flex w-full max-w-[280px] items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-1.5 sm:pl-4">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-body sm:text-sm">{linkFieldText}</span>
+                  <button
+                    type="button"
+                    onClick={connectorUrl ? handleCopy : handleGenerate}
+                    disabled={isLoading || isGenerating}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 sm:px-3.5 sm:py-2 dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
+                  >
+                    {connectorUrl ? (
+                      copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />
+                    ) : null}
+                    {connectorUrl ? (copied ? "Copied" : "Copy") : isGenerating ? "Generating…" : hasStoredToken ? "Regenerate" : "Generate"}
+                  </button>
                 </div>
               </div>
 
               <p className="mt-3 text-sm leading-relaxed text-body sm:mt-4">
-                Grab your connector URL and personal API key from the top of this page.
+                Grab the unique MCP connector link from the top of this page — one click to copy.
               </p>
             </div>
 
@@ -244,7 +273,7 @@ export default function McpPage() {
                     <span className="text-sm font-semibold text-heading">Verlab</span>
                   </div>
                   <div className="mt-2.5 truncate rounded-lg bg-app px-2.5 py-1.5 font-mono text-xs text-subtle">
-                    {connectorUrl ?? "verlab.io/api/mcp"}
+                    {linkFieldText}
                   </div>
                   <span className="mt-2.5 block w-full rounded-full bg-primary py-2 text-center text-xs font-semibold text-white">
                     Connect
@@ -253,7 +282,7 @@ export default function McpPage() {
               </div>
 
               <p className="mt-3 text-sm leading-relaxed text-body sm:mt-4">
-                Paste the URL, then add your API key as an Authorization header when prompted.
+                Open Claude or ChatGPT, go to Settings → Connectors, and paste your link.
               </p>
             </div>
 
