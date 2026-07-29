@@ -35,8 +35,9 @@ const TOOLS: MarqueeTool[] = [
   { title: "MCP", icon: Plug, tone: "rose" },
 ];
 
-// Slow, steady autoplay speed in pixels/second. Paused on hover and while dragging.
-const AUTOPLAY_SPEED = 18;
+// Autoplay speed in pixels/second. Runs continuously -- not pausable or
+// draggable, so it always reads as ambient motion rather than a control.
+const AUTOPLAY_SPEED = 45;
 
 function ToolCard({ title, icon: Icon, tone }: MarqueeTool) {
   return (
@@ -63,18 +64,13 @@ export function ToolsMarqueeSection() {
   const track = [...TOOLS, ...TOOLS, ...TOOLS];
 
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
-  const pausedRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragStartScrollRef = useRef(0);
-  const dragDistanceRef = useRef(0);
 
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
 
-    // Content is 3 copies of TOOLS; start in the middle copy so the user
-    // can scroll/drag backward before the loop needs to reset.
+    // Content is 3 copies of TOOLS; start in the middle copy so the loop
+    // has room to reset in either direction without a visible jump.
     const setWidth = () => el.scrollWidth / 3;
     el.scrollLeft = setWidth();
 
@@ -85,9 +81,7 @@ export function ToolsMarqueeSection() {
       const dt = now - last;
       last = now;
 
-      if (!draggingRef.current && !pausedRef.current) {
-        el.scrollLeft += (AUTOPLAY_SPEED * dt) / 1000;
-      }
+      el.scrollLeft += (AUTOPLAY_SPEED * dt) / 1000;
 
       const width = setWidth();
       if (el.scrollLeft >= width * 2) {
@@ -103,55 +97,12 @@ export function ToolsMarqueeSection() {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    draggingRef.current = true;
-    dragStartXRef.current = e.clientX;
-    dragStartScrollRef.current = el.scrollLeft;
-    dragDistanceRef.current = 0;
-    el.setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const el = scrollerRef.current;
-    if (!el || !draggingRef.current) return;
-    const delta = e.clientX - dragStartXRef.current;
-    el.scrollLeft = dragStartScrollRef.current - delta;
-    dragDistanceRef.current = Math.max(dragDistanceRef.current, Math.abs(delta));
-  };
-
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const el = scrollerRef.current;
-    draggingRef.current = false;
-    if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-  };
-
-  // A drag that moved more than a few px shouldn't also fire the card's link click.
-  const handleClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (dragDistanceRef.current > 5) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    dragDistanceRef.current = 0;
-  };
-
   return (
     <section className="relative w-full overflow-hidden bg-white pt-2 pb-12 sm:pb-16">
       <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-white to-transparent md:w-48" />
       <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-white to-transparent md:w-48" />
 
-      <div
-        ref={scrollerRef}
-        className="no-scrollbar flex w-full cursor-grab select-none overflow-x-auto active:cursor-grabbing"
-        onMouseEnter={() => (pausedRef.current = true)}
-        onMouseLeave={() => (pausedRef.current = false)}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
-        onClickCapture={handleClickCapture}
-      >
+      <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
         <div className="flex w-max gap-3 sm:gap-4 md:gap-6">
           {track.map((tool, i) => (
             <ToolCard key={i} {...tool} />
