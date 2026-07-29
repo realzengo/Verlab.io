@@ -135,6 +135,7 @@ const TOOLS = [
     description: "Discover trending faceless niches on TikTok, ranked by momentum score.",
     href: "/app/niches",
     preview: <NicheFinderPreview />,
+    comingSoon: true,
   },
   {
     title: "Transcript Extractor",
@@ -167,6 +168,7 @@ const TOOLS = [
   href: string;
   preview: React.ReactNode;
   beta?: boolean;
+  comingSoon?: boolean;
 }[];
 
 export default async function AppHome() {
@@ -208,6 +210,7 @@ export default async function AppHome() {
               href={tool.href}
               previewSlot={tool.preview}
               beta={tool.beta}
+              comingSoon={tool.comingSoon}
             />
           ))}
         </div>

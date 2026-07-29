@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ToolCardProps {
@@ -10,15 +10,27 @@ interface ToolCardProps {
   href: string;
   cta?: string;
   beta?: boolean;
+  /** Not yet released -- still linked (the destination shows a "coming soon" placeholder), just visibly marked unavailable here. */
+  comingSoon?: boolean;
   className?: string;
 }
 
-export function ToolCard({ title, description, previewSlot, href, cta = "Try now", beta, className }: ToolCardProps) {
+export function ToolCard({
+  title,
+  description,
+  previewSlot,
+  href,
+  cta = "Try now",
+  beta,
+  comingSoon,
+  className,
+}: ToolCardProps) {
   return (
     <Link
       href={href}
       className={cn(
         "group flex flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-700 hover:-translate-y-1 hover:shadow-card-hover",
+        comingSoon && "opacity-70",
         className
       )}
     >
@@ -33,11 +45,17 @@ export function ToolCard({ title, description, previewSlot, href, cta = "Try now
               Beta
             </span>
           )}
+          {comingSoon && (
+            <span className="flex items-center gap-1 rounded-full bg-zinc-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              <Lock className="h-2.5 w-2.5" />
+              Soon
+            </span>
+          )}
         </div>
         <p className="mb-5 mt-1 text-xs font-normal leading-snug text-body">{description}</p>
         <span className="mt-auto flex w-full items-center justify-center gap-1.5 rounded-2xl bg-btn-primary py-3.5 text-sm font-semibold text-white transition-colors group-hover:bg-btn-primary-hover">
-          {cta}
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          {comingSoon ? "Coming soon" : cta}
+          {comingSoon ? <Lock className="h-3.5 w-3.5" /> : <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
         </span>
       </div>
     </Link>
