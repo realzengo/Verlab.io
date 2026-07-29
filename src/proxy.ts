@@ -54,6 +54,14 @@ export async function proxy(request: NextRequest) {
     return buildResponse(loginUrl);
   }
 
+  // The OAuth consent screen (MCP connector auth) just needs a logged-in
+  // user -- no subscription/paywall check, same carve-out as /app/settings.
+  if (pathname.startsWith("/oauth") && !user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+    return buildResponse(loginUrl);
+  }
+
   if (pathname.startsWith("/app")) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
@@ -142,5 +150,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/admin/:path*", "/checkout/:path*", "/login", "/signup"],
+  matcher: ["/app/:path*", "/admin/:path*", "/checkout/:path*", "/oauth/:path*", "/login", "/signup"],
 };

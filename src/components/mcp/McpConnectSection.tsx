@@ -5,32 +5,14 @@ import { Check, Copy, Play } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { cn } from "@/lib/utils";
 
-export interface McpConnectSectionProps {
-  className?: string;
-  compact?: boolean;
-  /** The full connector URL with its raw secret — only ever populated right after (re)generating. */
-  connectorUrl: string | null;
-  /** Whether an active (but not currently visible) token already exists from a prior visit. */
-  hasStoredToken: boolean;
-  isLoading: boolean;
-  isGenerating: boolean;
-  onGenerate: () => void;
-}
+export const MCP_PATH = "/api/mcp";
 
-export function McpConnectSection({
-  className,
-  compact = false,
-  connectorUrl,
-  hasStoredToken,
-  isLoading,
-  isGenerating,
-  onGenerate,
-}: McpConnectSectionProps) {
+export function McpConnectSection({ className, compact = false }: { className?: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const url = typeof window !== "undefined" ? `${window.location.origin}${MCP_PATH}` : `verlab.io${MCP_PATH}`;
 
   const handleCopy = async () => {
-    if (!connectorUrl) return;
-    await navigator.clipboard.writeText(connectorUrl);
+    await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -68,49 +50,20 @@ export function McpConnectSection({
 
           <div className="mx-auto mt-6 flex w-full max-w-md items-center gap-2 rounded-full border-2 border-black/10 bg-white p-1.5 pl-4 sm:mt-8 sm:pl-6 dark:border-white/15 dark:bg-black">
             <span className="min-w-0 flex-1 truncate text-left font-mono text-sm text-slate-700 sm:text-base dark:text-slate-200">
-              {isLoading
-                ? "Loading…"
-                : connectorUrl
-                  ? connectorUrl
-                  : hasStoredToken
-                    ? "Connector link generated — regenerate to view it again"
-                    : "No connector link yet"}
+              {url}
             </span>
-            {connectorUrl ? (
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                {copied ? "Copied" : "Copy"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onGenerate}
-                disabled={isLoading || isGenerating}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors disabled:opacity-50 sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
-              >
-                {isGenerating ? "Generating…" : hasStoredToken ? "Regenerate" : "Generate link"}
-              </button>
-            )}
-          </div>
-          {connectorUrl && (
-            <p className="mx-auto mt-2 max-w-md text-xs text-slate-500 dark:text-slate-500">
-              Save this link now — for your security we can&apos;t show it again. Lost it? Regenerate below.
-            </p>
-          )}
-          {!connectorUrl && hasStoredToken && (
             <button
               type="button"
-              onClick={onGenerate}
-              disabled={isLoading || isGenerating}
-              className="mx-auto mt-2 block text-xs font-medium text-primary hover:underline disabled:opacity-50"
+              onClick={handleCopy}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-2.5 text-xs font-semibold text-white transition-colors sm:gap-2 sm:px-5 sm:py-3 sm:text-sm dark:bg-white dark:text-black dark:hover:bg-slate-100 hover:bg-slate-800"
             >
-              {isGenerating ? "Generating…" : "Regenerate connector link"}
+              {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+              {copied ? "Copied" : "Copy"}
             </button>
-          )}
+          </div>
+          <p className="mx-auto mt-2 max-w-md text-xs text-slate-500 dark:text-slate-500">
+            Same link for everyone — you&apos;ll log into Verlab and approve access when you connect.
+          </p>
         </div>
 
         <div className="relative mx-auto w-full max-w-sm lg:max-w-lg">
