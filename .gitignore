@@ -20,6 +20,9 @@
 # production
 /build
 
+# generated MCP App widget bundles (see src/lib/server/mcp/apps/build.mjs)
+/src/lib/server/mcp/apps/generated/
+
 # misc
 .DS_Store
 *.pem

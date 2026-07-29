@@ -1,0 +1,9 @@
+.v-script {
+  white-space: pre-wrap;
+  font-family: var(--v-font);
+  font-size: 13px;
+  color: var(--v-body);
+  max-height: 380px;
+  overflow-y: auto;
+  margin: 0;
+}

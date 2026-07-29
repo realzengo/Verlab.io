@@ -1,0 +1,11 @@
+.v-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.v-gallery img {
+  width: 100%;
+  border-radius: var(--v-radius-sm);
+  display: block;
+}

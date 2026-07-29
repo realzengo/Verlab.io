@@ -1,0 +1,19 @@
+.v-transcript {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.v-line {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.v-line-ts {
+  color: var(--v-subtle);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}

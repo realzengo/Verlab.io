@@ -16,6 +16,7 @@ import {
 import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import { isNicheName } from "@/lib/niches-catalog";
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
+import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
 // from the MCP connector token by verifyMcpToken — see mcp-auth.ts). There
@@ -28,12 +29,16 @@ import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat }
 // same primitives the web routes use, so MCP and web charges can never
 // drift apart.
 
-function textResult(text: string) {
-  return { content: [{ type: "text" as const, text }] };
+// Every tool result is rendered as a branded MCP App widget (see
+// src/lib/server/mcp/apps/) rather than plain text -- `structuredContent` is
+// what the widget's `ontoolresult` handler reads, while `text` remains the
+// fallback for hosts without MCP Apps support.
+function appResult(text: string, structuredContent: Record<string, unknown>) {
+  return { content: [{ type: "text" as const, text }], structuredContent };
 }
 
-function jsonResult(data: unknown) {
-  return textResult(JSON.stringify(data, null, 2));
+function jsonResult(data: Record<string, unknown>) {
+  return appResult(JSON.stringify(data, null, 2), data);
 }
 
 function errorResult(message: string) {
@@ -52,12 +57,14 @@ async function withBudget<T>(work: Promise<T>, budgetMs: number): Promise<T | "t
   return Promise.race([work, timeout]);
 }
 
+type McpToolResult = ReturnType<typeof appResult> | ReturnType<typeof errorResult>;
+
 export interface McpToolDefinition {
   name: string;
   title: string;
   description: string;
   inputSchema: Record<string, z.ZodTypeAny>;
-  handler: (userId: string, args: Record<string, unknown>) => Promise<ReturnType<typeof textResult>>;
+  handler: (userId: string, args: Record<string, unknown>) => Promise<McpToolResult>;
 }
 
 const getCreditBalanceTool: McpToolDefinition = {
@@ -168,7 +175,14 @@ const browseNicheVideosTool: McpToolDefinition = {
       postedBefore: null,
     });
 
-    return jsonResult(result);
+    return jsonResult({
+      ...result,
+      videos: result.videos.map((video) => ({
+        ...video,
+        coverUrl: signThumbUrl(video.coverUrl),
+        avatarUrl: signThumbUrl(video.avatarUrl),
+      })),
+    });
   },
 };
 
@@ -204,9 +218,13 @@ const generateScriptTool: McpToolDefinition = {
     try {
       const text = await generateScriptText(systemPrompt, messages);
       const admin = createAdminClient();
-      await admin.from("scripts").insert({ user_id: userId, prompt: message, content: text });
+      const { data: row } = await admin
+        .from("scripts")
+        .insert({ user_id: userId, prompt: message, content: text })
+        .select("id")
+        .single();
       recordUsageEvent("mcp", userId, { action: "script.generation" });
-      return textResult(text);
+      return appResult(text, { text, cost, id: row?.id ?? "" });
     } catch (error) {
       await refundUser(userId, cost, "Script Generation refund", "script.generation");
       return errorResult(error instanceof Error ? error.message : "Script generation failed");
@@ -376,7 +394,7 @@ const extractTranscriptTool: McpToolDefinition = {
         .eq("id", row.id);
     });
 
-    return jsonResult({ id: row.id, status: "complete", ...outcome });
+    return jsonResult({ id: row.id, status: "complete", ...outcome, coverUrl: signThumbUrl(outcome.coverUrl) });
   },
 };
 
@@ -389,13 +407,19 @@ const checkTranscriptStatusTool: McpToolDefinition = {
     const admin = createAdminClient();
     const { data } = await admin
       .from("transcripts")
-      .select("id, status, title, lines, error_message")
+      .select("id, status, title, cover_url, video_url, embed_url, lines, error_message")
       .eq("id", String(args.id))
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!data) return errorResult("Not found");
-    return jsonResult(data);
+    const { cover_url, video_url, embed_url, ...rest } = data;
+    return jsonResult({
+      ...rest,
+      coverUrl: signThumbUrl(cover_url),
+      videoUrl: video_url,
+      embedUrl: embed_url,
+    });
   },
 };
 

@@ -1,5 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { MCP_TOOLS } from "./tools";
+import { TOOL_WIDGETS, UNIQUE_WIDGETS } from "./apps/registry";
+
+// Every widget's CSP allows loading images only from Verlab's own origin --
+// external thumbnails go through the signed /api/mcp/thumb proxy (see
+// thumb-proxy.ts) instead of allowlisting arbitrary/rotating CDN hosts.
+const RESOURCE_DOMAINS = ["https://verlab.io"];
 
 /**
  * Builds a fresh, single-request MCP server scoped to one Verlab user.
@@ -8,6 +15,13 @@ import { MCP_TOOLS } from "./tools";
  * alive across requests — cheap since tool registration is just closures
  * over `userId`, and it keeps one user's session from ever bleeding into
  * another's on a shared serverless instance.
+ *
+ * Every tool renders as a branded MCP App widget (registerAppTool, not the
+ * base SDK's registerTool) — see src/lib/server/mcp/apps/. Hosts without MCP
+ * Apps support (the `_meta.ui` extension, shipped by Claude/ChatGPT as of
+ * Jan 2026) just fall back to the tool result's plain `content`, so this
+ * degrades gracefully rather than needing capability-gated dual
+ * registration.
  */
 export function createMcpServer(userId: string): McpServer {
   const server = new McpServer(
@@ -25,10 +39,32 @@ export function createMcpServer(userId: string): McpServer {
   );
 
   for (const tool of MCP_TOOLS) {
-    server.registerTool(
+    const widget = TOOL_WIDGETS[tool.name];
+    registerAppTool(
+      server,
       tool.name,
-      { title: tool.title, description: tool.description, inputSchema: tool.inputSchema },
+      {
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        outputSchema: widget.outputSchema,
+        _meta: { ui: { resourceUri: widget.resourceUri } },
+      },
       async (args) => tool.handler(userId, (args ?? {}) as Record<string, unknown>)
+    );
+  }
+
+  // Registered once per unique resource URI, not once per tool -- several
+  // tools intentionally share one widget (see apps/registry.ts).
+  for (const widget of UNIQUE_WIDGETS) {
+    registerAppResource(
+      server,
+      widget.resourceUri,
+      widget.resourceUri,
+      { _meta: { ui: { csp: { resourceDomains: RESOURCE_DOMAINS } } } },
+      async () => ({
+        contents: [{ uri: widget.resourceUri, mimeType: RESOURCE_MIME_TYPE, text: widget.html }],
+      })
     );
   }
 
