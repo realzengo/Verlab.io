@@ -27,7 +27,7 @@ export function CtaBand() {
             href="/app"
             className="liquid-glass mt-6 inline-flex items-center gap-2 rounded-full py-2 pl-6 pr-2 text-sm font-semibold sm:gap-3 sm:pl-7 sm:text-base"
           >
-            Get started free
+            Get started
             <span className="liquid-glass-puck grid h-8 w-8 shrink-0 place-items-center rounded-full text-white sm:h-9 sm:w-9">
               <ArrowRight className="h-4 w-4" />
             </span>
