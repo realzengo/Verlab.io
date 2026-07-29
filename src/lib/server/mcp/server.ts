@@ -11,7 +11,13 @@ import { MCP_TOOLS } from "./tools";
  */
 export function createMcpServer(userId: string): McpServer {
   const server = new McpServer(
-    { name: "verlab", version: "1.0.0" },
+    {
+      name: "verlab",
+      title: "Verlab",
+      version: "1.0.0",
+      websiteUrl: "https://verlab.io",
+      icons: [{ src: "https://verlab.io/logo-icon.png", mimeType: "image/png", sizes: ["2363x2363"] }],
+    },
     {
       instructions:
         "Verlab tools for short-form video creators: trending niche research, script generation, image generation, transcript extraction, and video downloads. Script/image/transcript/download tools charge credits — call get_credit_balance first if a balance might be too low.",
