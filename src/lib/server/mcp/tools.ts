@@ -15,7 +15,7 @@ import {
 } from "@/lib/server/video-provider";
 import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import { isNicheName } from "@/lib/niches-catalog";
-import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
+import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
@@ -123,7 +123,7 @@ const listLibraryTool: McpToolDefinition = {
       wantsSops
         ? admin
             .from("niche_bend_jobs")
-            .select("id, analysis, chosen_bend, created_at")
+            .select("id, analysis, created_at")
             .eq("user_id", userId)
             .eq("saved", true)
             .order("created_at", { ascending: false })
@@ -134,7 +134,19 @@ const listLibraryTool: McpToolDefinition = {
     if (imagesResult.error) return errorResult(imagesResult.error.message);
     if (sopsResult.error) return errorResult(sopsResult.error.message);
 
-    return jsonResult({ images: imagesResult.data, sops: sopsResult.data });
+    return jsonResult({
+      images: imagesResult.data,
+      sops: sopsResult.data.map((row) => {
+        const analysis = row.analysis as NicheBendChannelAnalysis | null;
+        return {
+          id: row.id,
+          created_at: row.created_at,
+          channelName: analysis?.channelName ?? null,
+          detectedNiche: analysis?.detectedNiche ?? null,
+          topVideos: analysis?.topVideos ?? [],
+        };
+      }),
+    });
   },
 };
 

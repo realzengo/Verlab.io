@@ -17,7 +17,13 @@ const imageRow = z.object({
   outputs: z.array(z.string()),
   created_at: z.string(),
 });
-const sopRow = z.object({ id: z.string(), analysis: z.unknown(), chosen_bend: z.unknown(), created_at: z.string() });
+const sopRow = z.object({
+  id: z.string(),
+  created_at: z.string(),
+  channelName: z.string().nullable(),
+  detectedNiche: z.string().nullable(),
+  topVideos: z.array(z.object({ title: z.string(), views: z.string() })),
+});
 
 export const ListCardSchema = {
   scripts: z.array(scriptRow).optional(),

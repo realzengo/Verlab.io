@@ -9,8 +9,15 @@ interface ImageRow {
   outputs: string[];
   created_at: string;
 }
+interface TopVideo {
+  title: string;
+  views: string;
+}
 interface SopRow {
   created_at: string;
+  channelName: string | null;
+  detectedNiche: string | null;
+  topVideos: TopVideo[];
 }
 interface ListData {
   scripts?: ScriptRow[];
@@ -30,6 +37,50 @@ function formatDate(iso: string): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+// Verlab only ever stores view counts as an already-humanized string (e.g.
+// "126.9K") -- parsed back to a number purely to size bar-chart widths.
+function parseViews(text: string): number {
+  const match = text.replace(/,/g, "").match(/^([\d.]+)\s*([KMB])?$/i);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  const multiplier = { K: 1_000, M: 1_000_000, B: 1_000_000_000 }[match[2]?.toUpperCase() as "K" | "M" | "B"] ?? 1;
+  return value * multiplier;
+}
+
+function renderCreatorProfile(sop: SopRow): string {
+  const videos = sop.topVideos.slice(0, 8);
+  const maxViews = Math.max(1, ...videos.map((video) => parseViews(video.views)));
+  const peakViews = videos[0]?.views ?? "—";
+
+  const bars = videos
+    .map((video, index) => {
+      const pct = Math.max(4, Math.round((parseViews(video.views) / maxViews) * 100));
+      return `
+        <div class="v-bench-row">
+          <div class="v-bench-label">${escapeHtml(truncate(video.title, 40))}</div>
+          <div class="v-bench-track"><div class="v-bench-fill${index < 3 ? " top" : ""}" style="width:${pct}%"></div></div>
+          <div class="v-bench-value">${escapeHtml(video.views)}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="v-profile">
+      <div class="v-profile-header">
+        <div class="v-profile-name">${escapeHtml(sop.channelName ?? "Saved channel")}</div>
+        ${sop.detectedNiche ? `<span class="v-pill">${escapeHtml(sop.detectedNiche)}</span>` : ""}
+      </div>
+      <div class="v-stat-row">
+        <div class="v-stat-tile"><div class="v-stat-tile-value">${videos.length}</div><div class="v-stat-tile-label">videos analyzed</div></div>
+        <div class="v-stat-tile"><div class="v-stat-tile-value">${escapeHtml(peakViews)}</div><div class="v-stat-tile-label">peak views</div></div>
+      </div>
+      ${videos.length ? `<div class="v-bench">${bars}</div>` : ""}
+      <div class="v-row-sub">Saved ${formatDate(sop.created_at)}</div>
+    </div>
+  `;
 }
 
 function renderRows(data: ListData): string {
@@ -60,14 +111,7 @@ function renderRows(data: ListData): string {
   }
 
   for (const sop of data.sops ?? []) {
-    rows.push(`
-      <div class="v-row">
-        <div class="v-row-main">
-          <div class="v-row-title">Saved style analysis</div>
-          <div class="v-row-sub">SOP · ${formatDate(sop.created_at)}</div>
-        </div>
-      </div>
-    `);
+    rows.push(renderCreatorProfile(sop));
   }
 
   return rows.join("") || `<div class="v-empty">Nothing here yet.</div>`;
