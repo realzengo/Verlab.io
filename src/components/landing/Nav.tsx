@@ -22,8 +22,7 @@ export function Nav() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        const workflowSection = document.getElementById("workflow");
-        setIsScrolled(workflowSection ? workflowSection.getBoundingClientRect().top <= 88 : window.scrollY > 20);
+        setIsScrolled(window.scrollY > 20);
         ticking = false;
       });
     };
@@ -43,7 +42,7 @@ export function Nav() {
     <header className="fixed top-0 inset-x-0 z-[100] flex justify-center pt-2 transition-all duration-300 ease-in-out sm:pt-3">
       <div
         className={cn(
-          "transition-[width,max-width] duration-300 ease-in-out",
+          "contain-layout transition-[width,max-width] duration-300 ease-in-out",
           isScrolled ? "w-[95%] max-w-5xl sm:w-[88%]" : "w-full max-w-7xl",
         )}
       >
