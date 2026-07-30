@@ -19,8 +19,7 @@ const THEME_INIT_SCRIPT = `
     var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0;
     if (!isAppRoute) return;
     var stored = localStorage.getItem("verlab-theme");
-    var dark = stored === "dark" || (stored !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.classList.toggle("dark", stored === "dark");
   } catch (e) {}
 })();
 `;

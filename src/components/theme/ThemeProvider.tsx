@@ -52,9 +52,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
   useEffect(() => {
-    // One-time sync from localStorage/matchMedia (external systems unavailable
-    // during SSR) into React state, mirroring the inline no-flash script.
-    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
+    // One-time sync from localStorage (external systems unavailable during
+    // SSR) into React state, mirroring the inline no-flash script. Absent an
+    // explicit saved choice, the app defaults to light rather than following
+    // the OS's prefers-color-scheme.
+    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "light";
     const resolved = stored === "system" ? systemTheme() : stored;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setThemeState(stored);
