@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Image as ImageIcon, Sparkles, TrendingUp } from "lucide-react";
+import { Download, Image as ImageIcon, Sparkles, TrendingUp, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Gates a preview's motion loop to when it actually scrolls into view,
@@ -28,75 +28,31 @@ function useInView<T extends Element>(threshold = 0.4) {
   return { ref, inView } as const;
 }
 
-/** One viral source fans out into several bent niche ideas — two curved
- * connectors draw in from the source card to two stacked idea cards, each
- * idea card popping in right as its connector finishes drawing. Both
- * connectors reuse VerlabProcess's `.animate-graph-draw` (a generic
- * stroke-dashoffset draw-in) so this stays on the same 6s clock as the idea
- * cards' `.animate-dash-fan-card`, phase-shifted per branch via
- * animation-delay instead of separate keyframes. */
-const BEND_IDEAS = [
-  { label: "Corporate Fraud", lines: ["w-full", "w-3/5"] },
-  { label: "Insurance Scandals", lines: ["w-4/5", "w-2/5"] },
-] as const;
-
 export function BendPreview() {
   const { ref, inView } = useInView<HTMLDivElement>();
   return (
-    <div ref={ref} className="relative h-[132px] w-[240px]">
-      <svg aria-hidden viewBox="0 0 240 132" className="absolute inset-0 h-full w-full overflow-visible">
-        <path
-          d="M84,66 C108,66 108,24 132,24"
-          fill="none"
-          stroke="var(--color-primary)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          pathLength="100"
-          strokeDasharray="100"
-          className={inView ? "animate-graph-draw" : undefined}
-          style={!inView ? { opacity: 0 } : undefined}
-        />
-        <path
-          d="M84,66 C108,66 108,108 132,108"
-          fill="none"
-          stroke="var(--color-primary)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          pathLength="100"
-          strokeDasharray="100"
-          className={inView ? "animate-graph-draw" : undefined}
-          style={inView ? { animationDelay: "0.3s" } : { opacity: 0 }}
-        />
-      </svg>
-
-      <div className="absolute left-0 top-1/2 z-10 w-[84px] -translate-y-1/2 rounded-card-sm border border-hairline bg-surface px-2.5 py-2.5 text-left shadow-card">
-        {inView && (
-          <span aria-hidden className="absolute inset-0 -z-10 rounded-card-sm bg-primary/30 blur-md animate-craft-glow" />
-        )}
-        <span className="text-[8px] font-semibold uppercase tracking-wide text-body">Source</span>
-        <p className="text-[10px] font-semibold leading-tight text-heading">Medical Malpractice</p>
+    <div ref={ref} className="flex items-center justify-center gap-3">
+      <div className="rounded-card-sm border border-hairline bg-surface px-3 py-2.5 text-left shadow-card">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-body">Source</span>
+        <p className="text-xs font-semibold text-heading">Medical Malpractice</p>
       </div>
-
-      {BEND_IDEAS.map((idea, i) => (
-        <div
-          key={idea.label}
-          className={cn(
-            "absolute right-0 z-10 w-[108px] rounded-card-sm border border-hairline bg-surface p-2 text-left shadow-card",
-            i === 0 ? "top-0" : "bottom-0",
-            inView && "animate-dash-fan-card",
-          )}
-          style={inView ? { animationDelay: `${i * 0.3}s` } : { opacity: 0 }}
-        >
-          <span className="inline-block whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[8px] font-bold text-white">
-            {idea.label}
-          </span>
-          <div className="mt-1.5 flex flex-col gap-1">
-            {idea.lines.map((width) => (
-              <span key={width} className={cn("h-1 rounded-full bg-zinc-200 dark:bg-zinc-700", width)} />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+        {inView && (
+          <span aria-hidden className="absolute inset-0 -z-10 rounded-full bg-primary/50 blur-md animate-craft-glow" />
+        )}
+        <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">
+          <Wand2 className={cn("h-3.5 w-3.5", inView && "animate-dash-wand-spin")} />
+        </span>
+      </div>
+      <div
+        className={cn(
+          "rounded-card-sm border border-primary/30 bg-primary/10 px-3 py-2.5 text-left",
+          inView && "animate-tag-pop",
+        )}
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">Your niche</span>
+        <p className="text-xs font-semibold text-heading">Corporate Fraud</p>
+      </div>
     </div>
   );
 }
