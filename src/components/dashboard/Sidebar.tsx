@@ -178,7 +178,7 @@ export function Sidebar({
       />
       <div
         className={cn(
-          "flex items-center justify-between border-b border-hairline px-4 py-5",
+          "flex items-center justify-between px-4 py-5",
           collapsed && "lg:justify-center lg:px-0"
         )}
       >
@@ -190,60 +190,43 @@ export function Sidebar({
         >
           <span
             className={cn(
-              "relative block h-11 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+              "relative block h-11 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
               collapsed ? "w-11" : "w-[150px]"
             )}
           >
             <Image
-              src="/logo-icon.png"
-              alt="Verlab Studio"
-              fill
-              className={cn(
-                "object-contain object-left transition-opacity duration-200",
-                collapsed ? "opacity-100" : "opacity-0"
-              )}
-              sizes="44px"
-              priority
-            />
-            <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
-              fill
-              className={cn(
-                "object-contain object-left transition-opacity duration-200 dark:hidden",
-                collapsed ? "opacity-0" : "opacity-100"
-              )}
-              sizes="150px"
+              width={600}
+              height={178}
               priority
+              className="h-11 w-auto max-w-none dark:hidden"
             />
             <Image
               src="/logo-full-dark.png"
               alt="Verlab Studio"
-              fill
-              className={cn(
-                "hidden object-contain object-left transition-opacity duration-200 dark:block",
-                collapsed ? "opacity-0" : "opacity-100"
-              )}
-              sizes="150px"
+              width={600}
+              height={178}
               priority
+              className="hidden h-11 w-auto max-w-none dark:block"
             />
           </span>
         </button>
         <div className="flex items-center lg:hidden">
-          <span className="relative block h-11 w-[150px]">
+          <span className="relative block h-11 w-[150px] overflow-hidden">
             <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
-              fill
-              className="object-contain object-left dark:hidden"
-              sizes="150px"
+              width={600}
+              height={178}
+              className="h-11 w-auto max-w-none dark:hidden"
             />
             <Image
               src="/logo-full-dark.png"
               alt="Verlab Studio"
-              fill
-              className="hidden object-contain object-left dark:block"
-              sizes="150px"
+              width={600}
+              height={178}
+              className="hidden h-11 w-auto max-w-none dark:block"
             />
           </span>
         </div>
