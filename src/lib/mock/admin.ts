@@ -5,11 +5,9 @@ import type {
   ActivityLogEntry,
   FeatureFlag,
   PlanDistribution,
-  RevenuePoint,
   SignupPoint,
   SystemJob,
   ToolUsageShare,
-  Transaction,
   UsagePoint,
 } from "@/lib/types";
 
@@ -32,32 +30,9 @@ function wave(i: number, amplitude: number, period: number, phase = 0): number {
   return Math.sin((i / period) * Math.PI * 2 + phase) * amplitude;
 }
 
-// --- Revenue (last 30 days) -------------------------------------------------
-
-export const REVENUE_SERIES: RevenuePoint[] = Array.from({ length: 30 }, (_, i) => {
-  const day = 29 - i;
-  const base = 18400 + i * 168 + wave(i, 260, 9);
-  const newMrr = Math.round(420 + wave(i, 140, 6, 1) + i * 3);
-  const churnedMrr = Math.round(160 + wave(i, 70, 11, 2));
-  return {
-    date: dateOnlyDaysAgo(day),
-    mrr: Math.round(base),
-    newMrr: Math.max(60, newMrr),
-    churnedMrr: Math.max(20, churnedMrr),
-  };
-});
-
-export const CURRENT_MRR = REVENUE_SERIES[REVENUE_SERIES.length - 1].mrr;
-export const PREVIOUS_MRR = REVENUE_SERIES[REVENUE_SERIES.length - 8].mrr;
-export const MRR_GROWTH_PCT = Number((((CURRENT_MRR - PREVIOUS_MRR) / PREVIOUS_MRR) * 100).toFixed(1));
-
 // Company-wide totals (the ADMIN_USERS list below is a recent-signups sample,
 // not the full base — same pattern as any paginated admin users table).
 export const TOTAL_USERS_COUNT = 1284;
-export const ACTIVE_TRIALS_COUNT = 92;
-export const PAYING_USERS_COUNT = 736;
-export const CHURN_RATE_PCT = 3.2;
-export const PREVIOUS_CHURN_RATE_PCT = 3.6;
 
 // --- Signups (last 30 days) -------------------------------------------------
 
@@ -139,22 +114,6 @@ export const PLAN_DISTRIBUTION: PlanDistribution[] = [
   { plan: "pro", label: "Pro", count: 312, tone: "blue" },
   { plan: "scale", label: "Scale", count: 106, tone: "violet" },
 ];
-
-// --- Transactions --------------------------------------------------------------
-
-export const TRANSACTIONS: Transaction[] = ADMIN_USERS.slice(0, 16).map((user, i) => {
-  const status: Transaction["status"] = i === 3 || i === 11 ? "failed" : i === 7 ? "refunded" : "paid";
-  return {
-    id: `txn_${(i + 1).toString().padStart(4, "0")}`,
-    userId: user.id,
-    userName: user.name,
-    plan: user.plan,
-    amount: PLAN_MRR[user.plan],
-    status,
-    method: i % 5 === 0 ? "paypal" : "card",
-    date: isoDaysAgo(i + Math.round(wave(i, 2, 4))),
-  };
-});
 
 // --- Activity log ----------------------------------------------------------
 

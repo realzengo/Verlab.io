@@ -9,11 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function AdminUsersPage() {
   const { users: ADMIN_USERS, nowIso: NOW_ISO } = await getAdminUsers();
   const TOTAL_USERS_COUNT = ADMIN_USERS.length;
-  // No billing yet, so there's no real "paying"/"trialing" signal — every
-  // account is counted as active, and trials/suspensions stay at 0 rather
-  // than being fabricated.
-  const PAYING_USERS_COUNT = 0;
-  const ACTIVE_TRIALS_COUNT = 0;
+  const PAYING_USERS_COUNT = ADMIN_USERS.filter((u) => u.status === "active" || u.status === "past_due").length;
+  const ACTIVE_TRIALS_COUNT = ADMIN_USERS.filter((u) => u.status === "trialing").length;
   const suspended = ADMIN_USERS.filter((u) => u.status === "suspended").length;
 
   return (

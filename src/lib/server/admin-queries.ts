@@ -9,9 +9,12 @@ import type {
   CreditsAdminUser,
   CreditsOverview,
   FeatureFlag,
+  AdminUserStatus,
   PlanDistribution,
   PricingPlan,
   PromoCode,
+  RevenueData,
+  RevenueTransaction,
   SignupPoint,
   SystemJob,
   SystemJobStatus,
@@ -21,10 +24,11 @@ import type {
   UsagePoint,
 } from "@/lib/types";
 
-// Real, DB-backed replacements for src/lib/mock/admin.ts. No revenue/MRR/
-// churn/transactions here on purpose — those need real Stripe events, which
-// this pass doesn't build. Callers should render an honest zero/empty state
-// for anything billing-shaped rather than fabricating numbers.
+// Real, DB-backed replacements for src/lib/mock/admin.ts. Revenue/MRR/churn
+// (getRevenueData below) is driven by Polar's webhook event log and the
+// profiles.subscription_status columns from the 20260728120000_polar_billing
+// migration -- real numbers, honestly zero until the Polar webhook is
+// registered and the first event lands (see POLAR_WEBHOOK_SECRET).
 
 const TOOL_LABELS: Record<AdminToolKey, string> = {
   bend: "Niche Bending",
@@ -43,6 +47,13 @@ const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
   mcp: "rose",
   image: "sky",
 };
+
+const PLAN_LABEL: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
+const PLAN_TONE: Record<string, ToolTone> = { core: "sky", pro: "blue", scale: "violet" };
+
+// Subscriptions still collecting revenue (or in the past_due grace window) --
+// see src/proxy.ts's PAST_DUE_GRACE_MS for why past_due keeps counting.
+const PAYING_STATUSES = new Set(["active", "past_due"]);
 
 function last30Days(): string[] {
   const days: string[] = [];
@@ -115,14 +126,11 @@ export async function getPlanDistribution(): Promise<PlanDistribution[]> {
   const counts: Record<string, number> = { core: 0, pro: 0, scale: 0 };
   for (const row of data ?? []) counts[row.plan] = (counts[row.plan] ?? 0) + 1;
 
-  const LABEL: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
-  const TONE: Record<string, ToolTone> = { core: "sky", pro: "blue", scale: "violet" };
-
   return (["core", "pro", "scale"] as const).map((plan) => ({
     plan,
-    label: LABEL[plan],
+    label: PLAN_LABEL[plan],
     count: counts[plan] ?? 0,
-    tone: TONE[plan],
+    tone: PLAN_TONE[plan],
   }));
 }
 
@@ -143,14 +151,28 @@ export async function getActivityLog(limit = 10): Promise<ActivityLogEntry[]> {
   }));
 }
 
+// Polar's subscription_status values -> the admin dashboard's coarser status.
+// "suspended" is never written here -- it's an admin-applied moderation flag
+// the UsersTable toggles client-side only, unrelated to billing state.
+function mapSubscriptionStatus(status: string | null): AdminUserStatus {
+  if (status === "active") return "active";
+  if (status === "trialing") return "trialing";
+  if (status === "past_due") return "past_due";
+  // canceled, incomplete, incomplete_expired, unpaid, paused, or no
+  // subscription at all (still on the free-by-default core plan).
+  return status ? "canceled" : "active";
+}
+
 export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: string }> {
   const admin = createAdminClient();
-  const [authUsers, { data: profiles }, { data: usageRows }] = await Promise.all([
+  const [authUsers, { data: profiles }, { data: usageRows }, planDefs] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan"),
+    admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period"),
     admin.from("usage_events").select("user_id, tool"),
+    getPlanDefinitions(admin),
   ]);
 
+  const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
   const usageByUser = new Map<string, { bends: number; transcripts: number; downloads: number; apiCalls: number }>();
 
@@ -164,17 +186,24 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
   }
 
   const users: AdminUser[] = authUsers.map((u) => {
-    const profile = profileById.get(u.id) as { full_name: string | null; plan: AdminUser["plan"] } | undefined;
+    const profile = profileById.get(u.id) as
+      | { full_name: string | null; plan: AdminUser["plan"]; subscription_status: string | null; subscription_period: string | null }
+      | undefined;
     const usage = usageByUser.get(u.id) ?? { bends: 0, transcripts: 0, downloads: 0, apiCalls: 0 };
+    const status = mapSubscriptionStatus(profile?.subscription_status ?? null);
+    const price = priceByPlan.get(profile?.plan ?? "core");
+    const mrr = PAYING_STATUSES.has(status) && price
+      ? profile?.subscription_period === "yearly"
+        ? Math.round(price.yearly / 12)
+        : price.monthly
+      : 0;
     return {
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
       email: u.email ?? "",
       plan: profile?.plan ?? "core",
-      // No billing yet, so there's no real trial/past_due/canceled signal —
-      // every account with a session is just "active".
-      status: "active",
-      mrr: 0,
+      status,
+      mrr,
       signupDate: (u.created_at ?? new Date().toISOString()).slice(0, 10),
       lastActiveAt: u.last_sign_in_at ?? u.created_at ?? new Date().toISOString(),
       country: "—",
@@ -513,8 +542,143 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
   });
 }
 
+interface PolarWebhookEventRow {
+  id: string;
+  type: string;
+  created_at: string;
+  // Shape mirrors @polar-sh/sdk's Webhook*Payload types (order.paid's `data`
+  // is an Order, subscription.* events' `data` is a Subscription) -- stored
+  // as-is by src/app/api/webhooks/polar/route.ts, so this stays loose rather
+  // than re-declaring the SDK's types here.
+  payload: { data?: Record<string, unknown> } | null;
+}
+
+const BILLING_REASON_LABEL: Record<string, string> = {
+  purchase: "Credit top-up",
+  subscription_create: "New subscription",
+  subscription_cycle: "Renewal",
+  subscription_update: "Plan change",
+};
+
+function parseRevenueTransaction(row: PolarWebhookEventRow): RevenueTransaction | null {
+  const data = row.payload?.data;
+  if (!data) return null;
+
+  const customer = data.customer as { name?: string | null; email?: string | null } | undefined;
+  const product = data.product as { name?: string | null } | undefined;
+  const billingReason = data.billingReason as string | undefined;
+  const totalAmount = (data.totalAmount as number | undefined) ?? 0;
+  const refundedAmount = (data.refundedAmount as number | undefined) ?? totalAmount;
+  const isRefund = row.type === "order.refunded";
+
+  return {
+    id: row.id,
+    type: isRefund ? "order.refunded" : "order.paid",
+    userName: customer?.name || customer?.email || "Unknown",
+    userEmail: customer?.email ?? "—",
+    itemLabel: product?.name ?? (data.subscriptionId ? "Subscription" : "Credits"),
+    billingReason: billingReason ? (BILLING_REASON_LABEL[billingReason] ?? billingReason) : null,
+    amount: (isRefund ? -refundedAmount : totalAmount) / 100,
+    currency: ((data.currency as string | undefined) ?? "usd").toUpperCase(),
+    createdAt: row.created_at,
+  };
+}
+
+export async function getRevenueData(): Promise<RevenueData> {
+  const admin = createAdminClient();
+  const since30 = new Date();
+  since30.setUTCDate(since30.getUTCDate() - 29);
+
+  const [{ data: profiles }, planDefs, { data: eventRows }] = await Promise.all([
+    admin.from("profiles").select("plan, subscription_status, subscription_period"),
+    getPlanDefinitions(admin),
+    admin
+      .from("polar_webhook_events")
+      .select("id, type, payload, created_at")
+      .in("type", ["order.paid", "order.refunded", "subscription.created", "subscription.revoked"])
+      .order("created_at", { ascending: false })
+      .limit(300),
+  ]);
+
+  const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
+
+  let mrr = 0;
+  let activeSubscribers = 0;
+  let trialingCount = 0;
+  let pastDueCount = 0;
+  const planBuckets: Record<string, { count: number; mrr: number }> = {
+    core: { count: 0, mrr: 0 },
+    pro: { count: 0, mrr: 0 },
+    scale: { count: 0, mrr: 0 },
+  };
+
+  for (const row of profiles ?? []) {
+    const status = row.subscription_status;
+    if (status === "trialing") {
+      trialingCount++;
+      continue;
+    }
+    if (!PAYING_STATUSES.has(status ?? "")) continue;
+
+    activeSubscribers++;
+    if (status === "past_due") pastDueCount++;
+
+    const price = priceByPlan.get(row.plan);
+    const monthly = price ? (row.subscription_period === "yearly" ? price.yearly / 12 : price.monthly) : 0;
+    mrr += monthly;
+    const bucket = planBuckets[row.plan] ?? (planBuckets[row.plan] = { count: 0, mrr: 0 });
+    bucket.count++;
+    bucket.mrr += monthly;
+  }
+
+  const events = eventRows ?? [];
+  const churnedLast30d = events.filter((e) => e.type === "subscription.revoked" && e.created_at >= since30.toISOString()).length;
+  const newSubscribersLast30d = events.filter((e) => e.type === "subscription.created" && e.created_at >= since30.toISOString()).length;
+
+  const days = last30Days();
+  const byDay = new Map(days.map((d) => [d, 0]));
+  for (const row of events) {
+    if (row.type !== "order.paid" && row.type !== "order.refunded") continue;
+    const day = row.created_at.slice(0, 10);
+    if (!byDay.has(day)) continue;
+    const txn = parseRevenueTransaction(row);
+    if (txn) byDay.set(day, (byDay.get(day) ?? 0) + txn.amount);
+  }
+  const dailySeries = days.map((date) => ({ date, collected: Math.round((byDay.get(date) ?? 0) * 100) / 100 }));
+  const netCollectedLast30d = dailySeries.reduce((s, p) => s + p.collected, 0);
+
+  const recentTransactions = events
+    .filter((e) => e.type === "order.paid" || e.type === "order.refunded")
+    .slice(0, 20)
+    .map(parseRevenueTransaction)
+    .filter((t): t is RevenueTransaction => t !== null);
+
+  return {
+    mrr: Math.round(mrr),
+    arr: Math.round(mrr * 12),
+    arpu: activeSubscribers ? Math.round((mrr / activeSubscribers) * 100) / 100 : 0,
+    activeSubscribers,
+    trialingCount,
+    pastDueCount,
+    churnedLast30d,
+    newSubscribersLast30d,
+    churnRatePct: Number(((churnedLast30d / (activeSubscribers + churnedLast30d || 1)) * 100).toFixed(1)),
+    netCollectedLast30d: Math.round(netCollectedLast30d * 100) / 100,
+    planBreakdown: (["core", "pro", "scale"] as const).map((plan) => ({
+      plan,
+      label: PLAN_LABEL[plan],
+      subscriberCount: planBuckets[plan].count,
+      mrr: Math.round(planBuckets[plan].mrr),
+      tone: PLAN_TONE[plan],
+    })),
+    dailySeries,
+    recentTransactions,
+    webhookConfigured: !!process.env.POLAR_WEBHOOK_SECRET,
+  };
+}
+
 export async function getOverviewData() {
-  const [signupSeries, usage, planDistribution, activityLog, systemJobs, { users }, creditsOverview, promoCodes, featureFlags] =
+  const [signupSeries, usage, planDistribution, activityLog, systemJobs, { users }, creditsOverview, promoCodes, featureFlags, revenue] =
     await Promise.all([
       getSignupSeries(),
       getUsageData(),
@@ -525,19 +689,16 @@ export async function getOverviewData() {
       getCreditsOverview(),
       getPromoCodes(),
       getFeatureFlags(),
+      getRevenueData(),
     ]);
 
   return {
     totalUsers: users.length,
-    // Billing isn't wired up this pass — these stay honestly at zero rather
-    // than fabricated numbers. See src/app/admin/revenue/page.tsx.
-    activeTrials: 0,
-    currentMrr: 0,
-    previousMrr: 0,
-    mrrGrowthPct: 0,
-    churnRatePct: 0,
-    previousChurnRatePct: 0,
-    revenueSeries: last30Days().map((date) => ({ date, mrr: 0, newMrr: 0, churnedMrr: 0 })),
+    payingUsers: revenue.activeSubscribers,
+    activeTrials: revenue.trialingCount,
+    currentMrr: revenue.mrr,
+    churnRatePct: revenue.churnRatePct,
+    revenueDailySeries: revenue.dailySeries,
     signupSeries,
     usageSeries: usage.series,
     toolUsageShare: usage.share,

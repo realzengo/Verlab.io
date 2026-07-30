@@ -12,7 +12,7 @@ import { BarChart } from "@/components/charts/BarChart";
 import { RankedBarList } from "@/components/charts/RankedBarList";
 import { StackedShareBar } from "@/components/charts/StackedShareBar";
 import { formatChartDate } from "@/lib/charts";
-import { formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +41,8 @@ export default async function AdminOverviewPage() {
     creditsSpentToday: CREDITS_SPENT_TODAY,
     activePromoCodes: ACTIVE_PROMO_CODES,
     enabledFeatureFlags: ENABLED_FEATURE_FLAGS,
+    currentMrr: CURRENT_MRR,
+    payingUsers: PAYING_USERS,
   } = await getOverviewData();
 
   const signupLabels = SIGNUP_SERIES.map((p) => p.date);
@@ -72,7 +74,10 @@ export default async function AdminOverviewPage() {
       badge: `${ACTIVE_PROMO_CODES} active`,
       badgeTone: ACTIVE_PROMO_CODES > 0 ? "success" : "default",
     },
-    "/admin/revenue": { badge: "Not connected", badgeTone: "warning" },
+    "/admin/revenue":
+      CURRENT_MRR > 0
+        ? { badge: `${formatCurrency(CURRENT_MRR)} MRR`, badgeTone: "success" }
+        : { badge: "Awaiting first payment", badgeTone: "warning" },
     "/admin/usage": { badge: `${formatNumber(toolRunsToday)} runs today` },
     "/admin/system": {
       badge: jobsFailed > 0 ? `${jobsFailed} failed` : `${jobsQueued} in flight`,
@@ -147,12 +152,14 @@ export default async function AdminOverviewPage() {
 
       <Card className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-tint text-warning">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success-tint text-success">
             <CreditCard className="h-[18px] w-[18px]" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-heading">Billing isn&apos;t connected yet</p>
-            <p className="text-xs text-body">Connect a payment provider to unlock MRR, churn, and transaction reporting here.</p>
+            <p className="text-sm font-semibold text-heading">
+              {CURRENT_MRR > 0 ? `${formatCurrency(CURRENT_MRR)} MRR from ${PAYING_USERS} subscribers` : "Awaiting your first payment"}
+            </p>
+            <p className="text-xs text-body">Polar billing is wired up — MRR, churn, and transactions populate automatically as payments come in.</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

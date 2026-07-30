@@ -396,24 +396,48 @@ export interface AdminUser {
   };
 }
 
-export type TransactionStatus = "paid" | "failed" | "refunded";
+export type RevenueTransactionType = "order.paid" | "order.refunded";
 
-export interface Transaction {
+export interface RevenueTransaction {
   id: string;
-  userId: string;
+  type: RevenueTransactionType;
   userName: string;
-  plan: "core" | "pro" | "scale";
+  userEmail: string;
+  itemLabel: string;
+  billingReason: string | null;
   amount: number;
-  status: TransactionStatus;
-  method: "card" | "paypal";
-  date: string;
+  currency: string;
+  createdAt: string;
 }
 
-export interface RevenuePoint {
-  date: string;
+export interface PlanMrrBreakdown {
+  plan: "core" | "pro" | "scale";
+  label: string;
+  subscriberCount: number;
   mrr: number;
-  newMrr: number;
-  churnedMrr: number;
+  tone: ToolTone;
+}
+
+export interface RevenueDailyPoint {
+  date: string;
+  collected: number;
+}
+
+export interface RevenueData {
+  mrr: number;
+  arr: number;
+  arpu: number;
+  activeSubscribers: number;
+  trialingCount: number;
+  pastDueCount: number;
+  churnedLast30d: number;
+  newSubscribersLast30d: number;
+  churnRatePct: number;
+  netCollectedLast30d: number;
+  planBreakdown: PlanMrrBreakdown[];
+  dailySeries: RevenueDailyPoint[];
+  recentTransactions: RevenueTransaction[];
+  webhookConfigured: boolean;
 }
 
 export interface SignupPoint {

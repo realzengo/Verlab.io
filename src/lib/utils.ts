@@ -14,6 +14,12 @@ export function formatNumber(value: number): string {
   return `${value}`;
 }
 
+export function formatCurrency(value: number): string {
+  const decimals = Number.isInteger(value) ? 0 : 2;
+  const sign = value < 0 ? "−" : "";
+  return `${sign}$${Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
