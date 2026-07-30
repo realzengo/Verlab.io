@@ -190,8 +190,8 @@ export function Sidebar({
         >
           <span
             className={cn(
-              "relative block h-9 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
-              collapsed ? "w-9" : "w-[130px]"
+              "relative block h-11 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+              collapsed ? "w-11" : "w-[150px]"
             )}
           >
             <Image
@@ -202,7 +202,7 @@ export function Sidebar({
                 "object-contain object-left transition-opacity duration-200",
                 collapsed ? "opacity-100" : "opacity-0"
               )}
-              sizes="36px"
+              sizes="44px"
               priority
             />
             <Image
@@ -213,7 +213,7 @@ export function Sidebar({
                 "object-contain object-left transition-opacity duration-200 dark:hidden",
                 collapsed ? "opacity-0" : "opacity-100"
               )}
-              sizes="130px"
+              sizes="150px"
               priority
             />
             <Image
@@ -224,26 +224,26 @@ export function Sidebar({
                 "hidden object-contain object-left transition-opacity duration-200 dark:block",
                 collapsed ? "opacity-0" : "opacity-100"
               )}
-              sizes="130px"
+              sizes="150px"
               priority
             />
           </span>
         </button>
         <div className="flex items-center lg:hidden">
-          <span className="relative block h-9 w-[130px]">
+          <span className="relative block h-11 w-[150px]">
             <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
               fill
               className="object-contain object-left dark:hidden"
-              sizes="130px"
+              sizes="150px"
             />
             <Image
               src="/logo-full-dark.png"
               alt="Verlab Studio"
               fill
               className="hidden object-contain object-left dark:block"
-              sizes="130px"
+              sizes="150px"
             />
           </span>
         </div>
