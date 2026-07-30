@@ -68,7 +68,7 @@ export function Sidebar({
   onCloseMobile: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [openGroups, setOpenGroups] = useState<string[]>(["Tools"]);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [popoverGroup, setPopoverGroup] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);

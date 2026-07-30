@@ -1,16 +1,12 @@
 import {
   Activity,
   BarChart3,
-  Captions,
   Coins,
   Compass,
   DollarSign,
-  Download,
   Home,
-  Image as ImageIcon,
   LayoutDashboard,
   Library,
-  PenSquare,
   Plug,
   Settings,
   Tag,
@@ -26,17 +22,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Library", href: "/app/library", icon: Library },
   { label: "Niche Finder", href: "/app/niches", icon: Compass },
   { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
-  {
-    label: "Tools",
-    href: "/app/image-generator",
-    icon: Wrench,
-    subItems: [
-      { title: "Image Generator", href: "/app/image-generator", icon: ImageIcon },
-      { title: "Script Writer", href: "/app/scripts", icon: PenSquare },
-      { title: "Transcripts", href: "/app/transcripts", icon: Captions },
-      { title: "Downloader", href: "/app/downloads", icon: Download },
-    ],
-  },
+  { label: "Tools", href: "/app/tools", icon: Wrench },
   { label: "MCP", href: "/app/mcp", icon: Plug },
 ];
 
