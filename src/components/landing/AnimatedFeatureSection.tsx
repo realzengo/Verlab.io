@@ -1,8 +1,30 @@
 "use client";
 
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+/** Pauses every CSS animation inside this block while it's off-screen —
+ * the starfield zoom, tunnel grid, and floating glass cards would otherwise
+ * run forever from mount regardless of scroll position, burning compositor
+ * cycles that make scrolling and clicks elsewhere on the page feel laggy. */
+function useAnimationGate<T extends Element>(threshold = 0) {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [threshold]);
+
+  return { ref, inView } as const;
+}
 import { ArrowDown, ArrowRight, BadgeCheck, Check, Filter, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -174,9 +196,15 @@ function NicheBendCard() {
 }
 
 export function AnimatedFeatureSection() {
+  const { ref, inView } = useAnimationGate<HTMLDivElement>();
+
   return (
     <section className="mt-10 mb-2 md:mt-16">
-      <div className="relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-[28px] bg-[#6aa7dc] sm:h-[487px] sm:rounded-[24px]">
+      <div
+        ref={ref}
+        data-inview={inView}
+        className="anim-gate relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-[28px] bg-[#6aa7dc] sm:h-[487px] sm:rounded-[24px]"
+      >
         {/* Background — z-0: deep-space gradient + an animated starfield texture on top of it */}
         <div
           aria-hidden

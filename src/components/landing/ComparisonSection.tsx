@@ -1,4 +1,25 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+
+/** Pauses the winner card's rotating-border and glow animations while
+ * off-screen, instead of letting them run forever from mount. */
+function useAnimationGate<T extends Element>(threshold = 0) {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [threshold]);
+
+  return { ref, inView } as const;
+}
 
 const OTHER_TOOLS_ITEMS = [
   "Staring at a blank page",
@@ -59,6 +80,8 @@ function ComparisonListItem({
 }
 
 export function ComparisonSection() {
+  const { ref, inView } = useAnimationGate<HTMLDivElement>();
+
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
@@ -97,7 +120,11 @@ export function ComparisonSection() {
         </div>
 
         {/* Card 2: With Verlab */}
-        <div className="comparison-winner-border relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:p-10 md:p-14">
+        <div
+          ref={ref}
+          data-inview={inView}
+          className="anim-gate comparison-winner-border relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:p-10 md:p-14"
+        >
           <div
             aria-hidden
             className="animate-winner-glow pointer-events-none absolute -inset-4 -z-20 rounded-[2rem] bg-blue-500/25 blur-2xl"

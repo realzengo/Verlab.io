@@ -911,6 +911,16 @@ body {
   }
 }
 
+/* Freezes every CSS animation inside an `.anim-gate` block while its
+   `data-inview` flag is false (set from an IntersectionObserver in the
+   component). Keeps decorative, always-on animations from burning
+   compositor cycles while scrolled out of view. */
+.anim-gate[data-inview="false"] *,
+.anim-gate[data-inview="false"] *::before,
+.anim-gate[data-inview="false"] *::after {
+  animation-play-state: paused;
+}
+
 /* Infinite forward-moving 4-wall tunnel — floor, ceiling, and both side walls
    are separate planes rotated into a box around a shared perspective origin,
    all converging on a single center vanishing point. Background stays
