@@ -31,36 +31,36 @@ interface WidgetDefinition {
 // showing a stale cached fetch. Bump a widget's suffix whenever its HTML
 // changes meaningfully to force hosts to refetch.
 const WIDGETS = {
-  statCard: { resourceUri: "ui://verlab/stat-card-v3.html", html: statCardHtml, outputSchema: StatCardSchema },
-  listCard: { resourceUri: "ui://verlab/list-card-v3.html", html: listCardHtml, outputSchema: ListCardSchema },
+  statCard: { resourceUri: "ui://verlab/stat-card-v4.html", html: statCardHtml, outputSchema: StatCardSchema },
+  listCard: { resourceUri: "ui://verlab/list-card-v4.html", html: listCardHtml, outputSchema: ListCardSchema },
   videoGridCard: {
-    resourceUri: "ui://verlab/video-grid-card-v3.html",
+    resourceUri: "ui://verlab/video-grid-card-v4.html",
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
-  scriptCard: { resourceUri: "ui://verlab/script-card-v3.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
+  scriptCard: { resourceUri: "ui://verlab/script-card-v4.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
   imageGalleryCard: {
-    resourceUri: "ui://verlab/image-gallery-card-v3.html",
+    resourceUri: "ui://verlab/image-gallery-card-v4.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },
   transcriptCard: {
-    resourceUri: "ui://verlab/transcript-card-v3.html",
+    resourceUri: "ui://verlab/transcript-card-v4.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
   },
   downloadCard: {
-    resourceUri: "ui://verlab/download-card-v3.html",
+    resourceUri: "ui://verlab/download-card-v4.html",
     html: downloadCardHtml,
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card-v3.html",
+    resourceUri: "ui://verlab/creator-profile-card-v4.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
   nicheFinderCard: {
-    resourceUri: "ui://verlab/niche-finder-card-v3.html",
+    resourceUri: "ui://verlab/niche-finder-card-v4.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
   },

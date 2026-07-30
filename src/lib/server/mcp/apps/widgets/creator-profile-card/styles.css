@@ -46,6 +46,7 @@
   color: inherit;
   cursor: pointer;
   border-radius: var(--v-radius-sm);
+  transition: background var(--v-ease);
 }
 
 .v-bench-row-link:hover {

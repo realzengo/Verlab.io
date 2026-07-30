@@ -16,6 +16,11 @@
 
   --v-bg: #ffffff;
   --v-surface: #ffffff;
+  /* Nested-surface fill for elements inside the card (rows, tiles, inputs,
+     thumbnails) -- flat tinted fill instead of a hairline border, so
+     depth reads through shading rather than drawn lines. */
+  --v-fill: #f7f8fa;
+  --v-fill-hover: #eef0f3;
   --v-heading: #111827;
   --v-body: #374151;
   --v-subtle: #525866;
@@ -29,7 +34,12 @@
   --v-radius-card: 20px;
   --v-radius-sm: 16px;
   --v-radius-pill: 9999px;
-  --v-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 24px rgba(16, 24, 40, 0.06);
+  --v-shadow-card: 0 1px 1px rgba(16, 24, 40, 0.04), 0 3px 6px rgba(16, 24, 40, 0.05),
+    0 16px 40px rgba(16, 24, 40, 0.1);
+  --v-shadow-hover: 0 2px 4px rgba(16, 24, 40, 0.06), 0 10px 24px rgba(16, 24, 40, 0.12);
+  --v-shadow-btn: 0 1px 2px rgba(51, 92, 255, 0.16), 0 6px 16px rgba(51, 92, 255, 0.22);
+  --v-shadow-btn-hover: 0 2px 4px rgba(34, 70, 214, 0.2), 0 8px 20px rgba(34, 70, 214, 0.28);
+  --v-ease: 150ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 * {
@@ -49,6 +59,8 @@ body {
   color: var(--v-body);
   font-size: 14px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .v-card {
@@ -75,9 +87,10 @@ body {
 }
 
 .v-header .v-title {
-  font-weight: 600;
+  font-weight: 650;
   color: var(--v-heading);
   font-size: 13px;
+  letter-spacing: -0.01em;
 }
 
 .v-header .v-spacer {
@@ -131,10 +144,17 @@ body {
   border: none;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: var(--v-shadow-btn);
+  transition: background var(--v-ease), box-shadow var(--v-ease), transform var(--v-ease);
 }
 
 .v-btn:hover {
   background: var(--v-primary-hover);
+  box-shadow: var(--v-shadow-btn-hover);
+}
+
+.v-btn:active {
+  transform: scale(0.98);
 }
 
 .v-empty {

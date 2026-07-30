@@ -12,7 +12,7 @@
   align-items: center;
   padding: 8px;
   border-radius: var(--v-radius-sm);
-  border: 1px solid var(--v-hairline);
+  background: var(--v-fill);
 }
 
 .v-row-thumb {
@@ -43,7 +43,7 @@
 }
 
 .v-profile {
-  border: 1px solid var(--v-hairline);
+  background: var(--v-fill);
   border-radius: var(--v-radius-sm);
   padding: 12px;
 }

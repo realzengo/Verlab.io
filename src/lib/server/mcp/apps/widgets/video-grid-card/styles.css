@@ -10,15 +10,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--v-hairline);
+  border: none;
   border-radius: var(--v-radius-sm);
   overflow: hidden;
-  background: var(--v-surface);
+  background: var(--v-fill);
   cursor: pointer;
   padding: 0;
   font: inherit;
   color: inherit;
   text-align: left;
+  transition: transform var(--v-ease), box-shadow var(--v-ease);
+}
+
+.v-video:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--v-shadow-hover);
 }
 
 .v-video img,

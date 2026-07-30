@@ -61,14 +61,15 @@
   display: block;
   width: 100%;
   margin-top: 9px;
-  background: var(--v-bg);
-  border: 1px solid var(--v-hairline);
+  background: var(--v-fill);
+  border: none;
   border-radius: var(--v-radius-sm);
   padding: 9px 11px;
   font-family: inherit;
   font-size: 13px;
   color: var(--v-heading);
   resize: vertical;
+  transition: box-shadow var(--v-ease);
 }
 
 .vf-input::placeholder {
@@ -78,7 +79,7 @@
 
 .vf-input:focus {
   outline: none;
-  border-color: var(--v-primary);
+  box-shadow: 0 0 0 2px var(--v-primary);
 }
 
 input.vf-input {
@@ -95,22 +96,23 @@ input.vf-input {
 .vf-pill {
   padding: 7px 14px;
   border-radius: var(--v-radius-pill);
-  border: 1px solid var(--v-hairline);
-  background: transparent;
+  border: none;
+  background: var(--v-fill);
   color: var(--v-body);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background var(--v-ease), color var(--v-ease);
 }
 
 .vf-pill:hover {
-  border-color: var(--v-primary);
+  background: var(--v-fill-hover);
 }
 
 .vf-pill.active {
   background: var(--v-primary);
-  border-color: var(--v-primary);
   color: #fff;
+  box-shadow: var(--v-shadow-btn);
 }
 
 .vf-submit {
@@ -125,10 +127,17 @@ input.vf-input {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: var(--v-shadow-btn);
+  transition: background var(--v-ease), box-shadow var(--v-ease), transform var(--v-ease);
 }
 
 .vf-submit:hover:not(:disabled) {
   background: var(--v-primary-hover);
+  box-shadow: var(--v-shadow-btn-hover);
+}
+
+.vf-submit:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .vf-submit:disabled {
@@ -253,8 +262,7 @@ input.vf-input {
 }
 
 .vf-tag-neutral {
-  background: transparent;
-  border: 1px solid var(--v-hairline);
+  background: var(--v-fill);
   color: var(--v-subtle);
 }
 
@@ -330,6 +338,10 @@ input.vf-input {
   cursor: pointer;
 }
 
+.vf-video-link {
+  transition: background var(--v-ease);
+}
+
 .vf-video-link:hover {
   background: var(--v-accent);
 }
@@ -395,16 +407,17 @@ input.vf-input {
   width: 100%;
   margin-top: 18px;
   padding: 10px;
-  border: 1px solid var(--v-hairline);
+  border: none;
   border-radius: var(--v-radius-pill);
-  background: transparent;
+  background: var(--v-fill);
   color: var(--v-body);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
+  transition: background var(--v-ease), color var(--v-ease);
 }
 
 .vf-restart:hover {
-  border-color: var(--v-primary);
+  background: var(--v-accent);
   color: var(--v-primary);
 }
