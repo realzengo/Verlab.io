@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ChevronsLeft, ChevronsRight, ShieldCheck, X } from "lucide-react";
 import { ADMIN_NAV } from "@/lib/mock-data";
-import { Logo } from "@/components/ui/Logo";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -37,7 +37,25 @@ export function AdminSidebar({
     >
       <div className={cn("flex items-center justify-between px-4 py-5", collapsed && "md:justify-center md:px-0")}>
         <div className={cn("flex items-center gap-2", collapsed && "md:hidden")}>
-          <Logo height={18} />
+          <span className="relative block h-6 w-6 shrink-0">
+            <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="24px" />
+          </span>
+          <span className="relative block h-4 w-[90px]">
+            <Image
+              src="/logo-wordmark-studio.png"
+              alt="Verlab Studio"
+              fill
+              className="object-contain object-left dark:hidden"
+              sizes="90px"
+            />
+            <Image
+              src="/logo-wordmark-studio-dark.png"
+              alt="Verlab Studio"
+              fill
+              className="hidden object-contain object-left dark:block"
+              sizes="90px"
+            />
+          </span>
           <span className="flex items-center gap-1 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-white/10">
             <ShieldCheck className="h-3 w-3" />
             Admin

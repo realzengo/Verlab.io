@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Play, Loader2 } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
-import { LogoMark } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 import { McpConnectSection } from "@/components/mcp/McpConnectSection";
 
@@ -157,8 +157,8 @@ export default function McpPage() {
                 className="absolute inset-0 [background-image:radial-gradient(circle_at_30%_15%,rgba(51,92,255,0.45),transparent_60%)]"
               />
               <div className="absolute left-4 top-4 flex items-center gap-1.5 sm:left-6 sm:top-6 sm:gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-primary sm:h-10 sm:w-10">
-                  <LogoMark className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="relative block h-8 w-8 shrink-0 sm:h-10 sm:w-10">
+                  <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="40px" />
                 </span>
                 <span className="text-base font-bold text-white/60 sm:text-lg">+</span>
                 <ActivePlatformIcon className="h-8 w-8 shrink-0 rounded-lg ring-1 ring-white/15 sm:h-10 sm:w-10 sm:rounded-[10px]" />
@@ -237,8 +237,8 @@ export default function McpPage() {
               <div className="mt-4 flex min-h-[150px] items-center justify-center rounded-xl border border-hairline bg-app p-4 sm:mt-5 sm:min-h-[180px] sm:rounded-2xl sm:p-5">
                 <div className="w-full max-w-[240px] rounded-xl border border-hairline bg-surface p-3.5 shadow-card">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white">
-                      <LogoMark className="h-3.5 w-3.5" />
+                    <span className="relative block h-6 w-6 shrink-0">
+                      <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="24px" />
                     </span>
                     <span className="text-sm font-semibold text-heading">Verlab</span>
                   </div>
@@ -266,8 +266,8 @@ export default function McpPage() {
                   <path d="M22 50 C 45 50, 55 75, 78 75" stroke="#335cff" strokeWidth="1" fill="none" />
                 </svg>
 
-                <span className="absolute left-[14%] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-white shadow-blue sm:h-11 sm:w-11">
-                  <LogoMark className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="absolute left-[14%] top-1/2 block h-9 w-9 -translate-y-1/2 sm:h-11 sm:w-11">
+                  <Image src="/logo-icon.png" alt="" fill className="object-contain drop-shadow-[0_4px_12px_rgba(51,92,255,0.45)]" sizes="44px" />
                 </span>
                 <ClaudeIcon className="absolute right-[14%] top-[25%] h-8 w-8 -translate-y-1/2 rounded-lg ring-1 ring-black/10 sm:h-10 sm:w-10 sm:rounded-[10px]" />
                 <ChatGPTIcon className="absolute right-[14%] top-[75%] h-8 w-8 -translate-y-1/2 rounded-lg ring-1 ring-black/10 sm:h-10 sm:w-10 sm:rounded-[10px]" />

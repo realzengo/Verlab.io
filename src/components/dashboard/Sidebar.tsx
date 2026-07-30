@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
-import { Logo, LogoMark } from "@/components/ui/Logo";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
@@ -186,28 +186,62 @@ export function Sidebar({
           type="button"
           onClick={() => setCollapsed((v) => !v)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "hidden items-center gap-1.5 rounded-lg outline-none focus-visible:outline-none lg:flex",
-            collapsed && "lg:gap-0"
-          )}
+          className="hidden items-center outline-none focus-visible:outline-none lg:flex"
         >
-          <LogoMark
+          <span className="relative block h-8 w-8 shrink-0">
+            <Image
+              src="/logo-icon.png"
+              alt=""
+              fill
+              className="object-contain object-left"
+              sizes="32px"
+              priority
+            />
+          </span>
+          <span
             className={cn(
-              "h-7 w-7 shrink-0 -rotate-90 text-heading transition-all duration-300 ease-in-out",
-              collapsed && "lg:h-8 lg:w-8 lg:rotate-0"
+              "relative h-6 overflow-hidden transition-all duration-300 ease-in-out",
+              collapsed ? "ml-0 w-0 opacity-0" : "ml-2 w-[140px] opacity-100"
             )}
-          />
-          <Logo
-            height={24}
-            className={cn(
-              "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-              collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[170px] lg:opacity-100"
-            )}
-          />
+          >
+            <Image
+              src="/logo-wordmark-studio.png"
+              alt="Verlab Studio"
+              fill
+              className="object-contain object-left dark:hidden"
+              sizes="140px"
+              priority
+            />
+            <Image
+              src="/logo-wordmark-studio-dark.png"
+              alt="Verlab Studio"
+              fill
+              className="hidden object-contain object-left dark:block"
+              sizes="140px"
+              priority
+            />
+          </span>
         </button>
-        <div className="flex items-center gap-1.5 lg:hidden">
-          <LogoMark className="h-7 w-7 shrink-0 -rotate-90 text-heading" />
-          <Logo height={24} />
+        <div className="flex items-center gap-2 lg:hidden">
+          <span className="relative block h-8 w-8 shrink-0">
+            <Image src="/logo-icon.png" alt="" fill className="object-contain object-left" sizes="32px" />
+          </span>
+          <span className="relative block h-6 w-[140px]">
+            <Image
+              src="/logo-wordmark-studio.png"
+              alt="Verlab Studio"
+              fill
+              className="object-contain object-left dark:hidden"
+              sizes="140px"
+            />
+            <Image
+              src="/logo-wordmark-studio-dark.png"
+              alt="Verlab Studio"
+              fill
+              className="hidden object-contain object-left dark:block"
+              sizes="140px"
+            />
+          </span>
         </div>
         <button
           type="button"

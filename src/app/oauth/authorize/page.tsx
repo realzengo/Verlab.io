@@ -1,7 +1,7 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { LogoMark } from "@/components/ui/Logo";
 import { getClient } from "@/lib/server/oauth/clients";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,8 +66,8 @@ export default async function OAuthAuthorizePage({
     <div className="flex min-h-screen items-center justify-center bg-app px-4">
       <Card className="w-full max-w-md">
         <div className="flex items-center justify-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white">
-            <LogoMark className="h-5 w-5" />
+          <span className="relative block h-10 w-10 shrink-0">
+            <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="40px" />
           </span>
         </div>
 

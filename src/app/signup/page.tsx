@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -19,7 +20,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 
 const INPUT_CLASSES =
@@ -199,8 +199,26 @@ function SignupForm() {
 
   return (
     <div className="w-full max-w-sm animate-bend-in">
-      <div className="mb-8 flex justify-center lg:hidden">
-        <Logo height={22} />
+      <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
+        <span className="relative block h-7 w-7 shrink-0">
+          <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="28px" />
+        </span>
+        <span className="relative block h-5 w-[120px]">
+          <Image
+            src="/logo-wordmark-studio.png"
+            alt="Verlab Studio"
+            fill
+            className="object-contain object-left dark:hidden"
+            sizes="120px"
+          />
+          <Image
+            src="/logo-wordmark-studio-dark.png"
+            alt="Verlab Studio"
+            fill
+            className="hidden object-contain object-left dark:block"
+            sizes="120px"
+          />
+        </span>
       </div>
 
       <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Create your account</h1>

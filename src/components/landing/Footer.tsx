@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { europaGrotesk } from "@/lib/fonts";
-import { LogoMark } from "@/components/ui/Logo";
 
 type LinkGroup = { heading: string; links: { label: string; href: string }[] };
 
@@ -78,7 +77,9 @@ export function Footer() {
         <div className="md:hidden">
           <div className="flex items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-2.5">
-              <LogoMark className="h-7 w-7 shrink-0 text-white" />
+              <span className="relative block h-7 w-7 shrink-0">
+                <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="28px" />
+              </span>
               <span className={`${europaGrotesk.className} text-2xl font-bold tracking-tight text-white`}>Verlab</span>
             </Link>
 
@@ -151,7 +152,9 @@ export function Footer() {
 
           <div className="flex w-full flex-col items-center justify-between gap-6 sm:flex-row">
             <Link href="/" className="flex items-center gap-2.5">
-              <LogoMark className="h-7 w-7 shrink-0 text-white" />
+              <span className="relative block h-7 w-7 shrink-0">
+                <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="28px" />
+              </span>
               <span className={`${europaGrotesk.className} text-2xl font-bold tracking-tight text-white`}>Verlab</span>
             </Link>
 

@@ -36,8 +36,8 @@ interface FindNicheData {
 
 const root = document.getElementById("root")!;
 
-// Verlab's real logomark (see src/components/ui/Logo.tsx) -- inlined so the
-// widget carries the actual brand mark instead of a generic dot/icon.
+// Verlab's brand mark, inlined as SVG path data so the widget carries the
+// actual brand mark instead of a generic dot/icon.
 const LOGO_MARK = `<svg viewBox="0 0 2363 2363" fill="currentColor" aria-hidden="true"><path d="M192,236 34,532 1019,2234 1343,2238 2331,519 2187,246 1442,239 1332,999 1690,1135 1334,1279 1203,1638 1058,1281 700,1149 1054,1002 915,239Z"/></svg>`;
 
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
