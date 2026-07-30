@@ -1,9 +1,15 @@
-import { App, PostMessageTransport, applyDocumentTheme } from "@modelcontextprotocol/ext-apps";
+import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+// Verlab's brand mark, inlined as SVG path data so every widget carries the
+// actual logo instead of a generic dot/icon or plain wordmark.
+export const LOGO_MARK = `<svg viewBox="0 0 2363 2363" fill="currentColor" aria-hidden="true"><path d="M192,236 34,532 1019,2234 1343,2238 2331,519 2187,246 1442,239 1332,999 1690,1135 1334,1279 1203,1638 1058,1281 700,1149 1054,1002 915,239Z"/></svg>`;
+
 // Boilerplate shared by every Verlab widget: construct the App, wire the
-// handshake + theme sync, and connect. Callers only supply what differs
-// per widget (rendering the initial/updated tool result).
+// handshake, and connect. Callers only supply what differs per widget
+// (rendering the initial/updated tool result). Widgets are light-mode only
+// (see shared/base.css), so unlike a typical MCP App this deliberately does
+// not sync to the host's theme context.
 export interface ConnectAppOptions {
   name: string;
   onResult: (result: CallToolResult) => void;
@@ -21,13 +27,8 @@ export function connectApp({ name, onResult, onLoading, onConnected }: ConnectAp
   app.onerror = (error) => console.error(`[verlab:${name}]`, error);
   app.ontoolinput = () => onLoading?.();
   app.ontoolresult = (result) => onResult(result as CallToolResult);
-  app.onhostcontextchanged = (ctx) => {
-    if (ctx.theme) applyDocumentTheme(ctx.theme);
-  };
 
   app.connect(new PostMessageTransport(window.parent, window.parent)).then(() => {
-    const ctx = app.getHostContext();
-    if (ctx?.theme) applyDocumentTheme(ctx.theme);
     onConnected?.(app);
   });
 

@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml } from "../../shared/host";
+import { connectApp, escapeHtml, LOGO_MARK } from "../../shared/host";
 
 interface ImageData {
   status?: string;
@@ -24,6 +24,7 @@ function render(data: ImageData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">Verlab Image</span>
         <span class="v-spacer"></span>
         ${data?.status ? `<span class="v-pill">${escapeHtml(data.status)}</span>` : ""}

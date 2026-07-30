@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 type Platform = "youtube" | "tiktok" | "both";
 type Format = "long-form" | "shorts" | "not-sure";
@@ -35,10 +35,6 @@ interface FindNicheData {
 }
 
 const root = document.getElementById("root")!;
-
-// Verlab's brand mark, inlined as SVG path data so the widget carries the
-// actual brand mark instead of a generic dot/icon.
-const LOGO_MARK = `<svg viewBox="0 0 2363 2363" fill="currentColor" aria-hidden="true"><path d="M192,236 34,532 1019,2234 1343,2238 2331,519 2187,246 1442,239 1332,999 1690,1135 1334,1279 1203,1638 1058,1281 700,1149 1054,1002 915,239Z"/></svg>`;
 
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "youtube", label: "YouTube" },
@@ -101,13 +97,13 @@ function pillsHtml(options: { value: string; label: string }[], selected: string
 }
 
 function eyebrow(): string {
-  return `<div class="vf-eyebrow">${LOGO_MARK}Verlab &middot; Find a niche</div>`;
+  return `<div class="v-eyebrow">${LOGO_MARK}Verlab &middot; Find a niche</div>`;
 }
 
 function renderForm() {
   stopLoadingRotation();
   root.innerHTML = `
-    <div class="vf-card">
+    <div class="v-card">
       ${eyebrow()}
       <h1 class="vf-title">Who are you, really?</h1>
       <p class="vf-sub">The sharper I get you, the sharper the niche. Seven quick ones.</p>
@@ -191,7 +187,7 @@ const LOADING_MESSAGES = [
 function renderLoading() {
   stopLoadingRotation();
   root.innerHTML = `
-    <div class="vf-card vf-loading">
+    <div class="v-card vf-loading">
       ${eyebrow()}
       <div class="vf-spinner"></div>
       <p class="vf-loading-text" id="nf-loading-text">${LOADING_MESSAGES[0]}</p>
@@ -272,7 +268,7 @@ function renderReport(platform: Platform, niches: NicheReportEntry[], live: bool
     .join(`<hr class="vf-divider">`);
 
   root.innerHTML = `
-    <div class="vf-card">
+    <div class="v-card">
       ${eyebrow()}
       <h1 class="vf-title">Your niche report</h1>
       <p class="vf-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>

@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 interface Line {
   timestamp: string;
@@ -38,6 +38,7 @@ function render(data: TranscriptData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         ${data?.coverUrl ? `<img src="${data.coverUrl}" alt="">` : ""}
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Transcript")}</span>
         <span class="v-spacer"></span>

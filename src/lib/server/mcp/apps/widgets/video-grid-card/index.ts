@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 interface VideoRow {
   title: string;
@@ -40,6 +40,7 @@ function render(data: VideoGridData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">Verlab Trending</span>
       </div>
       <div class="v-grid">${cards || `<div class="v-empty">No videos found.</div>`}</div>

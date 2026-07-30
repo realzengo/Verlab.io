@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml } from "../../shared/host";
+import { connectApp, escapeHtml, LOGO_MARK } from "../../shared/host";
 
 interface ScriptRow {
   prompt: string;
@@ -121,6 +121,7 @@ function render(data: ListData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">Verlab Library</span>
       </div>
       <div class="v-list">${renderRows(data ?? {})}</div>

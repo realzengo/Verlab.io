@@ -1,32 +1,6 @@
-/* Uses the shared --v-* brand tokens from shared/base.css (same blue
-   #335cff primary as verlab.io and every other widget) rather than a
-   one-off palette -- and inherits light/dark adaptivity for free. */
-
-.vf-card {
-  background: var(--v-surface);
-  border: 1px solid var(--v-hairline);
-  border-radius: var(--v-radius-card);
-  box-shadow: var(--v-shadow-card);
-  padding: 18px;
-  color: var(--v-body);
-}
-
-.vf-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--v-primary);
-}
-
-.vf-eyebrow svg {
-  width: 14px;
-  height: 14px;
-  flex: none;
-}
+/* Card chrome (.v-card), header logo, and eyebrow all come from shared/base.css
+   so this widget matches every other Verlab widget exactly -- only the
+   form/report-specific styling below is unique to the niche finder. */
 
 .vf-title {
   margin: 10px 0 5px;

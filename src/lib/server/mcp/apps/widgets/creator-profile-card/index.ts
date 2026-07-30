@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 interface AnalyzedVideo {
   title: string;
@@ -71,6 +71,7 @@ function render(data: CreatorProfileData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">${escapeHtml(channelName)}</span>
         <span class="v-spacer"></span>
         ${data?.status ? `<span class="v-pill">${escapeHtml(data.status)}</span>` : ""}

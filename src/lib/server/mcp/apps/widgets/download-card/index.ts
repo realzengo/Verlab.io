@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 interface DownloadData {
   progress?: number | null;
@@ -28,6 +28,7 @@ function render(data: DownloadData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Download")}</span>
       </div>
       ${body}

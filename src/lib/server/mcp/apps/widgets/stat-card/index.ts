@@ -1,4 +1,4 @@
-import { connectApp } from "../../shared/host";
+import { connectApp, LOGO_MARK } from "../../shared/host";
 
 interface StatData {
   credits?: number;
@@ -15,6 +15,7 @@ function render(data: StatData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">Verlab</span>
       </div>
       <div class="v-stat">

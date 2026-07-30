@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml } from "../../shared/host";
+import { connectApp, escapeHtml, LOGO_MARK } from "../../shared/host";
 
 interface ScriptData {
   text?: string;
@@ -12,6 +12,7 @@ function render(data: ScriptData | null) {
   root.innerHTML = `
     <div class="v-card">
       <div class="v-header">
+        ${LOGO_MARK}
         <span class="v-title">Verlab Script</span>
         <span class="v-spacer"></span>
         ${typeof data?.cost === "number" ? `<span class="v-pill">${data.cost} credits</span>` : ""}
