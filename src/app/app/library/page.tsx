@@ -5,15 +5,17 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
-  BookmarkX,
   Check,
   Download,
   ExternalLink,
   Film,
   Filter,
   ImageIcon,
+  Loader2,
+  type LucideIcon,
   MoreHorizontal,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { setBendSaved } from "@/lib/api/niche-bend";
@@ -29,16 +31,24 @@ const TABS: { value: TabValue; label: string }[] = [
   { value: "sop", label: "SOPs" },
 ];
 
-const TYPE_BADGE: Record<LibraryAssetType, string> = {
-  image: "Image",
-  video: "Video",
-  sop: "SOP",
+const TYPE_BADGE: Record<LibraryAssetType, { label: string; icon: LucideIcon; chip: string; text: string }> = {
+  image: { label: "Image", icon: ImageIcon, chip: "bg-cat-1-tint", text: "text-cat-1" },
+  video: { label: "Video", icon: Film, chip: "bg-cat-6-tint", text: "text-cat-6" },
+  sop: { label: "SOP", icon: Sparkles, chip: "bg-cat-7-tint", text: "text-cat-7" },
 };
 
 const SORT_OPTIONS: { value: "newest" | "oldest"; label: string }[] = [
   { value: "newest", label: "Last updated" },
   { value: "oldest", label: "Oldest first" },
 ];
+
+// Pixel widths passed to /api/library/image/.../route.ts?w=, which resizes
+// server-side (via sharp) and returns webp. That route requires a Supabase
+// session, so it can't be routed through next/image's built-in optimizer --
+// the optimizer's internal fetch doesn't forward cookies, which 401s and
+// renders as a broken image. Sized generously for high-DPI screens.
+const GRID_THUMB_WIDTH = 480;
+const PREVIEW_THUMB_WIDTH = 960;
 
 function downloadDataUrl(dataUrl: string, filename: string) {
   const link = document.createElement("a");
@@ -47,18 +57,40 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   link.click();
 }
 
-function AssetThumbnail({ asset }: { asset: LibraryAsset }) {
+function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }) {
   if (asset.thumbnailUrl) {
+    // Our own /api/library/image/... route resizes server-side when a `w`
+    // param is given, so the grid never pulls the full-resolution original.
+    // Third-party avatar URLs (SOPs) aren't ours to resize, so those load
+    // as-is -- they're already small.
+    const isOwnOrigin = asset.thumbnailUrl.startsWith("/api/");
+    const src = isOwnOrigin
+      ? `${asset.thumbnailUrl}${asset.thumbnailUrl.includes("?") ? "&" : "?"}w=${width}`
+      : asset.thumbnailUrl;
+
     return (
       <>
-        {/* eslint-disable-next-line @next/next/no-img-element -- blurred backdrop, same source as the foreground image below */}
+        {isOwnOrigin && (
+          // eslint-disable-next-line @next/next/no-img-element -- pre-resized by our own route; next/image can't reach an authenticated route (its internal fetch drops cookies)
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-lg"
+          />
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element -- pre-resized by our own route (own-origin) or a small third-party avatar (SOP) */}
         <img
-          src={asset.thumbnailUrl}
-          alt=""
-          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-md"
+          src={src}
+          alt={asset.title}
+          loading="lazy"
+          decoding="async"
+          className={cn(
+            "absolute inset-0 h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.03]",
+            isOwnOrigin ? "object-contain" : "object-cover"
+          )}
         />
-        {/* eslint-disable-next-line @next/next/no-img-element -- foreground thumbnail from a data URL or upstream URL */}
-        <img src={asset.thumbnailUrl} alt={asset.title} className="absolute inset-0 h-full w-full object-contain" />
       </>
     );
   }
@@ -83,6 +115,8 @@ export default function LibraryPage() {
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -121,6 +155,8 @@ export default function LibraryPage() {
       }
       if (openMenuId && actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
+        setPendingDeleteId(null);
+        setDeleteError(null);
       }
     }
     document.addEventListener("mousedown", onPointerDown);
@@ -137,16 +173,32 @@ export default function LibraryPage() {
     return category === "all" ? assets : assets.filter((asset) => asset.category === category);
   }, [assets, category]);
 
-  async function handleRemoveSop(asset: LibraryAsset) {
-    const jobId = asset.id.replace(/^sop-/, "");
+  async function handleDeleteAsset(asset: LibraryAsset) {
     setBusyId(asset.id);
+    setDeleteError(null);
     try {
-      await setBendSaved(jobId, false);
+      if (asset.type === "sop") {
+        const jobId = asset.id.replace(/^sop-/, "");
+        await setBendSaved(jobId, false);
+      } else {
+        // id is `image-${dbId}-${index}` -- dbId itself may contain dashes
+        // (it's a uuid), so only the trailing `-<digits>` is the index.
+        const match = asset.id.match(/^image-(.+)-(\d+)$/);
+        if (!match) return;
+        const [, dbId, index] = match;
+        const response = await fetch(`/api/library/image/${dbId}/${index}`, { method: "DELETE" });
+        if (!response.ok) throw new Error();
+      }
       setAssets((prev) => (prev ? prev.filter((item) => item.id !== asset.id) : prev));
+      setPreviewAsset((prev) => (prev?.id === asset.id ? null : prev));
+    } catch {
+      setDeleteError(asset.id);
+      return;
     } finally {
       setBusyId(null);
-      setOpenMenuId(null);
     }
+    setOpenMenuId(null);
+    setPendingDeleteId(null);
   }
 
   function handleDownload(asset: LibraryAsset) {
@@ -182,17 +234,16 @@ export default function LibraryPage() {
       </div>
 
       <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div className="flex w-full gap-6 border-b border-slate-200 md:w-auto dark:border-zinc-800">
+        <div className="flex w-full gap-6 border-b border-hairline md:w-auto">
           {TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
-              className={
-                activeTab === tab.value
-                  ? "border-b-2 border-blue-600 pb-2 font-medium text-slate-900 dark:text-white"
-                  : "cursor-pointer pb-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }
+              className={cn(
+                "cursor-pointer pb-2 text-sm font-medium transition-colors",
+                activeTab === tab.value ? "border-b-2 border-primary text-heading" : "text-body/70 hover:text-heading"
+              )}
             >
               {tab.label}
             </button>
@@ -204,13 +255,13 @@ export default function LibraryPage() {
             <button
               type="button"
               onClick={() => setCategoryMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300"
+              className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-body shadow-card transition-colors hover:text-heading"
             >
               <Filter className="h-3.5 w-3.5" />
               {category === "all" ? "All categories" : category}
             </button>
             {categoryMenuOpen && (
-              <div className="absolute top-full right-0 z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="absolute top-full right-0 z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover">
                 <button
                   type="button"
                   onClick={() => {
@@ -219,13 +270,11 @@ export default function LibraryPage() {
                   }}
                   className={cn(
                     "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                    category === "all"
-                      ? "bg-slate-100 font-medium text-slate-900 dark:bg-zinc-800 dark:text-white"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-zinc-800/60"
+                    category === "all" ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
                   )}
                 >
                   All categories
-                  {category === "all" && <Check className="h-3.5 w-3.5" />}
+                  {category === "all" && <Check className="h-3.5 w-3.5 text-primary" />}
                 </button>
                 {categories.map((value) => (
                   <button
@@ -237,13 +286,11 @@ export default function LibraryPage() {
                     }}
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                      category === value
-                        ? "bg-slate-100 font-medium text-slate-900 dark:bg-zinc-800 dark:text-white"
-                        : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-zinc-800/60"
+                      category === value ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
                     )}
                   >
                     <span className="truncate">{value}</span>
-                    {category === value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    {category === value && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
                   </button>
                 ))}
               </div>
@@ -254,13 +301,13 @@ export default function LibraryPage() {
             <button
               type="button"
               onClick={() => setSortMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-slate-300"
+              className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-body shadow-card transition-colors hover:text-heading"
             >
               <ArrowUpDown className="h-3.5 w-3.5" />
               {SORT_OPTIONS.find((option) => option.value === sort)?.label}
             </button>
             {sortMenuOpen && (
-              <div className="absolute top-full right-0 z-20 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="absolute top-full right-0 z-20 mt-2 w-40 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -271,13 +318,11 @@ export default function LibraryPage() {
                     }}
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                      sort === option.value
-                        ? "bg-slate-100 font-medium text-slate-900 dark:bg-zinc-800 dark:text-white"
-                        : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-zinc-800/60"
+                      sort === option.value ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
                     )}
                   >
                     {option.label}
-                    {sort === option.value && <Check className="h-3.5 w-3.5" />}
+                    {sort === option.value && <Check className="h-3.5 w-3.5 text-primary" />}
                   </button>
                 ))}
               </div>
@@ -291,105 +336,154 @@ export default function LibraryPage() {
       {visibleAssets === null ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="aspect-[4/3] animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900"
-            />
-          ))}
-        </div>
-      ) : visibleAssets.length === 0 ? (
-        <div className="mt-6 flex h-56 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 text-slate-400 dark:border-zinc-800">
-          <Sparkles className="h-6 w-6" />
-          <p className="text-sm font-medium">Nothing here yet</p>
-        </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {visibleAssets.map((asset) => (
-            <div
-              key={asset.id}
-              className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-            >
-              {asset.type === "sop" ? (
-                <Link
-                  href={asset.fileUrl ?? "#"}
-                  className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-zinc-100 dark:bg-zinc-900"
-                >
-                  <AssetThumbnail asset={asset} />
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPreviewAsset(asset)}
-                  className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-zinc-100 dark:bg-zinc-900"
-                >
-                  <AssetThumbnail asset={asset} />
-                </button>
-              )}
-
-              <div className="flex flex-col gap-1 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="max-w-[60%] truncate text-sm font-medium text-slate-900 dark:text-white">{asset.title}</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 uppercase dark:bg-zinc-800">
-                      {TYPE_BADGE[asset.type]}
-                    </span>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setOpenMenuId((prev) => (prev === asset.id ? null : asset.id))}
-                        aria-label="Asset actions"
-                        className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                      {openMenuId === asset.id && (
-                        <div
-                          ref={actionMenuRef}
-                          className="absolute top-full right-0 z-20 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
-                        >
-                          {asset.type === "sop" ? (
-                            <>
-                              <Link
-                                href={asset.fileUrl ?? "#"}
-                                onClick={() => setOpenMenuId(null)}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-zinc-800/60"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                Open
-                              </Link>
-                              <button
-                                type="button"
-                                disabled={busyId === asset.id}
-                                onClick={() => handleRemoveSop(asset)}
-                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
-                              >
-                                <BookmarkX className="h-3.5 w-3.5" />
-                                Remove
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleDownload(asset)}
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-zinc-800/60"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              Download
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-500 dark:text-zinc-500">
-                  Created {formatRelativeTime(asset.createdAt)}
-                  {asset.sizeBytes != null && ` • ${formatBytes(asset.sizeBytes)}`}
-                </p>
+            <div key={i} className="overflow-hidden rounded-card-lg border border-hairline bg-surface p-2.5 shadow-card">
+              <div className="aspect-[4/3] animate-pulse rounded-card-sm bg-accent" />
+              <div className="flex flex-col gap-2 px-1 pt-3 pb-1">
+                <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-accent" />
+                <div className="h-3 w-1/2 animate-pulse rounded-full bg-accent" />
               </div>
             </div>
           ))}
+        </div>
+      ) : visibleAssets.length === 0 ? (
+        <div className="mt-6 flex h-64 flex-col items-center justify-center gap-3 rounded-card-lg border border-dashed border-hairline text-body/60">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-primary">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <p className="text-sm font-medium text-heading">Nothing here yet</p>
+          <p className="text-xs text-body/70">Generate an image, video, or SOP to see it show up here.</p>
+        </div>
+      ) : (
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {visibleAssets.map((asset) => {
+            const badge = TYPE_BADGE[asset.type];
+            const BadgeIcon = badge.icon;
+            return (
+              <div
+                key={asset.id}
+                className={cn(
+                  "group relative flex flex-col rounded-card-lg border border-hairline bg-surface p-2.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
+                  openMenuId === asset.id && "z-30"
+                )}
+              >
+                {asset.type === "sop" ? (
+                  <Link
+                    href={asset.fileUrl ?? "#"}
+                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60 bg-accent"
+                  >
+                    <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewAsset(asset)}
+                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60 bg-accent"
+                  >
+                    <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
+                  </button>
+                )}
+
+                <div className="flex flex-col gap-1.5 px-1 pt-3 pb-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="max-w-[62%] truncate text-sm font-semibold text-heading">{asset.title}</p>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase",
+                          badge.chip,
+                          badge.text
+                        )}
+                      >
+                        <BadgeIcon className="h-2.5 w-2.5" />
+                        {badge.label}
+                      </span>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId((prev) => (prev === asset.id ? null : asset.id))}
+                          aria-label="Asset actions"
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-body/60 hover:bg-accent hover:text-primary"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                        {openMenuId === asset.id && (
+                          <div
+                            ref={actionMenuRef}
+                            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover"
+                          >
+                            {pendingDeleteId === asset.id ? (
+                              <div className="flex flex-col gap-1.5 p-1.5">
+                                <p className="px-1 text-xs font-medium text-body/70">
+                                  {deleteError === asset.id ? "Couldn’t delete. Try again?" : "Delete permanently?"}
+                                </p>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={busyId === asset.id}
+                                    onClick={() => {
+                                      setPendingDeleteId(null);
+                                      setDeleteError(null);
+                                    }}
+                                    className="flex-1 rounded-lg border border-hairline px-2 py-1.5 text-xs font-semibold text-body hover:bg-accent/60 disabled:opacity-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busyId === asset.id}
+                                    onClick={() => handleDeleteAsset(asset)}
+                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                                  >
+                                    {busyId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {asset.type === "sop" ? (
+                                  <Link
+                                    href={asset.fileUrl ?? "#"}
+                                    onClick={() => setOpenMenuId(null)}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Open
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownload(asset)}
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Download
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingDeleteId(asset.id)}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-body/70">
+                    Created {formatRelativeTime(asset.createdAt)}
+                    {asset.sizeBytes != null && ` • ${formatBytes(asset.sizeBytes)}`}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -402,7 +496,11 @@ export default function LibraryPage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md dark:bg-black/80"
-            onClick={() => setPreviewAsset(null)}
+            onClick={() => {
+              setPreviewAsset(null);
+              setPendingDeleteId(null);
+              setDeleteError(null);
+            }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -414,7 +512,11 @@ export default function LibraryPage() {
             >
               <button
                 type="button"
-                onClick={() => setPreviewAsset(null)}
+                onClick={() => {
+                  setPreviewAsset(null);
+                  setPendingDeleteId(null);
+                  setDeleteError(null);
+                }}
                 aria-label="Close"
                 className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white"
               >
@@ -423,7 +525,7 @@ export default function LibraryPage() {
 
               <div className="flex min-h-[30vh] flex-1 items-center justify-center bg-slate-100 p-6 dark:bg-black">
                 <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
-                  <AssetThumbnail asset={previewAsset} />
+                  <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
                 </div>
               </div>
 
@@ -437,24 +539,60 @@ export default function LibraryPage() {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(previewAsset)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    View
-                  </button>
-                </div>
+                {pendingDeleteId === previewAsset.id ? (
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 text-xs font-medium text-slate-500 dark:text-zinc-400">
+                      {deleteError === previewAsset.id ? "Couldn’t delete. Try again?" : "Delete this permanently?"}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busyId === previewAsset.id}
+                      onClick={() => {
+                        setPendingDeleteId(null);
+                        setDeleteError(null);
+                      }}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-white/15 dark:text-white/90 dark:hover:bg-white/[0.08]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === previewAsset.id}
+                      onClick={() => handleDeleteAsset(previewAsset)}
+                      className="flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                    >
+                      {busyId === previewAsset.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(previewAsset.id)}
+                      aria-label="Delete"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 active:scale-[0.98] dark:border-white/15 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(previewAsset)}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
+import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
@@ -31,6 +32,7 @@ export function TopBar({
     pathname.startsWith("/app/mcp") ||
     pathname.startsWith("/app/image-generator") ||
     pathname.startsWith("/app/downloads") ||
+    pathname.startsWith("/app/tools") ||
     pathname.startsWith("/app/settings");
 
   return (
@@ -52,6 +54,7 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <CreditDropdown />
         <ThemeToggle className="h-7 w-7 sm:h-9 sm:w-9" />
         <ProfileDropdown />
       </div>

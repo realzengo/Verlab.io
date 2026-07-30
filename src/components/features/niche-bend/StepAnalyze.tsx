@@ -64,7 +64,7 @@ export function StepAnalyze({
         <h1 className="bg-gradient-to-b from-heading to-heading/75 bg-clip-text text-4xl font-semibold tracking-tighter text-transparent sm:text-5xl">
           Niche bend it.
         </h1>
-        <p className="mx-auto mt-3.5 max-w-lg text-[15px] leading-relaxed text-body/90 sm:text-base">
+        <p className="mx-auto mt-3.5 max-w-lg text-sm font-semibold leading-relaxed text-body/60">
           Paste a YouTube or TikTok link — we&apos;ll reverse-engineer the format and hand you three ways to make it
           yours.
         </p>

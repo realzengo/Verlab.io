@@ -73,9 +73,9 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix 
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "group flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium outline-none transition-colors duration-150 active:scale-[0.97]",
+          "group flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:border-white/15 dark:hover:bg-white/[0.07]",
+          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
           open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
         )}

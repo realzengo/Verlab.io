@@ -195,12 +195,26 @@ export function Sidebar({
             )}
           >
             <Image
+              src="/logo-icon.png"
+              alt="Verlab Studio"
+              width={160}
+              height={160}
+              priority
+              className={cn(
+                "absolute inset-0 m-auto h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
+                collapsed ? "opacity-100" : "opacity-0"
+              )}
+            />
+            <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
               width={600}
               height={178}
               priority
-              className="h-10 w-auto max-w-none dark:hidden"
+              className={cn(
+                "absolute left-0 top-0 h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
+                collapsed ? "opacity-0" : "opacity-100"
+              )}
             />
             <Image
               src="/logo-full-dark.png"
@@ -208,7 +222,10 @@ export function Sidebar({
               width={600}
               height={178}
               priority
-              className="hidden h-10 w-auto max-w-none dark:block"
+              className={cn(
+                "absolute left-0 top-0 hidden h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
+                collapsed ? "opacity-0" : "opacity-100"
+              )}
             />
           </span>
         </button>
@@ -258,7 +275,7 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  "group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-accent-line bg-accent font-semibold text-heading"
@@ -300,7 +317,7 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "group flex w-full cursor-pointer items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  "group flex w-full cursor-pointer items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"

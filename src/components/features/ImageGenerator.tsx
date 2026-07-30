@@ -459,9 +459,9 @@ export function ImageGenerator() {
         type="button"
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-colors duration-150 active:scale-[0.97]",
+          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:border-white/15 dark:hover:bg-white/[0.07]",
+          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
         )}
       >
@@ -476,7 +476,7 @@ export function ImageGenerator() {
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
           aria-label="Remove reference image"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.97] dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-white/15 dark:hover:bg-white/[0.07] dark:hover:text-slate-200"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.97] dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-400 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1] dark:hover:text-slate-200"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -492,13 +492,19 @@ export function ImageGenerator() {
   );
 
   return (
-    <div className="relative">
+    <div className="relative isolate">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-400/50 blur-[100px] dark:bg-blue-500/30 sm:-top-40 sm:h-72 sm:blur-[130px]"
+        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-300/20 blur-[100px] dark:bg-blue-500/30 sm:-top-40 sm:h-72 sm:blur-[130px]"
+      />
+      {/* Full-width ambient glow behind the prompt box, dark mode only. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-40 -z-10 hidden h-[420px] bg-blue-500/10 blur-[160px] dark:block sm:top-52 sm:h-[480px]"
       />
 
-      <div className="relative w-full max-w-none pt-8 pb-20 sm:pt-12">
+      <div className="relative w-full px-6 pt-8 pb-20 sm:pt-12">
+        <div className="mx-auto w-full max-w-4xl md:w-fit md:max-w-full">
         <div>
           <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
             AI Image Generator
@@ -772,22 +778,27 @@ export function ImageGenerator() {
 
         {/* ---------------- Desktop layout (>= md) ---------------- */}
         <div className="hidden md:block">
-          <div className="group relative mt-8">
-            {/* Focused ambient glow — two soft blobs give the glass something
-                textured to refract, instead of one flat wash. */}
-            <div aria-hidden="true" className="pointer-events-none absolute -inset-20 -z-10 overflow-hidden">
-              <div className="absolute -left-10 -top-16 h-56 w-72 rounded-full bg-blue-500/25 blur-[90px] transition-opacity duration-500 dark:bg-blue-500/35" />
-              <div className="absolute -right-6 -bottom-12 h-48 w-64 rounded-full bg-indigo-500/0 blur-[90px] transition-opacity duration-500 dark:bg-indigo-500/25" />
-            </div>
-
-            {/* Border wrapper — a thin static border plus an animated light
-                trail that travels the perimeter for a premium, "alive" edge. */}
+          <div className="group relative isolate mt-8">
+            {/* Border wrapper — a thin gradient stroke (light blue to lighter
+                blue; dark blue to darker blue in dark mode) plus an animated
+                light trail that travels the perimeter for a premium, "alive" edge. */}
             <div
               className={cn(
-                "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-                "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]"
+                "relative rounded-[28px] border-2 border-transparent shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
+                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
               )}
             >
+              {/* Gradient stroke, masked to the border ring only so it never
+                  bleeds into the semi-transparent white panel beneath it. */}
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300",
+                  "[mask-clip:padding-box,border-box] [mask-composite:exclude] [mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
+                  "[-webkit-mask-clip:padding-box,border-box] [-webkit-mask-composite:xor] [-webkit-mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
+                  "dark:from-blue-800 dark:to-cyan-900"
+                )}
+              />
               <BorderTrail
                 size={90}
                 className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-80 blur-[1px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
@@ -796,8 +807,8 @@ export function ImageGenerator() {
 
               <div
                 className={cn(
-                  "relative flex w-full flex-col rounded-[calc(1rem-1px)] bg-white/60 p-5 backdrop-blur-2xl backdrop-saturate-150",
-                  "dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(9,9,11,0)_45%)]"
+                  "relative flex w-full flex-col rounded-[26px] bg-white/60 px-9 py-6 backdrop-blur-2xl backdrop-saturate-150",
+                  "dark:bg-[#0c0c10]"
                 )}
               >
             <textarea
@@ -807,18 +818,18 @@ export function ImageGenerator() {
               className="min-h-[120px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-nowrap items-center gap-2">
+              <div className="flex flex-nowrap items-center gap-1.5">
                 <PillDropdown value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
                 <PillDropdown value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />
+                {QUALITY_LADDER_MODELS.has(selectedModel) && (
+                  <PillDropdown value={quality} options={QUALITY_OPTIONS} onChange={setQuality} labelPrefix="Quality" />
+                )}
                 <PillDropdown
                   value={String(outputs)}
                   options={OUTPUT_OPTIONS}
                   onChange={(value) => setOutputs(Number(value))}
                 />
-                {QUALITY_LADDER_MODELS.has(selectedModel) && (
-                  <PillDropdown value={quality} options={QUALITY_OPTIONS} onChange={setQuality} labelPrefix="Quality" />
-                )}
                 {refImageButton}
 
                 {RESOLUTION_MODELS.has(selectedModel) && (
@@ -828,9 +839,9 @@ export function ImageGenerator() {
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     aria-expanded={isSettingsOpen}
                     className={cn(
-                      "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium tracking-[-0.01em] outline-none transition-colors duration-150 active:scale-[0.97]",
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
                       "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                      "dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:border-white/15 dark:hover:bg-white/[0.07]",
+                      "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
                       "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
                       isSettingsOpen && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
                     )}
@@ -909,6 +920,7 @@ export function ImageGenerator() {
                 disabled={!canSubmit}
                 onClick={handleGenerate}
                 trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
+                className="ml-8 shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
               />
             </div>
               </div>
@@ -920,7 +932,10 @@ export function ImageGenerator() {
               {error}
             </p>
           )}
+        </div>
+        </div>
 
+        <div className="hidden md:block mt-12">
           {pendingCount > 0 || (history && history.length > 0) ? (
             <div className="mt-10">
               <div className="mb-4 flex w-full items-center justify-between">

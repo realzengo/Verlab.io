@@ -1,16 +1,8 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { SquareDashed, SquarePlay, Zap } from "lucide-react";
-import { ToolCard } from "@/components/dashboard/ToolCard";
-import {
-  BendPreview,
-  DownloaderPreview,
-  ImageGeneratorPreview,
-  NicheFinderPreview,
-  ScriptPreview,
-  TranscriptPreview,
-} from "@/components/dashboard/ToolPreviews";
+import { Captions, Compass as CompassIcon, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
+import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { createClient } from "@/lib/supabase/server";
 
 function displayName(user: User | null): string {
@@ -24,53 +16,63 @@ const QUICK_ACTIONS: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "AI Videos", href: "/app/niches", icon: SquarePlay },
 ];
 
-const TOOLS = [
+// Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
+// `thumbnail` below to "/tools/<slug>.png" -- cards fall back to a tinted
+// icon tile until then, so this can be filled in one tool at a time.
+const TOOLS: {
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  tone: ToolTone;
+  badge?: string;
+  comingSoon?: boolean;
+  thumbnail?: string;
+}[] = [
   {
     title: "Niche Bender",
     description: "Turn any viral niche into your own — steal the winning structure, swap the topic.",
     href: "/app/bend",
-    preview: <BendPreview />,
+    icon: Wand2,
+    tone: "cat-7",
   },
   {
     title: "Niche Finder",
     description: "Discover trending faceless niches on TikTok, ranked by momentum score.",
     href: "/app/niches",
-    preview: <NicheFinderPreview />,
+    icon: CompassIcon,
+    tone: "cat-2",
     comingSoon: true,
   },
   {
     title: "Transcript Extractor",
     description: "Pull clean, timestamped transcripts from any TikTok, Reels, or Shorts video instantly.",
     href: "/app/transcripts",
-    preview: <TranscriptPreview />,
+    icon: Captions,
+    tone: "cat-5",
   },
   {
     title: "Scriptwriter",
     description: "Create engaging scripts for your videos with AI-powered writing assistance.",
     href: "/app/scripts",
-    preview: <ScriptPreview />,
-    beta: true,
+    icon: PenLine,
+    tone: "cat-6",
   },
   {
     title: "Image Generator",
     description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",
     href: "/app/image-generator",
-    preview: <ImageGeneratorPreview />,
+    icon: ImageIcon,
+    tone: "cat-3",
   },
   {
     title: "Downloader",
     description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
     href: "/app/downloads",
-    preview: <DownloaderPreview />,
+    icon: Download,
+    tone: "cat-1",
   },
-] satisfies {
-  title: string;
-  description: string;
-  href: string;
-  preview: React.ReactNode;
-  beta?: boolean;
-  comingSoon?: boolean;
-}[];
+];
 
 export default async function AppHome() {
   const supabase = await createClient();
@@ -102,16 +104,18 @@ export default async function AppHome() {
             </Link>
           ))}
         </div>
-        <div className="grid justify-center gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),340px))]">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {TOOLS.map((tool) => (
-            <ToolCard
+            <ToolGridCard
               key={tool.title}
               title={tool.title}
               description={tool.description}
               href={tool.href}
-              previewSlot={tool.preview}
-              beta={tool.beta}
+              icon={tool.icon}
+              tone={tool.tone}
+              badge={tool.badge}
               comingSoon={tool.comingSoon}
+              thumbnail={tool.thumbnail}
             />
           ))}
         </div>

@@ -52,9 +52,13 @@ export function LinkInput({
       <button
         type="submit"
         disabled={loading}
-        className="btn-bevel flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-btn-primary to-btn-primary-hover px-6 py-2.5 text-sm font-semibold tracking-[-0.01em] text-white shadow-[0_4px_12px_-2px_rgba(51,92,255,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(51,92,255,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_12px_-2px_rgba(51,92,255,0.3)] sm:w-auto"
+        className="group flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold tracking-[-0.01em] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60 sm:w-auto"
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">{submitLabel}</span>
+        )}
       </button>
     </form>
   );

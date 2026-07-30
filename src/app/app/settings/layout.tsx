@@ -16,6 +16,7 @@ const TABS: NavEntry[] = [
   { label: "Credit History", href: "/app/settings/credits" },
   { label: "Payment Method", href: "/app/settings/payment-method" },
   { label: "Password & Security", href: "/app/settings/security" },
+  { label: "MCP", href: "/app/settings/mcp" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

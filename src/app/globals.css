@@ -1222,6 +1222,31 @@ html[data-scrolling="true"] *::after {
   }
 }
 
+/* Tools grid card — hover stroke fades from the brand blue into white (light
+   mode) / black (dark mode), diagonally. Same padding + mask-composite:
+   exclude technique as .comparison-winner-border above, just a static
+   gradient instead of a rotating comet. */
+.tool-card-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #ffffff 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.tool-card-gradient-border:hover::before {
+  opacity: 1;
+}
+.dark .tool-card-gradient-border::before {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #000000 100%);
+}
+
 /* Blue-tinted glass puck for an icon nested inside a .liquid-glass control */
 .liquid-glass-puck {
   background: linear-gradient(165deg, rgba(117, 163, 255, 0.95), rgba(29, 90, 220, 0.92));
