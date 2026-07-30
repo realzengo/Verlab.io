@@ -162,9 +162,9 @@ export function Sidebar({
     <aside
       ref={asideRef}
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-56 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[76px]" : "lg:w-64"
+        collapsed ? "lg:w-[76px]" : "lg:w-56"
       )}
     >
       <div
