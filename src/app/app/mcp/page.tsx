@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Play, Loader2 } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { McpConnectSection } from "@/components/mcp/McpConnectSection";
 
 const CONNECT_TABS = [
@@ -77,7 +78,18 @@ function ConnectedApps() {
     }
   }
 
-  if (!connections || connections.length === 0) return null;
+  if (connections === null) {
+    return (
+      <div className="mx-auto mt-10 max-w-2xl text-left">
+        <h3 className="text-sm font-bold text-heading">Connected apps</h3>
+        <div className="mt-3 flex flex-col gap-2">
+          <Skeleton className="h-[52px] w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (connections.length === 0) return null;
 
   return (
     <div className="mx-auto mt-10 max-w-2xl text-left">

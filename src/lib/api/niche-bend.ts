@@ -1,4 +1,5 @@
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { pollUntilSettled } from "@/lib/polling";
 import type {
   NicheBendHistoryItem,
   NicheBendJobStatusResponse,
@@ -158,43 +159,26 @@ export async function fetchSavedBends(limit = 50): Promise<NicheBendHistoryItem[
   return body.items;
 }
 
+const SETTLED_STATUSES: NicheBendJobStatusResponse["status"][] = ["ready", "sop_ready", "failed"];
+
 export function pollStatusUntilSettled(
   jobId: string,
   onUpdate: (status: NicheBendJobStatusResponse) => void,
   opts?: { intervalMs?: number }
 ): () => void {
-  const intervalMs = opts?.intervalMs ?? 1200;
-  let cancelled = false;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  const SETTLED: NicheBendJobStatusResponse["status"][] = ["ready", "sop_ready", "failed"];
-
-  const tick = async () => {
-    if (cancelled) return;
-    try {
-      const status = await pollStatus(jobId);
-      if (cancelled) return;
+  return pollUntilSettled(
+    () => pollStatus(jobId),
+    (status) => SETTLED_STATUSES.includes(status.status),
+    (status) => {
       onUpdate(status);
-      if (!SETTLED.includes(status.status)) {
-        timeoutId = setTimeout(tick, intervalMs);
-      } else if (status.status !== "failed") {
+      if (SETTLED_STATUSES.includes(status.status) && status.status !== "failed") {
         // "ready" (analyze settled) and "sop_ready" (SOP settled) both mean
         // the background job's charge (see niche-bend-job-store.ts) already
         // succeeded -- "failed" jobs are refunded, not charged, so they're
         // excluded here.
         notifyCreditsChanged();
       }
-    } catch {
-      if (!cancelled) {
-        timeoutId = setTimeout(tick, intervalMs);
-      }
-    }
-  };
-
-  tick();
-
-  return () => {
-    cancelled = true;
-    if (timeoutId) clearTimeout(timeoutId);
-  };
+    },
+    { intervalMs: opts?.intervalMs ?? 1200 }
+  );
 }

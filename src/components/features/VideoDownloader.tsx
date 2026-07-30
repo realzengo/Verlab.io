@@ -69,8 +69,15 @@ export function VideoDownloader() {
   const detectedPlatform = detectPlatform(url.trim());
 
   // Bumped whenever the in-flight job should be abandoned (url changed
-  // mid-prepare) so a stale poll loop can't overwrite newer state.
+  // mid-prepare, or the component unmounted) so a stale poll loop can't
+  // overwrite newer state or keep hitting the network after the user's left.
   const jobToken = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      jobToken.current += 1;
+    };
+  }, []);
 
   async function prepare(targetUrl: string, myToken: number) {
     setState("preparing");

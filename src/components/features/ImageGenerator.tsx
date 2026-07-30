@@ -26,6 +26,7 @@ import { TopUpModal } from "@/components/TopUpModal";
 import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
+import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
 
 const GEMINI_ICON = "/logos/ai/gemini.png";
@@ -366,24 +367,22 @@ export function ImageGenerator() {
   // mid-generation.
   function pollGenerationStatus(id: string) {
     pollCancelRef.current?.();
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const tick = async () => {
-      if (cancelled) return;
-      try {
+    pollCancelRef.current = pollUntilSettled<GenerationHistoryItem[]>(
+      async () => {
         const response = await fetch("/api/generate-image");
         if (!response.ok) throw new Error();
         const data = await response.json();
-        const items: GenerationHistoryItem[] = data.generations ?? [];
-        if (cancelled) return;
+        return data.generations ?? [];
+      },
+      (items) => {
+        const match = items.find((item) => item.id === id);
+        return !!match && match.status !== "generating";
+      },
+      (items) => {
         setHistory(items);
 
         const match = items.find((item) => item.id === id);
-        if (!match || match.status === "generating") {
-          timeoutId = setTimeout(tick, 3000);
-          return;
-        }
+        if (!match || match.status === "generating") return;
 
         if (match.status === "failed") {
           setError(match.error_message ?? "Something went wrong. Try again.");
@@ -396,16 +395,9 @@ export function ImageGenerator() {
         }
         setIsGenerating(false);
         setPendingCount(0);
-      } catch {
-        if (!cancelled) timeoutId = setTimeout(tick, 3000);
-      }
-    };
-
-    tick();
-    pollCancelRef.current = () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+      },
+      { intervalMs: 3000 }
+    );
   }
 
   async function handleGenerate() {

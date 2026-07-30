@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -20,10 +20,12 @@ import {
 import type { TranscriptLine, TranscriptRow } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { TranscriptHistoryTable } from "@/components/transcripts/TranscriptHistoryTable";
 import { ExportModal } from "@/components/transcripts/ExportModal";
 import { exportTranscripts } from "@/lib/transcript-export";
+import { pollUntilSettled } from "@/lib/polling";
 import { cn } from "@/lib/utils";
 
 const SUPPORTED_PLATFORMS = [
@@ -153,9 +155,12 @@ export default function TranscriptsPage() {
   const [coverFailed, setCoverFailed] = useState(false);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupProgress, setPopupProgress] = useState(0);
+  const [isLoadingRows, setIsLoadingRows] = useState(true);
+  const pollCancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     fetchRows();
+    return () => pollCancelRef.current?.();
   }, []);
 
   // Drives the popup's progress bar while a freshly-submitted job is in
@@ -186,10 +191,14 @@ export default function TranscriptsPage() {
   }
 
   async function fetchRows() {
-    const res = await fetch("/api/transcripts");
-    if (res.ok) {
-      const data = await res.json();
-      setRows(data.transcripts);
+    try {
+      const res = await fetch("/api/transcripts");
+      if (res.ok) {
+        const data = await res.json();
+        setRows(data.transcripts);
+      }
+    } finally {
+      setIsLoadingRows(false);
     }
   }
 
@@ -218,32 +227,36 @@ export default function TranscriptsPage() {
     return data.lines;
   }
 
-  function pollUntilSettled(id: string, autoTranslateTo: string) {
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/transcripts/status/${id}`);
-      if (!res.ok) return;
-      const { transcript } = await res.json();
-      setRows((prev) => prev.map((r) => (r.id === id ? transcript : r)));
-      setActiveRow((prev) => (prev?.id === id ? transcript : prev));
-      if (transcript.status === "complete") {
-        setPopupProgress(100);
-        if (autoTranslateTo !== "Original" && transcript.lines?.length) {
-          setRetranslateTo(autoTranslateTo);
-          setTranslating(true);
-          try {
-            setTranslatedLines(await translateLinesRequest(transcript.lines, autoTranslateTo));
-          } catch {
-            setTranslateError("Translation failed");
-            setRetranslateTo("Original");
-          } finally {
-            setTranslating(false);
+  function startPolling(id: string, autoTranslateTo: string) {
+    pollCancelRef.current?.();
+    pollCancelRef.current = pollUntilSettled(
+      async () => {
+        const res = await fetch(`/api/transcripts/status/${id}`);
+        if (!res.ok) throw new Error("Could not check transcript status");
+        const { transcript } = await res.json();
+        return transcript as TranscriptRow;
+      },
+      (transcript) => transcript.status === "complete" || transcript.status === "failed",
+      (transcript) => {
+        setRows((prev) => prev.map((r) => (r.id === id ? transcript : r)));
+        setActiveRow((prev) => (prev?.id === id ? transcript : prev));
+        if (transcript.status === "complete") {
+          setPopupProgress(100);
+          if (autoTranslateTo !== "Original" && transcript.lines?.length) {
+            setRetranslateTo(autoTranslateTo);
+            setTranslating(true);
+            translateLinesRequest(transcript.lines, autoTranslateTo)
+              .then(setTranslatedLines)
+              .catch(() => {
+                setTranslateError("Translation failed");
+                setRetranslateTo("Original");
+              })
+              .finally(() => setTranslating(false));
           }
         }
-      }
-      if (transcript.status === "complete" || transcript.status === "failed") {
-        clearInterval(interval);
-      }
-    }, 1500);
+      },
+      { intervalMs: 1500 }
+    );
   }
 
   const handleExtract = async () => {
@@ -289,7 +302,7 @@ export default function TranscriptsPage() {
       created_at: new Date().toISOString(),
     });
     setView("result");
-    pollUntilSettled(data.id, "Original");
+    startPolling(data.id, "Original");
   };
 
   const handleCopy = async () => {
@@ -435,7 +448,19 @@ export default function TranscriptsPage() {
             </Button>
           </div>
 
-          {rows.length === 0 ? (
+          {isLoadingRows ? (
+            <Card className="flex flex-col gap-3 shadow-none">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Skeleton className="h-3.5 w-1/3 rounded-full" />
+                    <Skeleton className="h-3 w-1/5 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </Card>
+          ) : rows.length === 0 ? (
             <Card className="flex flex-col items-center gap-3 py-14 text-center shadow-none">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
                 <FileText className="h-5 w-5 text-primary" />

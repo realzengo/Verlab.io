@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 interface PlanDefinition {
   id: string;
@@ -101,7 +102,11 @@ export function PaymentMethodTab() {
           <p className="font-medium text-heading text-sm sm:text-base">Transcripts this month</p>
           <p className="text-body text-xs sm:text-sm mt-0.5">Resets on the 1st of each month.</p>
         </div>
-        <p className="mt-2 sm:mt-0 text-heading text-sm font-semibold">{transcriptsThisMonth ?? "—"}</p>
+        {!loaded ? (
+          <Skeleton className="mt-2 h-4 w-8 self-start rounded-full sm:mt-0 sm:self-auto" />
+        ) : (
+          <p className="mt-2 sm:mt-0 text-heading text-sm font-semibold">{transcriptsThisMonth ?? "—"}</p>
+        )}
       </div>
     </div>
   );

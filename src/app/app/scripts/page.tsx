@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { Badge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -203,6 +204,7 @@ export default function ScriptWriterPage() {
   const [transcriptFile, setTranscriptFile] = useState<ReferenceFile | null>(null);
   const [sopFile, setSopFile] = useState<ReferenceFile | null>(null);
   const [history, setHistory] = useState<ScriptHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
@@ -244,13 +246,15 @@ export default function ScriptWriterPage() {
   }, []);
 
   function loadHistory() {
+    setIsLoadingHistory(true);
     fetch("/api/scripts")
       .then((response) => {
         if (!response.ok) throw new Error();
         return response.json();
       })
       .then((data) => setHistory(data.scripts ?? []))
-      .catch(() => setError("Couldn't load your script history. Try refreshing the page."));
+      .catch(() => setError("Couldn't load your script history. Try refreshing the page."))
+      .finally(() => setIsLoadingHistory(false));
   }
 
   // Uploads the raw file and lets the server extract its text (PDF/DOCX are
@@ -736,7 +740,13 @@ export default function ScriptWriterPage() {
         />
       </div>
 
-      {filteredHistory.length === 0 ? (
+      {isLoadingHistory ? (
+        <div className="mt-4 flex flex-col gap-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-card" />
+          ))}
+        </div>
+      ) : filteredHistory.length === 0 ? (
         <div className="mt-4 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
           <FileX className="h-8 w-8" />
           <p className="text-sm font-medium">Nothing Here!</p>

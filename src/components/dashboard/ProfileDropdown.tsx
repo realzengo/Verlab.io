@@ -8,6 +8,7 @@ import { ArrowUpCircle, ChevronDown, CircleDollarSign, LogOut, Settings, Zap } f
 import { createClient } from "@/lib/supabase/client";
 import { CREDITS_CHANGED_EVENT } from "@/lib/client/credits-bus";
 import { Avatar } from "@/components/ui/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 
 // Below this remaining share, the credits bar switches to a danger color so
@@ -43,17 +44,17 @@ const NAV_LINKS = [
 export function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   const name = displayName(user);
   const email = user?.email ?? "";
-  const spentPercent = Math.min(
-    100,
-    Math.max(0, ((DEFAULT_CREDIT_ALLOTMENT - credits) / DEFAULT_CREDIT_ALLOTMENT) * 100)
-  );
-  const isLowCredits = 100 - spentPercent <= LOW_CREDITS_THRESHOLD_PERCENT;
+  const spentPercent =
+    credits == null
+      ? 0
+      : Math.min(100, Math.max(0, ((DEFAULT_CREDIT_ALLOTMENT - credits) / DEFAULT_CREDIT_ALLOTMENT) * 100));
+  const isLowCredits = credits != null && 100 - spentPercent <= LOW_CREDITS_THRESHOLD_PERCENT;
 
   useEffect(() => {
     const supabase = createClient();
@@ -155,7 +156,11 @@ export function ProfileDropdown() {
                   <span className="text-body text-sm font-medium">AI Credits</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className={cn("font-bold", isLowCredits ? "text-danger" : "text-heading")}>{credits}</span>
+                  {credits == null ? (
+                    <Skeleton className="h-4 w-6 rounded-full" />
+                  ) : (
+                    <span className={cn("font-bold", isLowCredits ? "text-danger" : "text-heading")}>{credits}</span>
+                  )}
                   <span className="text-subtle text-xs">left</span>
                 </div>
               </div>
@@ -168,8 +173,11 @@ export function ProfileDropdown() {
                 aria-valuemax={100}
               >
                 <div
-                  className={cn("h-full rounded-full transition-all", isLowCredits ? "bg-danger" : "bg-primary")}
-                  style={{ width: `${spentPercent}%` }}
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    credits != null && (isLowCredits ? "bg-danger" : "bg-primary")
+                  )}
+                  style={{ width: credits == null ? "0%" : `${spentPercent}%` }}
                 />
               </div>
               <Link

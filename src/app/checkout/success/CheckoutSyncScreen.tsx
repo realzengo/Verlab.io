@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { pollUntilSettled } from "@/lib/polling";
 
 interface ProfileSnapshot {
   credits: number;
@@ -12,7 +13,7 @@ interface ProfileSnapshot {
 }
 
 const POLL_INTERVAL_MS = 1500;
-const MAX_ATTEMPTS = 20; // ~30s
+const TIMEOUT_MS = 30_000;
 
 /**
  * Polls our own DB (never Polar) until the webhook-driven update to credits/
@@ -24,38 +25,29 @@ const MAX_ATTEMPTS = 20; // ~30s
 export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
   const router = useRouter();
   const [timedOut, setTimedOut] = useState(false);
-  const attemptsRef = useRef(0);
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      attemptsRef.current += 1;
-
-      try {
+    const cancel = pollUntilSettled(
+      async () => {
         const res = await fetch("/api/checkout/sync-status", { cache: "no-store" });
-        if (res.ok) {
-          const current: ProfileSnapshot = await res.json();
-          const changed =
-            current.credits !== initial.credits ||
-            current.plan !== initial.plan ||
-            current.subscription_status !== initial.subscription_status;
+        if (!res.ok) throw new Error("Could not check sync status");
+        return (await res.json()) as ProfileSnapshot;
+      },
+      (current) =>
+        current.credits !== initial.credits ||
+        current.plan !== initial.plan ||
+        current.subscription_status !== initial.subscription_status,
+      (current) => {
+        const changed =
+          current.credits !== initial.credits ||
+          current.plan !== initial.plan ||
+          current.subscription_status !== initial.subscription_status;
+        if (changed) router.push("/app/settings/credits");
+      },
+      { intervalMs: POLL_INTERVAL_MS, timeoutMs: TIMEOUT_MS, onTimeout: () => setTimedOut(true) }
+    );
 
-          if (changed) {
-            clearInterval(interval);
-            router.push("/app/settings/credits");
-            return;
-          }
-        }
-      } catch {
-        // Transient network hiccup -- just let the interval try again.
-      }
-
-      if (attemptsRef.current >= MAX_ATTEMPTS) {
-        clearInterval(interval);
-        setTimedOut(true);
-      }
-    }, POLL_INTERVAL_MS);
-
-    return () => clearInterval(interval);
+    return cancel;
   }, [initial, router]);
 
   return (
