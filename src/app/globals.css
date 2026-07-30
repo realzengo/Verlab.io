@@ -870,19 +870,30 @@ body {
      useInView reveal (see ToolPreviews.tsx), then loops forever like the
      VerlabProcess mockups above, standing in as a tiny live demo of what
      the tool does rather than a static screenshot. */
-  @keyframes dash-wand-spin {
-    0%, 15% {
-      transform: rotate(0deg);
+  /* BendPreview's fan-out idea cards: each pops in right as its connector
+     (`.animate-graph-draw`, phase-shifted via animation-delay) finishes
+     drawing at the 50% mark, so this shares that same 6s period instead of
+     drifting out of sync on its own clock. */
+  @keyframes dash-fan-card {
+    0%, 40% {
+      opacity: 0;
+      transform: translateX(-6px) scale(0.92);
     }
-    30% {
-      transform: rotate(-18deg);
+    50% {
+      opacity: 1;
+      transform: translateX(0) scale(1.03);
     }
-    45%, 100% {
-      transform: rotate(0deg);
+    58%, 88% {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+    96%, 100% {
+      opacity: 0;
+      transform: translateX(-6px) scale(0.94);
     }
   }
-  .animate-dash-wand-spin {
-    animation: dash-wand-spin 3.6s ease-in-out infinite;
+  .animate-dash-fan-card {
+    animation: dash-fan-card 6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
   }
 
   @keyframes dash-row-in {
