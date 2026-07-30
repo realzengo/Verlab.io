@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { Eye } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
+import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 
 type Platform = "youtube" | "tiktok";
 
@@ -76,12 +77,12 @@ function VideoCard({ video }: { video: MarqueeVideo }) {
         <div aria-hidden className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/45 to-transparent" />
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/55 to-transparent" />
 
-        <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-black/40 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur-md">
+        <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-black/65 px-3 py-1.5 ring-1 ring-white/10">
           <Icon className="h-3.5 w-3.5 shrink-0 text-white" />
           <span className="text-[11px] font-semibold tracking-wide text-white">{PLATFORM_LABEL[video.platform]}</span>
         </div>
 
-        <span className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-black/40 px-3 py-1.5 text-[10px] font-medium text-white ring-1 ring-white/10 backdrop-blur-md">
+        <span className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-black/65 px-3 py-1.5 text-[10px] font-medium text-white ring-1 ring-white/10">
           <Eye className="h-3 w-3" />
           {video.views}
         </span>
@@ -92,9 +93,10 @@ function VideoCard({ video }: { video: MarqueeVideo }) {
 
 export function VideoMarqueeSection() {
   const track = [...VIDEOS, ...VIDEOS];
+  const { ref, inView } = useAnimationGate<HTMLElement>();
 
   return (
-    <section className="relative w-full overflow-hidden bg-surface py-10 sm:py-16">
+    <section ref={ref} data-inview={inView} className="anim-gate relative w-full overflow-hidden bg-surface py-10 sm:py-16">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[420px] -translate-y-1/2 bg-[radial-gradient(ellipse_60%_100%_at_50%_50%,var(--color-accent),transparent_70%)] opacity-70"

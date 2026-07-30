@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
@@ -29,7 +27,7 @@ function GlassCard({
       <div className={tilt}>
         <div
           className={cn(
-            "relative overflow-hidden rounded-2xl border border-white/15 bg-slate-900/30 p-4 backdrop-blur-2xl backdrop-saturate-150",
+            "relative overflow-hidden rounded-2xl border border-white/15 bg-slate-900/80 p-4",
             className
           )}
           style={{
@@ -50,7 +48,7 @@ function GlassCard({
 
 function ViewsBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="absolute bottom-1 left-1 rounded-full border border-white/20 bg-black/40 px-1.5 py-0.5 text-[7px] font-semibold leading-none text-white shadow-sm backdrop-blur-md">
+    <span className="absolute bottom-1 left-1 rounded-full border border-white/20 bg-black/70 px-1.5 py-0.5 text-[7px] font-semibold leading-none text-white shadow-sm">
       {children} views
     </span>
   );
@@ -59,7 +57,7 @@ function ViewsBadge({ children }: { children: ReactNode }) {
 function StatusPill({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <span
-      className="relative inline-flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border border-white/20 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-2xl backdrop-saturate-150"
+      className="relative inline-flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border border-white/20 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-white"
       style={{
         boxShadow:
           "inset 0 1px 1px rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.14), inset -1px 0 0 rgba(255,255,255,0.08), inset 0 -1px 1px rgba(0,0,0,0.3), 0 10px 30px -10px rgba(0,0,0,0.55)",
@@ -91,7 +89,7 @@ function ChannelPreview({
   thumbs: [string, string];
 }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-white/[0.06] p-1.5 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.55)] backdrop-blur-md">
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-white/10 p-1.5 shadow-[0_10px_30px_-8px_rgba(0,0,0,0.55)]">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-transparent"
