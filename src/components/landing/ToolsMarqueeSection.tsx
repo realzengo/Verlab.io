@@ -64,37 +64,53 @@ export function ToolsMarqueeSection() {
   const track = [...TOOLS, ...TOOLS, ...TOOLS];
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
+    const scroller = scrollerRef.current;
+    const el = trackRef.current;
+    if (!scroller || !el) return;
 
     // Content is 3 copies of TOOLS; start in the middle copy so the loop
     // has room to reset in either direction without a visible jump.
     const setWidth = () => el.scrollWidth / 3;
-    el.scrollLeft = setWidth();
+    let offset = setWidth();
+    el.style.transform = `translateX(-${offset}px)`;
 
     let frame: number;
     let last = performance.now();
+    let visible = true;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+    });
+    observer.observe(scroller);
 
     const step = (now: number) => {
       const dt = now - last;
       last = now;
 
-      el.scrollLeft += (AUTOPLAY_SPEED * dt) / 1000;
+      if (visible) {
+        offset += (AUTOPLAY_SPEED * dt) / 1000;
 
-      const width = setWidth();
-      if (el.scrollLeft >= width * 2) {
-        el.scrollLeft -= width;
-      } else if (el.scrollLeft <= 0) {
-        el.scrollLeft += width;
+        const width = setWidth();
+        if (offset >= width * 2) {
+          offset -= width;
+        } else if (offset <= 0) {
+          offset += width;
+        }
+
+        el.style.transform = `translateX(-${offset}px)`;
       }
 
       frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
 
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, []);
 
   return (
@@ -103,7 +119,7 @@ export function ToolsMarqueeSection() {
       <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-white to-transparent md:w-48" />
 
       <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
-        <div className="flex w-max gap-3 sm:gap-4 md:gap-6">
+        <div ref={trackRef} className="flex w-max gap-3 will-change-transform sm:gap-4 md:gap-6">
           {track.map((tool, i) => (
             <ToolCard key={i} {...tool} />
           ))}

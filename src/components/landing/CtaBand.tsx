@@ -13,7 +13,6 @@ export function CtaBand() {
           aria-hidden
           sizes="(min-width: 1024px) 1024px, 100vw"
           className="object-cover object-bottom"
-          unoptimized
         />
         <div aria-hidden className="absolute inset-0 bg-black/30" />
         <div className="relative">

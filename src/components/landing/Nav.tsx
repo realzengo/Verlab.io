@@ -17,12 +17,18 @@ export function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
+    let ticking = false;
     const onScroll = () => {
-      const workflowSection = document.getElementById("workflow");
-      setIsScrolled(workflowSection ? workflowSection.getBoundingClientRect().top <= 88 : window.scrollY > 20);
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const workflowSection = document.getElementById("workflow");
+        setIsScrolled(workflowSection ? workflowSection.getBoundingClientRect().top <= 88 : window.scrollY > 20);
+        ticking = false;
+      });
     };
     onScroll();
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -62,7 +68,7 @@ export function Nav() {
                 alt="Verlab Studio"
                 width={9342}
                 height={2768}
-                unoptimized
+                sizes="160px"
                 priority
                 className="h-9 w-auto dark:hidden sm:h-11"
               />
@@ -71,7 +77,7 @@ export function Nav() {
                 alt="Verlab"
                 width={887}
                 height={237}
-                unoptimized
+                sizes="160px"
                 priority
                 className="hidden h-9 w-auto dark:block sm:h-11"
               />

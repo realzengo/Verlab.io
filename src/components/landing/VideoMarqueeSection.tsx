@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useRef } from "react";
 import { Eye } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 
@@ -32,14 +35,37 @@ const VIDEOS: MarqueeVideo[] = [
 
 function VideoCard({ video }: { video: MarqueeVideo }) {
   const Icon = PLATFORM_ICON[video.platform];
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // The track is an infinite marquee, so most of the 12 clips are off-screen
+  // (or off the horizontal edge) at any given moment. Decoding all of them
+  // continuously is the single biggest source of jank on this page, so only
+  // the ones actually on screen are allowed to play.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.play().catch(() => {});
+        } else {
+          el.pause();
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="group shrink-0 rounded-[32px] bg-slate-100 p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/5 transition-transform duration-500 ease-out hover:-translate-y-1.5">
       <div className="relative h-[334px] w-[184px] overflow-hidden rounded-[24px] bg-black shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] md:h-[434px] md:w-[244px]">
         <video
+          ref={videoRef}
           src={video.src}
           poster={video.poster}
-          autoPlay
           muted
           loop
           playsInline
