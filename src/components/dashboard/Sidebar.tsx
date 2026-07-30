@@ -190,8 +190,8 @@ export function Sidebar({
         >
           <span
             className={cn(
-              "relative block h-11 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-              collapsed ? "w-11" : "w-[150px]"
+              "relative block h-10 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+              collapsed ? "w-10" : "w-[136px]"
             )}
           >
             <Image
@@ -200,7 +200,7 @@ export function Sidebar({
               width={600}
               height={178}
               priority
-              className="h-11 w-auto max-w-none dark:hidden"
+              className="h-10 w-auto max-w-none dark:hidden"
             />
             <Image
               src="/logo-full-dark.png"
@@ -208,25 +208,25 @@ export function Sidebar({
               width={600}
               height={178}
               priority
-              className="hidden h-11 w-auto max-w-none dark:block"
+              className="hidden h-10 w-auto max-w-none dark:block"
             />
           </span>
         </button>
         <div className="flex items-center lg:hidden">
-          <span className="relative block h-11 w-[150px] overflow-hidden">
+          <span className="relative block h-10 w-[136px] overflow-hidden">
             <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
               width={600}
               height={178}
-              className="h-11 w-auto max-w-none dark:hidden"
+              className="h-10 w-auto max-w-none dark:hidden"
             />
             <Image
               src="/logo-full-dark.png"
               alt="Verlab Studio"
               width={600}
               height={178}
-              className="hidden h-11 w-auto max-w-none dark:block"
+              className="hidden h-10 w-auto max-w-none dark:block"
             />
           </span>
         </div>
