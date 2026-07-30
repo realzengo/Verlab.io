@@ -53,7 +53,6 @@ body {
 
 .v-card {
   background: var(--v-surface);
-  border: 1px solid var(--v-hairline);
   border-radius: var(--v-radius-card);
   box-shadow: var(--v-shadow-card);
   padding: 16px;
