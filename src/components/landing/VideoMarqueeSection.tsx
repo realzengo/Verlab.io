@@ -96,7 +96,12 @@ export function VideoMarqueeSection() {
   const { ref, inView } = useAnimationGate<HTMLElement>();
 
   return (
-    <section ref={ref} data-inview={inView} className="anim-gate relative w-full overflow-hidden bg-surface py-10 sm:py-16">
+    <section
+      id="niches-marquee"
+      ref={ref}
+      data-inview={inView}
+      className="anim-gate relative w-full overflow-hidden bg-surface py-10 sm:py-16"
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[420px] -translate-y-1/2 bg-[radial-gradient(ellipse_60%_100%_at_50%_50%,var(--color-accent),transparent_70%)] opacity-70"

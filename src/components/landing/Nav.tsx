@@ -22,13 +22,18 @@ export function Nav() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        setIsScrolled(window.scrollY > 20);
+        const trigger = document.getElementById("niches-marquee");
+        setIsScrolled(trigger ? trigger.getBoundingClientRect().top <= 90 : window.scrollY > 20);
         ticking = false;
       });
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -51,7 +56,7 @@ export function Nav() {
             "flex items-center justify-between transition-all duration-300 ease-in-out",
             isScrolled
               ? "rounded-xl border border-slate-200 bg-white px-5 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] sm:rounded-2xl sm:px-6 sm:py-2.5 dark:border-zinc-800 dark:bg-zinc-900"
-              : "rounded-none border-transparent bg-transparent px-4 py-1.5 shadow-[0_2px_10px_rgba(0,0,0,0)] sm:px-8 sm:py-2"
+              : "rounded-none border-transparent bg-transparent px-4 py-1.5 shadow-[0_2px_10px_rgba(0,0,0,0)] backdrop-blur-[2px] sm:px-8 sm:py-2"
           )}
         >
           <div className="flex w-full items-center justify-between">
