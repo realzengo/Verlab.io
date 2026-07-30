@@ -26,40 +26,40 @@ interface WidgetDefinition {
   outputSchema: Record<string, z.ZodTypeAny>;
 }
 
+// Versioned suffixes -- MCP hosts commonly treat resource URIs as
+// cacheable/immutable, so a content change alone (same URI) can keep
+// showing a stale cached fetch. Bump a widget's suffix whenever its HTML
+// changes meaningfully to force hosts to refetch.
 const WIDGETS = {
-  statCard: { resourceUri: "ui://verlab/stat-card.html", html: statCardHtml, outputSchema: StatCardSchema },
-  listCard: { resourceUri: "ui://verlab/list-card.html", html: listCardHtml, outputSchema: ListCardSchema },
+  statCard: { resourceUri: "ui://verlab/stat-card-v2.html", html: statCardHtml, outputSchema: StatCardSchema },
+  listCard: { resourceUri: "ui://verlab/list-card-v2.html", html: listCardHtml, outputSchema: ListCardSchema },
   videoGridCard: {
-    resourceUri: "ui://verlab/video-grid-card.html",
+    resourceUri: "ui://verlab/video-grid-card-v2.html",
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
-  scriptCard: { resourceUri: "ui://verlab/script-card.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
+  scriptCard: { resourceUri: "ui://verlab/script-card-v2.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
   imageGalleryCard: {
-    resourceUri: "ui://verlab/image-gallery-card.html",
+    resourceUri: "ui://verlab/image-gallery-card-v2.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },
   transcriptCard: {
-    resourceUri: "ui://verlab/transcript-card.html",
+    resourceUri: "ui://verlab/transcript-card-v2.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
   },
   downloadCard: {
-    resourceUri: "ui://verlab/download-card.html",
+    resourceUri: "ui://verlab/download-card-v2.html",
     html: downloadCardHtml,
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card.html",
+    resourceUri: "ui://verlab/creator-profile-card-v2.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
   nicheFinderCard: {
-    // Versioned suffix -- MCP hosts commonly treat resource URIs as
-    // cacheable/immutable, so a content change alone (same URI) can keep
-    // showing a stale cached fetch. Bump this suffix whenever this widget's
-    // HTML changes meaningfully to force hosts to refetch.
     resourceUri: "ui://verlab/niche-finder-card-v2.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
