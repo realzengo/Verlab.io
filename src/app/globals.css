@@ -940,6 +940,17 @@ body {
   animation-play-state: paused;
 }
 
+/* Freezes every CSS animation on the page while actively scrolling (flag
+   set by ScrollAnimationPauser), resuming shortly after scrolling stops.
+   Scrolling must never compete with decorative animation work. Doesn't
+   touch <video> playback or hover/tap transitions — only @keyframes
+   animations respond to animation-play-state. */
+html[data-scrolling="true"] *,
+html[data-scrolling="true"] *::before,
+html[data-scrolling="true"] *::after {
+  animation-play-state: paused;
+}
+
 /* Infinite forward-moving 4-wall tunnel — floor, ceiling, and both side walls
    are separate planes rotated into a box around a shared perspective origin,
    all converging on a single center vanishing point. Background stays

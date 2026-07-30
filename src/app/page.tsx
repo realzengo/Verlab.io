@@ -1,3 +1,4 @@
+import { ScrollAnimationPauser } from "@/components/ScrollAnimationPauser";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
 import { VideoMarqueeSection } from "@/components/landing/VideoMarqueeSection";
@@ -13,6 +14,7 @@ import { Footer } from "@/components/landing/Footer";
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
+      <ScrollAnimationPauser />
       <Nav />
       <main className="flex-1">
         <Hero />
