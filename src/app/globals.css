@@ -899,6 +899,25 @@ body {
     animation-play-state: paused;
   }
 
+  /* Testimonials rows — content is duplicated 4x, so a 25% shift is a
+     seamless one-loop scroll. Odd rows reuse the same keyframes in reverse
+     instead of a mirrored duplicate, matching the alternating-direction
+     effect the original framer-motion x:["-25%","0%"] animation produced. */
+  @keyframes testimonial-marquee {
+    from {
+      transform: translateX(0%);
+    }
+    to {
+      transform: translateX(-25%);
+    }
+  }
+  .animate-testimonial-marquee {
+    animation: testimonial-marquee 40s linear infinite;
+  }
+  .animate-testimonial-marquee-reverse {
+    animation: testimonial-marquee 40s linear infinite reverse;
+  }
+
   /* ToolsMarqueeSection scrolls via JS (drag + autoplay) rather than a CSS
      transform, so the native scrollbar is hidden but the element stays
      scrollable by wheel/touch/trackpad and programmatic scrollLeft. */

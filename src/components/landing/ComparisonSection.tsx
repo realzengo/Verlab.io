@@ -1,25 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-
-/** Pauses the winner card's rotating-border and glow animations while
- * off-screen, instead of letting them run forever from mount. */
-function useAnimationGate<T extends Element>(threshold = 0) {
-  const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [threshold]);
-
-  return { ref, inView } as const;
-}
+import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 
 const OTHER_TOOLS_ITEMS = [
   "Staring at a blank page",

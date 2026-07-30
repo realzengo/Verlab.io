@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
-import { CircleDot, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CircleDot } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
+import type { Testimonial } from "./TestimonialModal";
 
-interface Testimonial {
-  id: string;
-  name: string;
-  role: string;
-  image: string;
-  quote: string;
-}
+// The modal (and the framer-motion it pulls in) is only ever needed after a
+// user clicks a testimonial capsule, so it's kept out of the initial page
+// bundle and fetched on first click instead.
+const TestimonialModal = dynamic(() => import("./TestimonialModal").then((m) => m.TestimonialModal), { ssr: false });
 
 const testimonials: Testimonial[] = [
   {
@@ -81,6 +81,11 @@ const testimonials: Testimonial[] = [
 
 export default function Testimonial2() {
   const [selected, setSelected] = useState<Testimonial | null>(null);
+  // Once true, stays true — keeps the modal mounted after it's first opened
+  // so its close/exit transition can still play, instead of the dynamic
+  // import getting torn down mid-animation.
+  const [hasOpenedOnce, setHasOpenedOnce] = useState(false);
+  const { ref, inView } = useAnimationGate<HTMLDivElement>();
 
   const row1 = testimonials.slice(0, 3);
   const row2 = testimonials.slice(3, 6);
@@ -110,7 +115,7 @@ export default function Testimonial2() {
       </div>
 
       {/* Main Container acting as the viewport for background and fades */}
-      <div className="relative w-full">
+      <div ref={ref} data-inview={inView} className="anim-gate relative w-full">
         {/* Shaded Background - Matches the height of this container exactly */}
         <div className="absolute inset-0 z-0 opacity-10 bg-[repeating-linear-gradient(315deg,currentColor_0,currentColor_1px,transparent_0,transparent_50%)] bg-[length:10px_10px] border-y border-black dark:border-white pointer-events-none"></div>
 
@@ -121,93 +126,39 @@ export default function Testimonial2() {
         {/* Content Rows */}
         <div className="relative z-10 flex flex-col gap-5 py-8 sm:gap-8 sm:py-12 items-center justify-center overflow-hidden">
           {[row1, row2, row3].map((row, rowIndex) => (
-            <motion.div
+            <div
               key={rowIndex}
-              className="flex items-center gap-6 min-w-max"
-              animate={{
-                x: rowIndex % 2 === 0 ? ["0%", "-25%"] : ["-25%", "0%"],
-              }}
-              transition={{
-                duration: 40,
-                repeat: Infinity,
-                ease: "linear",
-              }}
+              className={cn(
+                "flex min-w-max items-center gap-6",
+                rowIndex % 2 === 0 ? "animate-testimonial-marquee" : "animate-testimonial-marquee-reverse",
+              )}
             >
               {[...row, ...row, ...row, ...row].map((testimonial, i) => (
                 <Capsule
                   key={`${testimonial.id}-${i}`}
                   testimonial={testimonial}
-                  onClick={() => setSelected(testimonial)}
+                  onClick={() => {
+                    setSelected(testimonial);
+                    setHasOpenedOnce(true);
+                  }}
                 />
               ))}
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {selected && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelected(null)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            />
-
-            {/* Modal Card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{
-                opacity: 0,
-                scale: 0.95,
-                y: 10,
-                transition: { duration: 0.15 },
-              }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative w-full max-w-lg rounded-2xl bg-[linear-gradient(135deg,var(--color-primary)_0%,white_65%)] p-[2px] shadow-2xl z-50 dark:bg-[linear-gradient(135deg,var(--color-primary)_0%,rgba(255,255,255,0.15)_65%)]"
-            >
-              <div className="relative rounded-[14px] bg-surface text-heading p-8 md:p-12">
-                <button
-                  onClick={() => setSelected(null)}
-                  className="absolute top-4 right-4 p-2 text-subtle hover:text-heading transition-colors"
-                >
-                  <X size={20} />
-                </button>
-
-                <div className="flex flex-col items-center text-center">
-                  <p className="text-xl md:text-2xl font-medium leading-relaxed mb-8">&ldquo;{selected.quote}&rdquo;</p>
-
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-(--color-primary)">
-                      <Image src={selected.image} alt={selected.name} fill sizes="48px" className="object-cover object-top" />
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-bold text-base text-heading">{selected.name}</h4>
-                      <p className="text-sm text-subtle">{selected.role}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Modal — dynamically imported, so only mount it once it's actually needed */}
+      {hasOpenedOnce && <TestimonialModal selected={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
 
 function Capsule({ testimonial, onClick }: { testimonial: Testimonial; onClick: () => void }) {
   return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <div
       onClick={onClick}
-      className="group flex items-center gap-4 p-2 pr-8 rounded-full bg-white dark:bg-black/90 border border-neutral-300 hover:border-(--color-primary) hover:border-dashed dark:hover:border-(--color-primary) dark:border-neutral-800 cursor-pointer transition-all shadow-sm hover:shadow-md"
+      className="group flex items-center gap-4 p-2 pr-8 rounded-full bg-white dark:bg-black/90 border border-neutral-300 hover:border-(--color-primary) hover:border-dashed dark:hover:border-(--color-primary) dark:border-neutral-800 cursor-pointer transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
     >
       <div className="relative w-14 h-14 rounded-full overflow-hidden border border-black group-hover:border-(--color-primary) dark:group-hover:border-(--color-primary) dark:border-white transition-colors">
         <Image src={testimonial.image} alt={testimonial.name} fill sizes="56px" className="object-cover object-top" />
@@ -216,6 +167,6 @@ function Capsule({ testimonial, onClick }: { testimonial: Testimonial; onClick: 
         <span className="text-sm font-bold text-neutral-900 dark:text-white">{testimonial.name}</span>
         <span className="text-xs text-neutral-500 dark:text-neutral-400">{testimonial.role}</span>
       </div>
-    </motion.div>
+    </div>
   );
 }
