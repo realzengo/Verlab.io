@@ -188,58 +188,62 @@ export function Sidebar({
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="hidden items-center outline-none focus-visible:outline-none lg:flex"
         >
-          <span className="relative block h-8 w-8 shrink-0">
-            <Image
-              src="/logo-icon.png"
-              alt=""
-              fill
-              className="object-contain object-left"
-              sizes="32px"
-              priority
-            />
-          </span>
           <span
             className={cn(
-              "relative h-6 overflow-hidden transition-all duration-300 ease-in-out",
-              collapsed ? "ml-0 w-0 opacity-0" : "ml-2 w-[140px] opacity-100"
+              "relative block h-9 shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+              collapsed ? "w-9" : "w-[130px]"
             )}
           >
             <Image
-              src="/logo-wordmark-studio.png"
+              src="/logo-icon.png"
               alt="Verlab Studio"
               fill
-              className="object-contain object-left dark:hidden"
-              sizes="140px"
+              className={cn(
+                "object-contain object-left transition-opacity duration-200",
+                collapsed ? "opacity-100" : "opacity-0"
+              )}
+              sizes="36px"
               priority
             />
             <Image
-              src="/logo-wordmark-studio-dark.png"
+              src="/logo-full-light.png"
               alt="Verlab Studio"
               fill
-              className="hidden object-contain object-left dark:block"
-              sizes="140px"
+              className={cn(
+                "object-contain object-left transition-opacity duration-200 dark:hidden",
+                collapsed ? "opacity-0" : "opacity-100"
+              )}
+              sizes="130px"
+              priority
+            />
+            <Image
+              src="/logo-full-dark.png"
+              alt="Verlab Studio"
+              fill
+              className={cn(
+                "hidden object-contain object-left transition-opacity duration-200 dark:block",
+                collapsed ? "opacity-0" : "opacity-100"
+              )}
+              sizes="130px"
               priority
             />
           </span>
         </button>
-        <div className="flex items-center gap-2 lg:hidden">
-          <span className="relative block h-8 w-8 shrink-0">
-            <Image src="/logo-icon.png" alt="" fill className="object-contain object-left" sizes="32px" />
-          </span>
-          <span className="relative block h-6 w-[140px]">
+        <div className="flex items-center lg:hidden">
+          <span className="relative block h-9 w-[130px]">
             <Image
-              src="/logo-wordmark-studio.png"
+              src="/logo-full-light.png"
               alt="Verlab Studio"
               fill
               className="object-contain object-left dark:hidden"
-              sizes="140px"
+              sizes="130px"
             />
             <Image
-              src="/logo-wordmark-studio-dark.png"
+              src="/logo-full-dark.png"
               alt="Verlab Studio"
               fill
               className="hidden object-contain object-left dark:block"
-              sizes="140px"
+              sizes="130px"
             />
           </span>
         </div>

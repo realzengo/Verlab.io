@@ -37,19 +37,16 @@ export function AdminSidebar({
     >
       <div className={cn("flex items-center justify-between px-4 py-5", collapsed && "md:justify-center md:px-0")}>
         <div className={cn("flex items-center gap-2", collapsed && "md:hidden")}>
-          <span className="relative block h-6 w-6 shrink-0">
-            <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="24px" />
-          </span>
-          <span className="relative block h-4 w-[90px]">
+          <span className="relative block h-7 w-[90px]">
             <Image
-              src="/logo-wordmark-studio.png"
+              src="/logo-full-light.png"
               alt="Verlab Studio"
               fill
               className="object-contain object-left dark:hidden"
               sizes="90px"
             />
             <Image
-              src="/logo-wordmark-studio-dark.png"
+              src="/logo-full-dark.png"
               alt="Verlab Studio"
               fill
               className="hidden object-contain object-left dark:block"

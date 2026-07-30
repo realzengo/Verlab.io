@@ -199,24 +199,21 @@ function SignupForm() {
 
   return (
     <div className="w-full max-w-sm animate-bend-in">
-      <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
-        <span className="relative block h-7 w-7 shrink-0">
-          <Image src="/logo-icon.png" alt="" fill className="object-contain" sizes="28px" />
-        </span>
-        <span className="relative block h-5 w-[120px]">
+      <div className="mb-8 flex justify-center lg:hidden">
+        <span className="relative block h-8 w-[130px]">
           <Image
-            src="/logo-wordmark-studio.png"
+            src="/logo-full-light.png"
             alt="Verlab Studio"
             fill
-            className="object-contain object-left dark:hidden"
-            sizes="120px"
+            className="object-contain dark:hidden"
+            sizes="130px"
           />
           <Image
-            src="/logo-wordmark-studio-dark.png"
+            src="/logo-full-dark.png"
             alt="Verlab Studio"
             fill
-            className="hidden object-contain object-left dark:block"
-            sizes="120px"
+            className="hidden object-contain dark:block"
+            sizes="130px"
           />
         </span>
       </div>
