@@ -8,9 +8,13 @@ export interface ConnectAppOptions {
   name: string;
   onResult: (result: CallToolResult) => void;
   onLoading?: () => void;
+  // Fires once, right after the ui/initialize handshake completes -- for
+  // widget-specific post-connect setup (e.g. requesting a display mode)
+  // that most widgets don't need, so it isn't baked into the shared flow.
+  onConnected?: (app: App) => void;
 }
 
-export function connectApp({ name, onResult, onLoading }: ConnectAppOptions): App {
+export function connectApp({ name, onResult, onLoading, onConnected }: ConnectAppOptions): App {
   const app = new App({ name, version: "1.0.0" });
 
   app.onteardown = async () => ({});
@@ -24,6 +28,7 @@ export function connectApp({ name, onResult, onLoading }: ConnectAppOptions): Ap
   app.connect(new PostMessageTransport(window.parent, window.parent)).then(() => {
     const ctx = app.getHostContext();
     if (ctx?.theme) applyDocumentTheme(ctx.theme);
+    onConnected?.(app);
   });
 
   return app;

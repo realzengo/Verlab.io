@@ -15,7 +15,7 @@ import {
 } from "@/lib/server/video-provider";
 import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import { isNicheName } from "@/lib/niches-catalog";
-import { researchViralNiches, type NicheFinderAnswers } from "@/lib/server/niche-report-ai";
+import { researchViralNiches, type NicheFinderAnswers, type NicheReportEntry } from "@/lib/server/niche-report-ai";
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
 import { scrapeChannelVideosWithUrls, detectCreatorPlatform, type ScrapedChannelVideo } from "@/lib/server/apify-client";
@@ -210,9 +210,69 @@ const NICHE_REPORT_PLATFORMS = ["youtube", "tiktok", "both"] as const;
 const NICHE_FINDER_FORMATS = ["long-form", "shorts", "not-sure"] as const;
 const NICHE_FINDER_STYLES = ["ai-visuals", "animation", "real-footage", "no-preference"] as const;
 
+interface EnrichedSampleVideo {
+  title: string;
+  views: string;
+  coverUrl: string | null;
+  videoUrl: string | null;
+  author: string | null;
+  avatarUrl: string | null;
+}
+
+// The live/fallback research pass only ever returns text (title + view
+// count) for sampleVideos -- it has no real thumbnails. When a niche maps
+// onto one of Verlab's own tracked categories (see trackedNiche in
+// niche-report-ai.ts), swap in real cached videos with real screenshots
+// from the same cache browse_niche_videos uses; otherwise leave the
+// research pass's text-only examples as-is (with null image fields).
+async function enrichNicheWithRealVideos(
+  niche: NicheReportEntry
+): Promise<Omit<NicheReportEntry, "trackedNiche"> & { sampleVideos: EnrichedSampleVideo[] }> {
+  const { trackedNiche, ...publicFields } = niche;
+  const textOnly: EnrichedSampleVideo[] = niche.sampleVideos.map((video) => ({
+    ...video,
+    coverUrl: null,
+    videoUrl: null,
+    author: null,
+    avatarUrl: null,
+  }));
+
+  if (trackedNiche === "none" || !isNicheName(trackedNiche)) {
+    return { ...publicFields, sampleVideos: textOnly };
+  }
+
+  const page = await getNicheVideosPage(trackedNiche, false, {
+    page: 1,
+    limit: 4,
+    style: "all",
+    platform: niche.platform === "both" ? "all" : niche.platform,
+    timeWindow: "all",
+    country: "",
+    viewsMin: null,
+    viewsMax: null,
+    followersMin: null,
+    followersMax: null,
+    postedAfter: null,
+    postedBefore: null,
+  });
+
+  if (page.videos.length === 0) return { ...publicFields, sampleVideos: textOnly };
+
+  const realVideos: EnrichedSampleVideo[] = page.videos.slice(0, 4).map((video) => ({
+    title: video.title,
+    views: video.views,
+    coverUrl: signThumbUrl(video.coverUrl),
+    videoUrl: video.videoUrl,
+    author: video.author,
+    avatarUrl: signThumbUrl(video.avatarUrl),
+  }));
+
+  return { ...publicFields, sampleVideos: realVideos };
+}
+
 // Free (no chargeUser call) -- matches browse_niche_videos/get_credit_balance.
 // Worth revisiting if usage climbs: unlike those, this runs a live
-// Google-Search-grounded Gemini research pass plus an extraction pass per
+// search-grounded OpenRouter research pass plus an extraction pass per
 // call (see niche-report-ai.ts), which isn't free to Verlab even though it's
 // free to the user.
 const findNicheTool: McpToolDefinition = {
@@ -278,7 +338,8 @@ const findNicheTool: McpToolDefinition = {
     if (insertError || !row) return errorResult(insertError?.message ?? "Could not start the niche report");
 
     const work = (async () => {
-      const { niches, live } = await researchViralNiches(answers);
+      const { niches: rawNiches, live } = await researchViralNiches(answers);
+      const niches = await Promise.all(rawNiches.map(enrichNicheWithRealVideos));
       await admin.from("niche_reports").update({ status: "complete", niches, live }).eq("id", row.id);
       recordUsageEvent("mcp", userId, { action: "nicheReport.research", reportId: row.id, live });
       return { niches, live };

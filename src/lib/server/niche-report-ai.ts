@@ -1,6 +1,7 @@
 import { generateObject, generateText, type ModelMessage } from "ai";
 import { z } from "zod";
 import { OPENROUTER_MAX_OUTPUT_TOKENS, nicheTrendResearchModel, openrouterInstructModel } from "./openrouter-client";
+import { NICHE_ORDER } from "@/lib/niches-catalog";
 
 export class NicheReportAiError extends Error {}
 
@@ -16,6 +17,13 @@ const GROUNDED_SYSTEM_PROMPT = `You are Verlab's niche research analyst. You tra
 const FALLBACK_SYSTEM_PROMPT = `You are Verlab's niche research analyst. Live web search is temporarily unavailable, so you're working from your own training knowledge of faceless short-form video niches on TikTok and YouTube (Shorts and long-form) instead of real-time search. Be upfront about that limitation in tone -- describe niches as durable/growing rather than claiming anything is happening "right now," and don't fabricate precise view counts, only give plausible, clearly-approximate figures. You always tailor your picks and reasoning to the specific creator you're researching for -- their interests, background, and constraints -- rather than giving generic advice.`;
 
 const SampleVideoSchema = z.object({ title: z.string(), views: z.string() });
+
+// Verlab's own tracked niche catalog (see niches-catalog.ts / browse_niche_videos)
+// has real cached video thumbnails/avatars; niches the live research surfaces
+// outside it don't. Asking the model to name the closest tracked-catalog
+// match (or "none") lets tools.ts decide, per niche, whether it can enrich
+// sampleVideos with real screenshots or has to leave them as search-text-only.
+const TRACKED_NICHE_OR_NONE = [...NICHE_ORDER, "none"] as [string, ...string[]];
 
 const NicheReportEntrySchema = z.object({
   name: z.string(),
@@ -33,6 +41,11 @@ const NicheReportEntrySchema = z.object({
   momentumScore: z.number().min(0).max(100),
   momentumTrend: z.enum(["up", "down", "flat"]),
   sampleVideos: z.array(SampleVideoSchema).min(1).max(4),
+  trackedNiche: z
+    .enum(TRACKED_NICHE_OR_NONE)
+    .describe(
+      `If this niche is essentially the same as one of Verlab's own tracked categories (${NICHE_ORDER.join(", ")}), name that exact category; otherwise "none". Only match when it's genuinely the same niche, not just loosely related.`
+    ),
 });
 
 const NicheReportSchema = z.object({ niches: z.array(NicheReportEntrySchema).min(4).max(8) });
@@ -120,7 +133,7 @@ Use at most 8 searches. If you can't confirm real examples for a niche, drop it 
     `OpenRouter took too long to respond (over 200s).`
   );
 
-  const extractionPrompt = `Based on your research above, structure every niche you found into the required format: name, platform (youtube/tiktok/both), category, description, whyForYou (tie it directly to this specific creator's answers, even for niches you included as wildcards outside their stated interests), angle (one concrete starter video idea respecting their format/production-style/budget answers), momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
+  const extractionPrompt = `Based on your research above, structure every niche you found into the required format: name, platform (youtube/tiktok/both), category, description, whyForYou (tie it directly to this specific creator's answers, even for niches you included as wildcards outside their stated interests), angle (one concrete starter video idea respecting their format/production-style/budget answers), momentumScore (0-100, relative to the others you found), momentumTrend, sampleVideos (the real titles/view counts you found, as strings like "4.2M"), and trackedNiche (Verlab's matching tracked category if there genuinely is one, else "none"). Respond only in the required structured format.`;
 
   const messagesWithExtraction: ModelMessage[] = [
     ...messages,
@@ -151,7 +164,7 @@ async function researchViralNichesFallback(answers: NicheFinderAnswers): Promise
 Here's the creator you're researching for:
 ${answersBlock(answers)}
 
-Weight your picks toward ones that plausibly fit THIS creator's interests, background, and constraints -- but include at least 1-2 solid niches outside their stated interests too, so they see the full picture. For each niche, give: name, category, description, platform (youtube/tiktok/both), momentumScore (0-100, relative to the others), momentumTrend, whyForYou (tied to this specific creator's answers), angle (one concrete starter video idea respecting their format/production-style/budget), and sampleVideos (plausible representative example titles + approximate view counts you're aware of -- mark them as approximate, don't fabricate false precision).`;
+Weight your picks toward ones that plausibly fit THIS creator's interests, background, and constraints -- but include at least 1-2 solid niches outside their stated interests too, so they see the full picture. For each niche, give: name, category, description, platform (youtube/tiktok/both), momentumScore (0-100, relative to the others), momentumTrend, whyForYou (tied to this specific creator's answers), angle (one concrete starter video idea respecting their format/production-style/budget), sampleVideos (plausible representative example titles + approximate view counts you're aware of -- mark them as approximate, don't fabricate false precision), and trackedNiche (Verlab's matching tracked category if there genuinely is one, else "none").`;
 
   const { object } = await withTimeout(
     generateObject({

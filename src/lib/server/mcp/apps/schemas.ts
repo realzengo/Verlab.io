@@ -97,7 +97,14 @@ export const CreatorProfileCardSchema = {
   error_message: z.string().nullable().optional(),
 };
 
-const nicheReportVideo = z.object({ title: z.string(), views: z.string() });
+const nicheReportVideo = z.object({
+  title: z.string(),
+  views: z.string(),
+  coverUrl: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  author: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
 const nicheReportEntry = z.object({
   name: z.string(),
   platform: z.enum(["youtube", "tiktok", "both"]),

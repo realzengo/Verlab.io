@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml } from "../../shared/host";
+import { connectApp, escapeHtml, openLink } from "../../shared/host";
 
 type Platform = "youtube" | "tiktok" | "both";
 type Format = "long-form" | "shorts" | "not-sure";
@@ -8,6 +8,10 @@ type MomentumTrend = "up" | "down" | "flat";
 interface NicheReportVideo {
   title: string;
   views: string;
+  coverUrl: string | null;
+  videoUrl: string | null;
+  author: string | null;
+  avatarUrl: string | null;
 }
 interface NicheReportEntry {
   name: string;
@@ -32,6 +36,10 @@ interface FindNicheData {
 
 const root = document.getElementById("root")!;
 
+// Verlab's real logomark (see src/components/ui/Logo.tsx) -- inlined so the
+// widget carries the actual brand mark instead of a generic dot/icon.
+const LOGO_MARK = `<svg viewBox="0 0 2363 2363" fill="currentColor" aria-hidden="true"><path d="M192,236 34,532 1019,2234 1343,2238 2331,519 2187,246 1442,239 1332,999 1690,1135 1334,1279 1203,1638 1058,1281 700,1149 1054,1002 915,239Z"/></svg>`;
+
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "youtube", label: "YouTube" },
   { value: "tiktok", label: "TikTok" },
@@ -50,15 +58,7 @@ const STYLE_OPTIONS: { value: ProductionStyle; label: string }[] = [
 ];
 
 const PLATFORM_LABEL: Record<Platform, string> = { youtube: "YouTube", tiktok: "TikTok", both: "YouTube & TikTok" };
-const PLATFORM_ICON: Record<Platform, string> = { youtube: "▶️", tiktok: "🎵", both: "🌐" };
-const TREND_ICON: Record<MomentumTrend, string> = { up: "📈", down: "📉", flat: "➖" };
-const NICHE_EMOJI = ["🎯", "📚", "🎬", "⚡", "🧠", "🔥", "🌱", "🎮"];
-const LOADING_MESSAGES = [
-  "Searching what's going viral right now…",
-  "Cross-referencing with your answers…",
-  "Checking momentum across niches…",
-  "Drafting your report…",
-];
+const TREND_LABEL: Record<MomentumTrend, string> = { up: "Rising", down: "Cooling", flat: "Steady" };
 
 // The full form state, held outside the DOM (rather than as radio inputs)
 // since the whole card is re-rendered from a template string on every state
@@ -93,97 +93,108 @@ function pillsHtml(options: { value: string; label: string }[], selected: string
   return options
     .map(
       (opt) => `
-      <button type="button" class="nf-pill${selected === opt.value ? " active" : ""}" data-group="${group}" data-value="${opt.value}">
+      <button type="button" class="vf-pill${selected === opt.value ? " active" : ""}" data-group="${group}" data-value="${opt.value}">
         ${escapeHtml(opt.label)}
       </button>`
     )
     .join("");
 }
 
+function eyebrow(): string {
+  return `<div class="vf-eyebrow">${LOGO_MARK}Verlab &middot; Find a niche</div>`;
+}
+
 function renderForm() {
   stopLoadingRotation();
   root.innerHTML = `
-    <div class="nf-card">
-      <div class="nf-eyebrow"><span class="nf-dot"></span>Verlab &middot; Find a niche</div>
-      <h1 class="nf-title">Who are you, really?</h1>
-      <p class="nf-sub">The sharper I get you, the sharper the niche. Seven quick ones. Answer straight — instinct beats polish here.</p>
+    <div class="vf-card">
+      ${eyebrow()}
+      <h1 class="vf-title">Who are you, really?</h1>
+      <p class="vf-sub">The sharper I get you, the sharper the niche. Seven quick ones.</p>
 
-      <div class="nf-q">
-        <div class="nf-q-num">01</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">What could you talk about for hours?</div>
-          <div class="nf-q-help">Obsessions, rabbit holes, the stuff you already know too much about. Don't filter.</div>
-          <textarea class="nf-input" id="nf-interests" rows="3" placeholder="e.g. history, fitness, sci-fi lore, personal finance, cars, psychology...">${escapeHtml(lastAnswers.interests)}</textarea>
+      <div class="vf-q">
+        <div class="vf-q-num">1</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">What could you talk about for hours?</div>
+          <div class="vf-q-help">Obsessions, rabbit holes, the stuff you already know too much about.</div>
+          <textarea class="vf-input" id="nf-interests" rows="3" placeholder="e.g. history, fitness, sci-fi lore, personal finance, cars, psychology...">${escapeHtml(lastAnswers.interests)}</textarea>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">02</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">Channels you already love or watch?</div>
-          <div class="nf-q-help">Names or @handles — even ones outside the niche you're chasing.</div>
-          <textarea class="nf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel...">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
+      <div class="vf-q">
+        <div class="vf-q-num">2</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">Channels you already love or watch?</div>
+          <div class="vf-q-help">Names or @handles — even ones outside the niche you're chasing.</div>
+          <textarea class="vf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel...">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">03</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">YouTube or TikTok?</div>
-          <div class="nf-q-help">Where you actually want to build. Pick both if you're not sure yet.</div>
-          <div class="nf-pills" id="nf-platform">${pillsHtml(PLATFORM_OPTIONS, lastAnswers.platform, "platform")}</div>
+      <div class="vf-q">
+        <div class="vf-q-num">3</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">YouTube or TikTok?</div>
+          <div class="vf-q-help">Where you actually want to build.</div>
+          <div class="vf-pills" id="nf-platform">${pillsHtml(PLATFORM_OPTIONS, lastAnswers.platform, "platform")}</div>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">04</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">Long-form or Shorts?</div>
-          <div class="nf-q-help">Where you want to live. No wrong answer.</div>
-          <div class="nf-pills" id="nf-format">${pillsHtml(FORMAT_OPTIONS, lastAnswers.format, "format")}</div>
+      <div class="vf-q">
+        <div class="vf-q-num">4</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">Long-form or Shorts?</div>
+          <div class="vf-q-help">Where you want to live. No wrong answer.</div>
+          <div class="vf-pills" id="nf-format">${pillsHtml(FORMAT_OPTIONS, lastAnswers.format, "format")}</div>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">05</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">How do you want the videos made?</div>
-          <div class="nf-q-help">This sets your cost floor, so be honest about your appetite.</div>
-          <div class="nf-pills" id="nf-style">${pillsHtml(STYLE_OPTIONS, lastAnswers.productionStyle, "style")}</div>
+      <div class="vf-q">
+        <div class="vf-q-num">5</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">How do you want the videos made?</div>
+          <div class="vf-q-help">This sets your cost floor, so be honest about your appetite.</div>
+          <div class="vf-pills" id="nf-style">${pillsHtml(STYLE_OPTIONS, lastAnswers.productionStyle, "style")}</div>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">06</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">Any job, background, or skill to pull from?</div>
-          <div class="nf-q-help">Unfair advantages hide here — a trade, a degree, a hobby you're good at.</div>
-          <textarea class="nf-input" id="nf-background" rows="2" placeholder="e.g. ex-teacher, gym coach, coder, editor, sales, gamer since forever...">${escapeHtml(lastAnswers.background)}</textarea>
+      <div class="vf-q">
+        <div class="vf-q-num">6</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">Any job, background, or skill to pull from?</div>
+          <div class="vf-q-help">Unfair advantages hide here — a trade, a degree, a hobby you're good at.</div>
+          <textarea class="vf-input" id="nf-background" rows="2" placeholder="e.g. ex-teacher, gym coach, coder, editor, sales, gamer since forever...">${escapeHtml(lastAnswers.background)}</textarea>
         </div>
       </div>
 
-      <div class="nf-q">
-        <div class="nf-q-num">07</div>
-        <div class="nf-q-body">
-          <div class="nf-q-title">Monthly budget</div>
-          <div class="nf-q-help">Roughly what you'd spend to produce videos each month.</div>
-          <input class="nf-input" id="nf-budget" type="number" min="0" step="50" placeholder="1500" value="${escapeHtml(lastAnswers.budget)}">
+      <div class="vf-q">
+        <div class="vf-q-num">7</div>
+        <div class="vf-q-body">
+          <div class="vf-q-title">Monthly budget</div>
+          <div class="vf-q-help">Roughly what you'd spend to produce videos each month.</div>
+          <input class="vf-input" id="nf-budget" type="number" min="0" step="50" placeholder="1500" value="${escapeHtml(lastAnswers.budget)}">
         </div>
       </div>
 
-      <button type="button" class="nf-submit" id="nf-submit">Find my niche</button>
-      <div class="nf-error" id="nf-error" hidden></div>
+      <button type="button" class="vf-submit" id="nf-submit">Find my niche</button>
+      <div class="vf-error" id="nf-error" hidden></div>
     </div>
   `;
 }
 
+const LOADING_MESSAGES = [
+  "Searching what's going viral right now…",
+  "Cross-referencing with your answers…",
+  "Checking momentum across niches…",
+  "Drafting your report…",
+];
+
 function renderLoading() {
   stopLoadingRotation();
   root.innerHTML = `
-    <div class="nf-card nf-loading">
-      <div class="nf-eyebrow"><span class="nf-dot"></span>Verlab &middot; Find a niche</div>
-      <div class="nf-spinner"></div>
-      <p class="nf-loading-text" id="nf-loading-text">${LOADING_MESSAGES[0]}</p>
+    <div class="vf-card vf-loading">
+      ${eyebrow()}
+      <div class="vf-spinner"></div>
+      <p class="vf-loading-text" id="nf-loading-text">${LOADING_MESSAGES[0]}</p>
     </div>
   `;
   let i = 0;
@@ -194,70 +205,85 @@ function renderLoading() {
   }, 3000);
 }
 
+let allVideos: NicheReportVideo[] = [];
+
 function renderVideoList(videos: NicheReportVideo[]): string {
   if (!videos.length) return "";
+  const startIndex = allVideos.length;
+  allVideos = allVideos.concat(videos);
+
   return `
-    <div class="nr-videos-label">🔥 Trending right now</div>
-    <ul class="nr-video-list">
+    <div class="vf-videos-label">Popping off in this niche right now</div>
+    <div class="vf-videos">
       ${videos
-        .map(
-          (video) => `
-        <li>
-          <span class="nr-video-title">${escapeHtml(truncate(video.title, 60))}</span>
-          <span class="nr-video-views">${escapeHtml(video.views)}</span>
-        </li>`
-        )
+        .map((video, i) => {
+          const clickable = Boolean(video.videoUrl);
+          const cover = video.coverUrl
+            ? `<img class="vf-video-cover" src="${video.coverUrl}" alt="">`
+            : `<div class="vf-video-cover-empty"></div>`;
+          const avatar = video.avatarUrl
+            ? `<img class="vf-video-avatar" src="${video.avatarUrl}" alt="">`
+            : "";
+          const author = video.author ? `<span class="vf-video-author">@${escapeHtml(video.author)}</span>` : "";
+          return `
+          <button type="button" class="vf-video${clickable ? " vf-video-link" : ""}" data-video-index="${startIndex + i}" ${clickable ? "" : "tabindex=\"-1\""}>
+            ${cover}
+            <div class="vf-video-meta">
+              <div class="vf-video-title">${escapeHtml(truncate(video.title, 55))}</div>
+              <div class="vf-video-sub">${avatar}${author}</div>
+            </div>
+            <span class="vf-video-views">${escapeHtml(video.views)}</span>
+          </button>`;
+        })
         .join("")}
-    </ul>
+    </div>
   `;
 }
 
 function renderReport(platform: Platform, niches: NicheReportEntry[], live: boolean) {
   stopLoadingRotation();
+  allVideos = [];
+
   const blocks = niches
     .map(
       (entry, index) => `
-      <div class="nr-block">
-        <div class="nr-block-head">
-          <span class="nr-block-emoji">${NICHE_EMOJI[index % NICHE_EMOJI.length]}</span>
-          <h2 class="nr-block-title">${escapeHtml(entry.name)}</h2>
+      <div class="vf-block">
+        <div class="vf-block-head">
+          <span class="vf-block-rank">${index + 1}</span>
+          <h2 class="vf-block-title">${escapeHtml(entry.name)}</h2>
         </div>
-        <div class="nr-tags">
-          <span class="nr-tag nr-tag-platform">${PLATFORM_ICON[entry.platform]} ${escapeHtml(PLATFORM_LABEL[entry.platform])}</span>
-          <span class="nr-tag nr-tag-category">${escapeHtml(entry.category)}</span>
-          <span class="nr-tag nr-tag-momentum nr-momentum-${entry.momentumTrend}">${TREND_ICON[entry.momentumTrend]} ${Math.round(entry.momentumScore)}/100</span>
+        <div class="vf-tags">
+          <span class="vf-tag">${escapeHtml(PLATFORM_LABEL[entry.platform])}</span>
+          <span class="vf-tag vf-tag-neutral">${escapeHtml(entry.category)}</span>
+          <span class="vf-tag ${entry.momentumTrend === "up" ? "vf-tag-up" : entry.momentumTrend === "down" ? "vf-tag-down" : "vf-tag-neutral"}">${TREND_LABEL[entry.momentumTrend]} · ${Math.round(entry.momentumScore)}/100</span>
         </div>
-        <p class="nr-text">${escapeHtml(entry.description)}</p>
-        <div class="nr-callout nr-callout-blue">
-          <div class="nr-callout-label">💡 Why this fits you</div>
+        <p class="vf-text">${escapeHtml(entry.description)}</p>
+        <div class="vf-callout">
+          <div class="vf-callout-label">Why this fits you</div>
           <p>${escapeHtml(entry.whyForYou)}</p>
         </div>
-        <div class="nr-callout nr-callout-amber">
-          <div class="nr-callout-label">🎬 Starter angle</div>
+        <div class="vf-callout">
+          <div class="vf-callout-label">Starter angle</div>
           <p>${escapeHtml(entry.angle)}</p>
         </div>
         ${renderVideoList(entry.sampleVideos)}
       </div>`
     )
-    .join(`<hr class="nr-divider">`);
+    .join(`<hr class="vf-divider">`);
 
   root.innerHTML = `
-    <div class="nr-doc">
-      <div class="nr-doc-icon">🚀</div>
-      <h1 class="nr-doc-title">Your Niche Report</h1>
-      <p class="nr-doc-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>
-      <div class="nr-doc-meta">
-        <span class="nr-meta-pill">${niches.length} niches</span>
-        <span class="nr-meta-pill">${PLATFORM_ICON[platform]} ${escapeHtml(PLATFORM_LABEL[platform])}</span>
+    <div class="vf-card">
+      ${eyebrow()}
+      <h1 class="vf-title">Your niche report</h1>
+      <p class="vf-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>
+      <div class="vf-meta">
+        <span class="vf-meta-pill">${niches.length} niches</span>
+        <span class="vf-meta-pill">${escapeHtml(PLATFORM_LABEL[platform])}</span>
       </div>
-      ${
-        live
-          ? ""
-          : `<div class="nr-callout nr-callout-amber nr-live-notice">⚠️ Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results — momentum and view counts here are approximate.</div>`
-      }
-      <hr class="nr-divider">
+      ${live ? "" : `<div class="vf-notice">Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results — momentum and view counts here are approximate.</div>`}
+      <hr class="vf-divider">
       ${blocks}
-      <button type="button" class="nr-restart" id="nf-restart">↺ Start over</button>
+      <button type="button" class="vf-restart" id="nf-restart">Start over</button>
     </div>
   `;
 }
@@ -329,12 +355,28 @@ const app = connectApp({
   name: "Verlab Niche Finder",
   onResult: (result) => applyResult((result.structuredContent as FindNicheData | undefined) ?? null),
   onLoading: renderLoading,
+  // "Open on the side" -- pip is the closest thing MCP Apps offers to a
+  // persistent side panel. Silently stays inline if the host doesn't
+  // support/grant it (result.mode reflects what the host actually chose).
+  onConnected: (connectedApp) => {
+    const ctx = connectedApp.getHostContext();
+    if (ctx?.availableDisplayModes?.includes("pip")) {
+      void connectedApp.requestDisplayMode({ mode: "pip" }).catch(() => {});
+    }
+  },
 });
 
 root.addEventListener("click", async (event) => {
   const target = event.target as HTMLElement;
 
-  const pill = target.closest<HTMLButtonElement>(".nf-pill");
+  const video = target.closest<HTMLButtonElement>(".vf-video-link");
+  if (video) {
+    const clicked = allVideos[Number(video.dataset.videoIndex)];
+    openLink(app, clicked?.videoUrl);
+    return;
+  }
+
+  const pill = target.closest<HTMLButtonElement>(".vf-pill");
   if (pill) {
     const group = pill.dataset.group as "platform" | "format" | "style";
     const value = pill.dataset.value as Platform | Format | ProductionStyle;
@@ -344,7 +386,7 @@ root.addEventListener("click", async (event) => {
 
     const containerId = group === "platform" ? "nf-platform" : group === "format" ? "nf-format" : "nf-style";
     const container = document.getElementById(containerId);
-    container?.querySelectorAll(".nf-pill").forEach((el) => el.classList.remove("active"));
+    container?.querySelectorAll(".vf-pill").forEach((el) => el.classList.remove("active"));
     pill.classList.add("active");
     return;
   }
