@@ -163,40 +163,75 @@ function mapSubscriptionStatus(status: string | null): AdminUserStatus {
   return status ? "canceled" : "active";
 }
 
-export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: string }> {
+// Window for "active right now" -- there's no websocket presence channel in
+// this app, so "live" is approximated from real recency signals (a session
+// starting or a tool actually running), not a fabricated online/offline dot.
+const ACTIVE_NOW_WINDOW_MS = 5 * 60 * 1000;
+
+export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: string; activeNowCount: number }> {
   const admin = createAdminClient();
   const [authUsers, { data: profiles }, { data: usageRows }, planDefs] = await Promise.all([
     listAllUsers(),
     admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period"),
-    admin.from("usage_events").select("user_id, tool"),
+    admin.from("usage_events").select("user_id, tool, created_at"),
     getPlanDefinitions(admin),
   ]);
 
   const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
-  const usageByUser = new Map<string, { bends: number; transcripts: number; downloads: number; apiCalls: number }>();
+  const usageByUser = new Map<
+    string,
+    { bends: number; transcripts: number; downloads: number; apiCalls: number; lastEventAt: string }
+  >();
 
   for (const row of usageRows ?? []) {
-    const bucket = usageByUser.get(row.user_id) ?? { bends: 0, transcripts: 0, downloads: 0, apiCalls: 0 };
+    const bucket = usageByUser.get(row.user_id) ?? {
+      bends: 0,
+      transcripts: 0,
+      downloads: 0,
+      apiCalls: 0,
+      lastEventAt: row.created_at,
+    };
     if (row.tool === "bend") bucket.bends += 1;
     else if (row.tool === "transcripts") bucket.transcripts += 1;
     else if (row.tool === "downloader") bucket.downloads += 1;
     else if (row.tool === "mcp") bucket.apiCalls += 1;
+    if (row.created_at > bucket.lastEventAt) bucket.lastEventAt = row.created_at;
     usageByUser.set(row.user_id, bucket);
   }
+
+  const now = Date.now();
+  let activeNowCount = 0;
 
   const users: AdminUser[] = authUsers.map((u) => {
     const profile = profileById.get(u.id) as
       | { full_name: string | null; plan: AdminUser["plan"]; subscription_status: string | null; subscription_period: string | null }
       | undefined;
-    const usage = usageByUser.get(u.id) ?? { bends: 0, transcripts: 0, downloads: 0, apiCalls: 0 };
+    const usageEntry = usageByUser.get(u.id);
+    const usage = {
+      bends: usageEntry?.bends ?? 0,
+      transcripts: usageEntry?.transcripts ?? 0,
+      downloads: usageEntry?.downloads ?? 0,
+      apiCalls: usageEntry?.apiCalls ?? 0,
+    };
     const status = mapSubscriptionStatus(profile?.subscription_status ?? null);
     const price = priceByPlan.get(profile?.plan ?? "core");
-    const mrr = PAYING_STATUSES.has(status) && price
+    // Gate on the raw Polar status, not the display status above -- a
+    // profile with no subscription at all also *displays* as "active" (free
+    // access, nothing billed) and must not be counted as paying revenue.
+    const mrr = PAYING_STATUSES.has(profile?.subscription_status ?? "") && price
       ? profile?.subscription_period === "yearly"
         ? Math.round(price.yearly / 12)
         : price.monthly
       : 0;
+
+    // Most recent of "started a session" and "actually ran a tool" -- either
+    // one is real evidence the account is in use, not just logged in once.
+    const lastActiveAt = [u.last_sign_in_at, u.created_at, usageEntry?.lastEventAt]
+      .filter((d): d is string => !!d)
+      .reduce((latest, d) => (new Date(d).getTime() > new Date(latest).getTime() ? d : latest), new Date(0).toISOString());
+    if (now - new Date(lastActiveAt).getTime() <= ACTIVE_NOW_WINDOW_MS) activeNowCount++;
+
     return {
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
@@ -205,13 +240,13 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       status,
       mrr,
       signupDate: (u.created_at ?? new Date().toISOString()).slice(0, 10),
-      lastActiveAt: u.last_sign_in_at ?? u.created_at ?? new Date().toISOString(),
+      lastActiveAt,
       country: "—",
       usage,
     };
   });
 
-  return { users, nowIso: new Date().toISOString() };
+  return { users, nowIso: new Date().toISOString(), activeNowCount };
 }
 
 function mapJobStatus(status: string): SystemJobStatus {
