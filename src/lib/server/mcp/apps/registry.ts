@@ -56,7 +56,11 @@ const WIDGETS = {
     outputSchema: CreatorProfileCardSchema,
   },
   nicheFinderCard: {
-    resourceUri: "ui://verlab/niche-finder-card.html",
+    // Versioned suffix -- MCP hosts commonly treat resource URIs as
+    // cacheable/immutable, so a content change alone (same URI) can keep
+    // showing a stale cached fetch. Bump this suffix whenever this widget's
+    // HTML changes meaningfully to force hosts to refetch.
+    resourceUri: "ui://verlab/niche-finder-card-v2.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
   },
