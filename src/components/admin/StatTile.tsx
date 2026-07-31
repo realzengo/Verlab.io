@@ -23,7 +23,7 @@ interface StatTileProps {
 
 export function StatTile({ label, value, icon: Icon, tone = "blue", delta, trend }: StatTileProps) {
   return (
-    <Card className="flex flex-col gap-3" hoverLift>
+    <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between">
         <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", TONE_CLASSES[tone])}>
           <Icon className="h-[18px] w-[18px]" />

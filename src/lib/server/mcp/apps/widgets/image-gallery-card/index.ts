@@ -33,7 +33,7 @@ function render(data: ImageData | null) {
           <img src="${escapeHtml(src)}" alt="">
           <figcaption class="v-image-actions">
             <button class="v-btn v-btn-ghost" data-action="view" data-index="${index}" type="button">${EYE_ICON}View</button>
-            <a class="v-btn" href="${escapeHtml(src)}" download="verlab-image-${index + 1}.png">${DOWNLOAD_ICON}Download</a>
+            <button class="v-btn" data-action="download" data-index="${index}" type="button">${DOWNLOAD_ICON}Download</button>
           </figcaption>
         </figure>`
       )
@@ -94,7 +94,7 @@ const app = connectApp({
 });
 
 root.addEventListener("click", (event) => {
-  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="view"]');
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
   if (!button) return;
   openLink(app, images[Number(button.dataset.index)]);
 });

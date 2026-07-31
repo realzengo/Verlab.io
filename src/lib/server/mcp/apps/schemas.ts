@@ -87,12 +87,26 @@ export const DownloadCardSchema = {
   error_message: z.string().nullable().optional(),
 };
 
+const creatorAnalysisDetail = z.object({
+  executiveSummary: z.string(),
+  hookFormula: z.string(),
+  pacingAndStructure: z.string(),
+  voiceAndTone: z.string(),
+  recurringPatterns: z.string(),
+  perVideoInsights: z.array(z.object({ title: z.string(), insight: z.string() })),
+  actionSteps: z.array(z.string()),
+});
+
 export const CreatorProfileCardSchema = {
   id: z.string(),
   status: z.string(),
   channelName: z.string().nullable().optional(),
   videos: z.array(z.object({ title: z.string(), views: z.string(), url: z.string() })).optional(),
   summary: z.string().nullable().optional(),
+  analysis: creatorAnalysisDetail.optional(),
+  docBase64: z.string().optional(),
+  docFilename: z.string().optional(),
+  docMimeType: z.string().optional(),
   note: z.string().optional(),
   error_message: z.string().nullable().optional(),
 };

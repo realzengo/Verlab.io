@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ChevronsLeft, ChevronsRight, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, ChevronsLeft, ChevronsRight, X } from "lucide-react";
 import { ADMIN_NAV } from "@/lib/mock-data";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
@@ -36,29 +36,12 @@ export function AdminSidebar({
       )}
     >
       <div className={cn("flex items-center justify-between px-4 py-5", collapsed && "md:justify-center md:px-0")}>
-        <div className={cn("flex items-center gap-2", collapsed && "md:hidden")}>
-          <span className="relative block h-7 w-[90px]">
-            <Image
-              src="/logo-full-light.png"
-              alt="Verlab Studio"
-              fill
-              className="object-contain object-left dark:hidden"
-              sizes="90px"
-            />
-            <Image
-              src="/logo-full-dark.png"
-              alt="Verlab Studio"
-              fill
-              className="hidden object-contain object-left dark:block"
-              sizes="90px"
-            />
-          </span>
-          <span className="flex items-center gap-1 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white dark:bg-white/10">
-            <ShieldCheck className="h-3 w-3" />
-            Admin
-          </span>
-        </div>
-        <ShieldCheck className={cn("hidden h-5 w-5 text-primary", collapsed && "md:block")} />
+        <span className={cn("relative block h-10 w-[135px]", collapsed && "md:hidden")}>
+          <Image src="/admin-logo.png" alt="Verlab Admin" fill className="object-contain object-left" sizes="135px" />
+        </span>
+        <span className={cn("relative hidden h-10 w-10", collapsed && "md:block")}>
+          <Image src="/admin-logo.png" alt="Verlab Admin" fill className="object-cover object-left" sizes="40px" />
+        </span>
         <button
           type="button"
           onClick={onCloseMobile}

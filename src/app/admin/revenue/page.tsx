@@ -31,7 +31,7 @@ export default async function AdminRevenuePage() {
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-body">Live MRR, subscriber, and transaction data straight from Polar billing.</p>
+        <p className="text-sm text-body">Live MRR, subscriber, and transaction data straight from Whop billing.</p>
         <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-subtle">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
@@ -47,11 +47,11 @@ export default async function AdminRevenuePage() {
             <AlertTriangle className="h-[18px] w-[18px]" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-heading">Polar webhook isn&apos;t registered yet</p>
+            <p className="text-sm font-semibold text-heading">Whop webhook isn&apos;t registered yet</p>
             <p className="text-xs text-body">
-              Checkout, MRR, and subscriber status only update from Polar&apos;s webhook — everything below stays at
-              zero until <code className="rounded bg-surface px-1 py-0.5 text-[11px]">POLAR_WEBHOOK_SECRET</code> is
-              set and <code className="rounded bg-surface px-1 py-0.5 text-[11px]">/api/webhooks/polar</code> is
+              Checkout, MRR, and subscriber status only update from Whop&apos;s webhook — everything below stays at
+              zero until <code className="rounded bg-surface px-1 py-0.5 text-[11px]">WHOP_WEBHOOK_SECRET</code> is
+              set and <code className="rounded bg-surface px-1 py-0.5 text-[11px]">/api/webhooks/whop</code> is
               registered against a public URL.
             </p>
           </div>
@@ -147,7 +147,7 @@ export default async function AdminRevenuePage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-heading">Recent transactions</h3>
-            <p className="text-xs text-body">Payments and refunds from Polar, most recent first</p>
+            <p className="text-xs text-body">Payments and refunds from Whop, most recent first</p>
           </div>
         </div>
         <RevenueTransactionsTable transactions={RECENT_TRANSACTIONS} />

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
@@ -203,7 +203,7 @@ export function Sidebar({
               height={160}
               priority
               className={cn(
-                "absolute inset-0 m-auto h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
+                "absolute left-0 top-0 h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
                 collapsed ? "opacity-100" : "opacity-0"
               )}
             />
@@ -257,6 +257,16 @@ export function Sidebar({
         >
           <X className="h-5 w-5" />
         </button>
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            aria-label="Collapse sidebar"
+            className="hidden h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-app hover:text-heading lg:flex"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <nav
@@ -439,7 +449,6 @@ export function Sidebar({
       <SidebarFooter
         collapsed={collapsed}
         isAdmin={isAdmin}
-        onToggleCollapse={() => setCollapsed((v) => !v)}
         onOpenSearch={() => setSearchOpen(true)}
         onNavigate={onCloseMobile}
       />

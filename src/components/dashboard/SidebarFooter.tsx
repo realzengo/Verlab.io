@@ -1,24 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronsLeft, ChevronsRight, Crown, Search } from "lucide-react";
+import { Crown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function SidebarFooter({
   collapsed,
   isAdmin,
-  onToggleCollapse,
   onOpenSearch,
   onNavigate,
 }: {
   collapsed: boolean;
   isAdmin: boolean;
-  onToggleCollapse: () => void;
   onOpenSearch: () => void;
   onNavigate?: () => void;
 }) {
   return (
-    <div className="border-t border-hairline p-3">
+    <div className="p-3">
       {isAdmin && (
         <Link
           href="/admin"
@@ -72,29 +70,6 @@ export function SidebarFooter({
             ⌘K
           </kbd>
         )}
-      </button>
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className={cn(
-          "hidden w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-subtle transition-colors duration-150 hover:bg-app hover:text-heading lg:flex",
-          collapsed && "lg:justify-center"
-        )}
-      >
-        {collapsed ? (
-          <ChevronsRight className="h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out" />
-        ) : (
-          <ChevronsLeft className="h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out" />
-        )}
-        <span
-          className={cn(
-            "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-            collapsed ? "max-w-0 opacity-0" : "max-w-[80px] opacity-100"
-          )}
-        >
-          Collapse
-        </span>
       </button>
     </div>
   );

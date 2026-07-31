@@ -19,7 +19,7 @@ import { researchViralNiches, type NicheFinderAnswers, type NicheReportEntry } f
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
 import { scrapeChannelVideosWithUrls, detectCreatorPlatform, type ScrapedChannelVideo } from "@/lib/server/apify-client";
-import { analyzeCreatorTranscripts } from "@/lib/server/creator-analysis";
+import { analyzeCreatorTranscripts, buildCreatorAnalysisDocx, type CreatorAnalysis } from "@/lib/server/creator-analysis";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
 // from the MCP connector token by verifyMcpToken — see mcp-auth.ts). There
@@ -752,6 +752,50 @@ async function fetchTranscriptsBounded(
 }
 
 const CREATOR_ANALYSIS_VIDEO_COUNT = 5;
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, "-").trim() || "Creator";
+}
+
+// Shared by the initial analyze_creator call and check_creator_analysis_status
+// once the job is complete -- the text field is what the calling model
+// (Claude/ChatGPT) actually reads, so it carries an explicit, actionable
+// instruction to turn the branded .docx in structuredContent.docBase64 into a
+// real Google Doc via the host's own Google Drive connector, rather than
+// Verlab's backend holding a Google OAuth/service-account integration itself.
+function creatorAnalysisCompleteResult(params: {
+  id: string;
+  channelName: string;
+  videos: { title: string; views: string; url: string }[];
+  analysis: CreatorAnalysis;
+  docBase64: string;
+  docFilename: string;
+}): McpToolResult {
+  const { id, channelName, videos, analysis, docBase64, docFilename } = params;
+  const text =
+    `Creator analysis for ${channelName} is complete (${videos.length} videos analyzed).\n\n` +
+    `${analysis.executiveSummary}\n\n` +
+    "A full branded report is ready to hand to the user as a Google Doc: structuredContent.docBase64 is a " +
+    "base64-encoded .docx file (filename in structuredContent.docFilename, mime type in structuredContent.docMimeType). " +
+    "If the user has Google Drive connected, create it now by calling Google Drive's create_file tool with " +
+    "title=docFilename, base64Content=docBase64, contentMimeType=docMimeType (leave conversion enabled) -- Drive " +
+    "will auto-convert the Word document into a native Google Doc. Then share the resulting file's link with the " +
+    "user so they can view it inside Claude or download it from Drive. If Google Drive isn't connected, offer the " +
+    "analysis inline instead and mention that a branded .docx report is available.";
+
+  return appResult(text, {
+    id,
+    status: "complete",
+    channelName,
+    videos,
+    summary: analysis.executiveSummary,
+    analysis,
+    docBase64,
+    docFilename,
+    docMimeType: DOCX_MIME_TYPE,
+  });
+}
 
 const analyzeCreatorTool: McpToolDefinition = {
   name: "analyze_creator",
@@ -763,7 +807,9 @@ const analyzeCreatorTool: McpToolDefinition = {
     "counts per video. Use this when the user wants to reverse-engineer, copy, 'steal', or study what makes a " +
     "specific creator's content work (e.g. 'analyze this creator', 'break down their style', 'steal their " +
     "content'). Different from browse_niche_videos, which surveys many different creators across a whole niche " +
-    "rather than one creator's own catalog in depth. Charges credits (see get_credit_balance).",
+    "rather than one creator's own catalog in depth. The result includes a full branded analysis report as a " +
+    "base64-encoded .docx (see the result's own instructions) -- if the caller has Google Drive connected, upload " +
+    "it there to hand the user a real Google Doc they can view or download. Charges credits (see get_credit_balance).",
   inputSchema: { url: z.string().describe("A TikTok or YouTube creator/channel profile URL.") },
   handler: async (userId, args) => {
     const url = String(args.url ?? "").trim();
@@ -799,18 +845,30 @@ const analyzeCreatorTool: McpToolDefinition = {
         throw new Error("Could not extract a transcript from any of this creator's top videos.");
       }
 
-      const summary = await analyzeCreatorTranscripts(
+      const videos = channel.videos.map((video) => ({ title: video.title, views: video.views, url: video.url }));
+      const analysis = await analyzeCreatorTranscripts(
         channel.channelName,
         transcribed.map(({ video, text }) => ({ title: video.title, views: video.views, text }))
       );
 
-      const videos = channel.videos.map((video) => ({ title: video.title, views: video.views, url: video.url }));
+      const docFilename = `${sanitizeFilename(channel.channelName)} — Content Strategy Analysis.docx`;
+      const docBuffer = await buildCreatorAnalysisDocx(channel.channelName, url, platform, videos, analysis);
+      const docBase64 = docBuffer.toString("base64");
+
       await admin
         .from("creator_analyses")
-        .update({ status: "complete", channel_name: channel.channelName, videos, summary })
+        .update({
+          status: "complete",
+          channel_name: channel.channelName,
+          videos,
+          summary: analysis.executiveSummary,
+          analysis,
+          doc_base64: docBase64,
+          doc_filename: docFilename,
+        })
         .eq("id", row.id);
       recordUsageEvent("mcp", userId, { action: "creatorAnalysis.analyze", analysisId: row.id });
-      return { channelName: channel.channelName, videos, summary };
+      return { channelName: channel.channelName, videos, analysis, docBase64, docFilename };
     })();
 
     const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
@@ -835,7 +893,7 @@ const analyzeCreatorTool: McpToolDefinition = {
       await refundUser(userId, cost, "Creator Analysis refund", "creatorAnalysis.analyze");
     });
 
-    return jsonResult({ id: row.id, status: "complete", ...outcome });
+    return creatorAnalysisCompleteResult({ id: row.id, ...outcome });
   },
 };
 
@@ -848,14 +906,29 @@ const checkCreatorAnalysisStatusTool: McpToolDefinition = {
     const admin = createAdminClient();
     const { data } = await admin
       .from("creator_analyses")
-      .select("id, status, channel_name, videos, summary, error_message")
+      .select("id, status, channel_name, videos, analysis, doc_base64, doc_filename, error_message")
       .eq("id", String(args.id))
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!data) return errorResult("Not found");
-    const { channel_name, ...rest } = data;
-    return jsonResult({ ...rest, channelName: channel_name });
+    if (data.status !== "complete") {
+      return jsonResult({
+        id: data.id,
+        status: data.status,
+        error_message: data.error_message ?? undefined,
+        note: data.status === "processing" ? "Still analyzing — try again shortly." : undefined,
+      });
+    }
+
+    return creatorAnalysisCompleteResult({
+      id: data.id,
+      channelName: data.channel_name ?? "Creator",
+      videos: (data.videos as { title: string; views: string; url: string }[] | null) ?? [],
+      analysis: data.analysis as CreatorAnalysis,
+      docBase64: data.doc_base64 ?? "",
+      docFilename: data.doc_filename ?? "Creator Analysis.docx",
+    });
   },
 };
 

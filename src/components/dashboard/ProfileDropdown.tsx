@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { ArrowUpCircle, CircleDollarSign, LogOut, Moon, Settings } from "lucide-react";
+import { ArrowUpCircle, CircleDollarSign, LifeBuoy, LogOut, Moon, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { Switch } from "@/components/ui/Switch";
@@ -20,10 +20,12 @@ function avatarUrl(user: User | null): string | null {
   return meta?.avatar_url ?? meta?.picture ?? null;
 }
 
+const SUPPORT_URL = "https://discord.gg/pG9uFUhJb4";
+
 const NAV_LINKS = [
   { label: "Upgrade", href: "/pricing", icon: ArrowUpCircle },
   { label: "Settings", href: "/app/settings", icon: Settings },
-  { label: "Earn with clippie", href: "/affiliates", icon: CircleDollarSign },
+  { label: "Earn with Verlab", href: "/affiliates", icon: CircleDollarSign },
 ];
 
 export function ProfileDropdown() {
@@ -102,6 +104,15 @@ export function ProfileDropdown() {
                 {label}
               </Link>
             ))}
+            <a
+              href={SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+            >
+              <LifeBuoy className="w-4 h-4" />
+              24/7 Support
+            </a>
           </div>
 
           <div className="border-t border-hairline">

@@ -26,10 +26,12 @@ import type {
 } from "@/lib/types";
 
 // Real, DB-backed replacements for src/lib/mock/admin.ts. Revenue/MRR/churn
-// (getRevenueData below) is driven by Polar's webhook event log and the
-// profiles.subscription_status columns from the 20260728120000_polar_billing
-// migration -- real numbers, honestly zero until the Polar webhook is
-// registered and the first event lands (see POLAR_WEBHOOK_SECRET).
+// (getRevenueData below) is driven by Whop's webhook event log and the
+// profiles.subscription_status columns from the 20260729120000_whop_billing
+// migration -- real numbers, honestly zero until the Whop webhook is
+// registered and the first event lands (see WHOP_WEBHOOK_SECRET). Billing
+// switched from Polar to Whop; Polar's tables/routes are left in place
+// unused (see that migration's comment) but no longer read here.
 
 const TOOL_LABELS: Record<AdminToolKey, string> = {
   bend: "Niche Bending",
@@ -152,9 +154,10 @@ export async function getActivityLog(limit = 10): Promise<ActivityLogEntry[]> {
   }));
 }
 
-// Polar's subscription_status values -> the admin dashboard's coarser status.
-// "suspended" is never written here -- it's an admin-applied moderation flag
-// the UsersTable toggles client-side only, unrelated to billing state.
+// subscription_status values (Polar's or Whop's vocabulary, per the check
+// constraint) -> the admin dashboard's coarser status. "suspended" is never
+// written here -- it's an admin-applied moderation flag the UsersTable
+// toggles client-side only, unrelated to billing state.
 function mapSubscriptionStatus(status: string | null): AdminUserStatus {
   if (status === "active") return "active";
   if (status === "trialing") return "trialing";
@@ -217,7 +220,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
     };
     const status = mapSubscriptionStatus(profile?.subscription_status ?? null);
     const price = priceByPlan.get(profile?.plan ?? "core");
-    // Gate on the raw Polar status, not the display status above -- a
+    // Gate on the raw subscription status, not the display status above -- a
     // profile with no subscription at all also *displays* as "active" (free
     // access, nothing billed) and must not be counted as paying revenue.
     const mrr = PAYING_STATUSES.has(profile?.subscription_status ?? "") && price
@@ -492,7 +495,7 @@ function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
  * pass whichever the caller already has on hand.
  *
  * Falls back to the static PRICING_PLANS until the plan_definitions
- * migration is applied and payment (Polar) is wired up.
+ * migration is applied and payment (Whop) is wired up.
  */
 export async function getPlanDefinitions(supabase: SupabaseClient): Promise<PricingPlan[]> {
   const { data } = await supabase.from("plan_definitions").select("*").order("sort_order");
@@ -650,43 +653,62 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
   });
 }
 
-interface PolarWebhookEventRow {
+interface WhopWebhookEventRow {
   id: string;
   type: string;
   created_at: string;
-  // Shape mirrors @polar-sh/sdk's Webhook*Payload types (order.paid's `data`
-  // is an Order, subscription.* events' `data` is a Subscription) -- stored
-  // as-is by src/app/api/webhooks/polar/route.ts, so this stays loose rather
-  // than re-declaring the SDK's types here.
+  // Shape mirrors @whop/sdk's webhook event types (payment.succeeded's `data`
+  // is a Payment, refund.created's `data` is RefundCreatedWebhookEvent.Data)
+  // -- the whole unwrapped event is stored as-is by
+  // src/app/api/webhooks/whop/route.ts, so this stays loose rather than
+  // re-declaring the SDK's types here.
   payload: { data?: Record<string, unknown> } | null;
 }
 
+// Whop's PaymentsAPI.BillingReasons values.
 const BILLING_REASON_LABEL: Record<string, string> = {
-  purchase: "Credit top-up",
+  one_time: "Credit top-up",
   subscription_create: "New subscription",
   subscription_cycle: "Renewal",
   subscription_update: "Plan change",
+  subscription: "Subscription",
+  manual: "Manual charge",
 };
 
-function parseRevenueTransaction(row: PolarWebhookEventRow): RevenueTransaction | null {
+// Whop reports amounts as decimals in the payment's currency (e.g. 10.43 for
+// $10.43), unlike Polar's cents -- no /100 conversion needed here.
+function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction | null {
   const data = row.payload?.data;
   if (!data) return null;
 
-  const customer = data.customer as { name?: string | null; email?: string | null } | undefined;
-  const product = data.product as { name?: string | null } | undefined;
-  const billingReason = data.billingReason as string | undefined;
-  const totalAmount = (data.totalAmount as number | undefined) ?? 0;
-  const refundedAmount = (data.refundedAmount as number | undefined) ?? totalAmount;
-  const isRefund = row.type === "order.refunded";
+  if (row.type === "refund.created") {
+    const payment = data.payment as { product?: { title?: string | null } | null } | null | undefined;
+    return {
+      id: row.id,
+      type: "order.refunded",
+      userName: "Unknown",
+      userEmail: "—",
+      itemLabel: payment?.product?.title ?? "Refund",
+      billingReason: null,
+      amount: -((data.amount as number | undefined) ?? 0),
+      currency: ((data.currency as string | undefined) ?? "usd").toUpperCase(),
+      createdAt: row.created_at,
+    };
+  }
+
+  const user = data.user as { name?: string | null; email?: string | null } | null | undefined;
+  const product = data.product as { title?: string | null } | null | undefined;
+  const billingReason = data.billing_reason as string | null | undefined;
+  const settlementAmount = (data.settlement_amount as number | undefined) ?? 0;
 
   return {
     id: row.id,
-    type: isRefund ? "order.refunded" : "order.paid",
-    userName: customer?.name || customer?.email || "Unknown",
-    userEmail: customer?.email ?? "—",
-    itemLabel: product?.name ?? (data.subscriptionId ? "Subscription" : "Credits"),
+    type: "order.paid",
+    userName: user?.name || user?.email || "Unknown",
+    userEmail: user?.email ?? "—",
+    itemLabel: product?.title ?? (data.membership ? "Subscription" : "Credits"),
     billingReason: billingReason ? (BILLING_REASON_LABEL[billingReason] ?? billingReason) : null,
-    amount: (isRefund ? -refundedAmount : totalAmount) / 100,
+    amount: settlementAmount,
     currency: ((data.currency as string | undefined) ?? "usd").toUpperCase(),
     createdAt: row.created_at,
   };
@@ -701,9 +723,9 @@ export async function getRevenueData(): Promise<RevenueData> {
     admin.from("profiles").select("plan, subscription_status, subscription_period"),
     getPlanDefinitions(admin),
     admin
-      .from("polar_webhook_events")
+      .from("whop_webhook_events")
       .select("id, type, payload, created_at")
-      .in("type", ["order.paid", "order.refunded", "subscription.created", "subscription.revoked"])
+      .in("type", ["payment.succeeded", "refund.created", "membership.activated", "membership.deactivated"])
       .order("created_at", { ascending: false })
       .limit(300),
   ]);
@@ -740,13 +762,13 @@ export async function getRevenueData(): Promise<RevenueData> {
   }
 
   const events = eventRows ?? [];
-  const churnedLast30d = events.filter((e) => e.type === "subscription.revoked" && e.created_at >= since30.toISOString()).length;
-  const newSubscribersLast30d = events.filter((e) => e.type === "subscription.created" && e.created_at >= since30.toISOString()).length;
+  const churnedLast30d = events.filter((e) => e.type === "membership.deactivated" && e.created_at >= since30.toISOString()).length;
+  const newSubscribersLast30d = events.filter((e) => e.type === "membership.activated" && e.created_at >= since30.toISOString()).length;
 
   const days = last30Days();
   const byDay = new Map(days.map((d) => [d, 0]));
   for (const row of events) {
-    if (row.type !== "order.paid" && row.type !== "order.refunded") continue;
+    if (row.type !== "payment.succeeded" && row.type !== "refund.created") continue;
     const day = row.created_at.slice(0, 10);
     if (!byDay.has(day)) continue;
     const txn = parseRevenueTransaction(row);
@@ -756,7 +778,7 @@ export async function getRevenueData(): Promise<RevenueData> {
   const netCollectedLast30d = dailySeries.reduce((s, p) => s + p.collected, 0);
 
   const recentTransactions = events
-    .filter((e) => e.type === "order.paid" || e.type === "order.refunded")
+    .filter((e) => e.type === "payment.succeeded" || e.type === "refund.created")
     .slice(0, 20)
     .map(parseRevenueTransaction)
     .filter((t): t is RevenueTransaction => t !== null);
@@ -781,7 +803,7 @@ export async function getRevenueData(): Promise<RevenueData> {
     })),
     dailySeries,
     recentTransactions,
-    webhookConfigured: !!process.env.POLAR_WEBHOOK_SECRET,
+    webhookConfigured: !!process.env.WHOP_WEBHOOK_SECRET,
   };
 }
 

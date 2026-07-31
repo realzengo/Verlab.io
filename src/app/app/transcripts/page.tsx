@@ -368,8 +368,6 @@ export default function TranscriptsPage() {
       </div>
 
       <div className="relative">
-        <div className="pointer-events-none absolute -top-20 left-1/2 h-48 w-[34rem] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
-
         <Card className="relative flex flex-col gap-5 overflow-hidden border-primary/15 shadow-none">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 

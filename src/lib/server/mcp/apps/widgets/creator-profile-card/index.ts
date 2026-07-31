@@ -5,11 +5,27 @@ interface AnalyzedVideo {
   views: string;
   url: string;
 }
+interface PerVideoInsight {
+  title: string;
+  insight: string;
+}
+interface CreatorAnalysisDetail {
+  executiveSummary: string;
+  hookFormula: string;
+  pacingAndStructure: string;
+  voiceAndTone: string;
+  recurringPatterns: string;
+  perVideoInsights: PerVideoInsight[];
+  actionSteps: string[];
+}
 interface CreatorProfileData {
   status?: string;
   channelName?: string | null;
   videos?: AnalyzedVideo[];
   summary?: string | null;
+  analysis?: CreatorAnalysisDetail;
+  docBase64?: string;
+  docFilename?: string;
   note?: string;
   error_message?: string | null;
 }
@@ -47,6 +63,37 @@ function renderBars(list: AnalyzedVideo[]): string {
     .join("");
 }
 
+function renderSection(title: string, body: string): string {
+  return `
+    <div class="v-report-section">
+      <div class="v-report-heading">${escapeHtml(title)}</div>
+      <p class="v-report-body">${escapeHtml(body)}</p>
+    </div>
+  `;
+}
+
+function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): string {
+  const steps = analysis.actionSteps
+    .map((step, index) => `<li class="v-step"><span class="v-step-num">${index + 1}</span><span>${escapeHtml(step)}</span></li>`)
+    .join("");
+
+  return `
+    ${renderSection("The Hook Formula", analysis.hookFormula)}
+    ${renderSection("Pacing & Structure", analysis.pacingAndStructure)}
+    ${renderSection("Voice & Delivery", analysis.voiceAndTone)}
+    ${renderSection("Recurring Patterns", analysis.recurringPatterns)}
+    <div class="v-report-section">
+      <div class="v-report-heading">How To Replicate This</div>
+      <ol class="v-steps">${steps}</ol>
+    </div>
+    ${
+      hasDoc
+        ? `<div class="v-doc-hint">${LOGO_MARK}<span>Full branded report ready — ask Claude to save this as a Google Doc.</span></div>`
+        : ""
+    }
+  `;
+}
+
 function render(data: CreatorProfileData | null) {
   videos = data?.videos ?? [];
   const channelName = data?.channelName ?? "Creator";
@@ -63,6 +110,7 @@ function render(data: CreatorProfileData | null) {
       </div>
       <div class="v-bench">${renderBars(videos)}</div>
       ${data?.summary ? `<p class="v-summary">${escapeHtml(data.summary)}</p>` : ""}
+      ${data?.analysis ? renderFullReport(data.analysis, Boolean(data.docBase64)) : ""}
     `;
   } else {
     body = `<div class="v-empty">${escapeHtml(data?.note ?? `Analyzing ${channelName}'s top videos…`)}</div>`;

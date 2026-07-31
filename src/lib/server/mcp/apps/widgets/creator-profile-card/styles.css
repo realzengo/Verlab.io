@@ -88,9 +88,87 @@
 
 .v-summary {
   margin: 12px 0 0;
-  padding-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--v-primary);
+  background: var(--v-accent);
+  border-radius: 0 var(--v-radius-sm) var(--v-radius-sm) 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--v-heading);
+}
+
+.v-report-section {
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--v-hairline);
+}
+
+.v-report-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--v-primary);
+  margin-bottom: 6px;
+}
+
+.v-report-body {
+  margin: 0;
   font-size: 12px;
   line-height: 1.6;
   color: var(--v-body);
+}
+
+.v-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--v-body);
+}
+
+.v-step-num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--v-radius-pill);
+  background: var(--v-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.v-doc-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--v-accent-line);
+  background: var(--v-accent);
+  border-radius: var(--v-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--v-primary);
+}
+
+.v-doc-hint svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--v-primary);
 }

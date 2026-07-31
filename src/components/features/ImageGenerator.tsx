@@ -29,7 +29,7 @@ import { getImageGenerationCost, type ImageQuality, type ImageResolution } from 
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
 
-const GEMINI_ICON = "/logos/ai/gemini.png";
+const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
 
 const MODEL_OPTIONS = [

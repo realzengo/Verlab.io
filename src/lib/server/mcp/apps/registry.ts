@@ -55,7 +55,7 @@ const WIDGETS = {
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card-v4.html",
+    resourceUri: "ui://verlab/creator-profile-card-v5.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
