@@ -148,7 +148,14 @@ async function callCloudflare(
           body: JSON.stringify({ prompt, width, height }),
         };
 
-  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${entry.id}`, init);
+  // Bounded so a hung Cloudflare call can't outlive the route's after()
+  // maxDuration budget and get silently killed before ever reaching the
+  // catch block that would mark the generation row "failed" (see the same
+  // comment in fal-image.ts).
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${entry.id}`, {
+    ...init,
+    signal: AbortSignal.timeout(180_000),
+  });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");

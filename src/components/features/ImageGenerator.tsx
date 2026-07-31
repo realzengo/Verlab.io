@@ -396,7 +396,21 @@ export function ImageGenerator() {
         setIsGenerating(false);
         setPendingCount(0);
       },
-      { intervalMs: 3000 }
+      {
+        intervalMs: 3000,
+        // Backstop for the client: the server already sweeps rows stuck in
+        // "generating" past 6 minutes to "failed" (see the GET handler in
+        // generate-image/route.ts), so this poll should always see that by
+        // the next tick. This timeout exists so the UI itself can never spin
+        // forever even if that sweep is somehow missed -- the user always
+        // lands on an actionable error instead of a silent infinite spinner.
+        timeoutMs: 6.5 * 60 * 1000,
+        onTimeout: () => {
+          setError("This is taking longer than expected. Please try again.");
+          setIsGenerating(false);
+          setPendingCount(0);
+        },
+      }
     );
   }
 

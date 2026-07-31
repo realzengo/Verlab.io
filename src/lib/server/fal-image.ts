@@ -75,10 +75,17 @@ export async function generateImageWithFal(
     body.image_urls = [referenceImage];
   }
 
+  // A hung fal.ai request with no timeout used to be able to sit open past
+  // the route's `after()` maxDuration (300s), which gets hard-killed by the
+  // platform without ever reaching this function's catch block -- leaving
+  // the DB row stuck at "generating" forever with nothing to mark it
+  // failed. Bounding every outbound fetch here guarantees this function
+  // always resolves or rejects well inside that budget.
   const response = await fetch(`https://fal.run/${endpoint}`, {
     method: "POST",
     headers: { Authorization: `Key ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(180_000),
   });
 
   if (!response.ok) {
@@ -92,7 +99,7 @@ export async function generateImageWithFal(
     throw new Error("fal.ai returned an unrecognized response shape");
   }
 
-  const imageResponse = await fetch(imageUrl);
+  const imageResponse = await fetch(imageUrl, { signal: AbortSignal.timeout(60_000) });
   if (!imageResponse.ok) {
     throw new Error(`fal.ai image download failed (${imageResponse.status})`);
   }
