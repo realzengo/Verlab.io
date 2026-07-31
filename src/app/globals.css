@@ -1222,29 +1222,97 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* Tools grid card — hover stroke fades from the brand blue into white (light
-   mode) / black (dark mode), diagonally. Same padding + mask-composite:
-   exclude technique as .comparison-winner-border above, just a static
-   gradient instead of a rotating comet. */
-.tool-card-gradient-border::before {
+/* Admin sidebar button — a "royal" pill with a slow-rotating gold ring,
+   reusing the conic-gradient mask trick from .comparison-winner-border but
+   always-on (not just on a "winner" state) so it reads as a permanent,
+   distinct-from-the-rest-of-the-UI accent rather than a hover effect.
+   Light mode gets an ivory/parchment take (a black pill reads as a hole
+   punched in the white sidebar); dark mode keeps the black-and-gold look,
+   where it sits naturally against the already-dark chrome. */
+@property --admin-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.admin-king-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(160deg, #fffaf0 0%, #fdf1d6 55%, #fbe8ba 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 2px 0 rgba(146, 101, 12, 0.14),
+    0 1px 3px rgba(180, 130, 20, 0.14);
+  transition: transform 0.2s cubic-bezier(0.19, 1, 0.22, 1), box-shadow 0.25s ease;
+}
+.dark .admin-king-btn {
+  background: linear-gradient(160deg, #1c1710 0%, #0b0904 55%, #000 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(253, 230, 138, 0.18),
+    inset 0 -2px 5px 0 rgba(0, 0, 0, 0.55),
+    0 2px 12px rgba(234, 179, 8, 0.16);
+}
+.admin-king-btn::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #ffffff 100%);
+  background: conic-gradient(
+    from var(--admin-border-angle),
+    rgba(234, 179, 8, 0.12) 0deg,
+    rgba(234, 179, 8, 0.12) 240deg,
+    #fde68a 285deg,
+    #f5c518 315deg,
+    #fde68a 340deg,
+    rgba(234, 179, 8, 0.12) 360deg
+  );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 200ms ease-out;
 }
-.tool-card-gradient-border:hover::before {
-  opacity: 1;
+.admin-king-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px 0 rgba(146, 101, 12, 0.18),
+    0 6px 18px rgba(217, 164, 6, 0.28);
 }
-.dark .tool-card-gradient-border::before {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #000000 100%);
+.dark .admin-king-btn:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(253, 230, 138, 0.3),
+    inset 0 -2px 5px 0 rgba(0, 0, 0, 0.55),
+    0 8px 22px rgba(234, 179, 8, 0.35);
+}
+.admin-king-btn:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 0.1s;
+}
+/* Sheen sits at shimmer-sweep's off-canvas start frame (translateX(-120%))
+   while paused, so it's invisible at rest with no extra opacity toggle
+   needed -- only reuses the keyframes (defined below, reduced-motion
+   gated), not the .animate-shimmer-sweep class, since this one should stay
+   paused until hover rather than looping continuously. */
+.admin-king-btn .admin-king-sheen {
+  background: linear-gradient(115deg, transparent, rgba(253, 230, 138, 0.5), transparent);
+  animation: shimmer-sweep 1.3s ease-in-out infinite;
+  animation-play-state: paused;
+}
+.admin-king-btn:hover .admin-king-sheen {
+  animation-play-state: running;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .admin-king-btn::before {
+    animation: admin-border-spin 5s linear infinite;
+  }
+  @keyframes admin-border-spin {
+    to {
+      --admin-border-angle: 360deg;
+    }
+  }
 }
 
 /* Blue-tinted glass puck for an icon nested inside a .liquid-glass control */

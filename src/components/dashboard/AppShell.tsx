@@ -18,10 +18,12 @@ export function AppShell({
   children,
   isPaywalled,
   hasNeverPaid,
+  isAdmin,
 }: {
   children: React.ReactNode;
   isPaywalled: boolean;
   hasNeverPaid: boolean;
+  isAdmin: boolean;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackdrop, setShowBackdrop] = useState(false);
@@ -37,6 +39,7 @@ export function AppShell({
   }, [mobileNavOpen]);
   const isHome = pathname === "/app";
   const isMcp = pathname === "/app/mcp";
+  const isImageGenerator = pathname === "/app/image-generator";
 
   const topBarAndMain = (
     <>
@@ -56,7 +59,7 @@ export function AppShell({
         inert={isPaywalled}
         className={cn("flex min-h-screen w-full bg-app", isPaywalled && "pointer-events-none blur-md select-none")}
       >
-        <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+        <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
         {showBackdrop && (
           <div
@@ -73,6 +76,17 @@ export function AppShell({
           <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
         ) : isMcp ? (
           <McpBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</McpBackground>
+        ) : isImageGenerator ? (
+          <div className="relative flex min-w-0 flex-1 flex-col">
+            {/* Plain black background (inherited from bg-app on the parent) --
+                just a single soft light near the top, not a full navy-tinted
+                Aurora wash, per request to keep this page simple. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-[420px] dark:block [mask-image:linear-gradient(to_bottom,black,transparent)] [background-image:radial-gradient(50%_70%_at_50%_0%,rgba(59,130,246,0.22)_0%,rgba(37,99,235,0.07)_45%,transparent_75%)]"
+            />
+            {topBarAndMain}
+          </div>
         ) : (
           <div className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</div>
         )}

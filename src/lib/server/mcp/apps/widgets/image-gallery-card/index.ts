@@ -1,6 +1,7 @@
 import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
 
 interface ImageData {
+  id?: string;
   status?: string;
   images?: string[];
   note?: string;
@@ -12,8 +13,13 @@ const DOWNLOAD_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 
 const root = document.getElementById("root")!;
 let images: string[] = [];
+// Bumped on every render() so a poll loop started by a now-superseded
+// "generating" state can tell it's stale and stop instead of clobbering
+// whatever the widget has since moved on to.
+let renderToken = 0;
 
 function render(data: ImageData | null) {
+  const token = ++renderToken;
   images = data?.images ?? [];
 
   let body: string;
@@ -47,6 +53,38 @@ function render(data: ImageData | null) {
       ${body}
     </div>
   `;
+
+  // A tool call can time out server-side before the image finishes and hand
+  // back { status: "generating", id } instead of the final images -- and the
+  // host has no obligation to route a later check_image_status result back
+  // into this same iframe. Rather than depend on that, poll the status tool
+  // directly from inside the widget until it settles.
+  if (!data?.error_message && !images.length && data?.status === "generating" && data.id) {
+    void pollStatus(data.id, token);
+  }
+}
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLLS = 130; // ~6.5 min, mirrors the server-side stuck-row sweep window
+
+async function pollStatus(id: string, token: number) {
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    if (token !== renderToken) return;
+
+    try {
+      const result = await app.callServerTool({ name: "check_image_status", arguments: { id } });
+      if (result.isError) continue;
+      const data = result.structuredContent as ImageData | undefined;
+      if (!data || data.status === "generating") continue;
+      if (token !== renderToken) return;
+      render(data);
+      return;
+    } catch {
+      // transient -- keep polling
+    }
+  }
+  if (token === renderToken) render({ error_message: "This is taking longer than expected. Please try again." });
 }
 
 render(null);

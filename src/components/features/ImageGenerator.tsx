@@ -18,7 +18,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -128,6 +128,8 @@ interface GenerationHistoryItem {
   error_message: string | null;
   created_at: string;
 }
+
+type MosaicCell = { kind: "pending" } | { kind: "item"; item: GenerationHistoryItem };
 
 interface PreviewItem {
   src: string;
@@ -279,6 +281,22 @@ export function ImageGenerator() {
   const galleryColumns = Math.max(2, Math.min(6, Math.round(6 - (galleryZoom / 100) * 4)));
 
   const visibleHistory = history?.filter((item) => filterGenerations && item.status === "completed") ?? null;
+
+  // CSS multi-column layout fills one column top-to-bottom before starting the
+  // next, so the most recent items would visually run down the first column
+  // instead of across the row. Distributing cells round-robin across columns
+  // keeps newest-first reading order left-to-right, then top-to-bottom.
+  const mosaicColumns = useMemo(() => {
+    const cells: MosaicCell[] = [
+      ...Array.from({ length: pendingCount }, (): MosaicCell => ({ kind: "pending" })),
+      ...(visibleHistory ?? []).map((item): MosaicCell => ({ kind: "item", item })),
+    ];
+    const columns: MosaicCell[][] = Array.from({ length: galleryColumns }, () => []);
+    cells.forEach((cell, index) => {
+      columns[index % galleryColumns].push(cell);
+    });
+    return columns;
+  }, [pendingCount, visibleHistory, galleryColumns]);
 
   useEffect(() => {
     loadHistory();
@@ -506,17 +524,12 @@ export function ImageGenerator() {
   );
 
   return (
-    <div className="relative isolate">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-300/20 blur-[100px] dark:bg-blue-500/30 sm:-top-40 sm:h-72 sm:blur-[130px]"
-      />
-      {/* Full-width ambient glow behind the prompt box, dark mode only. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-40 -z-10 hidden h-[420px] bg-blue-500/10 blur-[160px] dark:block sm:top-52 sm:h-[480px]"
-      />
-
+    <div className="relative">
+      {/* isolate scopes these -z-10 glows to this subtree only -- it must not
+          wrap the fixed-position modals below, or their z-50 gets trapped
+          inside this stacking context and can no longer paint (and blur)
+          above the sidebar, which sits in the page's root stacking context. */}
+      <div className="relative isolate">
       <div className="relative w-full px-6 pt-8 pb-20 sm:pt-12">
         <div className="mx-auto w-full max-w-4xl md:w-fit md:max-w-full">
         <div>
@@ -792,14 +805,16 @@ export function ImageGenerator() {
 
         {/* ---------------- Desktop layout (>= md) ---------------- */}
         <div className="hidden md:block">
-          <div className="group relative isolate mt-8">
+          <div className="group relative isolate z-20 mt-8">
             {/* Border wrapper — a thin gradient stroke (light blue to lighter
                 blue; dark blue to darker blue in dark mode) plus an animated
                 light trail that travels the perimeter for a premium, "alive" edge. */}
             <div
               className={cn(
                 "relative rounded-[28px] border-2 border-transparent shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
+                // Crisp hairline ring + dark ambient shadow for definition
+                // against the black page -- no colored glow bloom.
+                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
               )}
             >
               {/* Gradient stroke, masked to the border ring only so it never
@@ -810,7 +825,7 @@ export function ImageGenerator() {
                   "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300",
                   "[mask-clip:padding-box,border-box] [mask-composite:exclude] [mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
                   "[-webkit-mask-clip:padding-box,border-box] [-webkit-mask-composite:xor] [-webkit-mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
-                  "dark:from-blue-800 dark:to-cyan-900"
+                  "dark:from-blue-500 dark:to-cyan-400"
                 )}
               />
               <BorderTrail
@@ -822,7 +837,10 @@ export function ImageGenerator() {
               <div
                 className={cn(
                   "relative flex w-full flex-col rounded-[26px] bg-white/60 px-9 py-6 backdrop-blur-2xl backdrop-saturate-150",
-                  "dark:bg-[#0c0c10]"
+                  // Lighter than the page background (not near-black-on-black)
+                  // plus a faint top sheen, so the panel reads as a distinct
+                  // raised surface -- the glass-card look of premium SaaS UIs.
+                  "dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
                 )}
               >
             <textarea
@@ -1077,40 +1095,48 @@ export function ImageGenerator() {
               </div>
 
               {galleryLayout === "Mosaic" ? (
-                <div className="w-full gap-4" style={{ columnCount: galleryColumns }}>
-                  {Array.from({ length: pendingCount }).map((_, index) => (
-                    <div key={`pending-${index}`} className="mb-4 break-inside-avoid">
-                      <PendingGenerationTile aspectRatio={pendingAspectRatio} />
+                <div className="flex w-full gap-4">
+                  {mosaicColumns.map((column, columnIndex) => (
+                    <div key={columnIndex} className="flex flex-1 flex-col gap-4">
+                      {column.map((cell, cellIndex) => {
+                        if (cell.kind === "pending") {
+                          return (
+                            <PendingGenerationTile
+                              key={`pending-${columnIndex}-${cellIndex}`}
+                              aspectRatio={pendingAspectRatio}
+                            />
+                          );
+                        }
+                        const { item } = cell;
+                        const [w, h] = item.aspect_ratio.split(":").map(Number);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              setPreviewItem({
+                                src: item.images[0],
+                                prompt: item.prompt,
+                                model: item.model,
+                                createdAt: item.created_at,
+                              })
+                            }
+                            className="group block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                          >
+                            {item.images[0] && (
+                              // eslint-disable-next-line @next/next/no-img-element -- generation history thumbnail from stored data URL
+                              <img
+                                src={item.images[0]}
+                                alt=""
+                                style={{ aspectRatio: `${w} / ${h}` }}
+                                className="w-full object-cover"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   ))}
-                  {visibleHistory?.map((item) => {
-                    const [w, h] = item.aspect_ratio.split(":").map(Number);
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() =>
-                          setPreviewItem({
-                            src: item.images[0],
-                            prompt: item.prompt,
-                            model: item.model,
-                            createdAt: item.created_at,
-                          })
-                        }
-                        className="group mb-4 block w-full break-inside-avoid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
-                      >
-                        {item.images[0] && (
-                          // eslint-disable-next-line @next/next/no-img-element -- generation history thumbnail from stored data URL
-                          <img
-                            src={item.images[0]}
-                            alt=""
-                            style={{ aspectRatio: `${w} / ${h}` }}
-                            className="w-full object-cover"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
                 </div>
               ) : (
                 <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -1161,6 +1187,7 @@ export function ImageGenerator() {
             )
           )}
         </div>
+      </div>
       </div>
 
       <AnimatePresence>

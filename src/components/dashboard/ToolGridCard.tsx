@@ -47,7 +47,7 @@ export function ToolGridCard({
     <Link
       href={href}
       className={cn(
-        "tool-card-gradient-border relative flex h-full flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface p-3 shadow-card dark:border-[#132038] dark:bg-[#050b16]",
+        "group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface p-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover dark:border-[#132038] dark:bg-[#050b16]",
         comingSoon && "opacity-70"
       )}
     >
@@ -61,7 +61,12 @@ export function ToolGridCard({
             sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
           />
         ) : (
-          <div className={cn("relative flex h-full w-full items-center justify-center bg-gradient-to-br to-surface", toneClasses.wash)}>
+          <div
+            className={cn(
+              "relative flex h-full w-full items-center justify-center bg-gradient-to-br to-surface dark:bg-none dark:bg-white/[0.04]",
+              toneClasses.wash
+            )}
+          >
             <div
               aria-hidden
               className="absolute inset-0 opacity-[0.05]"

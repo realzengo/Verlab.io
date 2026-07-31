@@ -69,11 +69,20 @@ export async function proxy(request: NextRequest) {
       return buildResponse(loginUrl);
     }
 
+    const userIsAdmin = isAdminEmail(user.email);
+
+    // Lets the dashboard layout render an Admin link without shipping the
+    // allowlist itself to the client -- the /admin gate below (and each
+    // admin API route) is still the actual enforcement.
+    if (userIsAdmin) {
+      requestHeaders.set("x-is-admin", "1");
+    }
+
     // Not checked for /app/settings -- a lapsed/past-grace subscriber still
     // needs to reach Subscription/Payment Method to fix their card or resume
     // (see billing/portal route) or view Credit History. None of the actual
     // paid tools live under /app/settings.
-    if (!isAdminEmail(user.email) && !pathname.startsWith("/app/settings")) {
+    if (!userIsAdmin && !pathname.startsWith("/app/settings")) {
       const { data: profile } = await supabase
         .from("profiles")
         .select("subscription_status, subscription_current_period_end, credits")

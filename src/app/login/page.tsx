@@ -1,128 +1,23 @@
 "use client";
 
 import { Suspense, useState, type FormEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   ArrowRight,
-  Compass,
   Eye,
   EyeOff,
-  FileText,
   Loader2,
   Lock,
   Mail,
-  PenSquare,
-  Star,
+  ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { GoogleIcon } from "@/components/auth/GoogleIcon";
+import { AUTH_INPUT_CLASSES } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
-
-const INPUT_CLASSES =
-  "w-full rounded-xl border border-hairline bg-surface py-3 pl-10 pr-3.5 text-sm text-heading placeholder:text-subtle transition-colors focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15";
-
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" aria-hidden>
-      <path
-        fill="#4285F4"
-        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A12 12 0 0 0 12 24Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.61H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4-3.11Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 4.77c1.76 0 3.34.61 4.59 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4 3.11C6.22 6.88 8.87 4.77 12 4.77Z"
-      />
-    </svg>
-  );
-}
-
-const FEATURES = [
-  { icon: Compass, label: "Niche Finder", desc: "Spot non-competitive niches before they blow up." },
-  { icon: FileText, label: "Transcript Extractor", desc: "Pull clean captions from any video in seconds." },
-  { icon: PenSquare, label: "Scriptwriter", desc: "Turn a hook into a full script in minutes." },
-];
-
-function BrandPanel() {
-  return (
-    <div className="relative hidden w-[42%] shrink-0 overflow-hidden bg-[#05070f] lg:flex lg:flex-col lg:justify-between lg:p-10 xl:w-[38%] xl:p-14">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-primary/40 blur-[100px]" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 h-96 w-96 rounded-full bg-blue-500/20 blur-[120px]" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
-
-      <div className="relative z-10 flex items-center justify-between">
-        <span className="relative block h-8 w-[130px]">
-          <Image
-            src="/logo-full-dark.png"
-            alt="Verlab Studio"
-            fill
-            className="object-contain object-left"
-            sizes="130px"
-          />
-        </span>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition-colors hover:border-white/20 hover:text-white"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to site
-        </Link>
-      </div>
-
-      <div className="relative z-10 max-w-sm">
-        <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.5px] text-white xl:text-[32px]">
-          Build a faceless page that actually prints.
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-white/60">
-          Everything you need to research, clip, and grow — all in one place.
-        </p>
-
-        <div className="mt-9 flex flex-col gap-4">
-          {FEATURES.map(({ icon: Icon, label, desc }) => (
-            <div key={label} className="flex items-start gap-3.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 backdrop-blur-sm">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary-hover">
-                <Icon className="h-[18px] w-[18px]" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-white">{label}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-white/50">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="relative z-10 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-        <span className="inline-flex gap-0.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className="h-3 w-3 fill-star text-star" />
-          ))}
-        </span>
-        <span className="text-[11px] text-white/60">
-          <span className="font-semibold text-white">4.8</span> from 500+ creators
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function LoginForm() {
   const router = useRouter();
@@ -173,126 +68,115 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm animate-bend-in">
-      <div className="mb-8 flex justify-center lg:hidden">
-        <span className="relative block h-8 w-[130px]">
-          <Image
-            src="/logo-full-light.png"
-            alt="Verlab Studio"
-            fill
-            className="object-contain dark:hidden"
-            sizes="130px"
-          />
-          <Image
-            src="/logo-full-dark.png"
-            alt="Verlab Studio"
-            fill
-            className="hidden object-contain dark:block"
-            sizes="130px"
-          />
-        </span>
-      </div>
+    <div className="animate-bend-in">
+      <div className="rounded-[28px] border border-hairline bg-surface/95 p-8 shadow-card backdrop-blur-xl sm:p-10">
+        <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Welcome back</h1>
+        <p className="mt-1.5 text-sm text-body">Log in to keep building your faceless page.</p>
 
-      <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Welcome back</h1>
-      <p className="mt-1.5 text-sm text-body">Log in to keep building your faceless page.</p>
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isGoogleLoading}
+          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-semibold text-heading shadow-card transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-card-hover disabled:opacity-50 disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none"
+        >
+          {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+          Continue with Google
+        </button>
 
-      <button
-        type="button"
-        onClick={handleGoogleSignIn}
-        disabled={isGoogleLoading}
-        className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-semibold text-heading transition-colors hover:bg-app disabled:opacity-50 disabled:pointer-events-none"
-      >
-        {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-        Continue with Google
-      </button>
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-hairline" />
+          <span className="text-xs font-medium text-subtle">or continue with email</span>
+          <div className="h-px flex-1 bg-hairline" />
+        </div>
 
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-hairline" />
-        <span className="text-xs font-medium text-subtle">or continue with email</span>
-        <div className="h-px flex-1 bg-hairline" />
-      </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+            Email
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className={AUTH_INPUT_CLASSES}
+              />
+            </div>
+          </label>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
-          Email
-          <div className="relative">
-            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className={INPUT_CLASSES}
-            />
-          </div>
-        </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
+            Password
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={`${AUTH_INPUT_CLASSES} pr-10`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </label>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-body">
-          Password
-          <div className="relative">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
-            <input
-              type={showPassword ? "text" : "password"}
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className={`${INPUT_CLASSES} pr-10`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </label>
-
-        {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="mt-2 justify-center">
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <>
-              Log in
-              <ArrowRight className="h-4 w-4" />
-            </>
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              {error}
+            </div>
           )}
-        </Button>
 
-        <p className="text-center text-sm text-body">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-semibold text-primary hover:underline">
-            Sign up
-          </Link>
-        </p>
-      </form>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={isSubmitting}
+            className="btn-glow mt-2 justify-center"
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                Log in
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+
+          <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-subtle">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Secured with 256-bit encryption
+          </p>
+        </form>
+      </div>
+
+      <p className="mt-6 text-center text-sm text-body">
+        Don&apos;t have an account?{" "}
+        <Link href="/signup" className="font-semibold text-primary hover:underline">
+          Sign up
+        </Link>
+      </p>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="relative flex min-h-screen w-full bg-app">
-      <BrandPanel />
-
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-16 sm:px-8">
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 -z-10 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-100/40 opacity-30 blur-3xl dark:opacity-10" />
-        <Suspense fallback={null}>
-          <LoginForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthShell>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
+    </AuthShell>
   );
 }

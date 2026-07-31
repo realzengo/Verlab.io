@@ -63,9 +63,11 @@ function NicheNavSection() {
 export function Sidebar({
   mobileOpen,
   onCloseMobile,
+  isAdmin,
 }: {
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  isAdmin: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
@@ -436,6 +438,7 @@ export function Sidebar({
 
       <SidebarFooter
         collapsed={collapsed}
+        isAdmin={isAdmin}
         onToggleCollapse={() => setCollapsed((v) => !v)}
         onOpenSearch={() => setSearchOpen(true)}
         onNavigate={onCloseMobile}

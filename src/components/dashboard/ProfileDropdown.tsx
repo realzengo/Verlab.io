@@ -73,9 +73,6 @@ export function ProfileDropdown() {
         className="flex items-center gap-2 rounded-full border border-hairline bg-surface p-1 pl-1 pr-1 sm:pr-3"
       >
         <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-6 w-6 sm:h-7 sm:w-7" />
-        <span className="hidden max-w-[10rem] truncate text-sm font-medium text-heading sm:inline-block">
-          {name}
-        </span>
         <ChevronDown className="h-3.5 w-3.5 text-body" />
       </button>
 
