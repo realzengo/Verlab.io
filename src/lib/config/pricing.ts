@@ -4,7 +4,7 @@
 // invoices available) -- each entry's derivation is commented so the numbers
 // stay auditable and easy to correct as real invoices come in.
 
-import { getVideoModel } from "./video-models";
+import { getVideoModel, getEditVideoModel } from "./video-models";
 
 // 1 credit = $0.015 (the $15 / 1000-credit Creator plan rate).
 export const CREDIT_VALUE_USD = 0.015;
@@ -261,6 +261,22 @@ export function getVideoGenerationCost(input: { model: string; durationSeconds: 
 
   const outputs = Math.max(1, input.outputs);
   const perVideoCredits = creditsForCost(config.pricePerSecondUsd * input.durationSeconds);
+  return perVideoCredits * outputs;
+}
+
+// ── Video generation (Edit tab: prompt-based editing) ──────────────────
+// Output duration always matches the source video's (fal preserves the
+// original motion/length, no user-selectable duration -- see
+// EDIT_VIDEO_MODELS's module comment), so cost is priced off the source
+// clip's own duration rather than a picker value.
+export function getVideoPromptEditCost(input: { model: string; sourceDurationSeconds: number; outputs: number }): number {
+  const config = getEditVideoModel(input.model);
+  if (!config) {
+    throw new Error(`No pricing configured for edit model "${input.model}"`);
+  }
+
+  const outputs = Math.max(1, input.outputs);
+  const perVideoCredits = creditsForCost(config.pricePerSecondUsd * input.sourceDurationSeconds);
   return perVideoCredits * outputs;
 }
 

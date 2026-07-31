@@ -5,38 +5,67 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { POPULAR_VIDEO_MODEL_IDS, VIDEO_MODELS, type VideoModelConfig } from "@/lib/config/video-models";
 
-function ModelIcon({ model }: { model: VideoModelConfig }) {
+export interface ModelPickerOption {
+  id: string;
+  description: string;
+  logo?: string;
+}
+
+export function ModelIcon({ model, small }: { model: ModelPickerOption; small?: boolean }) {
+  const wrapperSize = small ? "h-5 w-5" : "h-8 w-8";
+  const glyphSize = small ? 11 : 16;
+
   if (model.logo) {
     return (
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
-        <Image src={model.logo} alt="" width={16} height={16} className="h-4 w-4 object-contain" />
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
+          wrapperSize
+        )}
+      >
+        <Image src={model.logo} alt="" width={glyphSize} height={glyphSize} className="shrink-0 object-contain" style={{ width: glyphSize, height: glyphSize }} />
       </span>
     );
   }
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:text-slate-400 dark:ring-white/[0.06]">
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:text-slate-400 dark:ring-white/[0.06]",
+        wrapperSize,
+        small ? "text-[9px]" : "text-[11px]"
+      )}
+    >
       {model.id.slice(0, 1)}
     </span>
   );
 }
 
-interface VideoModelPickerProps {
+interface VideoModelPickerProps<T extends ModelPickerOption> {
   value: string;
   onChange: (id: string) => void;
+  models: T[];
+  /** IDs shown under a "Popular" section above the rest, under "More" -- omit (or leave empty) for a small catalog that doesn't need grouping (e.g. Edit tab's 2 models). */
+  popularIds?: string[];
   className?: string;
 }
 
 /**
- * Searchable, grouped (Popular/More) model picker -- the video catalog is
- * too large (8 models across 4 price tiers) for PillDropdown's flat list to
- * stay scannable, unlike the image tool's 5-model dropdown. Mirrors the
+ * Searchable, optionally grouped (Popular/More) model picker -- generic over
+ * any model shape with id/description/logo so it serves both Create's large
+ * catalog (VIDEO_MODELS, grouped) and Edit's small one (EDIT_VIDEO_MODELS,
+ * flat) instead of duplicating this component per tab. Mirrors the
  * competitor screenshot's picker shape while staying an honestly flat list
  * (no fake family-expansion affordance for entries with nothing behind
  * them yet -- see video-models.ts's catalog comment).
  */
-export function VideoModelPicker({ value, onChange, className }: VideoModelPickerProps) {
+export function VideoModelPicker<T extends ModelPickerOption>({
+  value,
+  onChange,
+  models,
+  popularIds = [],
+  className,
+}: VideoModelPickerProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,20 +90,21 @@ export function VideoModelPicker({ value, onChange, className }: VideoModelPicke
     };
   }, [open]);
 
-  const current = VIDEO_MODELS.find((model) => model.id === value);
+  const current = models.find((model) => model.id === value);
+  const hasSections = popularIds.length > 0;
 
   const { popular, more } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? VIDEO_MODELS.filter((model) => model.id.toLowerCase().includes(q) || model.description.toLowerCase().includes(q))
-      : VIDEO_MODELS;
+    const filtered = q ? models.filter((model) => model.id.toLowerCase().includes(q) || model.description.toLowerCase().includes(q)) : models;
+    if (!hasSections) return { popular: [], more: filtered };
     return {
-      popular: filtered.filter((model) => POPULAR_VIDEO_MODEL_IDS.includes(model.id)),
-      more: filtered.filter((model) => !POPULAR_VIDEO_MODEL_IDS.includes(model.id)),
+      popular: filtered.filter((model) => popularIds.includes(model.id)),
+      more: filtered.filter((model) => !popularIds.includes(model.id)),
     };
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, models, hasSections]);
 
-  function renderRow(model: VideoModelConfig) {
+  function renderRow(model: T) {
     const selected = model.id === value;
     return (
       <button
@@ -119,18 +149,18 @@ export function VideoModelPicker({ value, onChange, className }: VideoModelPicke
           setOpen((prev) => !prev);
         }}
         className={cn(
-          "group flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+          "group flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
           "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
           open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
         )}
       >
-        {current && <ModelIcon model={current} />}
+        {current && <ModelIcon model={current} small />}
         <span className="tracking-[-0.01em]">{current?.id ?? value}</span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
+            "h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
             open && "rotate-180 text-blue-500 dark:text-blue-400"
           )}
         />
@@ -171,9 +201,11 @@ export function VideoModelPicker({ value, onChange, className }: VideoModelPicke
               )}
               {more.length > 0 && (
                 <div>
-                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    More
-                  </p>
+                  {hasSections && (
+                    <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                      More
+                    </p>
+                  )}
                   {more.map(renderRow)}
                 </div>
               )}

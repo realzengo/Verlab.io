@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 import { useRouter } from "next/navigation";
 import { Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -37,6 +38,7 @@ export default function AccountSettingsPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -155,11 +157,6 @@ export default function AccountSettingsPage() {
   }
 
   async function handleDeleteAccount() {
-    const confirmed = window.confirm(
-      "This permanently deletes your account and all associated data. This cannot be undone. Continue?"
-    );
-    if (!confirmed) return;
-
     setDeleteError(null);
     setIsDeleting(true);
 
@@ -366,7 +363,7 @@ export default function AccountSettingsPage() {
           </div>
           <button
             type="button"
-            onClick={handleDeleteAccount}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={isDeleting}
             className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
           >
@@ -374,6 +371,16 @@ export default function AccountSettingsPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteAccount}
+        title="Delete your account?"
+        description="This permanently deletes your account and all associated data. This cannot be undone."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

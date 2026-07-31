@@ -53,8 +53,8 @@ const TOOLS: {
 
 export default function ToolsPage() {
   return (
-    <div className="flex flex-col gap-2 pt-2 lg:mx-auto lg:max-w-[1488px]">
-      <div>
+    <div className="flex flex-col items-center gap-2 pt-2 lg:mx-auto lg:max-w-[1270px]">
+      <div className="w-full text-left">
         <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
           Tools
         </h1>
@@ -63,9 +63,9 @@ export default function ToolsPage() {
         </p>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 w-full">
         <div className="-m-6 overflow-x-auto p-6">
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,480px)] lg:justify-start lg:gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(3,410px)] lg:justify-start lg:gap-5">
             {TOOLS.map((tool) => (
               <ToolGridCard
                 key={tool.title}

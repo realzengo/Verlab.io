@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
@@ -42,28 +42,35 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover"
+        className="relative w-full max-w-sm rounded-2xl bg-surface p-6 text-center shadow-card-hover"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-hairline p-5">
-          <div className="flex items-center gap-2">
-            <Icon className={cn("h-5 w-5", danger ? "text-danger" : "text-heading")} />
-            <h2 className="text-lg font-semibold text-heading">{title}</h2>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-body hover:text-heading">
-            <X className="h-5 w-5" />
-          </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 text-body hover:text-heading"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div
+          className={cn(
+            "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
+            danger ? "bg-danger" : "bg-btn-primary"
+          )}
+        >
+          <Icon className="h-6 w-6 text-white" />
         </div>
 
-        <div className="p-5">
-          <p className="text-sm text-body">{description}</p>
-        </div>
+        <h2 className="mt-4 text-lg font-semibold text-heading">{title}</h2>
+        <p className="mt-2 text-sm text-body">{description}</p>
 
-        <div className="flex justify-end gap-3 border-t border-hairline p-5">
+        <div className="mt-6 flex gap-3 border-t border-hairline pt-5">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-medium text-body hover:bg-app"
+            className="flex-1 rounded-full border border-hairline bg-surface px-4 py-2.5 text-sm font-medium text-body hover:bg-app"
           >
             {cancelLabel}
           </button>
@@ -74,10 +81,11 @@ export function ConfirmDialog({
               onClose();
             }}
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium text-white",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold text-white",
               danger ? "bg-danger hover:bg-danger/90" : "bg-btn-primary hover:bg-btn-primary-hover"
             )}
           >
+            {danger && <Trash2 className="h-4 w-4" />}
             {confirmLabel}
           </button>
         </div>

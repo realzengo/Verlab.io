@@ -181,14 +181,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: (validationError as Error).message }, { status: 400 });
   }
 
-  if (endFrameImage && !startFrameImage) {
-    return NextResponse.json({ error: "endFrameImage requires startFrameImage" }, { status: 400 });
-  }
   if (endFrameImage && !model.supportsEndFrame) {
     return NextResponse.json({ error: `${model.id} doesn't support an end frame` }, { status: 400 });
   }
-  if (!prompt?.trim() && !startFrameImage) {
-    return NextResponse.json({ error: "prompt is required unless a start frame image is provided" }, { status: 400 });
+  if (!prompt?.trim() && !startFrameImage && !endFrameImage) {
+    return NextResponse.json({ error: "prompt is required unless a start or end frame image is provided" }, { status: 400 });
   }
   if (startFrameImage && !model.supportsImageToVideo) {
     return NextResponse.json({ error: `${model.id} doesn't support image-to-video` }, { status: 400 });
@@ -206,7 +203,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
-  const operation = startFrameImage ? "image_to_video" : "text_to_video";
+  const operation = startFrameImage || endFrameImage ? "image_to_video" : "text_to_video";
   const webhookUrl = `${request.nextUrl.origin}/api/webhooks/fal`;
   const falInput = buildFalCreateInput(model, {
     prompt,

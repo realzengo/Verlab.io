@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,7 @@ interface PillDropdownOption {
 
 function RatioIcon({ ratio, className }: { ratio: string; className?: string }) {
   const [w, h] = ratio.split(":").map(Number);
-  const size = 14;
+  const size = 12;
   const width = w >= h ? size : Math.max(3, Math.round((size * w) / h));
   const height = h >= w ? size : Math.max(3, Math.round((size * h) / w));
 
@@ -36,9 +37,11 @@ interface PillDropdownProps {
   onChange: (value: string) => void;
   className?: string;
   labelPrefix?: string;
+  /** Fixed leading icon shown before the value, independent of the selected option (e.g. a clock for duration). */
+  icon?: LucideIcon;
 }
 
-export function PillDropdown({ value, options, onChange, className, labelPrefix }: PillDropdownProps) {
+export function PillDropdown({ value, options, onChange, className, labelPrefix, icon: Icon }: PillDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,26 +76,27 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix 
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "group flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+          "group flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
           "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
           open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
         )}
       >
+        {Icon && <Icon className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" />}
         {current?.icon && (
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
             <Image
               src={current.icon}
               alt=""
-              width={13}
-              height={13}
-              className={cn("h-[13px] w-[13px] shrink-0 object-contain", current.invertDark && "dark:invert")}
+              width={11}
+              height={11}
+              className={cn("h-[11px] w-[11px] shrink-0 object-contain", current.invertDark && "dark:invert")}
             />
           </span>
         )}
         {current?.ratio && (
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400">
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400">
             <RatioIcon ratio={current.ratio} />
           </span>
         )}
@@ -104,7 +108,7 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix 
         </span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
+            "h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
             open && "rotate-180 text-blue-500 dark:text-blue-400"
           )}
         />

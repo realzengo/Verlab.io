@@ -1,21 +1,47 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Clapperboard, Loader2, Pencil, PersonStanding, Volume2, VolumeX, X } from "lucide-react";
+import {
+  Clapperboard,
+  Clock,
+  Download,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  MoreVertical,
+  Pencil,
+  PersonStanding,
+  RotateCcw,
+  Trash2,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TopUpModal } from "@/components/TopUpModal";
-import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
-import { DEFAULT_VIDEO_MODEL, VIDEO_MODELS, getVideoModel } from "@/lib/config/video-models";
-import { getVideoGenerationCost } from "@/lib/config/pricing";
+import {
+  DEFAULT_VIDEO_MODEL,
+  VIDEO_MODELS,
+  POPULAR_VIDEO_MODEL_IDS,
+  getVideoModel,
+  DEFAULT_EDIT_VIDEO_MODEL,
+  EDIT_VIDEO_MODELS,
+  getEditVideoModel,
+} from "@/lib/config/video-models";
+import { getVideoGenerationCost, getVideoPromptEditCost } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
-import { VideoModelPicker } from "./video-generator/VideoModelPicker";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import { VideoModelPicker, ModelIcon } from "./video-generator/VideoModelPicker";
 import { FrameImagePicker, EMPTY_FRAME_SLOT, type FrameSlotState } from "./video-generator/FrameImagePicker";
+import { ReferenceImagesPicker } from "./video-generator/ReferenceImagesPicker";
+import { SourceVideoPicker } from "./video-generator/SourceVideoPicker";
 
 type VideoMode = "create" | "edit" | "motion";
 
@@ -59,9 +85,34 @@ function defaultSettingsFor(modelId: string): ModelSettings {
 
 const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({ value: String(value), label: `${value} Output${value > 1 ? "s" : ""}` }));
 
-function VideoTile({ item, onClick }: { item: GenerationHistoryItem; onClick: () => void }) {
+function VideoTile({
+  item,
+  onPreview,
+  onRecreate,
+  onEdit,
+  onDownload,
+  onDelete,
+}: {
+  item: GenerationHistoryItem;
+  onPreview: () => void;
+  onRecreate: () => void;
+  onEdit: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
+}) {
   const aspectRatio = item.params.aspectRatio ?? "16:9";
   const [w, h] = aspectRatio.split(":").map(Number);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [menuOpen]);
 
   if (item.status === "queued" || item.status === "processing") {
     return (
@@ -82,19 +133,36 @@ function VideoTile({ item, onClick }: { item: GenerationHistoryItem; onClick: ()
   if (item.status === "failed") {
     return (
       <div
-        className="flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border border-red-200 bg-red-50 p-3 text-center dark:border-red-500/20 dark:bg-red-500/5"
+        className="group relative flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border border-red-200 bg-red-50 p-3 text-center dark:border-red-500/20 dark:bg-red-500/5"
         style={{ aspectRatio: `${w} / ${h}` }}
       >
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete"
+          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-red-500 opacity-0 backdrop-blur-sm transition-opacity duration-150 hover:bg-white group-hover:opacity-100 dark:bg-black/40 dark:hover:bg-black/60"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
         <span className="text-[11px] font-medium text-red-500">{item.error_message ?? "Generation failed"}</span>
       </div>
     );
   }
 
+  const model = getVideoModel(item.model) ?? getEditVideoModel(item.model);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-black dark:border-zinc-800"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onPreview}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onPreview();
+      }}
+      className="group relative block w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-black outline-none dark:border-zinc-800"
       style={{ aspectRatio: `${w} / ${h}` }}
     >
       <video
@@ -108,7 +176,114 @@ function VideoTile({ item, onClick }: { item: GenerationHistoryItem; onClick: ()
         onMouseLeave={(event) => event.currentTarget.pause()}
         className="h-full w-full object-cover"
       />
-    </button>
+
+      {model && (
+        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
+          <ModelIcon model={model} small />
+          <span className="truncate text-[11px] font-semibold text-white">{model.id}</span>
+          {item.params.durationSeconds && <span className="shrink-0 text-[11px] text-white/60">· {item.params.durationSeconds}s</span>}
+        </div>
+      )}
+
+      <div className="absolute right-2 top-2 flex flex-col gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPreview();
+          }}
+          aria-label="Expand"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDownload();
+          }}
+          aria-label="Download"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </button>
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((prev) => !prev);
+            }}
+            aria-label="More options"
+            aria-expanded={menuOpen}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80",
+              menuOpen && "bg-black/80"
+            )}
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute right-0 top-full z-10 mt-1.5 w-32 origin-top-right overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-900/95"
+              >
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    onEdit();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    onDelete();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div className="absolute inset-x-2 bottom-2 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRecreate();
+          }}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          <RotateCcw className="h-3 w-3" /> Recreate
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit();
+          }}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          <Pencil className="h-3 w-3" /> Edit
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -116,6 +291,7 @@ export function VideoGenerator() {
   const [activeTab, setActiveTab] = useState<VideoMode>("create");
 
   const [prompt, setPrompt] = useState("");
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_VIDEO_MODEL);
   const [modelSettings, setModelSettings] = useState<Record<string, ModelSettings>>({});
   const model = getVideoModel(selectedModel) ?? VIDEO_MODELS[0];
@@ -153,11 +329,12 @@ export function VideoGenerator() {
 
   const [history, setHistory] = useState<GenerationHistoryItem[] | null>(null);
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const pollCancelRef = useRef<(() => void) | null>(null);
   const pendingIdsRef = useRef<Set<string>>(new Set());
 
-  const canSubmit = (prompt.trim().length > 0 || Boolean(startFrame.dataUrl)) && !isGenerating;
+  const canSubmit = (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating;
   const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs }) || 0;
 
   function loadHistory() {
@@ -232,6 +409,226 @@ export function VideoGenerator() {
     return () => pollCancelRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Edit tab state ───────────────────────────────────────────────────
+  // Mirrors the Create tab's history/poll pattern above (own state, own
+  // pollUntilSettled loop) rather than a shared generic -- only two tabs
+  // need this, and Create's version stays untouched/provably-working this way.
+  const [editSource, setEditSource] = useState<GenerationHistoryItem | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editPromptExpanded, setEditPromptExpanded] = useState(false);
+  const [editModel, setEditModel] = useState(DEFAULT_EDIT_VIDEO_MODEL);
+  const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
+  const [editOutputs, setEditOutputs] = useState(1);
+  const [editIsGenerating, setEditIsGenerating] = useState(false);
+  const [editPendingCount, setEditPendingCount] = useState(0);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editHistory, setEditHistory] = useState<GenerationHistoryItem[] | null>(null);
+  const [isUploadingSource, setIsUploadingSource] = useState(false);
+
+  const editPollCancelRef = useRef<(() => void) | null>(null);
+  const editPendingIdsRef = useRef<Set<string>>(new Set());
+
+  const editModelConfig = getEditVideoModel(editModel) ?? EDIT_VIDEO_MODELS[0];
+  const editSourceDurationSeconds = editSource?.params.durationSeconds ?? null;
+  const editSourceDurationValid =
+    editSourceDurationSeconds != null &&
+    editSourceDurationSeconds >= editModelConfig.minSourceDurationSeconds &&
+    editSourceDurationSeconds <= editModelConfig.maxSourceDurationSeconds;
+  const canSubmitEdit = Boolean(editSource) && editPrompt.trim().length > 0 && editSourceDurationValid && !editIsGenerating;
+  const estimatedEditCost = editSourceDurationSeconds
+    ? getVideoPromptEditCost({ model: editModel, sourceDurationSeconds: editSourceDurationSeconds, outputs: editOutputs })
+    : 0;
+
+  function loadEditHistory() {
+    return fetch("/api/generate-video?mode=edit")
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error);
+        return data;
+      })
+      .then((data) => {
+        const items: GenerationHistoryItem[] = data.generations ?? [];
+        setEditHistory(items);
+        const stillPending = items.filter((item) => item.status === "queued" || item.status === "processing").map((item) => item.id);
+        if (stillPending.length > 0 && !editPollCancelRef.current) {
+          setEditIsGenerating(true);
+          pollEditGenerationStatus(stillPending);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function pollEditGenerationStatus(ids: string[]) {
+    editPollCancelRef.current?.();
+    editPendingIdsRef.current = new Set(ids);
+    setEditPendingCount(editPendingIdsRef.current.size);
+
+    editPollCancelRef.current = pollUntilSettled<GenerationHistoryItem[]>(
+      async () => {
+        const response = await fetch("/api/generate-video?mode=edit");
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        return data.generations ?? [];
+      },
+      () => editPendingIdsRef.current.size === 0,
+      (items) => {
+        setEditHistory(items);
+
+        const settled = [...editPendingIdsRef.current].filter((id) => {
+          const match = items.find((item) => item.id === id);
+          return match && match.status !== "queued" && match.status !== "processing";
+        });
+
+        if (settled.length > 0) {
+          for (const id of settled) editPendingIdsRef.current.delete(id);
+          notifyCreditsChanged();
+
+          const failed = settled.map((id) => items.find((item) => item.id === id)).find((item) => item?.status === "failed");
+          if (failed) setEditError(failed.error_message ?? "Something went wrong. Try again.");
+        }
+
+        setEditPendingCount(editPendingIdsRef.current.size);
+        if (editPendingIdsRef.current.size === 0) setEditIsGenerating(false);
+      },
+      {
+        intervalMs: 4000,
+        timeoutMs: 21 * 60 * 1000,
+        onTimeout: () => {
+          setEditError("This is taking longer than expected. Please try again.");
+          setEditIsGenerating(false);
+          setEditPendingCount(0);
+        },
+      }
+    );
+  }
+
+  useEffect(() => {
+    loadEditHistory();
+    return () => editPollCancelRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleGenerateEdit() {
+    if (!canSubmitEdit || !editSource) return;
+
+    setEditIsGenerating(true);
+    setEditError(null);
+
+    try {
+      const response = await fetch("/api/generate-video/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceGenerationId: editSource.id,
+          prompt: editPrompt.trim(),
+          model: editModel,
+          referenceImages: editReferenceImages,
+          outputs: editOutputs,
+        }),
+      });
+
+      if (response.status === 402) {
+        setShowTopUp(true);
+        setEditIsGenerating(false);
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Failed to start edit.");
+
+      pollEditGenerationStatus(data.ids);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setEditIsGenerating(false);
+      setEditPendingCount(0);
+    }
+  }
+
+  function readVideoDuration(file: File): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error("Could not read that video file."));
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Uploads a local video file as an Edit-tab source: reads its duration
+  // client-side (no ffmpeg dependency on the server, see video-jobs.ts's own
+  // "no server-side frame-extraction fallback" note for the same reason),
+  // then uploads the bytes directly to Supabase Storage via a signed URL
+  // (see upload-source/route.ts) rather than through this app's own API --
+  // a raw video file would blow past Vercel's serverless request-body limit
+  // if sent as a JSON body the way reference images are.
+  async function handleUploadSourceVideo(file: File) {
+    setIsUploadingSource(true);
+    setEditError(null);
+    try {
+      const durationSeconds = await readVideoDuration(file);
+
+      const prepResponse = await fetch("/api/generate-video/edit/upload-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationSeconds }),
+      });
+      const prepData = await prepResponse.json().catch(() => null);
+      if (!prepResponse.ok) throw new Error(prepData?.error ?? "Could not start upload.");
+
+      const { id, path, token } = prepData as { id: string; path: string; token: string };
+      const supabase = createBrowserClient();
+      const { error: uploadError } = await supabase.storage.from("videos").uploadToSignedUrl(path, token, file);
+      if (uploadError) throw new Error(uploadError.message || "Upload failed.");
+
+      const confirmResponse = await fetch("/api/generate-video/edit/upload-source", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!confirmResponse.ok) throw new Error("Could not confirm upload.");
+
+      setEditSource({
+        id,
+        mode: "edit",
+        operation: "uploaded",
+        model: "Uploaded video",
+        prompt: null,
+        params: { durationSeconds },
+        output_video_path: path,
+        thumbnail_path: null,
+        status: "completed",
+        error_message: null,
+        credits_quoted: 0,
+        created_at: new Date().toISOString(),
+      });
+      loadEditHistory();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not upload that video.");
+    } finally {
+      setIsUploadingSource(false);
+    }
+  }
+
+  // Backs both the "Edit" and "Recreate" tile actions (Create-tab and
+  // Edit-tab tiles alike): attaches `item` as the video to edit. Only
+  // repopulates the prompt/model when `prefill` is true (Recreate on an
+  // Edit-tab tile, re-running the same instruction) -- `item.model` only
+  // ever matches an edit model for edit-mode items, so this is a no-op for
+  // Create-tab items without needing to branch on item.mode.
+  function attachSourceForEdit(item: GenerationHistoryItem, prefill: boolean) {
+    setActiveTab("edit");
+    setEditSource(item);
+    setEditReferenceImages([]);
+    setEditPrompt(prefill ? (item.prompt ?? "") : "");
+    if (prefill && getEditVideoModel(item.model)) setEditModel(item.model);
+  }
 
   async function handleGenerate() {
     if (!canSubmit) return;
@@ -323,6 +720,43 @@ export function VideoGenerator() {
       .finally(() => setGeneratingState(false));
   }
 
+  function recreateFromHistory(item: GenerationHistoryItem) {
+    setPrompt(item.prompt ?? "");
+    if (getVideoModel(item.model)) {
+      setSelectedModel(item.model);
+      const fallback = defaultSettingsFor(item.model);
+      setModelSettings((prev) => ({
+        ...prev,
+        [item.model]: {
+          durationSeconds: item.params.durationSeconds ?? fallback.durationSeconds,
+          aspectRatio: item.params.aspectRatio ?? fallback.aspectRatio,
+          outputs: 1,
+          soundEnabled: item.params.soundEnabled ?? fallback.soundEnabled,
+        },
+      }));
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function downloadVideo(id: string) {
+    const link = document.createElement("a");
+    link.href = `/api/library/video/${id}?download=1`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function deleteGeneration(id: string) {
+    const response = await fetch(`/api/library/video/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setError("Could not delete video. Try again.");
+      return;
+    }
+    setHistory((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
+    setEditHistory((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
+    setEditSource((prev) => (prev?.id === id ? null : prev));
+  }
+
   const durationOptions = useMemo(() => model.durations.map((d) => ({ value: String(d), label: `${d}s` })), [model]);
   const aspectRatioOptions = useMemo(() => model.aspectRatios.map((r) => ({ value: r, label: r, ratio: r })), [model]);
 
@@ -343,6 +777,32 @@ export function VideoGenerator() {
 
   const galleryItems = [...pendingTiles, ...(history?.filter((item) => item.status !== "queued" && item.status !== "processing") ?? [])];
 
+  const editPendingTiles: GenerationHistoryItem[] = Array.from({ length: editPendingCount }, (_, i) => ({
+    id: `edit-pending-${i}`,
+    mode: "edit",
+    operation: "prompt_edit",
+    model: editModel,
+    prompt: editPrompt || null,
+    params: { aspectRatio: editSource?.params.aspectRatio ?? "9:16" },
+    output_video_path: null,
+    thumbnail_path: null,
+    status: "processing",
+    error_message: null,
+    credits_quoted: 0,
+    created_at: new Date().toISOString(),
+  }));
+
+  // Edit tab's gallery mixes in Create's completed generations too (not
+  // just past edits) -- there's usually no edit history yet the first time
+  // someone opens this tab, and the reference product always shows recent
+  // generations here regardless of which tab produced them.
+  const completedForEditGallery = [
+    ...(history?.filter((item) => item.status !== "queued" && item.status !== "processing") ?? []),
+    ...(editHistory?.filter((item) => item.status !== "queued" && item.status !== "processing") ?? []),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const editGalleryItems = [...editPendingTiles, ...completedForEditGallery];
+
   return (
     <div className="relative">
       <div className="relative isolate">
@@ -357,9 +817,9 @@ export function VideoGenerator() {
               </p>
             </div>
 
-            <div className="mt-6 flex gap-4">
+            <div className="mt-6 flex items-start gap-4">
               {/* Mode rail */}
-              <div className="flex shrink-0 flex-row gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 dark:border-zinc-800 dark:bg-zinc-950 sm:flex-col">
+              <div className="flex shrink-0 flex-row gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 sm:flex-col">
                 {MODE_TABS.map((tab) => {
                   const active = tab.id === activeTab;
                   return (
@@ -368,13 +828,13 @@ export function VideoGenerator() {
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
                       className={cn(
-                        "flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors sm:flex-none sm:px-4",
+                        "flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs transition-colors sm:flex-none sm:px-4",
                         active
-                          ? "bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400"
-                          : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/[0.06]"
+                          ? "bg-white font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:text-white dark:ring-white/[0.06]"
+                          : "font-medium text-slate-400 hover:bg-slate-50 hover:text-slate-500 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-400"
                       )}
                     >
-                      <tab.icon className="h-4.5 w-4.5" />
+                      <tab.icon className="h-4 w-4" />
                       {tab.label}
                     </button>
                   );
@@ -382,56 +842,129 @@ export function VideoGenerator() {
               </div>
 
               <div className="min-w-0 flex-1">
-                {activeTab !== "create" ? (
+                {activeTab === "motion" ? (
                   <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 text-center dark:border-zinc-800 dark:bg-zinc-950/40">
-                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                      {activeTab === "edit" ? "Edit" : "Motion"} is coming in the next update.
-                    </p>
-                    <p className="max-w-xs text-xs text-slate-400">
-                      {activeTab === "edit"
-                        ? "Upscale, reframe, and extend your generated videos."
-                        : "Drive a character image using a reference video's motion."}
-                    </p>
+                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Motion is coming in the next update.</p>
+                    <p className="max-w-xs text-xs text-slate-400">Drive a character image using a reference video&apos;s motion.</p>
                   </div>
-                ) : (
-                  <div className="group relative isolate z-20">
+                ) : activeTab === "edit" ? (
+                  <div className="relative isolate z-20">
                     <div
                       className={cn(
-                        "relative rounded-[28px] border-2 border-transparent shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-                        "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
+                        "flex w-full min-h-[180px] flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
+                        "dark:border-white/[0.08] dark:bg-[#131318]"
                       )}
                     >
-                      <div
-                        aria-hidden="true"
-                        className={cn(
-                          "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300",
-                          "[mask-clip:padding-box,border-box] [mask-composite:exclude] [mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
-                          "[-webkit-mask-clip:padding-box,border-box] [-webkit-mask-composite:xor] [-webkit-mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
-                          "dark:from-blue-500 dark:to-cyan-400"
-                        )}
-                      />
-                      <BorderTrail
-                        size={90}
-                        className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-80 blur-[1px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
-                        transition={{ repeat: Infinity, duration: 7, ease: "linear" }}
-                      />
-
-                      <div
-                        className={cn(
-                          "relative flex w-full flex-col rounded-[26px] bg-white/60 px-6 py-5 backdrop-blur-2xl backdrop-saturate-150 sm:px-9 sm:py-6",
-                          "dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
-                        )}
-                      >
-                        <textarea
-                          value={prompt}
-                          onChange={(event) => setPrompt(event.target.value)}
-                          placeholder="Describe a new video..."
-                          className="min-h-[100px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                      <div className="flex items-start gap-3">
+                        <SourceVideoPicker
+                          source={
+                            editSource
+                              ? { id: editSource.id, thumbnail_path: editSource.thumbnail_path, durationSeconds: editSourceDurationSeconds }
+                              : null
+                          }
+                          onSelect={(id) => {
+                            const picked = completedForEditGallery.find((item) => item.id === id);
+                            if (picked) setEditSource(picked);
+                          }}
+                          onClear={() => setEditSource(null)}
+                          onUploadFile={handleUploadSourceVideo}
+                          isUploading={isUploadingSource}
+                          library={completedForEditGallery
+                            .filter((item) => item.status === "completed" && item.output_video_path)
+                            .map((item) => ({
+                              id: item.id,
+                              thumbnail_path: item.thumbnail_path,
+                              durationSeconds: item.params.durationSeconds ?? null,
+                            }))}
                         />
 
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          <VideoModelPicker value={selectedModel} onChange={setSelectedModel} />
+                        <div className="relative min-h-28 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditPromptExpanded((prev) => !prev)}
+                            aria-pressed={editPromptExpanded}
+                            aria-label={editPromptExpanded ? "Collapse prompt box" : "Expand prompt box"}
+                            className="absolute right-0 top-0 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
+                          >
+                            {editPromptExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                          </button>
+                          <textarea
+                            value={editPrompt}
+                            onChange={(event) => setEditPrompt(event.target.value)}
+                            placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
+                            className={cn(
+                              "w-full resize-none bg-transparent pr-8 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500",
+                              editPromptExpanded ? "h-40" : "h-28"
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <VideoModelPicker value={editModel} onChange={setEditModel} models={EDIT_VIDEO_MODELS} />
+                        <ReferenceImagesPicker
+                          images={editReferenceImages}
+                          onChange={setEditReferenceImages}
+                          max={editModelConfig.maxReferenceImages}
+                        />
+                        <PillDropdown value={String(editOutputs)} options={OUTPUT_OPTIONS} onChange={(value) => setEditOutputs(Number(value))} />
+
+                        <PlasticButton
+                          text="Generate"
+                          loading={editIsGenerating}
+                          disabled={!canSubmitEdit}
+                          onClick={handleGenerateEdit}
+                          trailing={<CreditCost amount={estimatedEditCost} className="text-blue-200/80" />}
+                          className="ml-auto shrink-0 !rounded-full !px-6 !py-2.5 !text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                        />
+                      </div>
+                    </div>
+
+                    {editSource && !editSourceDurationValid && (
+                      <p className="mt-4 text-sm font-medium text-amber-500" role="alert">
+                        {editModelConfig.id} needs a {editModelConfig.minSourceDurationSeconds}-{editModelConfig.maxSourceDurationSeconds}s source
+                        video (this one is {editSourceDurationSeconds}s).
+                      </p>
+                    )}
+                    {editError && (
+                      <p className="mt-4 text-sm font-medium text-red-500" role="alert">
+                        {editError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative isolate z-20">
+                    <div
+                      className={cn(
+                        "flex w-full min-h-[180px] gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
+                        "dark:border-white/[0.08] dark:bg-[#131318]"
+                      )}
+                    >
+                      {/* Left column: prompt textarea + config pills, locked to the bottom */}
+                      <div className="flex min-w-0 flex-grow flex-col justify-between">
+                        <div className="relative min-h-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => setPromptExpanded((prev) => !prev)}
+                            aria-pressed={promptExpanded}
+                            aria-label={promptExpanded ? "Collapse prompt box" : "Expand prompt box"}
+                            className="absolute right-0 top-0 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
+                          >
+                            {promptExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                          </button>
+
+                          <textarea
+                            value={prompt}
+                            onChange={(event) => setPrompt(event.target.value)}
+                            placeholder="Describe a new video..."
+                            className="h-full w-full resize-none bg-transparent pr-8 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                          />
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <VideoModelPicker value={selectedModel} onChange={setSelectedModel} models={VIDEO_MODELS} popularIds={POPULAR_VIDEO_MODEL_IDS} />
                           <PillDropdown
+                            icon={Clock}
                             value={String(durationSeconds)}
                             options={durationOptions}
                             onChange={(value) => updateSettings({ durationSeconds: Number(value) })}
@@ -444,13 +977,13 @@ export function VideoGenerator() {
                               aria-pressed={soundEnabled}
                               aria-label="Toggle sound"
                               className={cn(
-                                "flex shrink-0 items-center justify-center rounded-xl border p-2 shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+                                "flex shrink-0 items-center justify-center rounded-xl border p-1.5 shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
                                 "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
                                 "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
                                 soundEnabled && "border-blue-400 bg-blue-50/60 text-blue-600 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
                               )}
                             >
-                              {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                              {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
                             </button>
                           )}
                           <PillDropdown
@@ -458,6 +991,12 @@ export function VideoGenerator() {
                             options={OUTPUT_OPTIONS}
                             onChange={(value) => updateSettings({ outputs: Number(value) })}
                           />
+                        </div>
+                      </div>
+
+                      {/* Right column: frame pickers + Generate button, locked to the bottom */}
+                      <div className="flex shrink-0 flex-col items-end justify-between">
+                        <div className="flex items-start gap-2">
                           {model.supportsImageToVideo && (
                             <FrameImagePicker
                               startFrame={startFrame}
@@ -471,16 +1010,16 @@ export function VideoGenerator() {
                               supportsEndFrame={model.supportsEndFrame}
                             />
                           )}
-
-                          <PlasticButton
-                            text="Generate"
-                            loading={isGenerating}
-                            disabled={!canSubmit}
-                            onClick={handleGenerate}
-                            trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                            className="ml-auto shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
-                          />
                         </div>
+
+                        <PlasticButton
+                          text="Generate"
+                          loading={isGenerating}
+                          disabled={!canSubmit}
+                          onClick={handleGenerate}
+                          trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
+                          className="mt-3 shrink-0 !rounded-full !px-6 !py-2.5 !text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                        />
                       </div>
                     </div>
 
@@ -493,18 +1032,45 @@ export function VideoGenerator() {
                 )}
               </div>
             </div>
-
-            {activeTab === "create" && galleryItems.length > 0 && (
-              <div className="mt-10">
-                <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {galleryItems.map((item) => (
-                    <VideoTile key={item.id} item={item} onClick={() => setPreviewItem(item)} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+
+          {activeTab === "create" && galleryItems.length > 0 && (
+            <div className="mt-10 w-full px-4 sm:px-8">
+              <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {galleryItems.map((item) => (
+                  <VideoTile
+                    key={item.id}
+                    item={item}
+                    onPreview={() => setPreviewItem(item)}
+                    onRecreate={() => recreateFromHistory(item)}
+                    onEdit={() => attachSourceForEdit(item, false)}
+                    onDownload={() => downloadVideo(item.id)}
+                    onDelete={() => setDeleteTargetId(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "edit" && editGalleryItems.length > 0 && (
+            <div className="mt-10 w-full px-4 sm:px-8">
+              <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {editGalleryItems.map((item) => (
+                  <VideoTile
+                    key={item.id}
+                    item={item}
+                    onPreview={() => setPreviewItem(item)}
+                    onRecreate={() => attachSourceForEdit(item, true)}
+                    onEdit={() => attachSourceForEdit(item, false)}
+                    onDownload={() => downloadVideo(item.id)}
+                    onDelete={() => setDeleteTargetId(item.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -537,6 +1103,18 @@ export function VideoGenerator() {
       </AnimatePresence>
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
+
+      <ConfirmDialog
+        isOpen={deleteTargetId !== null}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={() => {
+          if (deleteTargetId) void deleteGeneration(deleteTargetId);
+        }}
+        title="Delete this video?"
+        description="This permanently deletes the video and can't be undone."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

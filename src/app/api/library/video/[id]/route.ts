@@ -13,6 +13,8 @@ import { withApiLogging } from "@/lib/server/api-logging";
 // only client that can read a private bucket) and redirects to it.
 const SIGNED_URL_TTL_SECONDS = 10 * 60;
 
+const STORAGE_BUCKET = "videos";
+
 async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,8 +46,11 @@ async function handleGET(
     return NextResponse.json({ error: "That video isn't ready yet" }, { status: 400 });
   }
 
+  const wantsDownload = request.nextUrl.searchParams.get("download") === "1";
   const admin = createAdminClient();
-  const { data: signed, error } = await admin.storage.from("videos").createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  const { data: signed, error } = await admin.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS, wantsDownload ? { download: `clypa-${id}.mp4` } : undefined);
 
   if (error || !signed) {
     console.error("[library/video] Failed to sign storage URL:", error);
@@ -55,4 +60,51 @@ async function handleGET(
   return NextResponse.redirect(signed.signedUrl);
 }
 
+// Deletes both the DB row and its Storage objects. Ownership is checked
+// explicitly (not just left to RLS) so the 404 path is unambiguous, same
+// belt-and-suspenders style as /api/library/image/[id]/[index]'s DELETE.
+async function handleDELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const { data } = await supabase
+    .from("video_generations")
+    .select("output_video_path, thumbnail_path")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!data) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const { error: deleteError } = await supabase.from("video_generations").delete().eq("id", id).eq("user_id", user.id);
+  if (deleteError) {
+    console.error("[library/video] Failed to delete row:", deleteError);
+    return NextResponse.json({ error: "Could not delete video" }, { status: 500 });
+  }
+
+  const paths = [data.output_video_path, data.thumbnail_path].filter((p): p is string => Boolean(p));
+  if (paths.length > 0) {
+    const admin = createAdminClient();
+    const { error: storageError } = await admin.storage.from(STORAGE_BUCKET).remove(paths);
+    // The DB row is already gone -- a leftover Storage object is an orphan
+    // to clean up later, not a reason to report the delete as failed.
+    if (storageError) console.error("[library/video] Failed to remove storage objects (non-fatal):", storageError);
+  }
+
+  return NextResponse.json({ success: true });
+}
+
 export const GET = withApiLogging("/api/library/video/[id]", handleGET);
+export const DELETE = withApiLogging("/api/library/video/[id]", handleDELETE);

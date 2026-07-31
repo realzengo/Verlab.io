@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, History, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, History, Sparkles, Trash2 } from "lucide-react";
 import { deleteBendHistoryItem, fetchBendHistory } from "@/lib/api/niche-bend";
 import type { NicheBendHistoryItem, NicheBendJobStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ChannelAvatar } from "./ChannelAvatar";
 import { SopPreviewModal } from "./SopPreviewModal";
 
@@ -101,8 +102,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
   const [items, setItems] = useState<NicheBendHistoryItem[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [previewJobId, setPreviewJobId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,24 +124,17 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
 
   const visible = expanded ? items : items.slice(0, COLLAPSED_COUNT);
 
-  const cancelDelete = () => {
-    setPendingDeleteId(null);
-    setDeleteErrorId(null);
-  };
-
   const confirmDelete = async (jobId: string) => {
-    setDeletingId(jobId);
-    setDeleteErrorId(null);
+    setDeleteError(null);
     try {
       await deleteBendHistoryItem(jobId);
       setItems((prev) => (prev ? prev.filter((entry) => entry.jobId !== jobId) : prev));
-      setPendingDeleteId(null);
     } catch {
-      setDeleteErrorId(jobId);
-    } finally {
-      setDeletingId(null);
+      setDeleteError("Couldn't delete. Try again.");
     }
   };
+
+  const pendingDeleteItem = items.find((entry) => entry.jobId === pendingDeleteId) ?? null;
 
   return (
     <div className="w-full text-left">
@@ -155,13 +148,12 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
         </span>
       </div>
 
+      {deleteError && <p className="mb-3 text-[11px] font-medium text-danger">{deleteError}</p>}
+
       <div className="overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card">
         <ol className="divide-y divide-hairline">
           {visible.map((item) => {
             const finalNiche = item.chosenBend?.nicheName;
-            const isPendingDelete = pendingDeleteId === item.jobId;
-            const isDeleting = deletingId === item.jobId;
-            const hasDeleteError = deleteErrorId === item.jobId;
 
             return (
               <li key={item.jobId} className="group relative">
@@ -176,12 +168,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                   className="absolute inset-0 z-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                 />
 
-                <div
-                  className={cn(
-                    "pointer-events-none relative z-[1] flex items-center gap-3.5 px-5 py-3.5 transition-colors group-hover:bg-app",
-                    (isPendingDelete || hasDeleteError) && "bg-danger-tint/60 group-hover:bg-danger-tint/60"
-                  )}
-                >
+                <div className="pointer-events-none relative z-[1] flex items-center gap-3.5 px-5 py-3.5 transition-colors group-hover:bg-app">
                   <ChannelAvatar
                     name={item.channelName ?? item.sourceUrl ?? "?"}
                     avatarUrl={item.avatarUrl ?? undefined}
@@ -204,47 +191,20 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                     )}
                   </div>
 
-                  {!isPendingDelete && (
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <StatusBadge status={item.status} />
-                      <span className="text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
-                    </div>
-                  )}
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <StatusBadge status={item.status} />
+                    <span className="text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
+                  </div>
 
-                  {isPendingDelete ? (
-                    <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-2">
-                      {hasDeleteError && <span className="text-[11px] font-medium text-danger">Couldn&rsquo;t delete</span>}
-                      <button
-                        type="button"
-                        onClick={cancelDelete}
-                        disabled={isDeleting}
-                        className="rounded-full border border-hairline px-3 py-1 text-[11px] font-semibold text-body transition-colors hover:bg-app disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => confirmDelete(item.jobId)}
-                        disabled={isDeleting}
-                        className="flex items-center gap-1.5 rounded-full bg-danger px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-danger/90 disabled:opacity-60"
-                      >
-                        {isDeleting && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {isDeleting ? "Deleting…" : "Delete"}
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteId(item.jobId)}
-                        aria-label="Delete this bend"
-                        className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle opacity-0 transition-colors hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-subtle opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(item.jobId)}
+                    aria-label="Delete this bend"
+                    className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle opacity-0 transition-colors hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-subtle opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
                 </div>
               </li>
             );
@@ -264,6 +224,18 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
       </div>
 
       <SopPreviewModal jobId={previewJobId} onClose={() => setPreviewJobId(null)} />
+
+      <ConfirmDialog
+        isOpen={pendingDeleteId !== null}
+        onClose={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          if (pendingDeleteId) void confirmDelete(pendingDeleteId);
+        }}
+        title={`Delete "${pendingDeleteItem?.channelName ?? pendingDeleteItem?.sourceUrl ?? "this bend"}"?`}
+        description="This permanently deletes the bend and can't be undone."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

@@ -185,6 +185,56 @@ export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
   },
 ];
 
+// ── Edit tab: prompt-based video editing ────────────────────────────────
+// A model-choice operation (like Create's text_to_video/image_to_video),
+// not a flat single-purpose op like upscale/reframe/extend above -- this is
+// the competitor-parity "describe how you want to edit this video" flow:
+// takes an existing generated video as @Video1 plus up to 4 reference
+// images/elements addressed as @Image1.."@Image4 in the prompt, and
+// re-renders it with the requested change while keeping the source's
+// motion/camera. Slugs, param names (video_url/prompt/image_urls), the
+// duration constraint (source clip must be 3-10.05s), and pricing are from
+// fal's public model docs as of this writing (fal.ai/models/fal-ai/
+// kling-video/o1/{,standard/}video-to-video/edit) -- confirm live before
+// the first real call, same discipline as every other falSlug in this file.
+export interface PromptEditModelConfig {
+  id: string;
+  falSlug: string;
+  description: string;
+  /** fal rejects source videos shorter/longer than this -- enforced client + server side before submit. */
+  minSourceDurationSeconds: number;
+  maxSourceDurationSeconds: number;
+  maxReferenceImages: number;
+  pricePerSecondUsd: number;
+}
+
+export const EDIT_VIDEO_MODELS: PromptEditModelConfig[] = [
+  {
+    id: "Kling O1 Edit",
+    falSlug: "fal-ai/kling-video/o1/video-to-video/edit",
+    description: "Best quality — swap subjects, restyle scenes, keep the original motion",
+    minSourceDurationSeconds: 3,
+    maxSourceDurationSeconds: 10.05,
+    maxReferenceImages: 4,
+    pricePerSecondUsd: 0.168,
+  },
+  {
+    id: "Kling O1 Edit (Standard)",
+    falSlug: "fal-ai/kling-video/o1/standard/video-to-video/edit",
+    description: "Faster and cheaper — same editing flow, lighter tier",
+    minSourceDurationSeconds: 3,
+    maxSourceDurationSeconds: 10.05,
+    maxReferenceImages: 4,
+    pricePerSecondUsd: 0.126,
+  },
+];
+
+export const DEFAULT_EDIT_VIDEO_MODEL = "Kling O1 Edit";
+
+export function getEditVideoModel(id: string): PromptEditModelConfig | undefined {
+  return EDIT_VIDEO_MODELS.find((model) => model.id === id);
+}
+
 // ── Motion tab ───────────────────────────────────────────────────────────
 export interface MotionModelConfig {
   id: string;

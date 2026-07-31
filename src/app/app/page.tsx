@@ -116,7 +116,7 @@ export default async function AppHome() {
           ))}
         </div>
         <div className="-m-6 overflow-x-auto p-6">
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,480px)] lg:justify-center lg:gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(3,410px)] lg:justify-center lg:gap-5">
             {TOOLS.map((tool) => (
               <ToolGridCard
                 key={tool.title}

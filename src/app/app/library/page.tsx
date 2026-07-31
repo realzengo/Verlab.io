@@ -11,7 +11,6 @@ import {
   Film,
   Filter,
   ImageIcon,
-  Loader2,
   type LucideIcon,
   MoreHorizontal,
   Sparkles,
@@ -21,6 +20,7 @@ import {
 import { setBendSaved } from "@/lib/api/niche-bend";
 import type { LibraryAsset, LibraryAssetType } from "@/lib/types";
 import { cn, formatBytes, formatRelativeTime } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type TabValue = "all" | "image" | "video" | "sop";
 
@@ -109,14 +109,12 @@ export default function LibraryPage() {
   const [category, setCategory] = useState("all");
   const [assets, setAssets] = useState<LibraryAsset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [previewAsset, setPreviewAsset] = useState<LibraryAsset | null>(null);
 
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -155,8 +153,6 @@ export default function LibraryPage() {
       }
       if (openMenuId && actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
         setOpenMenuId(null);
-        setPendingDeleteId(null);
-        setDeleteError(null);
       }
     }
     document.addEventListener("mousedown", onPointerDown);
@@ -174,8 +170,7 @@ export default function LibraryPage() {
   }, [assets, category]);
 
   async function handleDeleteAsset(asset: LibraryAsset) {
-    setBusyId(asset.id);
-    setDeleteError(null);
+    setError(null);
     try {
       if (asset.type === "sop") {
         const jobId = asset.id.replace(/^sop-/, "");
@@ -192,13 +187,9 @@ export default function LibraryPage() {
       setAssets((prev) => (prev ? prev.filter((item) => item.id !== asset.id) : prev));
       setPreviewAsset((prev) => (prev?.id === asset.id ? null : prev));
     } catch {
-      setDeleteError(asset.id);
-      return;
-    } finally {
-      setBusyId(null);
+      setError("Could not delete. Try again.");
     }
     setOpenMenuId(null);
-    setPendingDeleteId(null);
   }
 
   function handleDownload(asset: LibraryAsset) {
@@ -411,65 +402,36 @@ export default function LibraryPage() {
                             ref={actionMenuRef}
                             className="absolute top-full right-0 z-20 mt-1 w-44 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover"
                           >
-                            {pendingDeleteId === asset.id ? (
-                              <div className="flex flex-col gap-1.5 p-1.5">
-                                <p className="px-1 text-xs font-medium text-body/70">
-                                  {deleteError === asset.id ? "Couldn’t delete. Try again?" : "Delete permanently?"}
-                                </p>
-                                <div className="flex gap-1.5">
-                                  <button
-                                    type="button"
-                                    disabled={busyId === asset.id}
-                                    onClick={() => {
-                                      setPendingDeleteId(null);
-                                      setDeleteError(null);
-                                    }}
-                                    className="flex-1 rounded-lg border border-hairline px-2 py-1.5 text-xs font-semibold text-body hover:bg-accent/60 disabled:opacity-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={busyId === asset.id}
-                                    onClick={() => handleDeleteAsset(asset)}
-                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60"
-                                  >
-                                    {busyId === asset.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
+                            {asset.type === "sop" ? (
+                              <Link
+                                href={asset.fileUrl ?? "#"}
+                                onClick={() => setOpenMenuId(null)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Open
+                              </Link>
                             ) : (
-                              <>
-                                {asset.type === "sop" ? (
-                                  <Link
-                                    href={asset.fileUrl ?? "#"}
-                                    onClick={() => setOpenMenuId(null)}
-                                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
-                                  >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Open
-                                  </Link>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownload(asset)}
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
-                                  >
-                                    <Download className="h-3.5 w-3.5" />
-                                    Download
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingDeleteId(asset.id)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  Delete
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(asset)}
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Download
+                              </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setPendingDeleteId(asset.id);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </button>
                           </div>
                         )}
                       </div>
@@ -498,8 +460,6 @@ export default function LibraryPage() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md dark:bg-black/80"
             onClick={() => {
               setPreviewAsset(null);
-              setPendingDeleteId(null);
-              setDeleteError(null);
             }}
           >
             <motion.div
@@ -514,8 +474,6 @@ export default function LibraryPage() {
                 type="button"
                 onClick={() => {
                   setPreviewAsset(null);
-                  setPendingDeleteId(null);
-                  setDeleteError(null);
                 }}
                 aria-label="Close"
                 className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white"
@@ -539,65 +497,50 @@ export default function LibraryPage() {
                   </p>
                 </div>
 
-                {pendingDeleteId === previewAsset.id ? (
-                  <div className="flex items-center gap-2">
-                    <p className="flex-1 text-xs font-medium text-slate-500 dark:text-zinc-400">
-                      {deleteError === previewAsset.id ? "Couldn’t delete. Try again?" : "Delete this permanently?"}
-                    </p>
-                    <button
-                      type="button"
-                      disabled={busyId === previewAsset.id}
-                      onClick={() => {
-                        setPendingDeleteId(null);
-                        setDeleteError(null);
-                      }}
-                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-white/15 dark:text-white/90 dark:hover:bg-white/[0.08]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busyId === previewAsset.id}
-                      onClick={() => handleDeleteAsset(previewAsset)}
-                      className="flex items-center gap-1.5 rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60"
-                    >
-                      {busyId === previewAsset.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      Delete
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPendingDeleteId(previewAsset.id)}
-                      aria-label="Delete"
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 active:scale-[0.98] dark:border-white/15 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(previewAsset)}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      View
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(previewAsset.id)}
+                    aria-label="Delete"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 active:scale-[0.98] dark:border-white/15 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(previewAsset)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={pendingDeleteId !== null}
+        onClose={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          const target = assets?.find((asset) => asset.id === pendingDeleteId) ?? previewAsset;
+          if (target) void handleDeleteAsset(target);
+        }}
+        title={`Delete "${(assets?.find((asset) => asset.id === pendingDeleteId) ?? previewAsset)?.title ?? "this asset"}"?`}
+        description="This permanently deletes the asset and can't be undone."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }

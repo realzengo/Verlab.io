@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronLeft, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
@@ -164,9 +164,9 @@ export function Sidebar({
     <aside
       ref={asideRef}
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-56 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-72 flex-col border-r border-black/10 bg-white shadow-[1px_0_0_rgba(15,23,42,0.03),8px_0_30px_-12px_rgba(15,23,42,0.10)] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:shadow-none dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[76px]" : "lg:w-56"
+        collapsed ? "lg:w-[76px]" : "lg:w-72"
       )}
     >
       <div
@@ -188,7 +188,7 @@ export function Sidebar({
           type="button"
           onClick={() => setCollapsed((v) => !v)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="hidden items-center outline-none focus-visible:outline-none lg:flex"
+          className="group hidden items-center outline-none focus-visible:outline-none lg:flex"
         >
           <span
             className={cn(
@@ -204,9 +204,17 @@ export function Sidebar({
               priority
               className={cn(
                 "absolute left-0 top-0 h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
-                collapsed ? "opacity-100" : "opacity-0"
+                collapsed ? "opacity-100 group-hover:opacity-0" : "opacity-0"
               )}
             />
+            {collapsed && (
+              <span
+                aria-hidden="true"
+                className="absolute left-0 top-0 flex h-10 w-10 scale-90 items-center justify-center rounded-xl border border-hairline bg-surface opacity-0 shadow-sm transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
+              >
+                <ChevronRight className="h-4 w-4 text-subtle transition-colors duration-200 ease-out group-hover:text-heading" />
+              </span>
+            )}
             <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
@@ -287,17 +295,17 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  "group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-base font-medium outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-accent-line bg-accent font-semibold text-heading"
-                    : "text-body hover:bg-app hover:text-heading"
+                    : "text-subtle hover:bg-app hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
                 <item.icon
                   className={cn(
-                    "h-4.5 w-4.5 shrink-0 transition-colors",
+                    "h-5 w-5 shrink-0 transition-colors",
                     active ? "text-primary" : "text-subtle group-hover:text-primary"
                   )}
                 />
@@ -329,18 +337,18 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "group flex w-full cursor-pointer items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  "group flex w-full cursor-pointer items-center justify-between rounded-lg border border-transparent px-3 py-2.5 text-base font-medium transition-all duration-150",
                   collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"
-                    : "text-body hover:bg-app hover:text-heading"
+                    : "text-subtle hover:bg-app hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
                 <span className={cn("flex items-center gap-3", collapsed && "lg:gap-0")}>
                   <item.icon
                     className={cn(
-                      "h-4.5 w-4.5 shrink-0 transition-colors",
+                      "h-5 w-5 shrink-0 transition-colors",
                       groupActive ? "text-primary" : "text-subtle group-hover:text-primary"
                     )}
                   />
