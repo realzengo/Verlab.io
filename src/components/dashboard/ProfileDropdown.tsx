@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { ArrowUpCircle, ChevronDown, CircleDollarSign, LogOut, Settings } from "lucide-react";
+import { ArrowUpCircle, CircleDollarSign, LogOut, Moon, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
+import { Switch } from "@/components/ui/Switch";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 function displayName(user: User | null): string {
   const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
@@ -29,6 +31,8 @@ export function ProfileDropdown() {
   const [user, setUser] = useState<User | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const name = displayName(user);
   const email = user?.email ?? "";
@@ -70,10 +74,9 @@ export function ProfileDropdown() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Account menu"
-        className="flex items-center gap-2 rounded-full border border-hairline bg-surface p-1 pl-1 pr-1 sm:pr-3"
+        className="flex items-center rounded-full border border-hairline bg-surface p-1"
       >
         <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-6 w-6 sm:h-7 sm:w-7" />
-        <ChevronDown className="h-3.5 w-3.5 text-body" />
       </button>
 
       {isOpen && (
@@ -99,6 +102,21 @@ export function ProfileDropdown() {
                 {label}
               </Link>
             ))}
+          </div>
+
+          <div className="border-t border-hairline">
+            <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-heading text-sm font-medium">
+              <span className="flex items-center gap-3">
+                <Moon className="w-4 h-4" />
+                Dark mode
+              </span>
+              <Switch
+                checked={isDark}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                size="sm"
+              />
+            </div>
           </div>
 
           <div className="border-t border-hairline">

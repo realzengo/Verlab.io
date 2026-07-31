@@ -5,7 +5,6 @@ import { Menu } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
@@ -55,7 +54,6 @@ export function TopBar({
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <CreditDropdown />
-        <ThemeToggle className="h-7 w-7 sm:h-9 sm:w-9" />
         <ProfileDropdown />
       </div>
     </div>
