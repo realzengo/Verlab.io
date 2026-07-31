@@ -40,7 +40,7 @@ const WIDGETS = {
   },
   scriptCard: { resourceUri: "ui://verlab/script-card-v4.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
   imageGalleryCard: {
-    resourceUri: "ui://verlab/image-gallery-card-v4.html",
+    resourceUri: "ui://verlab/image-gallery-card-v5.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },

@@ -1,11 +1,46 @@
-.v-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+/* No outer drop shadow for this widget: on some hosts a box-shadow that
+   extends past the iframe's rounded corners rendered as a squared-off
+   glitch at each corner instead of a soft edge. */
+.v-card {
+  box-shadow: none;
+}
+
+.v-image-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.v-image-frame {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.v-image-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  width: auto;
+  border-radius: var(--v-radius-sm);
+  background: var(--v-fill);
+}
+
+.v-image-actions {
+  display: flex;
+  justify-content: center;
   gap: 8px;
 }
 
-.v-gallery img {
-  width: 100%;
-  border-radius: var(--v-radius-sm);
-  display: block;
+.v-btn-ghost {
+  background: var(--v-fill);
+  color: var(--v-heading);
+  box-shadow: none;
+}
+
+.v-btn-ghost:hover {
+  background: var(--v-fill-hover);
+  box-shadow: none;
 }
