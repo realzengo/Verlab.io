@@ -12,6 +12,7 @@ const PREVIEW_TONE_CLASSES: Record<ToolTone, string> = {
   green: "bg-[radial-gradient(circle_at_30%_20%,rgba(16,185,129,0.16),transparent_60%)] bg-accent",
   rose: "bg-[radial-gradient(circle_at_30%_20%,rgba(244,63,94,0.16),transparent_60%)] bg-accent",
   sky: "bg-[radial-gradient(circle_at_30%_20%,rgba(14,165,233,0.16),transparent_60%)] bg-accent",
+  orange: "bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.16),transparent_60%)] bg-accent",
 };
 
 interface PromoCardProps {

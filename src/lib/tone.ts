@@ -7,4 +7,5 @@ export const TOOL_TONE_CLASSES: Record<ToolTone, string> = {
   green: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
   rose: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300",
   sky: "bg-sky-500/10 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
+  orange: "bg-orange-500/10 text-orange-600 dark:bg-orange-400/15 dark:text-orange-300",
 };

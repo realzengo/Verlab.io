@@ -4,6 +4,8 @@
 // invoices available) -- each entry's derivation is commented so the numbers
 // stay auditable and easy to correct as real invoices come in.
 
+import { getVideoModel } from "./video-models";
+
 // 1 credit = $0.015 (the $15 / 1000-credit Creator plan rate).
 export const CREDIT_VALUE_USD = 0.015;
 export const MIN_MARGIN = 0.7;
@@ -103,6 +105,22 @@ export const TOOL_CREDIT_COSTS = {
     // Client-side FFmpeg WASM compression -- zero server compute. chargeUser
     // special-cases 0 and skips the DB entirely (see src/lib/server/credits.ts).
     compressWasm: 0,
+  },
+  // Video Generator's Edit tab -- flat per-operation costs (not priced per
+  // model like Create, since each operation maps to exactly one fal app).
+  // ESTIMATED, same disclosure as everything else in this file -- correct
+  // against real fal invoices once the exact fal apps in video-models.ts's
+  // VIDEO_EDIT_OPERATIONS are live-verified.
+  videoEdit: {
+    upscale: creditsForCost(0.15),
+    reframe: creditsForCost(0.12),
+    // "Extend" reuses a Create-tab i2v model rather than a dedicated fal
+    // app (see video-models.ts) -- priced the same way Create itself is
+    // (getVideoGenerationCost below), so no flat entry here.
+  },
+  // Video Generator's Motion tab -- same estimation caveat as videoEdit.
+  videoMotion: {
+    transfer: creditsForCost(0.2),
   },
 } as const;
 
@@ -226,6 +244,24 @@ export function getImageGenerationCost(input: {
   }
 
   return perImageCredits * outputs;
+}
+
+// ── Video generation (Create tab) ───────────────────────────────────────
+// Cost is genuinely per-model (fal bills each video model at its own real
+// $/second rate -- see VIDEO_MODELS in video-models.ts), so this reads the
+// same pricePerSecondUsd table rather than duplicating it here. Deliberately
+// NOT imported the other way around (video-models.ts stays pricing-agnostic,
+// same separation cloudflare-image.ts keeps from this file).
+
+export function getVideoGenerationCost(input: { model: string; durationSeconds: number; outputs: number }): number {
+  const config = getVideoModel(input.model);
+  if (!config) {
+    throw new Error(`No pricing configured for video model "${input.model}"`);
+  }
+
+  const outputs = Math.max(1, input.outputs);
+  const perVideoCredits = creditsForCost(config.pricePerSecondUsd * input.durationSeconds);
+  return perVideoCredits * outputs;
 }
 
 // ── Subscription plans ──────────────────────────────────────────────────

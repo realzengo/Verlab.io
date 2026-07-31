@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Captions, Download, Image as ImageIcon, PenLine } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, PenLine } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
@@ -20,6 +20,13 @@ const TOOLS: {
     href: "/app/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
+  },
+  {
+    title: "Video Generator",
+    description: "Create, edit, and animate watermark-free AI videos from a text prompt or image.",
+    href: "/app/video-generator",
+    icon: Clapperboard,
+    tone: "cat-4",
   },
   {
     title: "Scriptwriter",
@@ -46,7 +53,7 @@ const TOOLS: {
 
 export default function ToolsPage() {
   return (
-    <div className="flex flex-col gap-2 pt-2">
+    <div className="flex flex-col gap-2 pt-2 lg:mx-auto lg:max-w-[1488px]">
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
           Tools
@@ -56,19 +63,23 @@ export default function ToolsPage() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {TOOLS.map((tool) => (
-          <ToolGridCard
-            key={tool.title}
-            title={tool.title}
-            description={tool.description}
-            href={tool.href}
-            icon={tool.icon}
-            tone={tool.tone}
-            badge={tool.badge}
-            thumbnail={tool.thumbnail}
-          />
-        ))}
+      <div className="mt-6">
+        <div className="-m-6 overflow-x-auto p-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,480px)] lg:justify-start lg:gap-6">
+            {TOOLS.map((tool) => (
+              <ToolGridCard
+                key={tool.title}
+                title={tool.title}
+                description={tool.description}
+                href={tool.href}
+                icon={tool.icon}
+                tone={tool.tone}
+                badge={tool.badge}
+                thumbnail={tool.thumbnail}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Compass as CompassIcon, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
+import { Captions, Clapperboard, Compass as CompassIcon, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,6 +66,13 @@ const TOOLS: {
     tone: "cat-3",
   },
   {
+    title: "Video Generator",
+    description: "Create, edit, and animate watermark-free AI videos from a text prompt or image.",
+    href: "/app/video-generator",
+    icon: Clapperboard,
+    tone: "cat-4",
+  },
+  {
     title: "Downloader",
     description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
     href: "/app/downloads",
@@ -108,20 +115,22 @@ export default async function AppHome() {
             </Link>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {TOOLS.map((tool) => (
-            <ToolGridCard
-              key={tool.title}
-              title={tool.title}
-              description={tool.description}
-              href={tool.href}
-              icon={tool.icon}
-              tone={tool.tone}
-              badge={tool.badge}
-              comingSoon={tool.comingSoon}
-              thumbnail={tool.thumbnail}
-            />
-          ))}
+        <div className="-m-6 overflow-x-auto p-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,480px)] lg:justify-center lg:gap-6">
+            {TOOLS.map((tool) => (
+              <ToolGridCard
+                key={tool.title}
+                title={tool.title}
+                description={tool.description}
+                href={tool.href}
+                icon={tool.icon}
+                tone={tool.tone}
+                badge={tool.badge}
+                comingSoon={tool.comingSoon}
+                thumbnail={tool.thumbnail}
+              />
+            ))}
+          </div>
         </div>
       </section>
     </div>

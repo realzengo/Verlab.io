@@ -30,6 +30,7 @@ export function TopBar({
     pathname.startsWith("/app/transcripts") ||
     pathname.startsWith("/app/mcp") ||
     pathname.startsWith("/app/image-generator") ||
+    pathname.startsWith("/app/video-generator") ||
     pathname.startsWith("/app/downloads") ||
     pathname.startsWith("/app/tools") ||
     pathname.startsWith("/app/settings");

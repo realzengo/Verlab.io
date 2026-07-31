@@ -12,6 +12,9 @@ export const TONE_HEX: Record<ToolTone, { light: string; dark: string }> = {
   violet: { light: "#8b5cf6", dark: "#8b5cf6" },
   rose: { light: "#f43f5e", dark: "#f43f5e" },
   sky: { light: "#0ea5e9", dark: "#0284c7" },
+  // 7th categorical slot -- added for Video Generator. Kept clearly distinct
+  // from amber (more yellow/gold) despite both sitting in the warm range.
+  orange: { light: "#f97316", dark: "#ea580c" },
 };
 
 export const STATUS_HEX = {

@@ -142,13 +142,17 @@ function getMimeType(dataUrl: string): string {
   return dataUrl.match(/^data:([^;]+);/)?.[1] ?? "unknown";
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function getDataUrlSize(dataUrl: string): string {
   const base64 = dataUrl.split(",")[1] ?? "";
   const padding = base64.match(/=+$/)?.[0].length ?? 0;
   const bytes = (base64.length * 3) / 4 - padding;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return formatBytes(bytes);
 }
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -352,9 +356,10 @@ export function ImageGenerator() {
     setHistoryLoading(true);
     setHistoryError(null);
     return fetch("/api/generate-image")
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error);
+        return data;
       })
       .then((data) => {
         const items: GenerationHistoryItem[] = data.generations ?? [];
@@ -371,7 +376,7 @@ export function ImageGenerator() {
           pollGenerationStatus(stillGenerating.id);
         }
       })
-      .catch(() => setHistoryError("Couldn't load your generation history."))
+      .catch((err) => setHistoryError(err instanceof Error && err.message ? err.message : "Couldn't load your generation history."))
       .finally(() => setHistoryLoading(false));
   }
 
@@ -530,7 +535,7 @@ export function ImageGenerator() {
           inside this stacking context and can no longer paint (and blur)
           above the sidebar, which sits in the page's root stacking context. */}
       <div className="relative isolate">
-      <div className="relative w-full px-6 pt-8 pb-20 sm:pt-12">
+      <div className="relative w-full px-0 pt-8 pb-20 sm:px-6 sm:pt-12">
         <div className="mx-auto w-full max-w-4xl md:w-fit md:max-w-full">
         <div>
           <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
@@ -567,7 +572,7 @@ export function ImageGenerator() {
           </div>
 
           {activeTab === "generate" ? (
-            <div className="mt-6 flex flex-col gap-4 pb-28">
+            <div className="mt-6 flex flex-col gap-4 pb-36">
               <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">PROMPT</h2>
                 <textarea
@@ -585,7 +590,7 @@ export function ImageGenerator() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-1 items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
                       <Upload className="h-4 w-4 text-slate-500" />
@@ -594,10 +599,9 @@ export function ImageGenerator() {
                       <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
                         {refImage ? refImage.name : "Upload reference image"}
                       </span>
-                      <span className="block text-xs text-slate-400">PNG, JPG, WebP, or GIF</span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-zinc-900">
-                      {refImage ? "1/1" : "0/1"}
+                      <span className="block truncate text-xs text-slate-400">
+                        {refImage ? formatBytes(refImage.size) : "PNG, JPG, WebP, or GIF"}
+                      </span>
                     </span>
                   </button>
                   {refImage && (
@@ -664,6 +668,31 @@ export function ImageGenerator() {
                 </div>
               </section>
 
+              {QUALITY_LADDER_MODELS.has(selectedModel) && (
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+                  <h2 className="text-xs font-semibold tracking-wide text-slate-500">QUALITY</h2>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {QUALITY_OPTIONS.map((option) => {
+                      const selected = option.value === quality;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setQuality(option.value)}
+                          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                            selected
+                              ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
+                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
               <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">ASPECT RATIO</h2>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -713,6 +742,52 @@ export function ImageGenerator() {
                 </div>
               </section>
 
+              {RESOLUTION_MODELS.has(selectedModel) && (
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+                  <h2 className="text-xs font-semibold tracking-wide text-slate-500">RESOLUTION</h2>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {RESOLUTIONS.map((value) => {
+                      const selected = value === resolution;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setResolution(value)}
+                          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                            selected
+                              ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
+                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                          }`}
+                        >
+                          {value}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-900/[0.04] dark:bg-zinc-800 dark:ring-white/[0.06]">
+                        <Search className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white">Web Search</p>
+                        <p className="text-xs text-slate-500">Coming soon</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      aria-disabled="true"
+                      aria-label="Web Search (coming soon)"
+                      className="relative h-5 w-9 shrink-0 cursor-not-allowed rounded-full bg-slate-200 opacity-60 dark:bg-zinc-700"
+                    >
+                      <span className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm dark:bg-zinc-400" />
+                    </button>
+                  </div>
+                </section>
+              )}
+
               {error && (
                 <p className="text-sm font-medium text-red-500" role="alert">
                   {error}
@@ -722,13 +797,17 @@ export function ImageGenerator() {
               {generatedImages.length > 0 && (
                 <div className={`grid gap-3 ${outputs === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                   {generatedImages.map((src, index) => (
-                    <div
+                    <button
                       key={index}
+                      type="button"
+                      onClick={() =>
+                        setPreviewItem({ src, prompt, model: selectedModel, createdAt: new Date().toISOString() })
+                      }
                       className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- generated images arrive as data URLs, not static assets */}
                       <img src={src} alt={`Generated image ${index + 1}`} className="h-full w-full object-cover" />
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -784,21 +863,23 @@ export function ImageGenerator() {
           )}
 
           {activeTab === "generate" && (
-            <div className="fixed inset-x-4 bottom-4 z-20">
-              <PlasticButton
-                text="Generate"
-                loading={isGenerating}
-                disabled={!canSubmit}
-                onClick={handleGenerate}
-                className="w-full py-3.5 shadow-lg"
-                trailing={
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    {outputs}
-                    <CreditCost amount={estimatedCost} className="text-blue-200/80" />
-                  </>
-                }
-              />
+            <div className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-app via-app/95 to-transparent pt-8">
+              <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <PlasticButton
+                  text="Generate"
+                  loading={isGenerating}
+                  disabled={!canSubmit}
+                  onClick={handleGenerate}
+                  className="w-full py-3.5 shadow-lg"
+                  trailing={
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      {outputs}
+                      <CreditCost amount={estimatedCost} className="text-blue-200/80" />
+                    </>
+                  }
+                />
+              </div>
             </div>
           )}
         </div>

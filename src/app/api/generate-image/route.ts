@@ -55,6 +55,7 @@ async function handleGET(): Promise<NextResponse> {
     .limit(50);
 
   if (error) {
+    console.error("[generate-image] Failed to load history:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

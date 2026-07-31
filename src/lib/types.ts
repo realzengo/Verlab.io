@@ -212,7 +212,7 @@ export interface NavItem {
   subItems?: NavSubItem[];
 }
 
-export type ToolTone = "blue" | "violet" | "amber" | "green" | "rose" | "sky";
+export type ToolTone = "blue" | "violet" | "amber" | "green" | "rose" | "sky" | "orange";
 
 export interface ToolTileData {
   label: string;
@@ -446,7 +446,7 @@ export interface SignupPoint {
   trials: number;
 }
 
-export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp" | "image";
+export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp" | "image" | "video";
 
 export type UsagePoint = { date: string } & Record<AdminToolKey, number>;
 
