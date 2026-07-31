@@ -1,7 +1,47 @@
+import { after } from "next/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
-import { MCP_TOOLS } from "./tools";
+import { recordApiRequestLog } from "@/lib/server/api-logging";
+import { MCP_TOOLS, type McpToolDefinition } from "./tools";
 import { TOOL_WIDGETS, UNIQUE_WIDGETS } from "./apps/registry";
+
+/**
+ * Times and logs one MCP tool call for the admin dashboard's endpoint-health
+ * table (endpoint "mcp:<tool_name>", method "TOOL_CALL"). A business-level
+ * failure comes back as a normal `{ isError: true }` result (not a thrown
+ * exception) -- both count as an error here. Never throws itself.
+ */
+function loggedToolHandler(
+  toolName: string,
+  handler: McpToolDefinition["handler"]
+): (userId: string, args: Record<string, unknown>) => ReturnType<McpToolDefinition["handler"]> {
+  return async (userId, args) => {
+    const start = Date.now();
+    try {
+      const result = await handler(userId, args);
+      const isError = (result as { isError?: boolean }).isError === true;
+      after(() =>
+        recordApiRequestLog({
+          endpoint: `mcp:${toolName}`,
+          method: "TOOL_CALL",
+          status: isError ? 500 : 200,
+          durationMs: Date.now() - start,
+        })
+      );
+      return result;
+    } catch (error) {
+      after(() =>
+        recordApiRequestLog({
+          endpoint: `mcp:${toolName}`,
+          method: "TOOL_CALL",
+          status: 500,
+          durationMs: Date.now() - start,
+        })
+      );
+      throw error;
+    }
+  };
+}
 
 // Every widget's CSP allows loading images only from Verlab's own origin --
 // external thumbnails go through the signed /api/mcp/thumb proxy (see
@@ -50,7 +90,7 @@ export function createMcpServer(userId: string): McpServer {
         outputSchema: widget.outputSchema,
         _meta: { ui: { resourceUri: widget.resourceUri } },
       },
-      async (args) => tool.handler(userId, (args ?? {}) as Record<string, unknown>)
+      async (args) => loggedToolHandler(tool.name, tool.handler)(userId, (args ?? {}) as Record<string, unknown>)
     );
   }
 

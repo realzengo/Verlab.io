@@ -6,6 +6,7 @@ import type {
   AdminTeamMember,
   AdminToolKey,
   AdminUser,
+  ApiEndpointHealth,
   CreditsAdminUser,
   CreditsOverview,
   FeatureFlag,
@@ -318,6 +319,78 @@ export function computeJobSuccessRate(jobs: SystemJob[]): number {
   const settled = jobs.filter((j) => j.status === "success" || j.status === "failed");
   if (settled.length === 0) return 100;
   return Number(((settled.filter((j) => j.status === "success").length / settled.length) * 100).toFixed(1));
+}
+
+// Backed by health_checks, written every 5 min by /api/cron/health-check
+// (see supabase/migrations/20260731120000_endpoint_health_tracking.sql).
+// null (not 0) means no checks have landed yet -- distinct from "0% uptime".
+export async function getUptimeStats(): Promise<{ uptimePct: number | null; totalChecks: number }> {
+  const admin = createAdminClient();
+  const since30 = new Date();
+  since30.setUTCDate(since30.getUTCDate() - 29);
+
+  const { data } = await admin.from("health_checks").select("ok").gte("created_at", since30.toISOString());
+  const rows = data ?? [];
+  if (rows.length === 0) return { uptimePct: null, totalChecks: 0 };
+
+  const okCount = rows.filter((row) => row.ok).length;
+  return { uptimePct: Number(((okCount / rows.length) * 100).toFixed(2)), totalChecks: rows.length };
+}
+
+// Backed by api_request_log, written by withApiLogging (src/lib/server/
+// api-logging.ts) across the instrumented product/tool + MCP routes.
+export async function getApiErrorRate(): Promise<{ errorRatePct: number | null; totalRequests: number }> {
+  const admin = createAdminClient();
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data } = await admin.from("api_request_log").select("is_error").gte("created_at", since24h);
+  const rows = data ?? [];
+  if (rows.length === 0) return { errorRatePct: null, totalRequests: 0 };
+
+  const errorCount = rows.filter((row) => row.is_error).length;
+  return { errorRatePct: Number(((errorCount / rows.length) * 100).toFixed(2)), totalRequests: rows.length };
+}
+
+function percentile(sortedValues: number[], p: number): number {
+  if (sortedValues.length === 0) return 0;
+  const index = Math.min(sortedValues.length - 1, Math.floor(p * sortedValues.length));
+  return sortedValues[index];
+}
+
+export async function getEndpointHealthToday(): Promise<ApiEndpointHealth[]> {
+  const admin = createAdminClient();
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const { data } = await admin
+    .from("api_request_log")
+    .select("endpoint, method, status, duration_ms")
+    .gte("created_at", startOfDay.toISOString());
+
+  const byEndpoint = new Map<string, { endpoint: string; method: string; durations: number[]; errors: number }>();
+
+  for (const row of data ?? []) {
+    const key = `${row.endpoint}::${row.method}`;
+    const bucket =
+      byEndpoint.get(key) ?? { endpoint: row.endpoint, method: row.method, durations: [] as number[], errors: 0 };
+    bucket.durations.push(row.duration_ms);
+    if (row.status >= 400) bucket.errors += 1;
+    byEndpoint.set(key, bucket);
+  }
+
+  return [...byEndpoint.values()]
+    .map((bucket) => {
+      const sorted = [...bucket.durations].sort((a, b) => a - b);
+      return {
+        endpoint: bucket.endpoint,
+        method: bucket.method,
+        callsToday: bucket.durations.length,
+        p50Ms: percentile(sorted, 0.5),
+        p95Ms: percentile(sorted, 0.95),
+        errorRatePct: Number(((bucket.errors / bucket.durations.length) * 100).toFixed(1)),
+      };
+    })
+    .sort((a, b) => b.callsToday - a.callsToday);
 }
 
 export async function getFeatureFlags(): Promise<FeatureFlag[]> {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
 import { fetchDownloadLink, humanizeVideoProviderError } from "@/lib/server/video-provider";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 // Mimics a browser request — some CDNs (TikTok/YouTube/Facebook's providers
 // included) reject fetches with no User-Agent as bot traffic.
@@ -18,7 +19,7 @@ function sanitizeFilename(title: string): string {
   return (cleaned || "video").slice(0, 100);
 }
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
@@ -90,3 +91,5 @@ export async function GET(
 
   return new NextResponse(upstream.body, { headers });
 }
+
+export const GET = withApiLogging("/api/downloads/file/[id]", handleGET);

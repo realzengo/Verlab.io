@@ -3,6 +3,7 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { getJob, resolveStatus, startSopGeneration } from "@/lib/server/niche-bend-job-store";
 import { getUserCredits } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 export const maxDuration = 300;
 
@@ -11,7 +12,7 @@ interface SopRequestBody {
   chosenBend?: 1 | 2 | 3;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -69,3 +70,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // (see startSopGeneration) and the client polls /status/[jobId] for "sop_ready".
   return NextResponse.json(resolveStatus(updatedJob));
 }
+
+export const POST = withApiLogging("/api/niche-bend/sop", handlePOST);

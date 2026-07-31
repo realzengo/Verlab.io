@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listJobs } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 import type { NicheBendHistoryItem } from "@/lib/types";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,3 +36,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ items });
 }
+
+export const GET = withApiLogging("/api/niche-bend/library", handleGET);

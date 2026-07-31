@@ -7,6 +7,7 @@ import {
   fetchTranscript,
   humanizeVideoProviderError,
 } from "@/lib/server/video-provider";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 async function runExtraction(supabase: SupabaseClient, id: string, url: string): Promise<void> {
   try {
@@ -33,7 +34,7 @@ async function runExtraction(supabase: SupabaseClient, id: string, url: string):
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -78,3 +79,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ id: data.id });
 }
+
+export const POST = withApiLogging("/api/transcripts/extract", handlePOST);

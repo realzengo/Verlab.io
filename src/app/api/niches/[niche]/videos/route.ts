@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import type { VideoPlatform } from "@/lib/server/niche-video-refresh";
 import { isNicheName } from "@/lib/niches-catalog";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 // Let this route run long enough to cover a real scrape (SociaVault or
 // YouTube) without the platform silently killing the function mid-request
@@ -11,7 +12,7 @@ import { isNicheName } from "@/lib/niches-catalog";
 // upper bound everywhere.
 export const maxDuration = 60;
 
-export async function GET(
+async function routeGET(
   request: NextRequest,
   { params }: { params: Promise<{ niche: string }> }
 ): Promise<NextResponse> {
@@ -82,3 +83,5 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
 
   return NextResponse.json(result);
 }
+
+export const GET = withApiLogging("/api/niches/[niche]/videos", routeGET);

@@ -1,14 +1,26 @@
 import { AlertTriangle, CheckCircle2, Gauge, Loader2 } from "lucide-react";
-import { computeJobSuccessRate, getSystemJobs } from "@/lib/server/admin-queries";
+import {
+  computeJobSuccessRate,
+  getApiErrorRate,
+  getEndpointHealthToday,
+  getSystemJobs,
+  getUptimeStats,
+} from "@/lib/server/admin-queries";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/admin/StatTile";
 import { SystemJobsTable } from "@/components/admin/SystemJobsTable";
+import { EndpointHealthTable } from "@/components/admin/EndpointHealthTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSystemPage() {
-  const SYSTEM_JOBS = await getSystemJobs(50);
+  const [SYSTEM_JOBS, uptime, apiErrorRate, endpointHealth] = await Promise.all([
+    getSystemJobs(50),
+    getUptimeStats(),
+    getApiErrorRate(),
+    getEndpointHealthToday(),
+  ]);
   const JOB_SUCCESS_RATE_PCT = computeJobSuccessRate(SYSTEM_JOBS);
 
   const running = SYSTEM_JOBS.filter((j) => j.status === "running").length;
@@ -20,9 +32,13 @@ export default async function AdminSystemPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label="Uptime (30d)"
-          value="—"
+          value={uptime.uptimePct !== null ? `${uptime.uptimePct}%` : "—"}
           icon={CheckCircle2}
-          delta={{ value: "not tracked", direction: "up", isGood: true, period: "needs APM" }}
+          delta={
+            uptime.uptimePct !== null
+              ? { value: `${uptime.totalChecks} checks`, direction: "up", isGood: true, period: "last 30d" }
+              : { value: "collecting", direction: "up", isGood: true, period: "checks every 5 min" }
+          }
         />
         <StatTile
           label="Job success rate"
@@ -38,9 +54,18 @@ export default async function AdminSystemPage() {
         />
         <StatTile
           label="Avg. API error rate"
-          value="—"
+          value={apiErrorRate.errorRatePct !== null ? `${apiErrorRate.errorRatePct}%` : "—"}
           icon={AlertTriangle}
-          delta={{ value: "not tracked", direction: "up", isGood: true, period: "needs APM" }}
+          delta={
+            apiErrorRate.errorRatePct !== null
+              ? {
+                  value: `${apiErrorRate.totalRequests} requests`,
+                  direction: apiErrorRate.errorRatePct > 0 ? "down" : "up",
+                  isGood: apiErrorRate.errorRatePct === 0,
+                  period: "last 24h",
+                }
+              : { value: "no traffic yet", direction: "up", isGood: true, period: "last 24h" }
+          }
         />
       </div>
 
@@ -49,11 +74,15 @@ export default async function AdminSystemPage() {
           <h3 className="text-sm font-semibold text-heading">API & MCP endpoint health</h3>
           <p className="text-xs text-body">Response times and error rates, today</p>
         </div>
-        <EmptyState
-          icon={AlertTriangle}
-          title="Not wired up yet"
-          description="Per-endpoint latency and error-rate tracking needs request-level instrumentation (APM), which isn't built in this pass."
-        />
+        {endpointHealth.length === 0 ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="No requests logged yet"
+            description="Instrumentation is live — per-endpoint latency and error rates will appear here once traffic comes through the tracked routes."
+          />
+        ) : (
+          <EndpointHealthTable rows={endpointHealth} />
+        )}
       </Card>
 
       <Card>

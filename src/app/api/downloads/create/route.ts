@@ -8,6 +8,7 @@ import {
   humanizeVideoProviderError,
 } from "@/lib/server/video-provider";
 import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 async function runDownload(supabase: SupabaseClient, id: string, url: string, format: DownloadFormat): Promise<void> {
   try {
@@ -35,7 +36,7 @@ async function runDownload(supabase: SupabaseClient, id: string, url: string, fo
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -86,3 +87,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ id: data.id });
 }
+
+export const POST = withApiLogging("/api/downloads/create", handlePOST);

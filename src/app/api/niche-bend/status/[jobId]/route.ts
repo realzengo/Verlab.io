@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteJob, getJob, resolveStatus, setJobSaved } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<NextResponse> {
@@ -27,7 +28,7 @@ export async function GET(
   return NextResponse.json(resolveStatus(job));
 }
 
-export async function PATCH(
+async function handlePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<NextResponse> {
@@ -56,7 +57,7 @@ export async function PATCH(
   return NextResponse.json(resolveStatus({ ...job, saved: body.saved }));
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<NextResponse> {
@@ -74,3 +75,7 @@ export async function DELETE(
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiLogging("/api/niche-bend/status/[jobId]", handleGET);
+export const PATCH = withApiLogging("/api/niche-bend/status/[jobId]", handlePATCH);
+export const DELETE = withApiLogging("/api/niche-bend/status/[jobId]", handleDELETE);

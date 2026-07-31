@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 export const maxDuration = 60;
 
@@ -41,7 +42,7 @@ async function extractText(file: File): Promise<string> {
   return text;
 }
 
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -62,7 +63,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ referenceFiles: data });
 }
 
-export async function PUT(request: NextRequest): Promise<NextResponse> {
+async function handlePUT(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -115,7 +116,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ success: true, fileName: file.name, content });
 }
 
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -140,3 +141,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ success: true });
 }
+
+export const GET = withApiLogging("/api/script-references", handleGET);
+export const PUT = withApiLogging("/api/script-references", handlePUT);
+export const DELETE = withApiLogging("/api/script-references", handleDELETE);

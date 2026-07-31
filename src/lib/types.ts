@@ -481,7 +481,9 @@ export interface SystemJob {
 
 export interface ApiEndpointHealth {
   endpoint: string;
-  method: "GET" | "POST";
+  // MCP tool calls are logged with method "TOOL_CALL" (see
+  // src/lib/server/mcp/server.ts), so this isn't limited to HTTP verbs.
+  method: string;
   callsToday: number;
   p50Ms: number;
   p95Ms: number;

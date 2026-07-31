@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,3 +24,5 @@ export async function GET(): Promise<NextResponse> {
 
   return NextResponse.json({ downloads: data });
 }
+
+export const GET = withApiLogging("/api/downloads", handleGET);

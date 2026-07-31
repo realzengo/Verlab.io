@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchVideoPreview, humanizeVideoProviderError } from "@/lib/server/video-provider";
+import { withApiLogging } from "@/lib/server/api-logging";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -24,3 +25,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: humanizeVideoProviderError(error) }, { status: 422 });
   }
 }
+
+export const GET = withApiLogging("/api/downloads/preview", handleGET);

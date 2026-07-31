@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 // Thumbnail requests (a `w` query param, from the Library grid/preview) get
 // resized and re-encoded here rather than served at full resolution. This
@@ -11,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 // directly, cookies included) sidesteps that entirely.
 const MAX_THUMBNAIL_WIDTH = 1600;
 
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; index: string }> }
 ): Promise<NextResponse> {
@@ -73,7 +74,7 @@ export async function GET(
   });
 }
 
-export async function DELETE(
+async function handleDELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; index: string }> }
 ): Promise<NextResponse> {
@@ -119,3 +120,6 @@ export async function DELETE(
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withApiLogging("/api/library/image/[id]/[index]", handleGET);
+export const DELETE = withApiLogging("/api/library/image/[id]/[index]", handleDELETE);

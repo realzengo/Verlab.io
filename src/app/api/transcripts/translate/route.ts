@@ -3,6 +3,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "@/lib/server/openrouter-client";
+import { withApiLogging } from "@/lib/server/api-logging";
 import type { TranscriptLine } from "@/lib/types";
 
 const TranslateSchema = z.object({
@@ -36,7 +37,7 @@ async function translateBatch(texts: string[], targetLanguage: string): Promise<
   throw lastError instanceof Error ? lastError : new Error("Translation failed");
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -75,3 +76,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Translation failed. Try again." }, { status: 500 });
   }
 }
+
+export const POST = withApiLogging("/api/transcripts/translate", handlePOST);

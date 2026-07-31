@@ -3,6 +3,7 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { getJob, regenerateOneCandidateInJob, resolveStatus } from "@/lib/server/niche-bend-job-store";
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 
 export const maxDuration = 300;
 
@@ -11,7 +12,7 @@ interface RegenerateCandidateRequestBody {
   candidateId?: 1 | 2 | 3;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -81,3 +82,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const updatedJob = await getJob(supabase, jobId);
   return NextResponse.json(resolveStatus(updatedJob!));
 }
+
+export const POST = withApiLogging("/api/niche-bend/regenerate-candidate", handlePOST);

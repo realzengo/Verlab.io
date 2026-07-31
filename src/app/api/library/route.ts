@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/types";
 
 // There's no dedicated `user_assets` table -- this unifies the real
@@ -19,7 +20,7 @@ import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/t
 const IMAGE_SELECT = "id, prompt, model, outputs, created_at";
 const SOP_SELECT = "id, analysis, chosen_bend, created_at";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -103,3 +104,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ assets: filtered });
 }
+
+export const GET = withApiLogging("/api/library", handleGET);

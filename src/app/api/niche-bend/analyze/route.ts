@@ -4,6 +4,7 @@ import { createJob } from "@/lib/server/niche-bend-job-store";
 import { getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
+import { withApiLogging } from "@/lib/server/api-logging";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -15,7 +16,7 @@ interface AnalyzeRequestBody {
   manualVideos?: NicheBendVideo[];
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -69,3 +70,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ jobId: job.id });
 }
+
+export const POST = withApiLogging("/api/niche-bend/analyze", handlePOST);

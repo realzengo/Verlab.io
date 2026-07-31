@@ -4,6 +4,7 @@ import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/serv
 import { getImageGenerationCost, slugifyModelName, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
+import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -25,7 +26,19 @@ interface GenerateImageRequestBody {
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 
-export async function GET(): Promise<NextResponse> {
+// The after() background job (see POST below) is what normally flips a row
+// out of "generating" -- but nothing guarantees it gets to run: a redeploy,
+// an uncaught crash, or the platform hard-killing the invocation once
+// maxDuration (300s) elapses all skip its catch block, leaving the row
+// stuck at "generating" forever with a client poller watching it that never
+// gets a non-"generating" answer. This is the fix for that: any row still
+// "generating" well past the point it could plausibly still be running gets
+// swept to "failed" right here, so every GET this list is fetched through
+// is also the reconciliation pass -- the row can never be orphaned longer
+// than one poll interval.
+const STALE_GENERATING_MS = 6 * 60 * 1000;
+
+async function handleGET(): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -45,10 +58,28 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const staleIds = data
+    .filter((row) => row.status === "generating" && Date.now() - new Date(row.created_at).getTime() > STALE_GENERATING_MS)
+    .map((row) => row.id);
+
+  if (staleIds.length > 0) {
+    const timeoutMessage = "Generation timed out. Please try again.";
+    await supabase
+      .from("image_generations")
+      .update({ status: "failed", error_message: timeoutMessage })
+      .in("id", staleIds);
+    for (const row of data) {
+      if (staleIds.includes(row.id)) {
+        row.status = "failed";
+        row.error_message = timeoutMessage;
+      }
+    }
+  }
+
   return NextResponse.json({ generations: data });
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -182,3 +213,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ id: row.id });
 }
+
+export const GET = withApiLogging("/api/generate-image", handleGET);
+export const POST = withApiLogging("/api/generate-image", handlePOST);
