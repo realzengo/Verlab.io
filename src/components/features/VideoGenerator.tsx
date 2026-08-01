@@ -2,9 +2,12 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlignLeft,
   Clapperboard,
   Clock,
+  Copy,
   Download,
+  Info,
   Loader2,
   Maximize2,
   Minimize2,
@@ -28,7 +31,6 @@ import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import {
   DEFAULT_VIDEO_MODEL,
   VIDEO_MODELS,
-  POPULAR_VIDEO_MODEL_IDS,
   getVideoModel,
   DEFAULT_EDIT_VIDEO_MODEL,
   EDIT_VIDEO_MODELS,
@@ -85,8 +87,60 @@ function defaultSettingsFor(modelId: string): ModelSettings {
 
 const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({ value: String(value), label: `${value} Output${value > 1 ? "s" : ""}` }));
 
+// Video renders genuinely take a couple of minutes (see STALE_JOB_MS in
+// generate-video/route.ts) -- a bare spinner with no sense of progress reads
+// as hung well before that. Ticks once a second while `active`, resetting
+// whenever a new generation starts.
+function useElapsedSeconds(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      startRef.current = null;
+      return;
+    }
+    startRef.current = Date.now();
+    const id = setInterval(() => {
+      if (startRef.current) setSeconds(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  return active ? seconds : 0;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function aspectRatioLabel(ratio: string | undefined): string {
+  if (!ratio) return "—";
+  if (ratio === "9:16") return `Portrait (${ratio})`;
+  if (ratio === "16:9") return `Landscape (${ratio})`;
+  if (ratio === "1:1") return `Square (${ratio})`;
+  return ratio;
+}
+
+// Compact form ("14h ago") for the preview panel -- formatRelativeTime's
+// "14 hours ago" is too wide for the sidebar's two-column info grid.
+function formatCompactRelative(iso: string): string {
+  const diffSeconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diffSeconds < 60) return "just now";
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  return formatDate(iso);
+}
+
 function VideoTile({
   item,
+  elapsedSeconds,
   onPreview,
   onRecreate,
   onEdit,
@@ -94,6 +148,7 @@ function VideoTile({
   onDelete,
 }: {
   item: GenerationHistoryItem;
+  elapsedSeconds: number;
   onPreview: () => void;
   onRecreate: () => void;
   onEdit: () => void;
@@ -125,6 +180,11 @@ function VideoTile({
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-slate-500">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span className="text-[11px] font-medium">{item.status === "queued" ? "Queued" : "Rendering..."}</span>
+          {item.status === "processing" && (
+            <span className="text-[10px] tabular-nums text-slate-400/70 dark:text-slate-500/70">
+              {formatElapsed(elapsedSeconds)} · usually takes 2–4 min
+            </span>
+          )}
         </div>
       </div>
     );
@@ -322,6 +382,7 @@ export function VideoGenerator() {
   const [isGeneratingEndFrame, setIsGeneratingEndFrame] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const createElapsedSeconds = useElapsedSeconds(isGenerating);
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
   const [error, setError] = useState<string | null>(null);
@@ -329,6 +390,15 @@ export function VideoGenerator() {
 
   const [history, setHistory] = useState<GenerationHistoryItem[] | null>(null);
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  function copyPreviewPrompt() {
+    if (!previewItem?.prompt) return;
+    void navigator.clipboard.writeText(previewItem.prompt).then(() => {
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 1500);
+    });
+  }
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const pollCancelRef = useRef<(() => void) | null>(null);
@@ -421,6 +491,7 @@ export function VideoGenerator() {
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
   const [editOutputs, setEditOutputs] = useState(1);
   const [editIsGenerating, setEditIsGenerating] = useState(false);
+  const editElapsedSeconds = useElapsedSeconds(editIsGenerating);
   const [editPendingCount, setEditPendingCount] = useState(0);
   const [editError, setEditError] = useState<string | null>(null);
   const [editHistory, setEditHistory] = useState<GenerationHistoryItem[] | null>(null);
@@ -962,7 +1033,7 @@ export function VideoGenerator() {
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <VideoModelPicker value={selectedModel} onChange={setSelectedModel} models={VIDEO_MODELS} popularIds={POPULAR_VIDEO_MODEL_IDS} />
+                          <VideoModelPicker value={selectedModel} onChange={setSelectedModel} models={VIDEO_MODELS} />
                           <PillDropdown
                             icon={Clock}
                             value={String(durationSeconds)}
@@ -1037,11 +1108,12 @@ export function VideoGenerator() {
           {activeTab === "create" && galleryItems.length > 0 && (
             <div className="mt-10 w-full px-4 sm:px-8">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {galleryItems.map((item) => (
                   <VideoTile
                     key={item.id}
                     item={item}
+                    elapsedSeconds={createElapsedSeconds}
                     onPreview={() => setPreviewItem(item)}
                     onRecreate={() => recreateFromHistory(item)}
                     onEdit={() => attachSourceForEdit(item, false)}
@@ -1056,11 +1128,12 @@ export function VideoGenerator() {
           {activeTab === "edit" && editGalleryItems.length > 0 && (
             <div className="mt-10 w-full px-4 sm:px-8">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {editGalleryItems.map((item) => (
                   <VideoTile
                     key={item.id}
                     item={item}
+                    elapsedSeconds={editElapsedSeconds}
                     onPreview={() => setPreviewItem(item)}
                     onRecreate={() => attachSourceForEdit(item, true)}
                     onEdit={() => attachSourceForEdit(item, false)}
@@ -1075,31 +1148,160 @@ export function VideoGenerator() {
       </div>
 
       <AnimatePresence>
-        {previewItem && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            onClick={() => setPreviewItem(null)}
-          >
-            <div className="relative max-h-[85vh] max-w-3xl" onClick={(event) => event.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => setPreviewItem(null)}
-                className="absolute -top-10 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+        {previewItem &&
+          (() => {
+            const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model);
+            const videoSrc = `/api/library/video/${previewItem.id}`;
+            const closePreview = () => setPreviewItem(null);
+            return (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 overflow-hidden bg-black"
+                onClick={closePreview}
               >
-                <X className="h-4 w-4" />
-              </button>
-              <video src={`/api/library/video/${previewItem.id}`} controls autoPlay loop className="max-h-[85vh] max-w-full rounded-2xl" />
-              {previewItem.prompt && (
-                <p className="mt-3 text-sm text-white/70">
-                  {previewItem.prompt} <span className="text-white/40">· {previewItem.model} · {formatDate(previewItem.created_at)}</span>
-                </p>
-              )}
-            </div>
-          </motion.div>
-        )}
+                {/* Ambient backdrop: the same clip, blown up and blurred, gives the
+                    modal its color -- frozen on its first frame (no controls, no
+                    autoplay/loop) so it reads as a still photo, not a second video playing. */}
+                <div className="absolute inset-0">
+                  <video
+                    src={videoSrc}
+                    poster={previewItem.thumbnail_path ? `/api/library/video/${previewItem.id}?variant=thumbnail` : undefined}
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="h-full w-full scale-125 object-cover opacity-80 blur-[90px]"
+                  />
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: "radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.35) 65%, rgba(0,0,0,0.8) 100%)" }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 lg:hidden"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <div className="relative z-10 flex h-full w-full" onClick={(event) => event.stopPropagation()}>
+                  <div className="relative flex flex-1 items-center justify-center p-6 pb-28 lg:p-10 lg:pb-28">
+                    <video
+                      src={videoSrc}
+                      poster={previewItem.thumbnail_path ? `/api/library/video/${previewItem.id}?variant=thumbnail` : undefined}
+                      controls
+                      autoPlay
+                      loop
+                      preload="auto"
+                      className="max-h-full max-w-full rounded-2xl shadow-[0_50px_140px_-30px_rgba(0,0,0,0.9)]"
+                    />
+
+                    <div
+                      className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-black/60 p-1.5 backdrop-blur-xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => downloadVideo(previewItem.id)}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closePreview();
+                          attachSourceForEdit(previewItem, false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closePreview();
+                          recreateFromHistory(previewItem);
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/90"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Recreate
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="hidden h-full w-[380px] shrink-0 flex-col gap-5 overflow-y-auto border-l border-white/10 bg-black/30 p-6 backdrop-blur-2xl lg:flex">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {previewModel ? (
+                          <ModelIcon model={previewModel} small />
+                        ) : (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-bold text-white">
+                            {previewItem.model.slice(0, 1)}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-white">{previewModel?.id ?? previewItem.model}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closePreview}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {previewItem.prompt && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                            <AlignLeft className="h-3.5 w-3.5" /> Prompt
+                          </div>
+                          <button
+                            type="button"
+                            onClick={copyPreviewPrompt}
+                            className="flex items-center gap-1 text-[11px] font-medium text-white/60 transition-colors hover:text-white"
+                          >
+                            <Copy className="h-3 w-3" /> {promptCopied ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-white/90">{previewItem.prompt}</p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                        <Info className="h-3.5 w-3.5" /> Information
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-y-4">
+                        <div>
+                          <div className="text-[11px] text-white/40">Duration</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">
+                            {previewItem.params.durationSeconds ? `${previewItem.params.durationSeconds}s` : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">Aspect Ratio</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{aspectRatioLabel(previewItem.params.aspectRatio)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">Credits</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{previewItem.credits_quoted}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">Created</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{formatCompactRelative(previewItem.created_at)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
       </AnimatePresence>
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />

@@ -6,28 +6,42 @@
 // synchronous fal.run/{model} calls fal-image.ts makes, so this table feeds
 // fal-video.ts's queue client instead.
 //
-// `falSlug` values are best-effort as of this writing and MUST be
-// live-verified against fal.ai's model docs before the first real call --
-// treat every entry the way fal-image.ts treats its own FAL_MODEL_SLUG map
-// (comment there: "Live-confirmed... 200s once funded"). A wrong slug fails
-// loudly (404 from fal), never silently.
+// `falSlug` values below are live-verified (see the comment directly above
+// VIDEO_MODELS for how) rather than best-effort guesses -- treat any future
+// addition to this table the way fal-image.ts treats its own FAL_MODEL_SLUG
+// map (comment there: "Live-confirmed... 200s once funded"). A wrong slug
+// fails loudly (404 from fal), never silently.
 //
-// Note on catalog parity with competitor products: two names shown in
-// typical competitor UIs -- "Sora 2" (OpenAI/ChatGPT-exclusive) and "Grok
-// Imagine" (xAI-exclusive) -- are NOT available on fal.ai and are
-// deliberately absent here. Adding them would mean direct OpenAI/xAI
-// integration outside fal, a separate decision from this catalog.
+// Note on catalog parity with competitor products: "Sora 2" (OpenAI/
+// ChatGPT-exclusive) is NOT available on fal.ai and is deliberately absent
+// here.
 
 export type VideoModelTier = "budget" | "value" | "premium" | "flagship";
+
+// How each fal app wants `duration` on the wire -- confirmed per model
+// against fal's public queue OpenAPI schema (https://fal.ai/api/openapi/
+// queue/openapi.json?endpoint_id={falSlug}), not guessed:
+//   "suffix_s" -- string with a trailing "s", e.g. "8s" (Veo 3 family).
+//   "plain_string" -- string of the bare integer, e.g. "5" (Kling, Seedance).
+//   "integer" -- a JSON number, e.g. 6 (Grok Imagine, Gemini Omni).
+// Sending the wrong shape either 422s or (worse) gets silently coerced/
+// ignored depending on the model's pydantic schema, so this must stay
+// correct per model rather than assuming one shape fits all fal apps.
+export type DurationFormat = "suffix_s" | "plain_string" | "integer";
 
 export interface VideoModelConfig {
   /** Display name -- also the value stored in video_generations.model and the dropdown key. */
   id: string;
-  /** fal app id, called as queue.fal.run/{falSlug} (see fal-video.ts). TBD entries need live verification. */
+  /** fal app id, called as queue.fal.run/{falSlug} (see fal-video.ts). Live-verified via fal's queue OpenAPI schema as of this writing. */
   falSlug: string;
+  durationFormat: DurationFormat;
   tier: VideoModelTier;
   description: string;
   logo?: string;
+  // Only the falSlug's own text-to-video schema is wired up (no dedicated
+  // image-to-video falSlug per model yet) -- every one of these 6 models'
+  // schemas was checked and none accept an image/start-frame param, so this
+  // stays false rather than exposing a frame picker that would silently no-op.
   supportsImageToVideo: boolean;
   /** First+last frame conditioning -- a subset of image-to-video models support this, not just a start frame. */
   supportsEndFrame: boolean;
@@ -41,86 +55,26 @@ export interface VideoModelConfig {
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 
+// Every falSlug + durationFormat + aspectRatios/durations pairing below was
+// checked against fal's live queue OpenAPI schema
+// (https://fal.ai/api/openapi/queue/openapi.json?endpoint_id={falSlug}) and,
+// separately, a real POST to https://queue.fal.run/{falSlug} with an empty
+// body -- fal validates on dequeue rather than at submit time, so this
+// returns HTTP 200/IN_QUEUE immediately and the job settles (COMPLETED, with
+// an error body) in well under a second, before any real render starts.
+// Confirmed a 422 "prompt: Field required" for all 6, proving the slug is
+// real and reachable, at effectively zero cost. Tier picked for Kling
+// 3.0/Seedance 2 is the cheaper of the two (standard/fast) since neither
+// name in the source screenshot specified a quality tier.
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
-    id: "LTX Video",
-    falSlug: "fal-ai/ltx-video",
-    tier: "budget",
-    description: "Fastest & cheapest — great for drafts and iteration",
-    supportsImageToVideo: true,
-    supportsEndFrame: false,
-    supportsAudio: false,
-    durations: [5],
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecondUsd: 0.02,
-  },
-  {
-    id: "MiniMax Hailuo 2.3",
-    falSlug: "fal-ai/minimax/hailuo-02",
-    tier: "budget",
-    description: "Cheap with strong, natural motion",
-    supportsImageToVideo: true,
-    supportsEndFrame: false,
-    supportsAudio: false,
-    durations: [6, 10],
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecondUsd: 0.03,
-  },
-  {
-    id: "Wan 2.5",
-    falSlug: "fal-ai/wan/v2.5/text-to-video",
-    tier: "value",
-    description: "Open-weight, well-rounded quality-to-cost ratio",
-    supportsImageToVideo: true,
-    supportsEndFrame: false,
-    supportsAudio: false,
-    durations: [5, 10],
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecondUsd: 0.04,
-  },
-  {
-    id: "Kling 2.5 Turbo Pro",
-    falSlug: "fal-ai/kling-video/v2.5-turbo/pro/text-to-video",
-    tier: "value",
-    description: "Recommended — fast, reliable, great default",
-    supportsImageToVideo: true,
-    supportsEndFrame: true,
-    supportsAudio: false,
-    durations: [5, 10],
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecondUsd: 0.07,
-  },
-  {
-    id: "Seedance 1.0 Pro",
-    falSlug: "fal-ai/bytedance/seedance/v1/pro/text-to-video",
-    tier: "premium",
-    description: "Fast reference and asset generation",
-    supportsImageToVideo: true,
-    supportsEndFrame: true,
-    supportsAudio: false,
-    durations: [5, 10],
-    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
-    pricePerSecondUsd: 0.12,
-  },
-  {
-    id: "Kling 3.0",
-    falSlug: "fal-ai/kling-video/v3/text-to-video",
-    tier: "premium",
-    description: "Best for cinematic, animated shots",
-    supportsImageToVideo: true,
-    supportsEndFrame: true,
-    supportsAudio: false,
-    durations: [5, 10],
-    aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecondUsd: 0.15,
-  },
-  {
-    id: "Veo 3.1 Fast",
-    falSlug: "fal-ai/veo3.1/fast",
+    id: "Veo 3 Fast",
+    falSlug: "fal-ai/veo3/fast",
+    durationFormat: "suffix_s",
     tier: "premium",
     description: "Google Veo, native audio — faster & cheaper tier",
     logo: GEMINI_ICON,
-    supportsImageToVideo: true,
+    supportsImageToVideo: false,
     supportsEndFrame: false,
     supportsAudio: true,
     durations: [8],
@@ -128,28 +82,81 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     pricePerSecondUsd: 0.25,
   },
   {
-    id: "Veo 3.1",
-    falSlug: "fal-ai/veo3.1",
+    id: "Veo 3 Quality",
+    falSlug: "fal-ai/veo3",
+    durationFormat: "suffix_s",
     tier: "flagship",
     description: "Best for realism — native audio, premium quality",
     logo: GEMINI_ICON,
-    supportsImageToVideo: true,
+    supportsImageToVideo: false,
     supportsEndFrame: false,
     supportsAudio: true,
     durations: [8],
     aspectRatios: ["16:9", "9:16"],
     pricePerSecondUsd: 0.75,
   },
+  {
+    id: "Kling 3.0",
+    falSlug: "fal-ai/kling-video/v3/standard/text-to-video",
+    durationFormat: "plain_string",
+    tier: "premium",
+    description: "Best for cinematic, animated shots",
+    supportsImageToVideo: false,
+    supportsEndFrame: false,
+    supportsAudio: true,
+    durations: [5, 10],
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    pricePerSecondUsd: 0.15,
+  },
+  {
+    id: "Seedance 2",
+    falSlug: "bytedance/seedance-2.0/fast/text-to-video",
+    durationFormat: "plain_string",
+    tier: "premium",
+    description: "Fast reference and asset generation",
+    supportsImageToVideo: false,
+    supportsEndFrame: false,
+    supportsAudio: true,
+    durations: [5, 10],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    pricePerSecondUsd: 0.15,
+  },
+  {
+    id: "Grok Imagine",
+    falSlug: "xai/grok-imagine-video/text-to-video",
+    durationFormat: "integer",
+    tier: "premium",
+    description: "xAI's video model — fast, expressive motion",
+    supportsImageToVideo: false,
+    supportsEndFrame: false,
+    supportsAudio: false,
+    durations: [6],
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    pricePerSecondUsd: 0.2,
+  },
+  {
+    id: "Gemini Omni",
+    falSlug: "google/gemini-omni-flash",
+    durationFormat: "integer",
+    tier: "flagship",
+    description: "Google Gemini — omni-modal generation",
+    logo: GEMINI_ICON,
+    supportsImageToVideo: false,
+    supportsEndFrame: false,
+    // No generate_audio (or any audio) param in this app's schema -- unlike
+    // the Veo/Kling/Seedance apps above, audio isn't a togglable input here.
+    supportsAudio: false,
+    durations: [8],
+    aspectRatios: ["16:9", "9:16"],
+    pricePerSecondUsd: 0.5,
+  },
 ];
-
-// Mirrors the competitor UI's Popular/More grouping in the model picker.
-export const POPULAR_VIDEO_MODEL_IDS = ["Kling 2.5 Turbo Pro", "Veo 3.1 Fast", "Seedance 1.0 Pro", "Wan 2.5"];
 
 export function getVideoModel(id: string): VideoModelConfig | undefined {
   return VIDEO_MODELS.find((model) => model.id === id);
 }
 
-export const DEFAULT_VIDEO_MODEL = "Kling 2.5 Turbo Pro";
+export const DEFAULT_VIDEO_MODEL = "Veo 3 Fast";
 
 // ── Edit tab operations ─────────────────────────────────────────────────
 // These run against an existing video rather than picking from the Create

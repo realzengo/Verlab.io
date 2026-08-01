@@ -15,7 +15,7 @@ export const maxDuration = 30; // this route only submits to fal's queue and ret
 // Backstop for a job that never gets finished by either the fal webhook or
 // the cron sweep (see /api/cron/video-poll) -- much longer than
 // generate-image's 6-minute equivalent because video renders genuinely take
-// minutes, especially on premium models like Veo 3.1.
+// minutes, especially on premium models like Veo 3 Quality.
 const STALE_JOB_MS = 20 * 60 * 1000;
 
 interface GenerateVideoRequestBody {
@@ -29,10 +29,26 @@ interface GenerateVideoRequestBody {
   endFrameImage?: string;
 }
 
+// Formats `duration` the way each fal app's schema actually wants it --
+// confirmed per model via fal's queue OpenAPI schema (see video-models.ts's
+// DurationFormat doc comment). Sending the wrong shape either 422s or gets
+// silently coerced, so this must branch on the model rather than assume one
+// shape fits every fal app.
+function formatDuration(model: VideoModelConfig, durationSeconds: number): string | number {
+  switch (model.durationFormat) {
+    case "suffix_s":
+      return `${durationSeconds}s`;
+    case "integer":
+      return durationSeconds;
+    case "plain_string":
+      return String(durationSeconds);
+  }
+}
+
 // Maps this app's generic Create-tab params onto the body each fal video app
-// expects. Field names are best-effort as of this writing and MUST be
-// live-verified per model against fal's docs before the first real call --
-// same discipline as video-models.ts's own falSlug disclosure.
+// expects. Field names are live-verified per model against fal's queue
+// OpenAPI schema -- same discipline as video-models.ts's own falSlug
+// disclosure.
 function buildFalCreateInput(
   model: VideoModelConfig,
   params: {
@@ -46,12 +62,16 @@ function buildFalCreateInput(
 ): Record<string, unknown> {
   const input: Record<string, unknown> = {
     aspect_ratio: params.aspectRatio,
-    duration: String(params.durationSeconds),
+    duration: formatDuration(model, params.durationSeconds),
   };
   if (params.prompt) input.prompt = params.prompt;
   if (model.supportsAudio) input.generate_audio = params.soundEnabled;
   // fal's image params accept a data-URI string directly, no upload step
   // needed (same behavior fal-image.ts already relies on for image_urls).
+  // Only reached for models with supportsImageToVideo -- none of the current
+  // VIDEO_MODELS set this (see video-models.ts), so this is currently dead
+  // for Create-tab video but kept for when a model's dedicated i2v falSlug
+  // gets wired up.
   if (params.startFrameImage) input.image_url = params.startFrameImage;
   if (params.endFrameImage && model.supportsEndFrame) input.tail_image_url = params.endFrameImage;
   return input;
