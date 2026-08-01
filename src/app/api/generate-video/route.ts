@@ -68,13 +68,22 @@ function buildFalCreateInput(
   if (model.supportsAudio) input.generate_audio = params.soundEnabled;
   // fal's image params accept a data-URI string directly, no upload step
   // needed (same behavior fal-image.ts already relies on for image_urls).
-  // Only reached for models with supportsImageToVideo -- none of the current
-  // VIDEO_MODELS set this (see video-models.ts), so this is currently dead
-  // for Create-tab video but kept for when a model's dedicated i2v falSlug
-  // gets wired up.
-  if (params.startFrameImage) input.image_url = params.startFrameImage;
-  if (params.endFrameImage && model.supportsEndFrame) input.tail_image_url = params.endFrameImage;
+  // Field name isn't uniform across providers (video-models.ts's
+  // startFrameField doc comment has the per-model rationale), so it must be
+  // looked up rather than assumed.
+  if (params.startFrameImage) input[model.startFrameField ?? "image_url"] = params.startFrameImage;
+  if (params.endFrameImage && model.supportsEndFrame) input[model.endFrameField ?? "end_image_url"] = params.endFrameImage;
   return input;
+}
+
+// The start/end frame conditioning fields above only exist on each
+// provider's dedicated image-to-video endpoint (see video-models.ts's
+// imageToVideoFalSlug doc comment) -- the plain text-to-video falSlug either
+// 422s or silently ignores them, so a start frame must route to the other
+// endpoint, not just add fields to the same one.
+function resolveFalSlug(model: VideoModelConfig, hasStartFrame: boolean): string {
+  if (hasStartFrame && model.imageToVideoFalSlug) return model.imageToVideoFalSlug;
+  return model.falSlug;
 }
 
 async function handleGET(request: NextRequest): Promise<NextResponse> {
@@ -224,6 +233,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const operation = startFrameImage || endFrameImage ? "image_to_video" : "text_to_video";
+  const falSlug = resolveFalSlug(model, Boolean(startFrameImage));
   const webhookUrl = `${request.nextUrl.origin}/api/webhooks/fal`;
   const falInput = buildFalCreateInput(model, {
     prompt,
@@ -249,7 +259,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         mode: "create",
         operation,
         model: model.id,
-        fal_model_slug: model.falSlug,
+        fal_model_slug: falSlug,
         prompt: prompt ?? null,
         params: { durationSeconds, aspectRatio, soundEnabled: model.supportsAudio ? soundEnabled : false, outputs },
         credits_quoted: perOutputCost,
@@ -265,7 +275,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
 
     try {
-      const { requestId } = await submitVideoJob(model.falSlug, falInput, webhookUrl);
+      const { requestId } = await submitVideoJob(falSlug, falInput, webhookUrl);
       await supabase.from("video_generations").update({ fal_request_id: requestId }).eq("id", row.id);
       rowIds.push(row.id);
     } catch (submitError) {

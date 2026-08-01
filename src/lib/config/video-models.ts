@@ -32,16 +32,29 @@ export type DurationFormat = "suffix_s" | "plain_string" | "integer";
 export interface VideoModelConfig {
   /** Display name -- also the value stored in video_generations.model and the dropdown key. */
   id: string;
-  /** fal app id, called as queue.fal.run/{falSlug} (see fal-video.ts). Live-verified via fal's queue OpenAPI schema as of this writing. */
+  /** fal app id for the text-to-video call, called as queue.fal.run/{falSlug} (see fal-video.ts). Live-verified via fal's queue OpenAPI schema as of this writing. */
   falSlug: string;
+  // Every fal video app that accepts a start/end frame ships it as a
+  // *separate* queue endpoint from the plain text-to-video one (different
+  // required fields, sometimes a different pydantic model entirely) -- there
+  // is no single endpoint that does both. Only present when
+  // supportsImageToVideo is true; buildFalCreateInput (generate-video/
+  // route.ts) submits here instead of `falSlug` whenever a start frame is
+  // given.
+  imageToVideoFalSlug?: string;
+  // Request-body field name each i2v endpoint uses for the start frame --
+  // NOT uniform across providers (Kling wants start_image_url, Seedance/Veo/
+  // Grok want image_url). Defaults to "image_url" when supportsImageToVideo
+  // is true and this is omitted.
+  startFrameField?: string;
+  // Same idea for the end/tail frame, only meaningful when supportsEndFrame
+  // is true. Every model that supports it uses "end_image_url" (confirmed
+  // via fal's OpenAPI schema), so this only exists as an escape hatch.
+  endFrameField?: string;
   durationFormat: DurationFormat;
   tier: VideoModelTier;
   description: string;
   logo?: string;
-  // Only the falSlug's own text-to-video schema is wired up (no dedicated
-  // image-to-video falSlug per model yet) -- every one of these 6 models'
-  // schemas was checked and none accept an image/start-frame param, so this
-  // stays false rather than exposing a frame picker that would silently no-op.
   supportsImageToVideo: boolean;
   /** First+last frame conditioning -- a subset of image-to-video models support this, not just a start frame. */
   supportsEndFrame: boolean;
@@ -66,15 +79,21 @@ const GEMINI_ICON = "/logos/ai/gemini.svg";
 // real and reachable, at effectively zero cost. Tier picked for Kling
 // 3.0/Seedance 2 is the cheaper of the two (standard/fast) since neither
 // name in the source screenshot specified a quality tier.
+//
+// imageToVideoFalSlug entries were checked the same way against each
+// provider's own image-to-video schema: Veo 3 (both tiers), Kling 3.0,
+// Seedance 2, and Grok Imagine all expose one; Gemini Omni's schema has no
+// image field at all (text prompt only), so it stays text-to-video-only.
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Veo 3 Fast",
     falSlug: "fal-ai/veo3/fast",
+    imageToVideoFalSlug: "fal-ai/veo3/fast/image-to-video",
     durationFormat: "suffix_s",
     tier: "premium",
     description: "Google Veo, native audio — faster & cheaper tier",
     logo: GEMINI_ICON,
-    supportsImageToVideo: false,
+    supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: true,
     durations: [8],
@@ -84,11 +103,12 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Veo 3 Quality",
     falSlug: "fal-ai/veo3",
+    imageToVideoFalSlug: "fal-ai/veo3/image-to-video",
     durationFormat: "suffix_s",
     tier: "flagship",
     description: "Best for realism — native audio, premium quality",
     logo: GEMINI_ICON,
-    supportsImageToVideo: false,
+    supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: true,
     durations: [8],
@@ -98,11 +118,13 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Kling 3.0",
     falSlug: "fal-ai/kling-video/v3/standard/text-to-video",
+    imageToVideoFalSlug: "fal-ai/kling-video/v3/standard/image-to-video",
+    startFrameField: "start_image_url",
     durationFormat: "plain_string",
     tier: "premium",
     description: "Best for cinematic, animated shots",
-    supportsImageToVideo: false,
-    supportsEndFrame: false,
+    supportsImageToVideo: true,
+    supportsEndFrame: true,
     supportsAudio: true,
     durations: [5, 10],
     aspectRatios: ["16:9", "9:16", "1:1"],
@@ -111,11 +133,12 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Seedance 2",
     falSlug: "bytedance/seedance-2.0/fast/text-to-video",
+    imageToVideoFalSlug: "bytedance/seedance-2.0/fast/image-to-video",
     durationFormat: "plain_string",
     tier: "premium",
     description: "Fast reference and asset generation",
-    supportsImageToVideo: false,
-    supportsEndFrame: false,
+    supportsImageToVideo: true,
+    supportsEndFrame: true,
     supportsAudio: true,
     durations: [5, 10],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
@@ -124,10 +147,11 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Grok Imagine",
     falSlug: "xai/grok-imagine-video/text-to-video",
+    imageToVideoFalSlug: "xai/grok-imagine-video/image-to-video",
     durationFormat: "integer",
     tier: "premium",
     description: "xAI's video model — fast, expressive motion",
-    supportsImageToVideo: false,
+    supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: false,
     durations: [6],
@@ -141,6 +165,9 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     tier: "flagship",
     description: "Google Gemini — omni-modal generation",
     logo: GEMINI_ICON,
+    // Schema checked directly (see module header) -- no image_url or
+    // equivalent field exists on this app at all, so unlike the other 5
+    // models this one genuinely has no image-to-video path to wire up.
     supportsImageToVideo: false,
     supportsEndFrame: false,
     // No generate_audio (or any audio) param in this app's schema -- unlike
