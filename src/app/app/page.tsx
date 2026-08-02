@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Compass as CompassIcon, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -44,14 +44,6 @@ const TOOLS: {
     videoPoster: "/videos/niche-bender-poster.jpg",
     videoDark: "/videos/niche-bender-dark.mp4",
     videoPosterDark: "/videos/niche-bender-dark-poster.jpg",
-  },
-  {
-    title: "Niche Finder",
-    description: "Discover trending faceless niches on TikTok, ranked by momentum score.",
-    href: "/app/niches",
-    icon: CompassIcon,
-    tone: "cat-2",
-    comingSoon: true,
   },
   {
     title: "Transcript Extractor",
