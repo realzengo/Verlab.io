@@ -4,7 +4,7 @@ import { FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Verlab",
+  title: "Terms of Service — Verlab AI",
   description: "The terms and conditions that govern your use of Verlab's niche research and script-generation tools.",
 };
 

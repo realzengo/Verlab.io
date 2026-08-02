@@ -25,7 +25,7 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Verlab — Bend any viral niche into your own",
+  title: "Verlab AI",
   description:
     "Verlab finds the faceless niches blowing up on TikTok, reverse-engineers why they work, and bends them into a repeatable system for your channel.",
 };

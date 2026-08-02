@@ -168,7 +168,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                   className="absolute inset-0 z-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                 />
 
-                <div className="pointer-events-none relative z-[1] flex items-center gap-3.5 px-5 py-3.5 transition-colors group-hover:bg-app">
+                <div className="pointer-events-none relative z-[1] flex items-center gap-3 px-4 py-3 transition-colors group-hover:bg-app sm:gap-3.5 sm:px-5 sm:py-3.5">
                   <ChannelAvatar
                     name={item.channelName ?? item.sourceUrl ?? "?"}
                     avatarUrl={item.avatarUrl ?? undefined}
@@ -177,34 +177,42 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                   />
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-semibold text-heading">
-                      {item.channelName ?? item.sourceUrl ?? "Untitled channel"}
-                    </p>
-                    {finalNiche ? (
-                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-subtle">
-                        <span className="truncate">{item.detectedNiche}</span>
-                        <Sparkles className="h-3 w-3 shrink-0 text-primary/70" />
-                        <span className="truncate font-medium text-body">{finalNiche}</span>
-                      </div>
-                    ) : (
-                      <p className="mt-0.5 truncate text-xs text-subtle">{item.detectedNiche ?? "Analyzing channel…"}</p>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <p className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-heading">
+                        {item.channelName ?? item.sourceUrl ?? "Untitled channel"}
+                      </p>
+                      <StatusBadge status={item.status} />
+                      <span className="shrink-0 text-[11px] tabular-nums text-subtle">
+                        {formatTimeAgo(item.updatedAt)}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {finalNiche ? (
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-subtle">
+                          <span className="truncate">{item.detectedNiche}</span>
+                          <Sparkles className="h-3 w-3 shrink-0 text-primary/70" />
+                          <span className="truncate font-medium text-body">{finalNiche}</span>
+                        </div>
+                      ) : (
+                        <p className="min-w-0 flex-1 truncate text-xs text-subtle">
+                          {item.detectedNiche ?? "Analyzing channel…"}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <StatusBadge status={item.status} />
-                    <span className="text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
+                  <div className="flex shrink-0 items-center">
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(item.jobId)}
+                      aria-label="Delete this bend"
+                      className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle opacity-100 transition-colors hover:bg-danger/10 hover:text-danger sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <ChevronRight className="hidden h-4 w-4 shrink-0 text-subtle opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100 sm:block" />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setPendingDeleteId(item.jobId)}
-                    aria-label="Delete this bend"
-                    className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle opacity-0 transition-colors hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-subtle opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
                 </div>
               </li>
             );
@@ -215,7 +223,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex w-full items-center justify-center gap-1.5 border-t border-hairline px-5 py-2.5 text-xs font-semibold text-subtle transition-colors hover:bg-app hover:text-heading"
+            className="flex w-full items-center justify-center gap-1.5 border-t border-hairline px-4 py-2.5 text-xs font-semibold text-subtle transition-colors hover:bg-app hover:text-heading sm:px-5"
           >
             {expanded ? "Show less" : `Show ${items.length - COLLAPSED_COUNT} more`}
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />

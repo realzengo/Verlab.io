@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
 
 export const metadata: Metadata = {
-  title: "Legal — Verlab",
+  title: "Legal — Verlab AI",
   description: "Verlab's Terms of Service, Privacy Policy, and Refund Policy.",
 };
 

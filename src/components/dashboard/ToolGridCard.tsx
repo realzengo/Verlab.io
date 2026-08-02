@@ -32,6 +32,10 @@ interface ToolGridCardProps {
   video?: string;
   /** Poster frame shown while `video` loads. */
   videoPoster?: string;
+  /** Dark-mode variant of `video`, swapped in via the `.dark` class. Falls back to `video` when omitted. */
+  videoDark?: string;
+  /** Poster frame shown while `videoDark` loads. */
+  videoPosterDark?: string;
   /** Zoom factor for the video preview, e.g. 1.25 for 125%. Defaults to 1 (no zoom). */
   videoScale?: number;
   /** Not yet released -- still linked (the destination shows a "coming soon" placeholder), just visibly marked unavailable here. */
@@ -49,6 +53,8 @@ export function ToolGridCard({
   thumbnail,
   video,
   videoPoster,
+  videoDark,
+  videoPosterDark,
   videoScale = 1,
   comingSoon,
 }: ToolGridCardProps) {
@@ -64,17 +70,32 @@ export function ToolGridCard({
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60">
           {video ? (
-            <video
-              src={video}
-              poster={videoPoster}
-              className="h-full w-full object-cover"
-              style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-            />
+            <>
+              <video
+                src={video}
+                poster={videoPoster}
+                className={cn("h-full w-full object-cover", videoDark && "dark:hidden")}
+                style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+              />
+              {videoDark && (
+                <video
+                  src={videoDark}
+                  poster={videoPosterDark}
+                  className="hidden h-full w-full object-cover dark:block"
+                  style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+              )}
+            </>
           ) : thumbnail ? (
             <Image
               src={thumbnail}

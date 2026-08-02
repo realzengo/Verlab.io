@@ -4,7 +4,7 @@ import { CreditCard, RefreshCw, XCircle } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Refund Policy — Verlab",
+  title: "Refund Policy — Verlab AI",
   description: "Verlab's refund and cancellation policy: how billing works, how to cancel, and what happens to your data.",
 };
 

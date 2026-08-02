@@ -146,10 +146,10 @@ export function UpgradeModal({
         </button>
 
         <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
-          <div className="mx-auto w-fit rounded-full border border-hairline bg-app p-1">
+          <div className="mx-auto w-fit rounded-full border border-hairline bg-app p-1 shadow-card">
             <div className="relative flex">
               <span
-                className="absolute inset-y-1 w-[calc(50%-4px)] rounded-full bg-heading transition-transform duration-300 ease-out"
+                className="absolute inset-y-1 w-[calc(50%-4px)] rounded-full bg-heading shadow-card transition-transform duration-300 ease-out"
                 style={{ transform: `translateX(${tab === "topup" ? "100%" : "0%"})` }}
                 aria-hidden
               />
@@ -210,7 +210,7 @@ export function UpgradeModal({
 
               {planError && <p className="mt-4 text-center text-sm text-danger">{planError}</p>}
 
-              <div className="mx-auto mt-8 grid max-w-4xl grid-cols-1 gap-5 sm:grid-cols-3">
+              <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 items-start gap-6 sm:grid-cols-3 sm:gap-5">
                 {PRICING_PLANS.map((plan) => {
                   const yearlyUnavailable = plan.monthlyOnly && frequency === "yearly";
                   const monthlyEquivalent = Math.round(plan.price.yearly / 12);
@@ -224,31 +224,33 @@ export function UpgradeModal({
                     <div
                       key={plan.id}
                       className={cn(
-                        "relative flex flex-col overflow-hidden rounded-2xl border bg-surface",
-                        plan.recommended ? "border-primary ring-2 ring-primary/25 shadow-blue" : "border-hairline",
+                        "relative flex flex-col overflow-visible rounded-2xl border bg-surface transition-shadow duration-200",
+                        plan.recommended
+                          ? "z-10 border-primary shadow-blue sm:-my-3"
+                          : "border-hairline shadow-card hover:shadow-card-hover",
                         yearlyUnavailable && "opacity-50"
                       )}
                     >
                       {plan.recommended && (
-                        <div className="flex items-center justify-center gap-1 bg-primary py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+                        <span className="absolute -top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-blue">
                           <Sparkles className="h-3 w-3" />
                           Most Popular
-                        </div>
+                        </span>
                       )}
 
-                      <div className="flex flex-1 flex-col p-5">
-                        <h3 className="text-base font-semibold text-heading">{plan.name}</h3>
+                      <div className={cn("flex flex-1 flex-col p-6", plan.recommended && "pt-7")}>
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-subtle">{plan.name}</h3>
 
                         {yearlyUnavailable ? (
                           <p className="mt-3 text-sm text-body">Not available on yearly billing</p>
                         ) : (
                           <>
-                            <div className="mt-3 flex items-baseline gap-1">
-                              <span className="text-3xl font-bold text-heading">${price}</span>
-                              <span className="text-sm text-body">/mo</span>
+                            <div className="mt-2 flex items-baseline gap-1">
+                              <span className="text-4xl font-extrabold tracking-tight text-heading">${price}</span>
+                              <span className="text-sm font-medium text-subtle">/mo</span>
                             </div>
                             {frequency === "yearly" && (
-                              <p className="mt-1 text-xs text-body">Billed annually at ${plan.price.yearly}/year</p>
+                              <p className="mt-1 text-xs text-subtle">Billed annually at ${plan.price.yearly}/year</p>
                             )}
                           </>
                         )}
@@ -256,17 +258,17 @@ export function UpgradeModal({
                           <span className="mt-1 text-xs font-semibold text-success">Save {percentOff}%</span>
                         )}
 
-                        <p className="mt-2 text-xs text-subtle">{plan.info}</p>
+                        <p className="mt-2 min-h-[2.5rem] text-xs leading-relaxed text-subtle">{plan.info}</p>
 
                         <button
                           type="button"
                           disabled={yearlyUnavailable}
                           onClick={() => handleSelectPlan(plan)}
                           className={cn(
-                            "mt-4 w-full rounded-full py-2.5 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
+                            "mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
                             plan.recommended
                               ? "bg-btn-primary text-white hover:bg-btn-primary-hover"
-                              : "border border-hairline bg-app text-heading hover:bg-accent"
+                              : "border border-hairline bg-app text-heading hover:border-subtle/40 hover:bg-accent"
                           )}
                         >
                           {checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta}

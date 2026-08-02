@@ -30,6 +30,8 @@ const TOOLS: {
   thumbnail?: string;
   video?: string;
   videoPoster?: string;
+  videoDark?: string;
+  videoPosterDark?: string;
   videoScale?: number;
 }[] = [
   {
@@ -62,6 +64,8 @@ const TOOLS: {
     tone: "cat-6",
     video: "/videos/scriptwriter.mp4",
     videoPoster: "/videos/scriptwriter-poster.jpg",
+    videoDark: "/videos/scriptwriter-dark.mp4",
+    videoPosterDark: "/videos/scriptwriter-dark-poster.jpg",
   },
   {
     title: "Image Generator",
@@ -71,6 +75,8 @@ const TOOLS: {
     tone: "cat-3",
     video: "/videos/image-generator.mp4",
     videoPoster: "/videos/image-generator-poster.jpg",
+    videoDark: "/videos/image-generator-dark.mp4",
+    videoPosterDark: "/videos/image-generator-dark-poster.jpg",
   },
   {
     title: "Video Generator",
@@ -80,6 +86,8 @@ const TOOLS: {
     tone: "cat-4",
     video: "/videos/video-generator.mp4",
     videoPoster: "/videos/video-generator-poster.jpg",
+    videoDark: "/videos/video-generator-dark.mp4",
+    videoPosterDark: "/videos/video-generator-dark-poster.jpg",
     videoScale: 1.1,
   },
   {
@@ -90,6 +98,9 @@ const TOOLS: {
     tone: "cat-1",
     video: "/videos/downloader.mp4",
     videoPoster: "/videos/downloader-poster.jpg",
+    videoDark: "/videos/downloader-dark.mp4",
+    videoPosterDark: "/videos/downloader-dark-poster.jpg",
+    videoScale: 1.35,
   },
 ];
 
@@ -142,6 +153,8 @@ export default async function AppHome() {
                 thumbnail={tool.thumbnail}
                 video={tool.video}
                 videoPoster={tool.videoPoster}
+                videoDark={tool.videoDark}
+                videoPosterDark={tool.videoPosterDark}
                 videoScale={tool.videoScale}
               />
             ))}

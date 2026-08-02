@@ -4,7 +4,7 @@ import { Database, Lock, ShieldCheck, UserCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Verlab",
+  title: "Privacy Policy — Verlab AI",
   description: "How Verlab collects, uses, and protects your data.",
 };
 
