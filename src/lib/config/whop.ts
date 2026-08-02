@@ -111,3 +111,7 @@ export function getWhopClient(): Whop {
   }
   return client;
 }
+
+export function getWhopCompanyId(): string {
+  return requiredEnv("WHOP_COMPANY_ID");
+}

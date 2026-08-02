@@ -16,38 +16,65 @@ const POLL_INTERVAL_MS = 1500;
 const TIMEOUT_MS = 30_000;
 
 /**
- * Polls our own DB (never Polar) until the webhook-driven update to credits/
- * plan/subscription_status shows up, then hands off into the dashboard. This
- * exists because Polar's redirect can land before the webhook has processed
- * -- proxy.ts's paywall gate would otherwise bounce a paying user back to
+ * Polls our own DB until the update to credits/plan/subscription_status
+ * shows up, then hands off into the dashboard. This exists because the
+ * checkout redirect can land before the async update has processed --
+ * proxy.ts's paywall gate would otherwise bounce a paying user back to
  * /pricing for that brief window. See src/proxy.ts's /checkout carve-out.
+ *
+ * The DB update is normally webhook-driven, but that's not guaranteed --
+ * confirmed in production that a real payment/membership can go through on
+ * Whop's side with zero webhook ever reaching us (see
+ * 20260802170000_whop_payment_dedup.sql). So this also fires POST
+ * /api/checkout/reconcile, which asks Whop directly and self-heals if the
+ * webhook hasn't landed -- once right away, and again at the timeout as a
+ * last resort before giving up. It's dedupe-safe to call any number of
+ * times, including after the real webhook eventually does land.
  */
 export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
   const router = useRouter();
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    const cancel = pollUntilSettled(
-      async () => {
-        const res = await fetch("/api/checkout/sync-status", { cache: "no-store" });
-        if (!res.ok) throw new Error("Could not check sync status");
-        return (await res.json()) as ProfileSnapshot;
-      },
-      (current) =>
-        current.credits !== initial.credits ||
-        current.plan !== initial.plan ||
-        current.subscription_status !== initial.subscription_status,
-      (current) => {
-        const changed =
-          current.credits !== initial.credits ||
-          current.plan !== initial.plan ||
-          current.subscription_status !== initial.subscription_status;
-        if (changed) router.push("/app/settings/credits");
-      },
-      { intervalMs: POLL_INTERVAL_MS, timeoutMs: TIMEOUT_MS, onTimeout: () => setTimedOut(true) }
-    );
+    let cancelled = false;
+    const reconcile = () => fetch("/api/checkout/reconcile", { method: "POST" }).catch(() => {});
+    const hasChanged = (current: ProfileSnapshot) =>
+      current.credits !== initial.credits ||
+      current.plan !== initial.plan ||
+      current.subscription_status !== initial.subscription_status;
+    const fetchStatus = async () => {
+      const res = await fetch("/api/checkout/sync-status", { cache: "no-store" });
+      if (!res.ok) throw new Error("Could not check sync status");
+      return (await res.json()) as ProfileSnapshot;
+    };
 
-    return cancel;
+    reconcile();
+
+    const cancelPoll = pollUntilSettled(fetchStatus, hasChanged, (current) => {
+      if (hasChanged(current)) router.push("/app/settings/credits");
+    }, {
+      intervalMs: POLL_INTERVAL_MS,
+      timeoutMs: TIMEOUT_MS,
+      onTimeout: () => {
+        // Last resort: ask Whop directly, then check our own DB exactly once
+        // more before giving up on the loading screen.
+        reconcile()
+          .then(fetchStatus)
+          .then((current) => {
+            if (cancelled) return;
+            if (hasChanged(current)) router.push("/app/settings/credits");
+            else setTimedOut(true);
+          })
+          .catch(() => {
+            if (!cancelled) setTimedOut(true);
+          });
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      cancelPoll();
+    };
   }, [initial, router]);
 
   return (

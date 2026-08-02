@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebhookVerificationError } from "standardwebhooks";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { grantCredits, deductCredits, getUserCredits } from "@/lib/server/credits";
-import { getWhopClient, findCreditPackByPlanId, findSubscriptionPlanByPlanId } from "@/lib/config/whop";
+import { getWhopClient } from "@/lib/config/whop";
+import {
+  handlePaymentSucceeded,
+  handleRefundCreated,
+  syncMembershipState,
+  handleMembershipDeactivated,
+} from "@/lib/server/whop-sync";
 import type { Payment, Membership } from "@whop/sdk/resources/shared";
 import type { UnwrapWebhookEvent, RefundCreatedWebhookEvent } from "@whop/sdk/resources/webhooks";
-
-type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
  * Not behind Supabase auth (proxy.ts's matcher only covers /app, /admin,
@@ -71,10 +74,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     switch (event.type) {
       case "payment.succeeded":
-        await handlePaymentSucceeded(admin, event.data as Payment);
+        await handlePaymentSucceeded(admin, event.data as Payment, "webhook");
         break;
       case "refund.created":
-        await handleRefundCreated(admin, event.data as RefundCreatedWebhookEvent.Data);
+        await handleRefundCreated(event.data as RefundCreatedWebhookEvent.Data);
         break;
       case "membership.activated":
         await syncMembershipState(admin, event.data as Membership);
@@ -99,96 +102,4 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   await admin.from("whop_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);
 
   return NextResponse.json({ received: true });
-}
-
-async function handlePaymentSucceeded(admin: AdminClient, payment: Payment) {
-  const userId = payment.metadata?.user_id as string | undefined;
-  const planId = payment.plan?.id;
-  if (!userId || !planId) return;
-
-  if (payment.membership) {
-    const plan = findSubscriptionPlanByPlanId(planId);
-    if (!plan) return;
-    await grantCredits(
-      userId,
-      plan.creditsPerPeriod,
-      "Subscription credits",
-      `whop.subscription.${plan.planId}_${plan.period}`
-    );
-    return;
-  }
-
-  const pack = findCreditPackByPlanId(planId);
-  if (!pack) return;
-  await grantCredits(userId, pack.credits, "Credit top-up", `whop.topup.${pack.packId}`);
-}
-
-/**
- * Claws back credits when a one-time top-up payment is refunded (in full or
- * in part -- refund.amount/payment.settlement_amount gives the fraction).
- * Floored at the user's current balance rather than throwing
- * InsufficientCreditsError, so a refund on already-spent credits claws back
- * whatever's left instead of failing the whole webhook (Whop retries on
- * non-2xx, which would just redeliver the same unsatisfiable deduction
- * forever). Deliberately skips subscription payments -- their credits are
- * for the period already granted, and subscription access itself is driven
- * entirely by membership.* events, not refund handling.
- */
-async function handleRefundCreated(admin: AdminClient, refund: RefundCreatedWebhookEvent.Data) {
-  const paymentId = refund.payment?.id;
-  if (!paymentId) return;
-
-  const client = getWhopClient();
-  const payment = await client.payments.retrieve(paymentId);
-  if (!payment) return;
-
-  const userId = payment.metadata?.user_id as string | undefined;
-  const planId = payment.plan?.id;
-  if (!userId || !planId || payment.membership) return;
-
-  const pack = findCreditPackByPlanId(planId);
-  if (!pack) return;
-
-  const refundFraction = payment.settlement_amount > 0 ? (payment.refunded_amount ?? 0) / payment.settlement_amount : 1;
-  const creditsToClaw = Math.round(pack.credits * Math.min(1, Math.max(0, refundFraction)));
-  if (creditsToClaw <= 0) return;
-
-  const currentBalance = await getUserCredits(userId);
-  const actualClaw = Math.min(creditsToClaw, currentBalance);
-  if (actualClaw <= 0) return;
-
-  await deductCredits(userId, actualClaw, "Refund clawback", `whop.refund.${pack.packId}`);
-}
-
-async function syncMembershipState(admin: AdminClient, membership: Membership) {
-  const userId = membership.metadata?.user_id as string | undefined;
-  if (!userId) return;
-
-  const plan = findSubscriptionPlanByPlanId(membership.plan.id);
-
-  const updates: Record<string, unknown> = {
-    subscription_id: membership.id,
-    subscription_status: membership.status,
-    subscription_current_period_end: membership.renewal_period_end
-      ? new Date(Number(membership.renewal_period_end) * 1000).toISOString()
-      : null,
-    whop_manage_url: membership.manage_url,
-  };
-  if (plan) {
-    updates.plan = plan.planId;
-    updates.plan_set_by = "system";
-    updates.subscription_period = plan.period;
-  }
-
-  await admin.from("profiles").update(updates).eq("id", userId);
-}
-
-async function handleMembershipDeactivated(admin: AdminClient, membership: Membership) {
-  const userId = membership.metadata?.user_id as string | undefined;
-  if (!userId) return;
-
-  await admin
-    .from("profiles")
-    .update({ subscription_status: "canceled", plan: "core", plan_set_by: "system" })
-    .eq("id", userId);
 }
