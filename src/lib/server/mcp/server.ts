@@ -70,7 +70,7 @@ export function createMcpServer(userId: string): McpServer {
       title: "Verlab",
       version: "1.0.0",
       websiteUrl: "https://verlab.io",
-      icons: [{ src: "https://verlab.io/logo-icon.png", mimeType: "image/png", sizes: ["2363x2363"] }],
+      icons: [{ src: "https://verlab.io/logo-icon.png", mimeType: "image/png", sizes: ["2936x2936"] }],
     },
     {
       instructions:
