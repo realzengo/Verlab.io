@@ -14,7 +14,7 @@ async function handleGET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("scripts")
-    .select("id, prompt, content, created_at")
+    .select("id, prompt, content, created_at, updated_at")
     .order("created_at", { ascending: false })
     .limit(100);
 

@@ -40,6 +40,10 @@ const TOOLS: {
     href: "/app/bend",
     icon: Wand2,
     tone: "cat-7",
+    video: "/videos/niche-bender.mp4",
+    videoPoster: "/videos/niche-bender-poster.jpg",
+    videoDark: "/videos/niche-bender-dark.mp4",
+    videoPosterDark: "/videos/niche-bender-dark-poster.jpg",
   },
   {
     title: "Niche Finder",
@@ -55,6 +59,10 @@ const TOOLS: {
     href: "/app/transcripts",
     icon: Captions,
     tone: "cat-5",
+    video: "/videos/transcript-extractor.mp4",
+    videoPoster: "/videos/transcript-extractor-poster.jpg",
+    videoDark: "/videos/transcript-extractor-dark.mp4",
+    videoPosterDark: "/videos/transcript-extractor-dark-poster.jpg",
   },
   {
     title: "Scriptwriter",

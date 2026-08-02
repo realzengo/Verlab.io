@@ -53,6 +53,12 @@ const NICHE_BEND_REGENERATE_CANDIDATE_COST_USD = (600 / 1e6) * 0.05 + (400 / 1e6
 // Estimated ~2500 input tokens (SOP + transcripts + history) / ~2000 output
 // tokens (a script or 10 ideas).
 const SCRIPT_GENERATION_COST_USD = (2500 / 1e6) * 3 + (2000 / 1e6) * 15;
+// "Ask AI to edit your script" chat pass -- the model must re-emit the full
+// script on every edit (see buildEditSystemPrompt in script-generation.ts),
+// so this is priced the same worst-case-Claude-fallback way as generation
+// itself: ~2000 input tokens (the current script) / ~2000 output tokens (the
+// revised script), no separate SOP/transcripts re-sent.
+const SCRIPT_EDIT_COST_USD = (2000 / 1e6) * 3 + (2000 / 1e6) * 15;
 // ScrapeCreators: 2 calls per video (metadata + transcript), ~$0.015 each.
 const TRANSCRIPTS_EXTRACT_COST_USD = 0.015 * 2;
 // Cloudflare mistral-small, batched 20 lines/call; ~3 batches average.
@@ -83,6 +89,7 @@ export const TOOL_CREDIT_COSTS = {
   },
   script: {
     generation: creditsForCost(SCRIPT_GENERATION_COST_USD),
+    edit: creditsForCost(SCRIPT_EDIT_COST_USD),
   },
   transcripts: {
     extract: creditsForCost(TRANSCRIPTS_EXTRACT_COST_USD),

@@ -60,6 +60,10 @@ const TOOLS: {
     href: "/app/transcripts",
     icon: Captions,
     tone: "cat-5",
+    video: "/videos/transcript-extractor.mp4",
+    videoPoster: "/videos/transcript-extractor-poster.jpg",
+    videoDark: "/videos/transcript-extractor-dark.mp4",
+    videoPosterDark: "/videos/transcript-extractor-dark-poster.jpg",
   },
   {
     title: "Downloader",

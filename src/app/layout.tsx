@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "@fontsource/open-sauce-one/400.css";
 import "@fontsource/open-sauce-one/500.css";
@@ -28,6 +28,18 @@ export const metadata: Metadata = {
   title: "Verlab AI",
   description:
     "Verlab finds the faceless niches blowing up on TikTok, reverse-engineers why they work, and bends them into a repeatable system for your channel.",
+};
+
+// interactiveWidget: "resizes-content" makes mobile browsers actually shrink
+// the layout viewport when the on-screen keyboard opens (and restore it on
+// close), instead of the newer "overlays-content" default -- which leaves
+// dvh-based fixed panels (like ScriptEditorModal's chat input) stranded mid-
+// screen with dead space below once the keyboard dismisses.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

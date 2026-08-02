@@ -3,32 +3,39 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
+  ChevronRight,
+  Clock,
   Copy,
-  Download,
   Eye,
   FileBadge,
   FileText,
   FileX,
   Folder,
   Loader2,
+  MoreHorizontal,
   Search,
   Sparkles,
+  Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
-import { Badge } from "@/components/ui/Badge";
+import { formatRelativeTime, parseScriptOutput, type ScriptRecord } from "@/lib/script-format";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Button } from "@/components/ui/Button";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
-import { BorderTrail } from "@/components/ui/BorderTrail";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ScriptEditorModal } from "@/components/features/ScriptEditorModal";
 
 const PLACEHOLDER =
   "Describe the video you want to create, and add reference videos to help write a viral script.";
+
+// The "Recently Created" shelf only shows this many by default -- "History"
+// expands to the full (search-filtered) list in place, no separate route.
+const RECENT_LIMIT = 6;
 
 type ReferenceKind = "sop" | "transcript";
 
@@ -37,23 +44,8 @@ type ReferenceFile = {
   content: string;
 };
 
-interface ScriptHistoryItem {
-  id: string;
-  prompt: string;
-  content: string;
-  created_at: string;
-}
+type ScriptHistoryItem = ScriptRecord;
 
-interface ParsedScript {
-  title: string | null;
-  script: string;
-  metrics: { label: string; value: string }[];
-}
-
-// Parses the model's "---\nTITLE: ...\n\nSCRIPT:\n...\n\nMETRICS:\n- ...\n---"
-// output into display-ready pieces. Falls back to raw text for formats that
-// don't match (e.g. the idea-generation mode, or a still-streaming response
-// that hasn't reached a section yet).
 // Derives a status label and rough completion percentage purely from the
 // streamed text itself (no fake timers) so the modal never lies about
 // progress it doesn't actually have.
@@ -68,27 +60,6 @@ function getGenerationProgress(result: string): { label: string; percent: number
     return { label: "Writing the full script", percent: 65 };
   }
   return { label: "Polishing the final draft", percent: 92 };
-}
-
-function parseScriptOutput(raw: string): ParsedScript {
-  const cleaned = raw.trim().replace(/^-{3,}\s*/, "").replace(/\s*-{3,}$/, "").trim();
-
-  const titleMatch = cleaned.match(/TITLE:\s*(.+)/);
-  const scriptMatch = cleaned.match(/SCRIPT:\s*([\s\S]*?)(?=\n{1,2}METRICS:|$)/);
-  const metricsMatch = cleaned.match(/METRICS:\s*([\s\S]*)/);
-
-  const title = titleMatch?.[1]?.trim() || null;
-  const script = (scriptMatch?.[1] ?? (title ? "" : cleaned)).trim();
-
-  const metrics: { label: string; value: string }[] = [];
-  if (metricsMatch) {
-    for (const line of metricsMatch[1].split("\n")) {
-      const match = line.match(/^-\s*([^:]+):\s*(.+)$/);
-      if (match) metrics.push({ label: match[1].trim(), value: match[2].trim() });
-    }
-  }
-
-  return { title, script, metrics };
 }
 
 type DropZoneProps = {
@@ -117,6 +88,8 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
     if (droppedFile) onSelect(droppedFile);
   }
 
+  const hasFile = Boolean(file);
+
   return (
     <div
       role="button"
@@ -135,62 +108,63 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
       className={cn(
-        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer rounded-xl bg-gradient-to-br from-blue-300/60 via-indigo-200/40 to-blue-400/60 p-px transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:from-blue-400/80 hover:via-indigo-300/60 hover:to-blue-500/80",
-        "dark:from-blue-400/40 dark:via-indigo-400/20 dark:to-blue-300/40 dark:hover:from-blue-400/70 dark:hover:via-indigo-400/45 dark:hover:to-blue-300/70",
-        isDragOver && "-translate-y-0.5 from-blue-400/90 via-indigo-300/70 to-blue-500/90 dark:from-blue-400/80 dark:via-indigo-400/55 dark:to-blue-300/80",
+        "group relative flex min-w-0 flex-1 aspect-square cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl text-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        hasFile
+          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
+          : "border border-dashed border-slate-300 bg-slate-50/60 hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:bg-white/[0.02] dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06]",
+        isDragOver && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10",
         isUploading && "pointer-events-none opacity-70"
       )}
     >
-      <div
-        className={cn(
-          "relative flex h-full w-full flex-col items-center justify-center gap-2.5 overflow-hidden rounded-[11px] bg-white/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_2px_rgba(0,0,0,0.05)] backdrop-blur-md transition-colors duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:bg-white/90 group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),inset_0_-1px_2px_rgba(0,0,0,0.05),0_16px_32px_-14px_rgba(15,23,42,0.22)]",
-          "dark:bg-zinc-950/90 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),inset_0_-2px_3px_rgba(0,0,0,0.6)] dark:group-hover:bg-zinc-900/90 dark:group-hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_-2px_3px_rgba(0,0,0,0.6),0_16px_32px_-14px_rgba(0,0,0,0.65)]",
-          isDragOver && "bg-white/95 dark:bg-zinc-900/95"
-        )}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          className="hidden"
-          onChange={(event) => {
-            const selected = event.target.files?.[0];
-            if (selected) onSelect(selected);
-            event.target.value = "";
-          }}
-        />
-        {isUploading ? (
-          <>
-            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-            <span className="text-xs font-medium text-slate-500">Reading file…</span>
-          </>
-        ) : file ? (
-          <>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onClear();
-              }}
-              aria-label={`Remove ${label}`}
-              className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/90 p-1 text-slate-500 opacity-0 shadow-sm transition-opacity duration-150 hover:text-slate-700 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-zinc-800/90 dark:text-slate-300 dark:hover:text-white"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-            <Icon className="h-6 w-6 text-blue-500" />
-            <span className="max-w-[90%] truncate px-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="hidden"
+        onChange={(event) => {
+          const selected = event.target.files?.[0];
+          if (selected) onSelect(selected);
+          event.target.value = "";
+        }}
+      />
+      {isUploading ? (
+        <>
+          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          <span className="text-xs font-medium text-slate-500">Reading file…</span>
+        </>
+      ) : file ? (
+        <>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClear();
+            }}
+            aria-label={`Remove ${label}`}
+            className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-500 opacity-0 transition-opacity duration-150 hover:bg-slate-200 hover:text-slate-700 group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20 dark:hover:text-white"
+          >
+            <X className="h-3 w-3" />
+          </button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col items-center gap-0.5 px-2">
+            <span className="max-w-full truncate text-xs font-medium text-slate-700 dark:text-slate-200">
               {file.name}
             </span>
-          </>
-        ) : (
-          <>
-            <Icon className="h-6 w-6 text-slate-400 transition-colors duration-300 group-hover:text-blue-500 dark:group-hover:text-blue-400" />
-            <span className="text-sm font-medium text-slate-500 transition-colors duration-300 group-hover:text-slate-700 dark:group-hover:text-slate-300">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
               {label}
             </span>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <Icon className="h-5 w-5 text-slate-400 transition-colors duration-200 group-hover:text-blue-500 dark:text-slate-500 dark:group-hover:text-blue-400" />
+          <span className="text-xs font-medium text-slate-500 transition-colors duration-200 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200">
+            {label}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -210,10 +184,12 @@ export default function ScriptWriterPage() {
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
   const [uploadingKind, setUploadingKind] = useState<ReferenceKind | null>(null);
   const [viewingScript, setViewingScript] = useState<ScriptHistoryItem | null>(null);
-  const [copiedModal, setCopiedModal] = useState(false);
+  const [generatedScript, setGeneratedScript] = useState<ScriptHistoryItem | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingScript, setDeletingScript] = useState<ScriptHistoryItem | null>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resultRef = useRef<HTMLDivElement>(null);
   const modalStreamRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -245,16 +221,21 @@ export default function ScriptWriterPage() {
     loadHistory();
   }, []);
 
-  function loadHistory() {
+  async function loadHistory(): Promise<ScriptHistoryItem[]> {
     setIsLoadingHistory(true);
-    fetch("/api/scripts")
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
-      })
-      .then((data) => setHistory(data.scripts ?? []))
-      .catch(() => setError("Couldn't load your script history. Try refreshing the page."))
-      .finally(() => setIsLoadingHistory(false));
+    try {
+      const response = await fetch("/api/scripts");
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      const scripts: ScriptHistoryItem[] = data.scripts ?? [];
+      setHistory(scripts);
+      return scripts;
+    } catch {
+      setError("Couldn't load your script history. Try refreshing the page.");
+      return [];
+    } finally {
+      setIsLoadingHistory(false);
+    }
   }
 
   // Uploads the raw file and lets the server extract its text (PDF/DOCX are
@@ -355,7 +336,8 @@ export default function ScriptWriterPage() {
         setResult((prev) => prev + decoder.decode(value, { stream: true }));
       }
 
-      loadHistory();
+      const scripts = await loadHistory();
+      setGeneratedScript(scripts[0] ?? null);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
@@ -382,44 +364,21 @@ export default function ScriptWriterPage() {
     setTimeout(() => setCopiedHistoryId((current) => (current === id ? null : current)), 1500);
   }
 
-  async function handleCopyModal(content: string) {
-    await navigator.clipboard.writeText(content);
-    setCopiedModal(true);
-    setTimeout(() => setCopiedModal(false), 1500);
-  }
-
-  function handleDownloadScript(item: ScriptHistoryItem, title: string | null) {
-    const filename = (title ?? item.prompt)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "script";
-
-    const blob = new Blob([item.content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${filename}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+  async function handleDeleteScript(item: ScriptHistoryItem) {
+    try {
+      const response = await fetch(`/api/scripts/${item.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error();
+      setHistory((prev) => prev.filter((entry) => entry.id !== item.id));
+      if (viewingScript?.id === item.id) setViewingScript(null);
+      if (generatedScript?.id === item.id) setGeneratedScript(null);
+    } catch {
+      setError("Failed to delete the script. Please try again.");
+    }
   }
 
   function handleViewScript() {
     setPopupDismissed(true);
-    resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  // Resets the prompter for a fresh script, keeping the persisted
-  // SOP/Transcript references and history intact.
-  function handleGenerateAnother() {
-    setResult("");
-    setError(null);
-    setPrompt("");
-    setPopupDismissed(false);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+    if (generatedScript) setViewingScript(generatedScript);
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -431,11 +390,6 @@ export default function ScriptWriterPage() {
 
   return (
     <div className="relative">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-56 bg-blue-400/50 blur-[100px] dark:bg-blue-500/30 sm:-top-40 sm:h-72 sm:blur-[130px]"
-      />
-
       <div className="relative mx-auto w-full max-w-3xl pt-8 sm:pt-12">
       {/* Header */}
       <div>
@@ -449,33 +403,8 @@ export default function ScriptWriterPage() {
 
       {/* Prompter */}
       <div className="group relative mt-8">
-        {/* Focused ambient glow — two soft blobs give the glass something
-            textured to refract, instead of one flat wash. */}
-        <div aria-hidden="true" className="pointer-events-none absolute -inset-20 -z-10 overflow-hidden">
-          <div className="absolute -left-10 -top-16 h-56 w-72 rounded-full bg-blue-500/25 blur-[90px] transition-opacity duration-500 dark:bg-blue-500/35" />
-          <div className="absolute -right-6 -bottom-12 h-48 w-64 rounded-full bg-indigo-500/0 blur-[90px] transition-opacity duration-500 dark:bg-indigo-500/25" />
-        </div>
-
-        {/* Border wrapper — a thin static border plus an animated light
-            trail that travels the perimeter for a premium, "alive" edge. */}
-        <div
-          className={cn(
-            "relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-            "dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.55)]"
-          )}
-        >
-          <BorderTrail
-            size={140}
-            className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-70 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
-            transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
-          />
-
-          <div
-            className={cn(
-              "relative flex flex-col gap-6 rounded-[calc(1rem-1px)] bg-white/60 p-5 backdrop-blur-2xl backdrop-saturate-150 md:flex-row",
-              "dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(9,9,11,0)_45%)]"
-            )}
-          >
+        <div className="relative rounded-2xl border border-slate-200 shadow-sm transition-shadow duration-300 dark:border-white/10 dark:bg-[#111013]/80">
+          <div className="relative flex flex-col gap-6 rounded-[calc(1rem-1px)] bg-[#F9FAFC] p-5 md:flex-row dark:bg-[#111013]">
             {/* Text Input Area */}
             <div className="relative flex flex-1 gap-3">
               <textarea
@@ -664,64 +593,13 @@ export default function ScriptWriterPage() {
           {error}
         </p>
       )}
+      </div>
 
-      {(isGenerating || result) &&
-        (() => {
-          const parsed = parseScriptOutput(result);
-          return (
-            <div
-              ref={resultRef}
-              className="mt-6 overflow-hidden rounded-card border border-hairline bg-surface shadow-card"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-6 py-4">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-primary">
-                    <Sparkles className="h-4 w-4" />
-                  </span>
-                  <h2 className="truncate text-base font-semibold text-heading">
-                    {parsed.title ?? (isGenerating ? "Generating your script…" : "Generated Script")}
-                  </h2>
-                </div>
-
-                {!isGenerating && result && (
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      icon={copiedResult ? Check : Copy}
-                      onClick={() => handleCopy()}
-                    >
-                      {copiedResult ? "Copied" : "Copy"}
-                    </Button>
-                    <PlasticButton text="Generate Another" onClick={handleGenerateAnother} />
-                  </div>
-                )}
-              </div>
-
-              <div className="px-6 py-5">
-                {parsed.metrics.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    {parsed.metrics.map((metric) => (
-                      <Badge key={metric.label}>
-                        {metric.label}: {metric.value}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-heading">
-                  {parsed.script || result}
-                  {isGenerating && (
-                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-body align-middle" />
-                  )}
-                </p>
-              </div>
-            </div>
-          );
-        })()}
-
-      {/* History */}
-      <div className="mt-12 flex items-center gap-2 text-lg font-semibold text-slate-700 dark:text-slate-200">
+      {/* History -- deliberately outside the max-w-3xl wrapper above (unlike
+          the header/composer/popups) so the card shelf can use the full
+          content width instead of being squeezed into a narrow column. */}
+      <div className="mt-12 w-full px-4 md:px-8">
+      <div className="flex items-center gap-2 text-lg font-semibold text-slate-700 dark:text-slate-200">
         <Folder className="h-5 w-5" />
         Recently Created
       </div>
@@ -740,129 +618,132 @@ export default function ScriptWriterPage() {
         />
       </div>
 
-      {isLoadingHistory ? (
-        <div className="mt-4 flex flex-col gap-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-card" />
-          ))}
-        </div>
-      ) : filteredHistory.length === 0 ? (
-        <div className="mt-4 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
-          <FileX className="h-8 w-8" />
-          <p className="text-sm font-medium">Nothing Here!</p>
-        </div>
-      ) : (
-        <div className="mt-4 flex flex-col gap-3">
-          {filteredHistory.map((item) => {
-            const parsed = parseScriptOutput(item.content);
-            return (
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50 sm:p-5">
+        {isLoadingHistory ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-card" />
+            ))}
+          </div>
+        ) : filteredHistory.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-400">
+            <FileX className="h-8 w-8" />
+            <p className="text-sm font-medium">Nothing Here!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {(showAllHistory ? filteredHistory : filteredHistory.slice(0, RECENT_LIMIT)).map((item) => {
+              const parsed = parseScriptOutput(item.content);
+              return (
               <div
                 key={item.id}
-                className="group relative rounded-card border border-hairline bg-surface transition-colors hover:bg-app"
+                className="group relative overflow-hidden rounded-card border border-hairline bg-surface transition-colors hover:bg-app"
               >
                 <button
                   type="button"
                   onClick={() => setViewingScript(item)}
-                  className="block w-full p-4 pr-12 text-left"
+                  className="block w-full p-4 pr-10 text-left"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-heading">{parsed.title ?? item.prompt}</p>
-                    <span className="shrink-0 text-xs text-body">
-                      {new Date(item.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
+                  <p className="truncate text-sm font-semibold text-heading">{parsed.title ?? item.prompt}</p>
                   <p className="mt-1 line-clamp-2 text-sm text-body">{parsed.script || item.content}</p>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleCopyHistoryItem(item.id, item.content);
-                  }}
-                  aria-label="Copy script"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-surface p-1.5 text-body opacity-0 shadow-sm ring-1 ring-hairline transition-opacity group-hover:opacity-100 hover:text-heading"
-                >
-                  {copiedHistoryId === item.id ? (
-                    <Check className="h-3.5 w-3.5 text-success" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-1.5 border-t border-hairline px-4 py-2.5 text-xs text-body">
+                  <Clock className="h-3.5 w-3.5" />
+                  Updated {formatRelativeTime(item.updated_at ?? item.created_at)}
+                </div>
+
+                <div className="absolute right-2 top-2.5">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpenMenuId((current) => (current === item.id ? null : item.id));
+                    }}
+                    aria-label="Script options"
+                    className="rounded-full p-1.5 text-body opacity-0 transition-opacity hover:bg-surface hover:text-heading group-hover:opacity-100"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+
+                  {openMenuId === item.id && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                      <div className="absolute right-0 top-9 z-50 w-36 overflow-hidden rounded-xl border border-hairline bg-surface py-1 shadow-card-hover">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleCopyHistoryItem(item.id, item.content);
+                            setOpenMenuId(null);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-heading hover:bg-app"
+                        >
+                          {copiedHistoryId === item.id ? (
+                            <Check className="h-3.5 w-3.5 text-success" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeletingScript(item);
+                            setOpenMenuId(null);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </>
                   )}
-                </button>
+                </div>
               </div>
             );
           })}
+          </div>
+        )}
+      </div>
+
+      {!isLoadingHistory && filteredHistory.length > RECENT_LIMIT && (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowAllHistory((value) => !value)}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-heading transition-colors hover:bg-app dark:border-zinc-800"
+          >
+            {showAllHistory ? "Show less" : "History"}
+            <ChevronRight className={cn("h-4 w-4 transition-transform", showAllHistory && "rotate-90")} />
+          </button>
         </div>
       )}
 
-      {viewingScript &&
-        (() => {
-          const parsed = parseScriptOutput(viewingScript.content);
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
-              onClick={() => setViewingScript(null)}
-            >
-              <div
-                className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="flex items-center justify-between gap-3 border-b border-hairline px-6 py-4">
-                  <h3 className="truncate text-base font-semibold text-heading">
-                    {parsed.title ?? viewingScript.prompt}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setViewingScript(null)}
-                    aria-label="Close"
-                    className="shrink-0 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="overflow-y-auto px-6 py-5">
-                  {parsed.metrics.length > 0 && (
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      {parsed.metrics.map((metric) => (
-                        <Badge key={metric.label}>
-                          {metric.label}: {metric.value}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-heading">
-                    {parsed.script || viewingScript.content}
-                  </p>
-                </div>
-
-                <div className="flex shrink-0 gap-2 border-t border-hairline px-6 py-4">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={copiedModal ? Check : Copy}
-                    onClick={() => handleCopyModal(viewingScript.content)}
-                  >
-                    {copiedModal ? "Copied" : "Copy"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    icon={Download}
-                    onClick={() => handleDownloadScript(viewingScript, parsed.title)}
-                  >
-                    Download .txt
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      {viewingScript && (
+        <ScriptEditorModal
+          script={viewingScript}
+          onClose={() => setViewingScript(null)}
+          onSaved={(updated) => {
+            setHistory((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+            setViewingScript(updated);
+            setGeneratedScript((prev) => (prev?.id === updated.id ? updated : prev));
+          }}
+        />
+      )}
       </div>
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
+
+      <ConfirmDialog
+        isOpen={deletingScript !== null}
+        onClose={() => setDeletingScript(null)}
+        onConfirm={() => deletingScript && handleDeleteScript(deletingScript)}
+        title="Delete this script?"
+        description="This can't be undone -- the script and any edits will be permanently removed."
+        confirmLabel="Delete"
+        danger
+      />
     </div>
   );
 }
