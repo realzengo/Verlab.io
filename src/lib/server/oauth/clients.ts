@@ -19,6 +19,26 @@ export interface OAuthClient {
  * row in the connected-apps list -- on every reconnect, and "Disconnect"
  * would only revoke the newest one while older client_ids kept working.
  */
+// PostgREST's .eq() can't reliably filter a text[] column by a JS array, so
+// the existing-client lookup fetches by client_name (indexed, cheap) and
+// compares redirect_uris in JS instead.
+async function findRegisteredClient(
+  admin: ReturnType<typeof createAdminClient>,
+  clientName: string | null,
+  redirectUris: string[]
+): Promise<OAuthClient | null> {
+  let query = admin.from("mcp_oauth_clients").select("client_id, client_name, redirect_uris");
+  query = clientName === null ? query.is("client_name", null) : query.eq("client_name", clientName);
+  const { data } = await query;
+
+  const match = (data ?? []).find(
+    (row) =>
+      row.redirect_uris.length === redirectUris.length &&
+      row.redirect_uris.every((uri: string, i: number) => uri === redirectUris[i])
+  );
+  return match ? { clientId: match.client_id, clientName: match.client_name, redirectUris: match.redirect_uris } : null;
+}
+
 export async function registerClient(input: {
   clientName?: string;
   redirectUris: string[];
@@ -26,17 +46,8 @@ export async function registerClient(input: {
   const clientName = input.clientName ?? null;
   const admin = createAdminClient();
 
-  let existingQuery = admin
-    .from("mcp_oauth_clients")
-    .select("client_id, client_name, redirect_uris")
-    .eq("redirect_uris", input.redirectUris);
-  existingQuery =
-    clientName === null ? existingQuery.is("client_name", null) : existingQuery.eq("client_name", clientName);
-  const { data: existing } = await existingQuery.maybeSingle();
-
-  if (existing) {
-    return { clientId: existing.client_id, clientName: existing.client_name, redirectUris: existing.redirect_uris };
-  }
+  const existing = await findRegisteredClient(admin, clientName, input.redirectUris);
+  if (existing) return existing;
 
   const clientId = randomBytes(16).toString("hex");
   const { error } = await admin.from("mcp_oauth_clients").insert({
@@ -45,9 +56,16 @@ export async function registerClient(input: {
     redirect_uris: input.redirectUris,
   });
 
-  if (error) throw new Error(error.message);
+  if (!error) return { clientId, clientName, redirectUris: input.redirectUris };
 
-  return { clientId, clientName, redirectUris: input.redirectUris };
+  // Unique violation on (client_name, redirect_uris) means a concurrent
+  // request just registered the same client -- reuse it instead of failing.
+  if (error.code === "23505") {
+    const raced = await findRegisteredClient(admin, clientName, input.redirectUris);
+    if (raced) return raced;
+  }
+
+  throw new Error(error.message);
 }
 
 export async function getClient(clientId: string): Promise<OAuthClient | null> {
