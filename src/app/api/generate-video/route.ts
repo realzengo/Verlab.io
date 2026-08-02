@@ -23,6 +23,7 @@ interface GenerateVideoRequestBody {
   model?: string;
   durationSeconds?: number;
   aspectRatio?: string;
+  resolution?: string;
   outputs?: number;
   soundEnabled?: boolean;
   startFrameImage?: string;
@@ -55,6 +56,7 @@ function buildFalCreateInput(
     prompt?: string;
     aspectRatio: string;
     durationSeconds: number;
+    resolution?: string;
     soundEnabled: boolean;
     startFrameImage?: string | null;
     endFrameImage?: string | null;
@@ -65,6 +67,7 @@ function buildFalCreateInput(
     duration: formatDuration(model, params.durationSeconds),
   };
   if (params.prompt) input.prompt = params.prompt;
+  if (model.resolutions && params.resolution) input.resolution = params.resolution;
   if (model.supportsAudio) input.generate_audio = params.soundEnabled;
   // fal's image params accept a data-URI string directly, no upload step
   // needed (same behavior fal-image.ts already relies on for image_urls).
@@ -182,7 +185,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { prompt, model: modelId = DEFAULT_VIDEO_MODEL, durationSeconds, aspectRatio, outputs, soundEnabled = false } = body;
+  const { prompt, model: modelId = DEFAULT_VIDEO_MODEL, durationSeconds, aspectRatio, resolution, outputs, soundEnabled = false } = body;
 
   const model = getVideoModel(modelId);
   if (!model) {
@@ -195,6 +198,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!aspectRatio || !model.aspectRatios.includes(aspectRatio)) {
     return NextResponse.json({ error: `aspectRatio must be one of: ${model.aspectRatios.join(", ")}` }, { status: 400 });
+  }
+
+  if (model.resolutions && (!resolution || !model.resolutions.includes(resolution))) {
+    return NextResponse.json({ error: `resolution must be one of: ${model.resolutions.join(", ")}` }, { status: 400 });
   }
 
   if (!Number.isInteger(outputs) || outputs! < 1 || outputs! > 4) {
@@ -220,7 +227,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: `${model.id} doesn't support image-to-video` }, { status: 400 });
   }
 
-  const perOutputCost = getVideoGenerationCost({ model: model.id, durationSeconds, outputs: 1 });
+  const perOutputCost = getVideoGenerationCost({ model: model.id, durationSeconds, outputs: 1, resolution: model.resolutions ? resolution : undefined });
   const totalCost = perOutputCost * outputs!;
 
   // Checked synchronously, same rationale as generate-image/route.ts: this
@@ -239,6 +246,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     prompt,
     aspectRatio,
     durationSeconds,
+    resolution,
     soundEnabled,
     startFrameImage,
     endFrameImage,
@@ -261,7 +269,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         model: model.id,
         fal_model_slug: falSlug,
         prompt: prompt ?? null,
-        params: { durationSeconds, aspectRatio, soundEnabled: model.supportsAudio ? soundEnabled : false, outputs },
+        params: {
+          durationSeconds,
+          aspectRatio,
+          resolution: model.resolutions ? resolution : undefined,
+          soundEnabled: model.supportsAudio ? soundEnabled : false,
+          outputs,
+        },
         credits_quoted: perOutputCost,
         status: "queued",
       })

@@ -37,15 +37,17 @@ export async function generateImageWithFal(
   width: number,
   height: number,
   quality: "auto" | "low" | "medium" | "high",
-  referenceImage?: string
+  referenceImages?: string[]
 ): Promise<string> {
   const apiKey = process.env.FAL_API_KEY;
   const falModel = FAL_MODEL_SLUG[model];
   // Every slug above has a sibling `/edit` endpoint that takes the same
   // params plus `image_urls` (live-confirmed for all three: fal-ai/nano-banana/edit,
   // fal-ai/nano-banana-pro/edit, openai/gpt-image-2/edit -- data-URI strings
-  // work directly in image_urls, no upload step needed).
-  const endpoint = referenceImage ? `${falModel}/edit` : falModel;
+  // work directly in image_urls, no upload step needed, and the array
+  // accepts more than one reference in a single call).
+  const hasReferenceImages = referenceImages !== undefined && referenceImages.length > 0;
+  const endpoint = hasReferenceImages ? `${falModel}/edit` : falModel;
 
   // openai/gpt-image-2 doesn't take `aspect_ratio` at all (confirmed live
   // against fal's API docs) -- it wants a `image_size` object, so passing
@@ -71,8 +73,8 @@ export async function generateImageWithFal(
     body.quality = quality;
   }
 
-  if (referenceImage) {
-    body.image_urls = [referenceImage];
+  if (hasReferenceImages) {
+    body.image_urls = referenceImages;
   }
 
   // A hung fal.ai request with no timeout used to be able to sit open past

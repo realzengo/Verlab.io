@@ -26,8 +26,14 @@ interface ToolGridCardProps {
   tone: ToolTone;
   cta?: string;
   badge?: string;
-  /** Drop a screenshot/mockup into /public/tools and pass its path here -- falls back to a tinted icon tile until then. */
+  /** Drop a screenshot/mockup into /public/tools and pass its path here -- falls back to a tinted icon tile until then. Ignored when `video` is set. */
   thumbnail?: string;
+  /** Drop a short looping clip into /public/videos and pass its path here -- takes priority over `thumbnail`. */
+  video?: string;
+  /** Poster frame shown while `video` loads. */
+  videoPoster?: string;
+  /** Zoom factor for the video preview, e.g. 1.25 for 125%. Defaults to 1 (no zoom). */
+  videoScale?: number;
   /** Not yet released -- still linked (the destination shows a "coming soon" placeholder), just visibly marked unavailable here. */
   comingSoon?: boolean;
 }
@@ -41,6 +47,9 @@ export function ToolGridCard({
   cta = "Try Now",
   badge,
   thumbnail,
+  video,
+  videoPoster,
+  videoScale = 1,
   comingSoon,
 }: ToolGridCardProps) {
   const toneClasses = TONE_CLASSES[tone];
@@ -54,7 +63,19 @@ export function ToolGridCard({
     >
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60">
-          {thumbnail ? (
+          {video ? (
+            <video
+              src={video}
+              poster={videoPoster}
+              className="h-full w-full object-cover"
+              style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : thumbnail ? (
             <Image
               src={thumbnail}
               alt=""

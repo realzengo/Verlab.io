@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ImagePlus, Loader2, Sparkles, Upload, X } from "lucide-react";
+import { ImagePlus, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 
 export interface FrameSlotState {
   dataUrl: string | null;
@@ -21,7 +22,7 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-const MAX_FRAME_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_FRAME_IMAGE_BYTES = 8 * 1024 * 1024;
 
 /**
  * A single docked drop-zone tile -- mirrors the competitor's "Start frame" /
@@ -32,19 +33,19 @@ const MAX_FRAME_IMAGE_BYTES = 8 * 1024 * 1024;
  */
 function FrameBox({
   label,
+  frameLabel,
   slot,
   onChange,
-  isGenerating,
-  onGenerate,
+  aspectRatio,
 }: {
   label: string;
+  frameLabel: "first frame" | "last frame";
   slot: FrameSlotState;
   onChange: (next: FrameSlotState) => void;
-  isGenerating: boolean;
-  onGenerate: (prompt: string) => void;
+  aspectRatio: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,71 +111,33 @@ function FrameBox({
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              "absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-2xl border p-3",
+              "absolute right-0 top-full z-50 mt-2 w-56 origin-top-right overflow-hidden rounded-2xl border p-1.5",
               "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
               "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
             )}
           >
-            <div className="mb-2.5 flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-white/[0.04]">
-              <button
-                type="button"
-                onClick={() => onChange({ ...slot, mode: "ai" })}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors",
-                  slot.mode === "ai"
-                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                    : "text-slate-500 dark:text-slate-400"
-                )}
-              >
-                <Sparkles className="h-3 w-3" />
-                AI Generate
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ ...slot, mode: "upload" })}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors",
-                  slot.mode === "upload"
-                    ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                    : "text-slate-500 dark:text-slate-400"
-                )}
-              >
-                <Upload className="h-3 w-3" />
-                Upload
-              </button>
-            </div>
-
-            {slot.mode === "upload" ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center gap-2.5 rounded-xl border border-dashed border-slate-300 p-3 text-left dark:border-zinc-700"
-              >
-                <ImagePlus className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">PNG, JPG, or WebP — max 8MB</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={aiPrompt}
-                  onChange={(event) => setAiPrompt(event.target.value)}
-                  placeholder="Describe the frame..."
-                  disabled={isGenerating}
-                  className="min-w-0 flex-1 rounded-lg bg-slate-100 px-2.5 py-2 text-xs text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-zinc-500"
-                />
-                <button
-                  type="button"
-                  disabled={isGenerating || !aiPrompt.trim()}
-                  onClick={() => {
-                    onGenerate(aiPrompt);
-                    setOpen(false);
-                  }}
-                  className="flex shrink-0 items-center justify-center rounded-lg bg-blue-500 px-2.5 py-2 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setShowGenerateModal(true);
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+            >
+              <Sparkles className="h-4 w-4 shrink-0 text-slate-400" />
+              AI Generate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                fileInputRef.current?.click();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+            >
+              <Upload className="h-4 w-4 shrink-0 text-slate-400" />
+              Upload
+            </button>
 
             <input
               ref={fileInputRef}
@@ -185,13 +148,24 @@ function FrameBox({
                 const file = event.target.files?.[0];
                 if (!file) return;
                 if (file.size > MAX_FRAME_IMAGE_BYTES) return;
-                onChange({ ...slot, dataUrl: await readFileAsDataUrl(file) });
-                setOpen(false);
+                onChange({ dataUrl: await readFileAsDataUrl(file), mode: "upload" });
               }}
             />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showGenerateModal && (
+        <FrameImageGenerateModal
+          frameLabel={frameLabel}
+          defaultAspectRatio={aspectRatio}
+          onClose={() => setShowGenerateModal(false)}
+          onSelect={(dataUrl) => {
+            onChange({ dataUrl, mode: "ai" });
+            setShowGenerateModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -199,14 +173,13 @@ function FrameBox({
 interface FrameImagePickerProps {
   startFrame: FrameSlotState;
   onStartFrameChange: (next: FrameSlotState) => void;
-  onGenerateStartFrame: (prompt: string) => void;
-  isGeneratingStartFrame: boolean;
 
   endFrame: FrameSlotState;
   onEndFrameChange: (next: FrameSlotState) => void;
-  onGenerateEndFrame: (prompt: string) => void;
-  isGeneratingEndFrame: boolean;
   supportsEndFrame: boolean;
+
+  /** Video's currently selected aspect ratio -- seeds the AI Generate modal so the frame image matches. */
+  aspectRatio: string;
 }
 
 /**
@@ -214,37 +187,21 @@ interface FrameImagePickerProps {
  * layout of pinning first/last-frame conditioning next to the prompt box
  * instead of a row pill, since it's the primary input for image-to-video
  * rather than a secondary option. Each slot can be uploaded directly or
- * generated on the spot by chaining the existing Image Generator (POST
- * /api/generate-image, wired by the parent).
+ * generated via the full-screen AI Generate modal (FrameImageGenerateModal).
  */
 export function FrameImagePicker({
   startFrame,
   onStartFrameChange,
-  onGenerateStartFrame,
-  isGeneratingStartFrame,
   endFrame,
   onEndFrameChange,
-  onGenerateEndFrame,
-  isGeneratingEndFrame,
   supportsEndFrame,
+  aspectRatio,
 }: FrameImagePickerProps) {
   return (
     <div className="flex shrink-0 gap-2">
-      <FrameBox
-        label="Start frame"
-        slot={startFrame}
-        onChange={onStartFrameChange}
-        isGenerating={isGeneratingStartFrame}
-        onGenerate={onGenerateStartFrame}
-      />
+      <FrameBox label="Start frame" frameLabel="first frame" slot={startFrame} onChange={onStartFrameChange} aspectRatio={aspectRatio} />
       {supportsEndFrame && (
-        <FrameBox
-          label="End frame"
-          slot={endFrame}
-          onChange={onEndFrameChange}
-          isGenerating={isGeneratingEndFrame}
-          onGenerate={onGenerateEndFrame}
-        />
+        <FrameBox label="End frame" frameLabel="last frame" slot={endFrame} onChange={onEndFrameChange} aspectRatio={aspectRatio} />
       )}
     </div>
   );

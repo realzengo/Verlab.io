@@ -62,11 +62,26 @@ export interface VideoModelConfig {
   supportsAudio: boolean;
   durations: number[];
   aspectRatios: string[];
+  /**
+   * Resolution options this model's fal endpoint accepts via a "resolution"
+   * enum field -- confirmed per model against fal's live queue OpenAPI
+   * schema, same live-verification discipline as falSlug (see module
+   * header). Undefined when the endpoint's schema has no resolution field
+   * at all (Kling 3.0, Gemini Omni as of this writing) -- the picker stays
+   * hidden for those rather than sending a param the endpoint would 422 on.
+   * First entry doubles as the UI default in defaultSettingsFor
+   * (VideoGenerator.tsx), chosen to match each endpoint's own schema
+   * default.
+   */
+  resolutions?: string[];
   /** ESTIMATED -- see pricing.ts's own disclosure convention. Correct against real fal invoices once live. */
   pricePerSecondUsd: number;
 }
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
+const GROK_ICON = "/logos/ai/grok.svg";
+const KLING_ICON = "/logos/ai/kling.svg";
+const SEEDANCE_ICON = "/logos/ai/seedance.webp";
 
 // Every falSlug + durationFormat + aspectRatios/durations pairing below was
 // checked against fal's live queue OpenAPI schema
@@ -84,6 +99,14 @@ const GEMINI_ICON = "/logos/ai/gemini.svg";
 // provider's own image-to-video schema: Veo 3 (both tiers), Kling 3.0,
 // Seedance 2, and Grok Imagine all expose one; Gemini Omni's schema has no
 // image field at all (text prompt only), so it stays text-to-video-only.
+//
+// resolutions entries were checked against the same schemas (both the
+// text-to-video and image-to-video endpoint, where both exist -- confirmed
+// identical enum/default on each pair): Veo 3 (both tiers) accept "720p"/
+// "1080p" (default 720p); Seedance 2 and Grok Imagine accept "480p"/"720p"
+// (default 720p). Kling 3.0's and Gemini Omni's schemas have no resolution
+// field at all, so those two omit `resolutions` and the picker stays hidden
+// for them rather than sending a param that would 422.
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Veo 3 Fast",
@@ -96,8 +119,9 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: true,
-    durations: [8],
+    durations: [4, 6, 8],
     aspectRatios: ["16:9", "9:16"],
+    resolutions: ["720p", "1080p"],
     pricePerSecondUsd: 0.25,
   },
   {
@@ -111,8 +135,9 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: true,
-    durations: [8],
+    durations: [4, 6, 8],
     aspectRatios: ["16:9", "9:16"],
+    resolutions: ["720p", "1080p"],
     pricePerSecondUsd: 0.75,
   },
   {
@@ -123,6 +148,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     durationFormat: "plain_string",
     tier: "premium",
     description: "Best for cinematic, animated shots",
+    logo: KLING_ICON,
     supportsImageToVideo: true,
     supportsEndFrame: true,
     supportsAudio: true,
@@ -137,11 +163,13 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     durationFormat: "plain_string",
     tier: "premium",
     description: "Fast reference and asset generation",
+    logo: SEEDANCE_ICON,
     supportsImageToVideo: true,
     supportsEndFrame: true,
     supportsAudio: true,
     durations: [5, 10],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    resolutions: ["720p", "480p"],
     pricePerSecondUsd: 0.15,
   },
   {
@@ -151,11 +179,13 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     durationFormat: "integer",
     tier: "premium",
     description: "xAI's video model — fast, expressive motion",
+    logo: GROK_ICON,
     supportsImageToVideo: true,
     supportsEndFrame: false,
     supportsAudio: false,
     durations: [6],
     aspectRatios: ["16:9", "9:16", "1:1"],
+    resolutions: ["720p", "480p"],
     pricePerSecondUsd: 0.2,
   },
   {

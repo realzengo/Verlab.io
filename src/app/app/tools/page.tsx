@@ -13,6 +13,9 @@ const TOOLS: {
   tone: ToolTone;
   badge?: string;
   thumbnail?: string;
+  video?: string;
+  videoPoster?: string;
+  videoScale?: number;
 }[] = [
   {
     title: "Image Generator",
@@ -20,6 +23,8 @@ const TOOLS: {
     href: "/app/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
+    video: "/videos/image-generator.mp4",
+    videoPoster: "/videos/image-generator-poster.jpg",
   },
   {
     title: "Video Generator",
@@ -27,6 +32,9 @@ const TOOLS: {
     href: "/app/video-generator",
     icon: Clapperboard,
     tone: "cat-4",
+    video: "/videos/video-generator.mp4",
+    videoPoster: "/videos/video-generator-poster.jpg",
+    videoScale: 1.1,
   },
   {
     title: "Scriptwriter",
@@ -34,6 +42,9 @@ const TOOLS: {
     href: "/app/scripts",
     icon: PenLine,
     tone: "cat-6",
+    video: "/videos/scriptwriter.mp4",
+    videoPoster: "/videos/scriptwriter-poster.jpg",
+    videoScale: 1.15,
   },
   {
     title: "Transcript Extractor",
@@ -48,6 +59,9 @@ const TOOLS: {
     href: "/app/downloads",
     icon: Download,
     tone: "cat-1",
+    video: "/videos/downloader.mp4",
+    videoPoster: "/videos/downloader-poster.jpg",
+    videoScale: 1.25,
   },
 ];
 
@@ -76,6 +90,9 @@ export default function ToolsPage() {
                 tone={tool.tone}
                 badge={tool.badge}
                 thumbnail={tool.thumbnail}
+                video={tool.video}
+                videoPoster={tool.videoPoster}
+                videoScale={tool.videoScale}
               />
             ))}
           </div>

@@ -39,9 +39,11 @@ interface PillDropdownProps {
   labelPrefix?: string;
   /** Fixed leading icon shown before the value, independent of the selected option (e.g. a clock for duration). */
   icon?: LucideIcon;
+  /** Opens the menu above the trigger instead of below -- for pills docked near the bottom of a panel (e.g. a generator modal's control bar) where a downward menu would overflow. */
+  openUp?: boolean;
 }
 
-export function PillDropdown({ value, options, onChange, className, labelPrefix, icon: Icon }: PillDropdownProps) {
+export function PillDropdown({ value, options, onChange, className, labelPrefix, icon: Icon, openUp = false }: PillDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -118,12 +120,13 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
         {open && (
           <motion.div
             role="listbox"
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            initial={{ opacity: 0, y: openUp ? 6 : -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            exit={{ opacity: 0, y: openUp ? 4 : -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              "absolute left-0 top-full z-50 mt-2 max-h-80 w-max min-w-[11rem] origin-top-left overflow-y-auto rounded-2xl p-1.5",
+              "absolute left-0 z-50 max-h-80 w-max min-w-[11rem] overflow-y-auto rounded-2xl p-1.5",
+              openUp ? "bottom-full mb-2 origin-bottom-left" : "top-full mt-2 origin-top-left",
               "border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
               "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
             )}

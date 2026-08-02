@@ -25,6 +25,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
 import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
@@ -32,7 +33,7 @@ import { cn, formatDate } from "@/lib/utils";
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
 
-const MODEL_OPTIONS = [
+export const MODEL_OPTIONS = [
   { value: "Nano Banana", label: "Nano Banana", icon: GEMINI_ICON, description: "Fast, lower quality — 1 credit" },
   { value: "Nano Banana 2", label: "Nano Banana 2", icon: GEMINI_ICON, description: "Recommended — 2-3 credits" },
   {
@@ -56,15 +57,15 @@ const MODEL_OPTIONS = [
   },
 ];
 
-const ASPECT_RATIOS = ["9:16", "16:9", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"];
-const ASPECT_RATIO_OPTIONS = ASPECT_RATIOS.map((value) => ({ value, label: value, ratio: value }));
+export const ASPECT_RATIOS = ["9:16", "16:9", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"];
+export const ASPECT_RATIO_OPTIONS = ASPECT_RATIOS.map((value) => ({ value, label: value, ratio: value }));
 
-const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({
+export const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({
   value: String(value),
   label: `${value} Output${value > 1 ? "s" : ""}`,
 }));
 
-const QUALITY_OPTIONS = [
+export const QUALITY_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -78,15 +79,15 @@ const QUALITY_OPTIONS = [
 // without changing models. Nano Banana Pro (the top of the ladder) has
 // nothing better to swap to and no native quality param either, so it
 // doesn't get this control.
-const QUALITY_LADDER_MODELS = new Set(["Nano Banana 2", "GPT Image 2"]);
+export const QUALITY_LADDER_MODELS = new Set(["Nano Banana 2", "GPT Image 2"]);
 
 // Models where Resolution is a real, working lever server-side: the two
 // ladder models above (via width/height scaling on their Cloudflare calls)
 // plus Nano Banana Pro, whose fal.ai endpoint has a genuine 1K/2K/4K
 // `resolution` param (see fal-image.ts).
-const RESOLUTION_MODELS = new Set(["Nano Banana 2", "GPT Image 2", "Nano Banana Pro"]);
+export const RESOLUTION_MODELS = new Set(["Nano Banana 2", "GPT Image 2", "Nano Banana Pro"]);
 
-const RESOLUTIONS = ["512px", "1K", "2K", "4K"] as const;
+export const RESOLUTIONS = ["512px", "1K", "2K", "4K"] as const;
 
 // Mirrors resolveQualityModel() in src/lib/server/cloudflare-image.ts (kept
 // separate rather than imported, since that file is server-only and pulls in
@@ -96,7 +97,7 @@ const COST_QUALITY_LADDER: Record<string, string[]> = {
   "Nano Banana 2": ["Nano Banana 2", "Nano Banana Pro"],
 };
 const COST_QUALITY_TIER_INDEX: Record<string, number> = { auto: 0, low: 0, medium: 1, high: Infinity };
-function resolveModelForCost(model: string, quality: string): string {
+export function resolveModelForCost(model: string, quality: string): string {
   const ladder = COST_QUALITY_LADDER[model];
   if (!ladder) return model;
   const index = Math.min(COST_QUALITY_TIER_INDEX[quality] ?? 0, ladder.length - 1);
@@ -123,7 +124,10 @@ interface GenerationHistoryItem {
   model: string;
   aspect_ratio: string;
   outputs: number;
-  images: string[];
+  // Absent on list responses (GET with no ?id=) -- only the single-row
+  // detail response (GET ?id=<row>) includes it. See LIST_SELECT /
+  // DETAIL_SELECT in generate-image/route.ts.
+  images?: string[];
   status: "generating" | "completed" | "failed";
   error_message: string | null;
   created_at: string;
@@ -136,6 +140,18 @@ interface PreviewItem {
   prompt: string;
   model: string;
   createdAt: string;
+}
+
+// Merges a freshly-fetched detail row (from GET ?id=) into the existing
+// list -- replacing it in place if already present, otherwise prepending it.
+// Never wholesale-replaces `prev`, unlike setHistory(singleRowArray) would.
+function mergeHistoryRow(prev: GenerationHistoryItem[] | null, row: GenerationHistoryItem): GenerationHistoryItem[] {
+  const list = prev ?? [];
+  const index = list.findIndex((item) => item.id === row.id);
+  if (index === -1) return [row, ...list];
+  const next = [...list];
+  next[index] = row;
+  return next;
 }
 
 function getMimeType(dataUrl: string): string {
@@ -258,6 +274,11 @@ export function ImageGenerator() {
   const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
   const [previewDims, setPreviewDims] = useState<{ width: number; height: number } | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
+  // History-tab thumbnails are byte-light (no `images` field -- see the
+  // GenerationHistoryItem comment), so opening a preview has to fetch the
+  // full image on demand. These track that in-flight fetch.
+  const [loadingPreviewId, setLoadingPreviewId] = useState<string | null>(null);
+  const [previewLoadError, setPreviewLoadError] = useState<string | null>(null);
 
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
@@ -295,9 +316,12 @@ export function ImageGenerator() {
       ...Array.from({ length: pendingCount }, (): MosaicCell => ({ kind: "pending" })),
       ...(visibleHistory ?? []).map((item): MosaicCell => ({ kind: "item", item })),
     ];
-    const columns: MosaicCell[][] = Array.from({ length: galleryColumns }, () => []);
+    // Cap column count to the number of cells so a handful of items fill the
+    // available width instead of leaving empty flex-1 columns beside them.
+    const columnCount = cells.length > 0 ? Math.min(galleryColumns, cells.length) : galleryColumns;
+    const columns: MosaicCell[][] = Array.from({ length: columnCount }, () => []);
     cells.forEach((cell, index) => {
-      columns[index % galleryColumns].push(cell);
+      columns[index % columnCount].push(cell);
     });
     return columns;
   }, [pendingCount, visibleHistory, galleryColumns]);
@@ -392,7 +416,10 @@ export function ImageGenerator() {
     pollCancelRef.current?.();
     pollCancelRef.current = pollUntilSettled<GenerationHistoryItem[]>(
       async () => {
-        const response = await fetch("/api/generate-image");
+        // Targeted lookup (not the plain list) -- this is the one place that
+        // genuinely needs the full `images` array for a row it already
+        // knows the id of, to show right after generation finishes.
+        const response = await fetch(`/api/generate-image?id=${id}`);
         if (!response.ok) throw new Error();
         const data = await response.json();
         return data.generations ?? [];
@@ -402,15 +429,15 @@ export function ImageGenerator() {
         return !!match && match.status !== "generating";
       },
       (items) => {
-        setHistory(items);
-
         const match = items.find((item) => item.id === id);
-        if (!match || match.status === "generating") return;
+        if (!match) return;
+        setHistory((prev) => mergeHistoryRow(prev, match));
+        if (match.status === "generating") return;
 
         if (match.status === "failed") {
           setError(match.error_message ?? "Something went wrong. Try again.");
         } else {
-          setGeneratedImages(match.images);
+          setGeneratedImages(match.images ?? []);
           // The charge for this generation lands right before the row flips
           // to "completed" (see generate-image/route.ts's after() block) --
           // safe to signal now rather than waiting for the header's next poll.
@@ -437,6 +464,23 @@ export function ImageGenerator() {
     );
   }
 
+  // History rows come back byte-light (no `images` field -- see the
+  // GenerationHistoryItem comment above), so opening a preview fetches the
+  // one image it actually needs on demand instead.
+  async function openHistoryPreview(item: GenerationHistoryItem) {
+    setLoadingPreviewId(item.id);
+    setPreviewLoadError(null);
+    try {
+      const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
+      setPreviewItem({ src, prompt: item.prompt, model: item.model, createdAt: item.created_at });
+    } catch {
+      setPreviewLoadError("Could not load that image.");
+      setTimeout(() => setPreviewLoadError(null), 3000);
+    } finally {
+      setLoadingPreviewId(null);
+    }
+  }
+
   async function handleGenerate() {
     if (!canSubmit) return;
 
@@ -459,7 +503,7 @@ export function ImageGenerator() {
           outputs,
           quality: QUALITY_LADDER_MODELS.has(selectedModel) ? quality : "auto",
           resolution: RESOLUTION_MODELS.has(selectedModel) ? resolution : "1K",
-          referenceImage,
+          referenceImages: referenceImage ? [referenceImage] : undefined,
         }),
       });
 
@@ -831,24 +875,23 @@ export function ImageGenerator() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() =>
-                        setPreviewItem({
-                          src: item.images[0],
-                          prompt: item.prompt,
-                          model: item.model,
-                          createdAt: item.created_at,
-                        })
-                      }
+                      disabled={loadingPreviewId === item.id}
+                      onClick={() => openHistoryPreview(item)}
                       className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-zinc-950"
                     >
-                      {item.images[0] && (
-                        // eslint-disable-next-line @next/next/no-img-element -- generation history thumbnail from stored data URL
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-zinc-900">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
                         <img
-                          src={item.images[0]}
+                          src={`/api/library/image/${item.id}/0?w=112`}
                           alt=""
-                          className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                          className="h-full w-full object-cover"
                         />
-                      )}
+                        {loadingPreviewId === item.id && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                          </div>
+                        )}
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-white">{item.prompt}</p>
                         <p className="mt-0.5 text-xs text-slate-400">
@@ -928,7 +971,7 @@ export function ImageGenerator() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to create..."
-              className="min-h-[120px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+              className="min-h-[200px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
             <div className="mt-4 flex flex-nowrap items-center gap-2">
@@ -1194,24 +1237,21 @@ export function ImageGenerator() {
                           <button
                             key={item.id}
                             type="button"
-                            onClick={() =>
-                              setPreviewItem({
-                                src: item.images[0],
-                                prompt: item.prompt,
-                                model: item.model,
-                                createdAt: item.created_at,
-                              })
-                            }
-                            className="group block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                            disabled={loadingPreviewId === item.id}
+                            onClick={() => openHistoryPreview(item)}
+                            className="group relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                            style={{ aspectRatio: `${w} / ${h}` }}
                           >
-                            {item.images[0] && (
-                              // eslint-disable-next-line @next/next/no-img-element -- generation history thumbnail from stored data URL
-                              <img
-                                src={item.images[0]}
-                                alt=""
-                                style={{ aspectRatio: `${w} / ${h}` }}
-                                className="w-full object-cover"
-                              />
+                            {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
+                            <img
+                              src={`/api/library/image/${item.id}/0?w=640`}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                            {loadingPreviewId === item.id && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
+                                <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+                              </div>
                             )}
                           </button>
                         );
@@ -1230,19 +1270,16 @@ export function ImageGenerator() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() =>
-                        setPreviewItem({
-                          src: item.images[0],
-                          prompt: item.prompt,
-                          model: item.model,
-                          createdAt: item.created_at,
-                        })
-                      }
-                      className="group aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                      disabled={loadingPreviewId === item.id}
+                      onClick={() => openHistoryPreview(item)}
+                      className="group relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
                     >
-                      {item.images[0] && (
-                        // eslint-disable-next-line @next/next/no-img-element -- generation history thumbnail from stored data URL
-                        <img src={item.images[0]} alt="" className="h-full w-full object-cover" />
+                      {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
+                      <img src={`/api/library/image/${item.id}/0?w=400`} alt="" className="h-full w-full object-cover" />
+                      {loadingPreviewId === item.id && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
+                          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+                        </div>
                       )}
                     </button>
                   ))}
@@ -1379,6 +1416,12 @@ export function ImageGenerator() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {previewLoadError && (
+        <div className="fixed inset-x-0 bottom-6 z-[60] mx-auto w-fit rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
+          {previewLoadError}
+        </div>
+      )}
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
     </div>

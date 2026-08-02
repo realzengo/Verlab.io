@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, Rocket } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 
 function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
@@ -22,6 +24,7 @@ export function TopBar({
 }) {
   const pathname = usePathname();
   const resolvedHeading = heading ?? defaultHeading(pathname);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
 
   const hideHeading =
     pathname === "/app" ||
@@ -54,9 +57,19 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <CreditDropdown />
+        <button
+          type="button"
+          onClick={() => setIsUpgradeOpen(true)}
+          className="flex items-center gap-1.5 rounded-full bg-btn-primary py-1.5 pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
+        >
+          <Rocket className="h-3.5 w-3.5" fill="currentColor" />
+          <span className="hidden sm:inline-block">Upgrade</span>
+        </button>
+        <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
         <ProfileDropdown />
       </div>
+
+      <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />
     </div>
   );
 }

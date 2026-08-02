@@ -253,14 +253,27 @@ export function getImageGenerationCost(input: {
 // NOT imported the other way around (video-models.ts stays pricing-agnostic,
 // same separation cloudflare-image.ts keeps from this file).
 
-export function getVideoGenerationCost(input: { model: string; durationSeconds: number; outputs: number }): number {
+// Resolution isn't priced per-model like pricePerSecondUsd is -- fal doesn't
+// publish separate $/s rates per resolution tier for these apps -- but a
+// 1080p render is genuinely more compute than 720p, and 480p less, so apply
+// the same kind of estimated multiplier GPT_IMAGE_2_RESOLUTION_MULTIPLIER
+// uses above. pricePerSecondUsd is treated as the 720p baseline (matches
+// every model's schema default, see video-models.ts module header).
+const VIDEO_RESOLUTION_MULTIPLIER: Record<string, number> = {
+  "480p": 0.6,
+  "720p": 1,
+  "1080p": 1.5,
+};
+
+export function getVideoGenerationCost(input: { model: string; durationSeconds: number; outputs: number; resolution?: string }): number {
   const config = getVideoModel(input.model);
   if (!config) {
     throw new Error(`No pricing configured for video model "${input.model}"`);
   }
 
   const outputs = Math.max(1, input.outputs);
-  const perVideoCredits = creditsForCost(config.pricePerSecondUsd * input.durationSeconds);
+  const multiplier = (input.resolution && VIDEO_RESOLUTION_MULTIPLIER[input.resolution]) || 1;
+  const perVideoCredits = creditsForCost(config.pricePerSecondUsd * multiplier * input.durationSeconds);
   return perVideoCredits * outputs;
 }
 

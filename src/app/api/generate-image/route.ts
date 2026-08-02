@@ -20,10 +20,14 @@ interface GenerateImageRequestBody {
   outputs?: number;
   quality?: string;
   resolution?: string;
-  referenceImage?: string;
+  referenceImages?: string[];
 }
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+// Matches EDIT_VIDEO_MODELS' maxReferenceImages convention (video-models.ts)
+// -- fal's /edit endpoints (see fal-image.ts) accept more, but this keeps
+// prompt-following reasonable and the request body bounded.
+const MAX_REFERENCE_IMAGES = 4;
 const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 
 // The after() background job (see POST below) is what normally flips a row
@@ -38,7 +42,46 @@ const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 // than one poll interval.
 const STALE_GENERATING_MS = 6 * 60 * 1000;
 
-async function handleGET(): Promise<NextResponse> {
+// Sweeps any still-"generating" rows past the stale window to "failed" in
+// place, mutating `rows` to match what was written -- shared by both the
+// list and single-row (?id=) paths below so a stuck row gets reconciled no
+// matter which one last touched it.
+async function sweepStaleRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: { id: string; status: string; error_message: string | null; created_at: string }[]
+): Promise<void> {
+  const staleIds = rows
+    .filter((row) => row.status === "generating" && Date.now() - new Date(row.created_at).getTime() > STALE_GENERATING_MS)
+    .map((row) => row.id);
+
+  if (staleIds.length === 0) return;
+
+  const timeoutMessage = "Generation timed out. Please try again.";
+  await supabase.from("image_generations").update({ status: "failed", error_message: timeoutMessage }).in("id", staleIds);
+  for (const row of rows) {
+    if (staleIds.includes(row.id)) {
+      row.status = "failed";
+      row.error_message = timeoutMessage;
+    }
+  }
+}
+
+// Every row's `images` column holds full base64 data URLs (up to several MB
+// each at higher resolutions/output counts) -- selecting it for up to 50
+// history rows produced multi-tens-of-MB JSON responses that were slow to
+// transfer and parse, which is what made the history sidebar/gallery feel
+// like it hung on load. Mirrors the fix already applied to /api/library
+// (see its IMAGE_SELECT comment): the list response stays byte-light and
+// image bytes are served lazily, one at a time, from
+// /api/library/image/[id]/[index] (which also handles server-side
+// thumbnail resizing via a `?w=` param). The one place a caller genuinely
+// needs the full `images` array for a row it already knows the id of --
+// polling a specific generation through to completion -- uses the `?id=`
+// path below instead, which does select it.
+const LIST_SELECT = "id, prompt, model, aspect_ratio, outputs, status, error_message, created_at";
+const DETAIL_SELECT = `${LIST_SELECT}, images`;
+
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,9 +91,26 @@ async function handleGET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const id = request.nextUrl.searchParams.get("id");
+
+  if (id) {
+    const { data, error } = await supabase.from("image_generations").select(DETAIL_SELECT).eq("id", id).maybeSingle();
+
+    if (error) {
+      console.error("[generate-image] Failed to load generation:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ generations: [] });
+    }
+
+    await sweepStaleRows(supabase, [data]);
+    return NextResponse.json({ generations: [data] });
+  }
+
   const { data, error } = await supabase
     .from("image_generations")
-    .select("id, prompt, model, aspect_ratio, outputs, images, status, error_message, created_at")
+    .select(LIST_SELECT)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -59,23 +119,7 @@ async function handleGET(): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const staleIds = data
-    .filter((row) => row.status === "generating" && Date.now() - new Date(row.created_at).getTime() > STALE_GENERATING_MS)
-    .map((row) => row.id);
-
-  if (staleIds.length > 0) {
-    const timeoutMessage = "Generation timed out. Please try again.";
-    await supabase
-      .from("image_generations")
-      .update({ status: "failed", error_message: timeoutMessage })
-      .in("id", staleIds);
-    for (const row of data) {
-      if (staleIds.includes(row.id)) {
-        row.status = "failed";
-        row.error_message = timeoutMessage;
-      }
-    }
-  }
+  await sweepStaleRows(supabase, data);
 
   return NextResponse.json({ generations: data });
 }
@@ -97,7 +141,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { prompt, model, aspectRatio, outputs, quality = "auto", resolution = "1K", referenceImage } = body;
+  const { prompt, model, aspectRatio, outputs, quality = "auto", resolution = "1K", referenceImages } = body;
 
   if (!prompt || !prompt.trim()) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
@@ -123,13 +167,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "resolution must be one of the supported options" }, { status: 400 });
   }
 
-  if (referenceImage !== undefined) {
-    if (typeof referenceImage !== "string" || !DATA_URL_PATTERN.test(referenceImage)) {
-      return NextResponse.json({ error: "referenceImage must be a base64 image data URL" }, { status: 400 });
+  if (referenceImages !== undefined) {
+    if (!Array.isArray(referenceImages) || referenceImages.length > MAX_REFERENCE_IMAGES) {
+      return NextResponse.json({ error: `referenceImages must be an array of at most ${MAX_REFERENCE_IMAGES} images` }, { status: 400 });
     }
-    const approxBytes = (referenceImage.length * 3) / 4;
-    if (approxBytes > MAX_REFERENCE_IMAGE_BYTES) {
-      return NextResponse.json({ error: "Reference image is too large (max 8MB)" }, { status: 400 });
+    for (const referenceImage of referenceImages) {
+      if (typeof referenceImage !== "string" || !DATA_URL_PATTERN.test(referenceImage)) {
+        return NextResponse.json({ error: "referenceImages must be base64 image data URLs" }, { status: 400 });
+      }
+      const approxBytes = (referenceImage.length * 3) / 4;
+      if (approxBytes > MAX_REFERENCE_IMAGE_BYTES) {
+        return NextResponse.json({ error: "Each reference image must be under 8MB" }, { status: 400 });
+      }
     }
   }
 
@@ -144,7 +193,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     resolution: resolution as ImageResolution,
     quality: quality as ImageQuality,
     outputs: outputs!,
-    hasReferenceImage: Boolean(referenceImage),
+    hasReferenceImage: Boolean(referenceImages?.length),
   });
 
   // Checked synchronously (not inside the after() callback below) because
@@ -195,7 +244,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         outputs: outputs!,
         quality: quality as "auto" | "low" | "medium" | "high",
         resolution: resolution as "512px" | "1K" | "2K" | "4K",
-        referenceImage,
+        referenceImages,
       });
       recordUsageEvent("image", user.id, { model, aspectRatio, outputs });
       try {

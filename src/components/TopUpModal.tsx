@@ -13,10 +13,10 @@ interface TopUpModalProps {
   onRedeemed?: () => void;
 }
 
-type PackId = "500" | "1000" | "3000" | "10000";
+export type PackId = "500" | "1000" | "3000" | "10000";
 type Badge = { label: string; tone: "primary" | "neutral" };
 
-const PACKS: { id: PackId; credits: string; price: string; perK: string; badge?: Badge }[] = [
+export const PACKS: { id: PackId; credits: string; price: string; perK: string; badge?: Badge }[] = [
   { id: "500", credits: "500 Credits", price: "$8.00", perK: "$16.00 / 1,000" },
   { id: "1000", credits: "1,000 Credits", price: "$15.00", perK: "$15.00 / 1,000" },
   {
@@ -36,7 +36,7 @@ const PACKS: { id: PackId; credits: string; price: string; perK: string; badge?:
 ];
 
 /** "$16.00 / 1,000" -> "$16.00/1k" */
-function shortRate(perK: string) {
+export function shortRate(perK: string) {
   return perK.replace(" / 1,000", "/1k");
 }
 

@@ -10,7 +10,6 @@ import {
   Info,
   Loader2,
   Maximize2,
-  Minimize2,
   MoreVertical,
   Pencil,
   PersonStanding,
@@ -44,6 +43,8 @@ import { VideoModelPicker, ModelIcon } from "./video-generator/VideoModelPicker"
 import { FrameImagePicker, EMPTY_FRAME_SLOT, type FrameSlotState } from "./video-generator/FrameImagePicker";
 import { ReferenceImagesPicker } from "./video-generator/ReferenceImagesPicker";
 import { SourceVideoPicker } from "./video-generator/SourceVideoPicker";
+import { MobileCreatePanel } from "./video-generator/MobileCreatePanel";
+import { MobileEditPanel } from "./video-generator/MobileEditPanel";
 
 type VideoMode = "create" | "edit" | "motion";
 
@@ -59,7 +60,7 @@ interface GenerationHistoryItem {
   operation: string;
   model: string;
   prompt: string | null;
-  params: { durationSeconds?: number; aspectRatio?: string; soundEnabled?: boolean };
+  params: { durationSeconds?: number; aspectRatio?: string; resolution?: string; soundEnabled?: boolean };
   output_video_path: string | null;
   thumbnail_path: string | null;
   status: "queued" | "processing" | "completed" | "failed";
@@ -71,6 +72,7 @@ interface GenerationHistoryItem {
 interface ModelSettings {
   durationSeconds: number;
   aspectRatio: string;
+  resolution: string;
   outputs: number;
   soundEnabled: boolean;
 }
@@ -80,6 +82,7 @@ function defaultSettingsFor(modelId: string): ModelSettings {
   return {
     durationSeconds: model.durations[0],
     aspectRatio: model.aspectRatios.includes("9:16") ? "9:16" : model.aspectRatios[0],
+    resolution: model.resolutions?.[0] ?? "",
     outputs: 1,
     soundEnabled: model.supportsAudio,
   };
@@ -242,6 +245,7 @@ function VideoTile({
           <ModelIcon model={model} small />
           <span className="truncate text-[11px] font-semibold text-white">{model.id}</span>
           {item.params.durationSeconds && <span className="shrink-0 text-[11px] text-white/60">· {item.params.durationSeconds}s</span>}
+          {item.params.resolution && <span className="shrink-0 text-[11px] text-white/60">· {item.params.resolution}</span>}
         </div>
       )}
 
@@ -349,9 +353,12 @@ function VideoTile({
 
 export function VideoGenerator() {
   const [activeTab, setActiveTab] = useState<VideoMode>("create");
+  // Mobile-only Generate/History toggle (competitor-parity phone layout,
+  // see MobileCreatePanel) -- desktop never surfaces the control that
+  // changes this, so it stays "generate" there for the lifetime of the page.
+  const [mobileView, setMobileView] = useState<"generate" | "history">("generate");
 
   const [prompt, setPrompt] = useState("");
-  const [promptExpanded, setPromptExpanded] = useState(false);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_VIDEO_MODEL);
   const [modelSettings, setModelSettings] = useState<Record<string, ModelSettings>>({});
   const model = getVideoModel(selectedModel) ?? VIDEO_MODELS[0];
@@ -368,9 +375,10 @@ export function VideoGenerator() {
       ...stored,
       durationSeconds: model.durations.includes(stored.durationSeconds) ? stored.durationSeconds : fallback.durationSeconds,
       aspectRatio: model.aspectRatios.includes(stored.aspectRatio) ? stored.aspectRatio : fallback.aspectRatio,
+      resolution: model.resolutions?.includes(stored.resolution) ? stored.resolution : fallback.resolution,
     };
   }, [modelSettings, selectedModel, model]);
-  const { durationSeconds, aspectRatio, outputs, soundEnabled } = settings;
+  const { durationSeconds, aspectRatio, resolution, outputs, soundEnabled } = settings;
 
   function updateSettings(patch: Partial<ModelSettings>) {
     setModelSettings((prev) => ({ ...prev, [selectedModel]: { ...(prev[selectedModel] ?? defaultSettingsFor(selectedModel)), ...patch } }));
@@ -378,8 +386,6 @@ export function VideoGenerator() {
 
   const [startFrame, setStartFrame] = useState<FrameSlotState>(EMPTY_FRAME_SLOT);
   const [endFrame, setEndFrame] = useState<FrameSlotState>(EMPTY_FRAME_SLOT);
-  const [isGeneratingStartFrame, setIsGeneratingStartFrame] = useState(false);
-  const [isGeneratingEndFrame, setIsGeneratingEndFrame] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const createElapsedSeconds = useElapsedSeconds(isGenerating);
@@ -405,7 +411,7 @@ export function VideoGenerator() {
   const pendingIdsRef = useRef<Set<string>>(new Set());
 
   const canSubmit = (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating;
-  const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs }) || 0;
+  const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs, resolution: model.resolutions ? resolution : undefined }) || 0;
 
   function loadHistory() {
     return fetch("/api/generate-video?mode=create")
@@ -486,9 +492,9 @@ export function VideoGenerator() {
   // need this, and Create's version stays untouched/provably-working this way.
   const [editSource, setEditSource] = useState<GenerationHistoryItem | null>(null);
   const [editPrompt, setEditPrompt] = useState("");
-  const [editPromptExpanded, setEditPromptExpanded] = useState(false);
   const [editModel, setEditModel] = useState(DEFAULT_EDIT_VIDEO_MODEL);
   const [editReferenceImages, setEditReferenceImages] = useState<string[]>([]);
+  const [isGeneratingEditReference, setIsGeneratingEditReference] = useState(false);
   const [editOutputs, setEditOutputs] = useState(1);
   const [editIsGenerating, setEditIsGenerating] = useState(false);
   const editElapsedSeconds = useElapsedSeconds(editIsGenerating);
@@ -717,6 +723,7 @@ export function VideoGenerator() {
           model: selectedModel,
           durationSeconds,
           aspectRatio,
+          resolution: model.resolutions ? resolution : undefined,
           outputs,
           soundEnabled: model.supportsAudio ? soundEnabled : undefined,
           startFrameImage: startFrame.dataUrl ?? undefined,
@@ -741,15 +748,17 @@ export function VideoGenerator() {
     }
   }
 
-  function generateFrameImage(prompt: string, target: "start" | "end") {
-    const setState = target === "start" ? setStartFrame : setEndFrame;
-    const setGeneratingState = target === "start" ? setIsGeneratingStartFrame : setIsGeneratingEndFrame;
-
-    setGeneratingState(true);
+  // Mirrors the old prompt-based frame generator but appends to the Edit tab's
+  // reference-image list instead of setting a single frame slot -- backs
+  // MobileEditPanel's "Generate Reference with AI" button (competitor-parity
+  // affordance the desktop ReferenceImagesPicker doesn't expose, since it's
+  // deliberately upload-only there).
+  function generateReferenceImage(prompt: string) {
+    setIsGeneratingEditReference(true);
     fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, model: "Nano Banana 2", aspectRatio, outputs: 1, quality: "auto", resolution: "1K" }),
+      body: JSON.stringify({ prompt, model: "Nano Banana 2", aspectRatio: "1:1", outputs: 1, quality: "auto", resolution: "1K" }),
     })
       .then(async (response) => {
         const data = await response.json().catch(() => null);
@@ -757,12 +766,16 @@ export function VideoGenerator() {
           setShowTopUp(true);
           throw new Error("__handled__");
         }
-        if (!response.ok) throw new Error(data?.error ?? "Could not generate frame");
+        if (!response.ok) throw new Error(data?.error ?? "Could not generate reference image");
 
         return new Promise<void>((resolve, reject) => {
           pollUntilSettled<{ id: string; status: string; images: string[]; error_message: string | null }[]>(
             async () => {
-              const r = await fetch("/api/generate-image");
+              // Targeted lookup (not the plain list) -- this is the one place
+              // that genuinely needs the full `images` array for a row it
+              // already knows the id of. See the LIST_SELECT / DETAIL_SELECT
+              // comment in generate-image/route.ts.
+              const r = await fetch(`/api/generate-image?id=${data.id}`);
               const d = await r.json();
               return d.generations ?? [];
             },
@@ -774,21 +787,21 @@ export function VideoGenerator() {
               const match = items.find((item) => item.id === data.id);
               if (!match || match.status === "generating") return;
               if (match.status === "failed") {
-                reject(new Error(match.error_message ?? "Could not generate frame"));
+                reject(new Error(match.error_message ?? "Could not generate reference image"));
                 return;
               }
-              setState((prev) => ({ ...prev, dataUrl: match.images[0] }));
+              setEditReferenceImages((prev) => [...prev, match.images[0]]);
               notifyCreditsChanged();
               resolve();
             },
-            { intervalMs: 2500, timeoutMs: 2 * 60 * 1000, onTimeout: () => reject(new Error("Timed out generating the frame.")) }
+            { intervalMs: 2500, timeoutMs: 2 * 60 * 1000, onTimeout: () => reject(new Error("Timed out generating the reference image.")) }
           );
         });
       })
       .catch((err) => {
-        if (err instanceof Error && err.message !== "__handled__") setError(err.message);
+        if (err instanceof Error && err.message !== "__handled__") setEditError(err.message);
       })
-      .finally(() => setGeneratingState(false));
+      .finally(() => setIsGeneratingEditReference(false));
   }
 
   function recreateFromHistory(item: GenerationHistoryItem) {
@@ -801,6 +814,7 @@ export function VideoGenerator() {
         [item.model]: {
           durationSeconds: item.params.durationSeconds ?? fallback.durationSeconds,
           aspectRatio: item.params.aspectRatio ?? fallback.aspectRatio,
+          resolution: item.params.resolution ?? fallback.resolution,
           outputs: 1,
           soundEnabled: item.params.soundEnabled ?? fallback.soundEnabled,
         },
@@ -830,6 +844,7 @@ export function VideoGenerator() {
 
   const durationOptions = useMemo(() => model.durations.map((d) => ({ value: String(d), label: `${d}s` })), [model]);
   const aspectRatioOptions = useMemo(() => model.aspectRatios.map((r) => ({ value: r, label: r, ratio: r })), [model]);
+  const resolutionOptions = useMemo(() => (model.resolutions ?? []).map((r) => ({ value: r, label: r })), [model]);
 
   const pendingTiles: GenerationHistoryItem[] = Array.from({ length: pendingCount }, (_, i) => ({
     id: `pending-${i}`,
@@ -888,9 +903,29 @@ export function VideoGenerator() {
               </p>
             </div>
 
-            <div className="mt-6 flex items-start gap-4">
-              {/* Mode rail */}
-              <div className="flex shrink-0 flex-row gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 sm:flex-col">
+            {/* Generate/History toggle -- mobile only. Desktop shows history
+                as the "Recent Generations" grid below the form instead. */}
+            <div className="mt-6 flex gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/[0.05] lg:hidden">
+              {(["generate", "history"] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setMobileView(view)}
+                  className={cn(
+                    "flex-1 rounded-xl py-2.5 text-sm font-bold capitalize transition-colors",
+                    mobileView === view
+                      ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
+                      : "text-slate-400 dark:text-slate-500"
+                  )}
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-4 lg:mt-6 lg:flex-row lg:items-start">
+              {/* Mode rail -- desktop */}
+              <div className="hidden shrink-0 flex-col gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 lg:flex">
                 {MODE_TABS.map((tab) => {
                   const active = tab.id === activeTab;
                   return (
@@ -899,7 +934,7 @@ export function VideoGenerator() {
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
                       className={cn(
-                        "flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs transition-colors sm:flex-none sm:px-4",
+                        "flex flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs transition-colors",
                         active
                           ? "bg-white font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:text-white dark:ring-white/[0.06]"
                           : "font-medium text-slate-400 hover:bg-slate-50 hover:text-slate-500 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-400"
@@ -912,14 +947,44 @@ export function VideoGenerator() {
                 })}
               </div>
 
-              <div className="min-w-0 flex-1">
+              {/* Mode tabs -- mobile, full width. Hidden in the History view: that's
+                  just a plain gallery of everything, not scoped per-tab. */}
+              <div
+                className={cn(
+                  "w-full gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 lg:hidden",
+                  mobileView === "history" ? "hidden" : "flex"
+                )}
+              >
+                {MODE_TABS.map((tab) => {
+                  const active = tab.id === activeTab;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors",
+                        active
+                          ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:text-white dark:ring-white/[0.06]"
+                          : "font-medium text-slate-400 dark:text-slate-500"
+                      )}
+                    >
+                      <tab.icon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className={cn("min-w-0 flex-1", mobileView === "history" && "hidden lg:block")}>
                 {activeTab === "motion" ? (
                   <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 text-center dark:border-zinc-800 dark:bg-zinc-950/40">
                     <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Motion is coming in the next update.</p>
                     <p className="max-w-xs text-xs text-slate-400">Drive a character image using a reference video&apos;s motion.</p>
                   </div>
                 ) : activeTab === "edit" ? (
-                  <div className="relative isolate z-20">
+                  <>
+                  <div className="relative isolate z-20 hidden lg:block">
                     <div
                       className={cn(
                         "flex w-full min-h-[180px] flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
@@ -950,23 +1015,11 @@ export function VideoGenerator() {
                         />
 
                         <div className="relative min-h-28 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditPromptExpanded((prev) => !prev)}
-                            aria-pressed={editPromptExpanded}
-                            aria-label={editPromptExpanded ? "Collapse prompt box" : "Expand prompt box"}
-                            className="absolute right-0 top-0 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
-                          >
-                            {editPromptExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                          </button>
                           <textarea
                             value={editPrompt}
                             onChange={(event) => setEditPrompt(event.target.value)}
                             placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
-                            className={cn(
-                              "w-full resize-none bg-transparent pr-8 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500",
-                              editPromptExpanded ? "h-40" : "h-28"
-                            )}
+                            className="h-28 w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                           />
                         </div>
                       </div>
@@ -1003,8 +1056,57 @@ export function VideoGenerator() {
                       </p>
                     )}
                   </div>
+
+                  <div className="lg:hidden">
+                    <MobileEditPanel
+                      source={
+                        editSource
+                          ? { id: editSource.id, thumbnail_path: editSource.thumbnail_path, durationSeconds: editSourceDurationSeconds }
+                          : null
+                      }
+                      onSelectSource={(id) => {
+                        const picked = completedForEditGallery.find((item) => item.id === id);
+                        if (picked) setEditSource(picked);
+                      }}
+                      onClearSource={() => setEditSource(null)}
+                      onUploadSourceFile={handleUploadSourceVideo}
+                      isUploadingSource={isUploadingSource}
+                      sourceLibrary={completedForEditGallery
+                        .filter((item) => item.status === "completed" && item.output_video_path)
+                        .map((item) => ({
+                          id: item.id,
+                          thumbnail_path: item.thumbnail_path,
+                          durationSeconds: item.params.durationSeconds ?? null,
+                        }))}
+                      durationWarning={
+                        editSource && !editSourceDurationValid
+                          ? `${editModelConfig.id} needs a ${editModelConfig.minSourceDurationSeconds}-${editModelConfig.maxSourceDurationSeconds}s source video (this one is ${editSourceDurationSeconds}s).`
+                          : null
+                      }
+                      editPrompt={editPrompt}
+                      onEditPromptChange={setEditPrompt}
+                      referenceImages={editReferenceImages}
+                      onReferenceImagesChange={setEditReferenceImages}
+                      maxReferenceImages={editModelConfig.maxReferenceImages}
+                      onGenerateReference={generateReferenceImage}
+                      isGeneratingReference={isGeneratingEditReference}
+                      model={editModel}
+                      models={EDIT_VIDEO_MODELS}
+                      onSelectModel={setEditModel}
+                      outputs={editOutputs}
+                      outputOptions={OUTPUT_OPTIONS}
+                      onOutputsChange={setEditOutputs}
+                      isGenerating={editIsGenerating}
+                      canSubmit={canSubmitEdit}
+                      estimatedCost={estimatedEditCost}
+                      onGenerate={handleGenerateEdit}
+                      error={editError}
+                    />
+                  </div>
+                  </>
                 ) : (
-                  <div className="relative isolate z-20">
+                  <>
+                  <div className="relative isolate z-20 hidden lg:block">
                     <div
                       className={cn(
                         "flex w-full min-h-[180px] gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
@@ -1014,21 +1116,11 @@ export function VideoGenerator() {
                       {/* Left column: prompt textarea + config pills, locked to the bottom */}
                       <div className="flex min-w-0 flex-grow flex-col justify-between">
                         <div className="relative min-h-0 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => setPromptExpanded((prev) => !prev)}
-                            aria-pressed={promptExpanded}
-                            aria-label={promptExpanded ? "Collapse prompt box" : "Expand prompt box"}
-                            className="absolute right-0 top-0 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
-                          >
-                            {promptExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                          </button>
-
                           <textarea
                             value={prompt}
                             onChange={(event) => setPrompt(event.target.value)}
                             placeholder="Describe a new video..."
-                            className="h-full w-full resize-none bg-transparent pr-8 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                            className="h-full w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                           />
                         </div>
 
@@ -1040,6 +1132,9 @@ export function VideoGenerator() {
                             options={durationOptions}
                             onChange={(value) => updateSettings({ durationSeconds: Number(value) })}
                           />
+                          {model.resolutions && (
+                            <PillDropdown value={resolution} options={resolutionOptions} onChange={(value) => updateSettings({ resolution: value })} />
+                          )}
                           <PillDropdown value={aspectRatio} options={aspectRatioOptions} onChange={(value) => updateSettings({ aspectRatio: value })} />
                           {model.supportsAudio && (
                             <button
@@ -1072,13 +1167,10 @@ export function VideoGenerator() {
                             <FrameImagePicker
                               startFrame={startFrame}
                               onStartFrameChange={setStartFrame}
-                              onGenerateStartFrame={(p) => generateFrameImage(p, "start")}
-                              isGeneratingStartFrame={isGeneratingStartFrame}
                               endFrame={endFrame}
                               onEndFrameChange={setEndFrame}
-                              onGenerateEndFrame={(p) => generateFrameImage(p, "end")}
-                              isGeneratingEndFrame={isGeneratingEndFrame}
                               supportsEndFrame={model.supportsEndFrame}
+                              aspectRatio={aspectRatio}
                             />
                           )}
                         </div>
@@ -1100,13 +1192,77 @@ export function VideoGenerator() {
                       </p>
                     )}
                   </div>
+
+                  <div className="lg:hidden">
+                    <MobileCreatePanel
+                      prompt={prompt}
+                      onPromptChange={setPrompt}
+                      model={model}
+                      models={VIDEO_MODELS}
+                      selectedModel={selectedModel}
+                      onSelectModel={setSelectedModel}
+                      startFrame={startFrame}
+                      onStartFrameChange={setStartFrame}
+                      endFrame={endFrame}
+                      onEndFrameChange={setEndFrame}
+                      durationSeconds={durationSeconds}
+                      durationOptions={durationOptions}
+                      onDurationChange={(value) => updateSettings({ durationSeconds: value })}
+                      resolution={resolution}
+                      resolutionOptions={resolutionOptions}
+                      onResolutionChange={(value) => updateSettings({ resolution: value })}
+                      aspectRatio={aspectRatio}
+                      onAspectRatioChange={(value) => updateSettings({ aspectRatio: value })}
+                      soundEnabled={soundEnabled}
+                      onSoundToggle={() => updateSettings({ soundEnabled: !soundEnabled })}
+                      outputs={outputs}
+                      outputOptions={OUTPUT_OPTIONS}
+                      onOutputsChange={(value) => updateSettings({ outputs: value })}
+                      isGenerating={isGenerating}
+                      canSubmit={canSubmit}
+                      estimatedCost={estimatedCost}
+                      onGenerate={handleGenerate}
+                      error={error}
+                    />
+                  </div>
+                  </>
                 )}
               </div>
+
+              {mobileView === "history" && (
+                <div className="lg:hidden">
+                  {(() => {
+                    // Unscoped by tab (the mode tabs are hidden in this view,
+                    // see above) -- pending tiles from both tabs plus every
+                    // completed generation, newest first.
+                    const items = [...pendingTiles, ...editPendingTiles, ...completedForEditGallery];
+                    if (items.length === 0) {
+                      return <p className="py-16 text-center text-sm text-slate-400">No generations yet.</p>;
+                    }
+                    return (
+                      <div className="grid grid-cols-2 gap-3">
+                        {items.map((item) => (
+                          <VideoTile
+                            key={item.id}
+                            item={item}
+                            elapsedSeconds={item.mode === "edit" ? editElapsedSeconds : createElapsedSeconds}
+                            onPreview={() => setPreviewItem(item)}
+                            onRecreate={() => (item.mode === "edit" ? attachSourceForEdit(item, true) : recreateFromHistory(item))}
+                            onEdit={() => attachSourceForEdit(item, false)}
+                            onDownload={() => downloadVideo(item.id)}
+                            onDelete={() => setDeleteTargetId(item.id)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
           {activeTab === "create" && galleryItems.length > 0 && (
-            <div className="mt-10 w-full px-4 sm:px-8">
+            <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {galleryItems.map((item) => (
@@ -1126,7 +1282,7 @@ export function VideoGenerator() {
           )}
 
           {activeTab === "edit" && editGalleryItems.length > 0 && (
-            <div className="mt-10 w-full px-4 sm:px-8">
+            <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {editGalleryItems.map((item) => (
