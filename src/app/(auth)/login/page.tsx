@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
-  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
@@ -14,13 +13,11 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { AuthShell } from "@/components/auth/AuthShell";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import { AUTH_INPUT_CLASSES } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
 
-function SignupForm() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/app";
@@ -28,10 +25,30 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get("error"));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmationSent, setConfirmationSent] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.push(next);
+    router.refresh();
+  }
 
   async function handleGoogleSignIn() {
     setError(null);
@@ -51,76 +68,35 @@ function SignupForm() {
     }
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-
-    const supabase = createClient();
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}${next}`,
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // If email confirmation is off, Supabase returns a session immediately.
-    if (data.session) {
-      router.push(next);
-      router.refresh();
-      return;
-    }
-
-    setConfirmationSent(true);
-    setIsSubmitting(false);
-  }
-
-  if (confirmationSent) {
-    return (
-      <div className="animate-bend-in text-center">
-        <div className="rounded-[28px] border border-hairline bg-surface/95 p-8 shadow-card backdrop-blur-xl sm:p-10">
-          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Check your inbox</h1>
-          <p className="mt-1.5 text-sm text-body">
-            We sent a confirmation link to <span className="font-medium text-heading">{email}</span>. Click it to
-            activate your account.
-          </p>
-          <Link href="/login" className="mt-6 inline-flex text-sm font-semibold text-primary hover:underline">
-            Back to login
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-bend-in">
-      <div className="rounded-[28px] border border-hairline bg-surface/95 p-8 shadow-card backdrop-blur-xl sm:p-10">
-        <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">Create your account</h1>
-        <p className="mt-1.5 text-sm text-body">Start building your faceless page today.</p>
+    <div>
+      <div>
+        <h1 className="text-[28px] font-bold tracking-[-0.5px] text-heading">
+          Welcome back
+        </h1>
+        <p className="mt-1.5 text-sm text-body">
+          Log in to keep building your faceless page.
+        </p>
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isGoogleLoading}
-          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-semibold text-heading shadow-card transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-card-hover disabled:opacity-50 disabled:pointer-events-none disabled:translate-y-0 disabled:shadow-none"
+          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-semibold text-heading transition-colors hover:bg-app disabled:opacity-50 disabled:pointer-events-none"
         >
-          {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+          {isGoogleLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <GoogleIcon />
+          )}
           Continue with Google
         </button>
 
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-hairline" />
-          <span className="text-xs font-medium text-subtle">or continue with email</span>
+          <span className="text-xs font-medium text-subtle">
+            or continue with email
+          </span>
           <div className="h-px flex-1 bg-hairline" />
         </div>
 
@@ -148,8 +124,7 @@ function SignupForm() {
               <input
                 type={showPassword ? "text" : "password"}
                 required
-                minLength={6}
-                autoComplete="new-password"
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -161,7 +136,11 @@ function SignupForm() {
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </label>
@@ -173,46 +152,45 @@ function SignupForm() {
             </div>
           )}
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
             disabled={isSubmitting}
-            className="btn-glow mt-2 justify-center"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none"
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                Sign up
+                Log in
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
-          </Button>
+          </button>
 
           <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-subtle">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Secured with 256-bit encryption &middot; no card required
+            Secured with 256-bit encryption
           </p>
         </form>
       </div>
 
       <p className="mt-6 text-center text-sm text-body">
-        Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-primary hover:underline">
-          Log in
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/signup"
+          className="font-semibold text-primary hover:underline"
+        >
+          Sign up
         </Link>
       </p>
     </div>
   );
 }
 
-export default function SignupPage() {
+export default function LoginPage() {
   return (
-    <AuthShell>
-      <Suspense fallback={null}>
-        <SignupForm />
-      </Suspense>
-    </AuthShell>
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
