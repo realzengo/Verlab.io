@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { ArrowRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProtectedVideo } from "./ProtectedVideo";
 
 export type ToolTone = "cat-1" | "cat-2" | "cat-3" | "cat-4" | "cat-5" | "cat-6" | "cat-7";
 
@@ -71,28 +72,18 @@ export function ToolGridCard({
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60">
           {video ? (
             <>
-              <video
+              <ProtectedVideo
                 src={video}
                 poster={videoPoster}
                 className={cn("h-full w-full object-cover", videoDark && "dark:hidden")}
                 style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
               />
               {videoDark && (
-                <video
+                <ProtectedVideo
                   src={videoDark}
                   poster={videoPosterDark}
                   className="hidden h-full w-full object-cover dark:block"
                   style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
                 />
               )}
             </>

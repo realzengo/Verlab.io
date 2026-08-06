@@ -14,7 +14,6 @@ const TABS: NavEntry[] = [
   { label: "Account", href: "/app/settings" },
   { label: "Subscription", href: "/app/settings/subscription" },
   { label: "Credit History", href: "/app/settings/credits" },
-  { label: "Payment Method", href: "/app/settings/payment-method" },
   { label: "Password & Security", href: "/app/settings/security" },
   { label: "MCP", href: "/app/settings/mcp" },
 ];

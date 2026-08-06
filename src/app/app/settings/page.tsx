@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { PlanTab } from "@/components/settings/PlanTab";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -333,6 +334,8 @@ export default function AccountSettingsPage() {
           )}
         </div>
       </div>
+
+      <PlanTab />
 
       {/* Account actions section */}
       <div>

@@ -1222,19 +1222,13 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* Admin sidebar button — a "royal" pill with a slow-rotating gold ring,
-   reusing the conic-gradient mask trick from .comparison-winner-border but
+/* Admin sidebar button — a "royal" pill with a static gold ring, reusing
+   the conic-gradient mask trick from .comparison-winner-border but
    always-on (not just on a "winner" state) so it reads as a permanent,
    distinct-from-the-rest-of-the-UI accent rather than a hover effect.
    Light mode gets an ivory/parchment take (a black pill reads as a hole
    punched in the white sidebar); dark mode keeps the black-and-gold look,
    where it sits naturally against the already-dark chrome. */
-@property --admin-border-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
 .admin-king-btn {
   position: relative;
   isolation: isolate;
@@ -1260,15 +1254,7 @@ html[data-scrolling="true"] *::after {
   z-index: -1;
   border-radius: inherit;
   padding: 1px;
-  background: conic-gradient(
-    from var(--admin-border-angle),
-    rgba(234, 179, 8, 0.12) 0deg,
-    rgba(234, 179, 8, 0.12) 240deg,
-    #fde68a 285deg,
-    #f5c518 315deg,
-    #fde68a 340deg,
-    rgba(234, 179, 8, 0.12) 360deg
-  );
+  background: linear-gradient(135deg, #fde68a 0%, #f5c518 45%, #fde68a 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -1290,29 +1276,6 @@ html[data-scrolling="true"] *::after {
 .admin-king-btn:active {
   transform: translateY(0) scale(0.985);
   transition-duration: 0.1s;
-}
-/* Sheen sits at shimmer-sweep's off-canvas start frame (translateX(-120%))
-   while paused, so it's invisible at rest with no extra opacity toggle
-   needed -- only reuses the keyframes (defined below, reduced-motion
-   gated), not the .animate-shimmer-sweep class, since this one should stay
-   paused until hover rather than looping continuously. */
-.admin-king-btn .admin-king-sheen {
-  background: linear-gradient(115deg, transparent, rgba(253, 230, 138, 0.5), transparent);
-  animation: shimmer-sweep 1.3s ease-in-out infinite;
-  animation-play-state: paused;
-}
-.admin-king-btn:hover .admin-king-sheen {
-  animation-play-state: running;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .admin-king-btn::before {
-    animation: admin-border-spin 5s linear infinite;
-  }
-  @keyframes admin-border-spin {
-    to {
-      --admin-border-angle: 360deg;
-    }
-  }
 }
 
 /* Blue-tinted glass puck for an icon nested inside a .liquid-glass control */

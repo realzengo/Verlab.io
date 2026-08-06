@@ -28,10 +28,6 @@ export function SidebarFooter({
             collapsed && "lg:justify-center lg:gap-0 lg:px-0"
           )}
         >
-          <span
-            aria-hidden="true"
-            className="admin-king-sheen pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-12 blur-sm"
-          />
           <Crown
             className="h-4 w-4 shrink-0 text-[#92650c] dark:text-[#f5c518] dark:drop-shadow-[0_0_6px_rgba(234,179,8,0.55)]"
             strokeWidth={2.25}
@@ -66,7 +62,7 @@ export function SidebarFooter({
           Search
         </span>
         {!collapsed && (
-          <kbd className="hidden shrink-0 rounded-md border border-hairline bg-surface px-1.5 py-0.5 text-[10px] font-sans text-subtle lg:inline-block">
+          <kbd className="ml-auto hidden shrink-0 rounded-md border border-hairline bg-surface px-1.5 py-0.5 text-[10px] font-sans text-subtle lg:inline-block">
             ⌘K
           </kbd>
         )}

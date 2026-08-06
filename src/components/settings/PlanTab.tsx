@@ -13,7 +13,7 @@ interface PlanDefinition {
   price_monthly: number;
 }
 
-export function PaymentMethodTab() {
+export function PlanTab() {
   const [currentPlan, setCurrentPlan] = useState<PlanDefinition | null>(null);
   const [transcriptsThisMonth, setTranscriptsThisMonth] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Lock, Minus, Sparkles, X } from "lucide-react";
+import { Check, Lock, PenLine, Plug, Search, ShieldCheck, Sparkles, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { PACKS, shortRate, type PackId } from "@/components/TopUpModal";
-import { PRICING_PLANS, COMPARISON_ROWS } from "@/lib/mock/pricing";
+import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 
 type Tab = "plan" | "topup";
@@ -17,6 +18,49 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const FREQUENCIES: PricingFrequency[] = ["monthly", "yearly"];
+
+// Groups each plan's already-curated `features` list (see lib/mock/pricing.ts)
+// under a category header for a denser, more scannable card -- mirroring how
+// competitors present tiered feature lists rather than one flat bullet list.
+// "Everything in <plan>" entries are pulled out and rendered as a chip above
+// the groups instead of as a bullet, so they read as the connective tissue
+// between tiers rather than a feature themselves.
+const CATEGORY_ORDER = ["RESEARCH", "CREATE", "CONNECT", "SUPPORT"] as const;
+
+const FEATURE_CATEGORY: Record<string, (typeof CATEGORY_ORDER)[number]> = {
+  "Unlimited transcripts": "RESEARCH",
+  "TikTok, Reels & Shorts": "RESEARCH",
+  "20 niche bends per month": "RESEARCH",
+  "Unlimited niche bending": "RESEARCH",
+  "Script Maker": "CREATE",
+  "TXT export": "CREATE",
+  "Viral AI agents": "CREATE",
+  "Cloud library": "CREATE",
+  "AI exports (TXT/PDF/XML)": "CREATE",
+  "API access": "CONNECT",
+  "MCP for Claude & ChatGPT": "CONNECT",
+  "Priority support": "SUPPORT",
+};
+
+const CATEGORY_ICON: Record<(typeof CATEGORY_ORDER)[number], LucideIcon> = {
+  RESEARCH: Search,
+  CREATE: PenLine,
+  CONNECT: Plug,
+  SUPPORT: ShieldCheck,
+};
+
+function groupPlanFeatures(features: PricingPlan["features"]) {
+  const inheritedFrom = features.find((feature) => feature.text.startsWith("Everything in"));
+  const rest = features.filter((feature) => feature !== inheritedFrom);
+
+  const groups = CATEGORY_ORDER.map((category) => ({
+    category,
+    icon: CATEGORY_ICON[category],
+    items: rest.filter((feature) => FEATURE_CATEGORY[feature.text] === category),
+  })).filter((group) => group.items.length > 0);
+
+  return { inheritedFrom, groups };
+}
 
 function maxYearlyPercentOff(plans: PricingPlan[]): number {
   return plans.reduce((max, plan) => {
@@ -146,20 +190,32 @@ export function UpgradeModal({
         </button>
 
         <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
-          <div className="mx-auto w-fit rounded-full border border-hairline bg-app p-1 shadow-card">
+          <div className="mx-auto w-fit rounded-full border border-hairline bg-app p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)]">
             <div className="relative flex">
               <span
-                className="absolute inset-y-1 w-[calc(50%-4px)] rounded-full bg-heading shadow-card transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(${tab === "topup" ? "100%" : "0%"})` }}
+                className="absolute inset-y-1 z-10 w-[calc(50%-4px)] overflow-hidden rounded-full transition-transform duration-300 ease-out"
+                style={{
+                  transform: `translateX(${tab === "topup" ? "100%" : "0%"})`,
+                  background: "linear-gradient(to bottom, #4d70ff, var(--color-primary-hover))",
+                  boxShadow:
+                    "0 2px 8px 0 rgba(51,92,255,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(34,70,214,0.45) inset",
+                }}
                 aria-hidden
-              />
+              >
+                <span
+                  className="absolute left-1/2 top-0 h-2/5 w-[80%] -translate-x-1/2 rounded-t-full"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 85%)",
+                  }}
+                />
+              </span>
               {TABS.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setTab(t.id)}
                   className={cn(
-                    "relative z-10 rounded-full px-5 py-2 text-sm font-semibold transition-colors",
+                    "relative z-20 rounded-full px-5 py-2 text-sm font-semibold tracking-tight transition-colors",
                     tab === t.id ? "text-white" : "text-body hover:text-heading"
                   )}
                 >
@@ -219,6 +275,7 @@ export function UpgradeModal({
                     plan.price.monthly > 0 && !plan.monthlyOnly
                       ? Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100)
                       : 0;
+                  const { inheritedFrom, groups } = groupPlanFeatures(plan.features);
 
                   return (
                     <div
@@ -239,15 +296,18 @@ export function UpgradeModal({
                       )}
 
                       <div className={cn("flex flex-1 flex-col p-6", plan.recommended && "pt-7")}>
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-subtle">{plan.name}</h3>
+                        <h3 className={cn("text-base font-bold tracking-tight", plan.recommended ? "text-primary" : "text-heading")}>
+                          {plan.name}
+                        </h3>
+                        <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-subtle">{plan.info}</p>
 
                         {yearlyUnavailable ? (
                           <p className="mt-3 text-sm text-body">Not available on yearly billing</p>
                         ) : (
                           <>
                             <div className="mt-2 flex items-baseline gap-1">
-                              <span className="text-4xl font-extrabold tracking-tight text-heading">${price}</span>
-                              <span className="text-sm font-medium text-subtle">/mo</span>
+                              <span className="text-5xl font-extrabold tracking-tight text-heading">${price}</span>
+                              <span className="text-sm font-medium text-subtle">/month</span>
                             </div>
                             {frequency === "yearly" && (
                               <p className="mt-1 text-xs text-subtle">Billed annually at ${plan.price.yearly}/year</p>
@@ -257,8 +317,6 @@ export function UpgradeModal({
                         {frequency === "yearly" && percentOff > 0 && (
                           <span className="mt-1 text-xs font-semibold text-success">Save {percentOff}%</span>
                         )}
-
-                        <p className="mt-2 min-h-[2.5rem] text-xs leading-relaxed text-subtle">{plan.info}</p>
 
                         <button
                           type="button"
@@ -274,28 +332,31 @@ export function UpgradeModal({
                           {checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta}
                         </button>
 
-                        <ul className="mt-5 flex flex-1 flex-col gap-2.5 border-t border-hairline pt-5">
-                          {COMPARISON_ROWS.map((row) => {
-                            const value = row[plan.id];
-                            const included = value !== false;
-                            return (
-                              <li
-                                key={row.feature}
-                                className={cn("flex items-start gap-2 text-[13px]", included ? "text-heading" : "text-subtle")}
-                              >
-                                {included ? (
-                                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                                ) : (
-                                  <Minus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-hairline" />
-                                )}
-                                <span>
-                                  {row.feature}
-                                  {typeof value === "string" && <span className="text-subtle"> — {value}</span>}
-                                </span>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                        {inheritedFrom && (
+                          <span className="mt-5 inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/25 bg-accent px-3 py-1.5 text-xs font-medium text-primary">
+                            <Sparkles className="h-3 w-3" />
+                            {inheritedFrom.text}, plus:
+                          </span>
+                        )}
+
+                        <div className={cn("flex flex-1 flex-col gap-4", inheritedFrom ? "mt-4" : "mt-5 border-t border-hairline pt-5")}>
+                          {groups.map(({ category, icon: Icon, items }) => (
+                            <div key={category}>
+                              <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-subtle">
+                                <Icon className="h-3.5 w-3.5" />
+                                {category}
+                              </div>
+                              <ul className="flex flex-col gap-2">
+                                {items.map((feature) => (
+                                  <li key={feature.text} className="flex items-start gap-2 text-[13px] text-heading">
+                                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                                    <span>{feature.text}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );

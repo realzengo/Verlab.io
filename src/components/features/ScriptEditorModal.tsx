@@ -455,9 +455,10 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
             mobilePane === "chat" ? "flex" : "hidden md:flex"
           )}
         >
-          <div className="flex items-center gap-2.5 border-b border-hairline px-5 py-4">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-indigo-500 text-white shadow-sm">
-              <Sparkles className="h-4 w-4" />
+          <div className="relative flex items-center gap-3 overflow-hidden border-b border-hairline bg-gradient-to-br from-accent/70 via-transparent to-transparent px-5 py-4">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-indigo-500 text-white shadow-blue">
+              <span className="absolute h-7 w-7 animate-craft-glow rounded-full bg-primary/50 blur-md" />
+              <Sparkles className="relative h-4 w-4" />
             </span>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-heading">Ask AI to edit</h3>
@@ -468,8 +469,9 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-5 py-4">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-accent to-primary/10 text-primary ring-1 ring-primary/10">
-                  <Sparkles className="h-6 w-6" />
+                <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-accent ring-1 ring-primary/10">
+                  <span className="absolute h-12 w-12 animate-craft-glow rounded-full bg-primary/40 blur-xl" />
+                  <Sparkles className="relative h-7 w-7 text-primary" />
                 </span>
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-heading">Edit with AI</p>
@@ -486,8 +488,9 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                         setChatInput(prompt);
                         chatInputRef.current?.focus();
                       }}
-                      className="rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-body transition-colors hover:border-primary hover:text-primary"
+                      className="group flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-body shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:text-primary hover:shadow-[0_4px_14px_-4px_rgba(51,92,255,0.35)]"
                     >
+                      <Sparkles className="h-3 w-3 text-primary/50 transition-colors group-hover:text-primary" />
                       {prompt}
                     </button>
                   ))}
@@ -506,13 +509,16 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                     {message.role !== "user" && (
                       <span
                         className={cn(
-                          "mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                          "relative mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
                           message.role === "error"
                             ? "bg-red-100 text-red-500 dark:bg-red-500/15 dark:text-red-400"
                             : "bg-gradient-to-br from-primary to-indigo-500 text-white"
                         )}
                       >
-                        <Sparkles className="h-3 w-3" />
+                        {message.role !== "error" && (
+                          <span className="absolute h-5 w-5 animate-craft-glow rounded-full bg-primary/50 blur-sm" />
+                        )}
+                        <Sparkles className="relative h-3 w-3" />
                       </span>
                     )}
                     <div
@@ -530,12 +536,17 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                 ))}
                 {isSendingChat && (
                   <div className="flex items-end gap-2">
-                    <span className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-indigo-500 text-white">
-                      <Sparkles className="h-3 w-3" />
+                    <span className="relative mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-indigo-500 text-white">
+                      <span className="absolute h-5 w-5 animate-craft-glow rounded-full bg-primary/50 blur-sm" />
+                      <Sparkles className="relative h-3 w-3" />
                     </span>
-                    <div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-accent px-3.5 py-2.5 text-sm text-body shadow-sm">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Updating your script…
+                    <div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-accent px-4 py-3 shadow-sm">
+                      <span className="text-sm text-body">Updating your script</span>
+                      <span className="flex items-center gap-0.5">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70 [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70" />
+                      </span>
                     </div>
                   </div>
                 )}
@@ -544,7 +555,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
           </div>
 
           <div className="border-t border-hairline px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-            <div className="flex items-end gap-1 rounded-2xl border border-hairline bg-app px-3 py-2 transition-colors focus-within:border-primary">
+            <div className="flex items-end gap-1 rounded-2xl border border-hairline bg-app px-3 py-2 shadow-sm transition-all duration-150 focus-within:border-primary/60 focus-within:shadow-[0_0_0_3px_rgba(51,92,255,0.12)]">
               <textarea
                 ref={chatInputRef}
                 value={chatInput}
@@ -565,9 +576,14 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                 onClick={handleSendChatEdit}
                 disabled={!chatInput.trim() || isSendingChat}
                 aria-label="Send"
-                className="shrink-0 rounded-full bg-btn-primary p-2 text-white transition-colors hover:bg-btn-primary-hover disabled:pointer-events-none disabled:opacity-30"
+                className="relative shrink-0 rounded-full p-2 text-white transition-all duration-150 active:scale-95 disabled:pointer-events-none disabled:opacity-30"
+                style={{
+                  background: "linear-gradient(to bottom, #4d70ff, var(--color-primary-hover))",
+                  boxShadow:
+                    "0 2px 8px 0 rgba(51,92,255,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(34,70,214,0.45) inset",
+                }}
               >
-                <Send className="h-4 w-4" />
+                <Send className="relative h-4 w-4" />
               </button>
             </div>
           </div>
