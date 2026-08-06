@@ -960,7 +960,7 @@ export function ImageGenerator() {
 
               <div
                 className={cn(
-                  "relative flex w-full flex-col rounded-[26px] bg-white/60 px-9 py-6 backdrop-blur-2xl backdrop-saturate-150",
+                  "relative flex w-full flex-col rounded-[26px] bg-white/60 px-9 py-5 backdrop-blur-2xl backdrop-saturate-150",
                   // Lighter than the page background (not near-black-on-black)
                   // plus a faint top sheen, so the panel reads as a distinct
                   // raised surface -- the glass-card look of premium SaaS UIs.
@@ -971,10 +971,10 @@ export function ImageGenerator() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to create..."
-              className="min-h-[200px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+              className="min-h-[96px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
-            <div className="mt-4 flex flex-nowrap items-center gap-2">
+            <div className="mt-3 flex flex-nowrap items-center gap-2">
               <div className="flex flex-nowrap items-center gap-1.5">
                 <PillDropdown value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
                 <PillDropdown value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />

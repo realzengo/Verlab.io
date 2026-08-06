@@ -1120,7 +1120,7 @@ export function VideoGenerator() {
                             value={prompt}
                             onChange={(event) => setPrompt(event.target.value)}
                             placeholder="Describe a new video..."
-                            className="h-full w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                            className="h-full w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                           />
                         </div>
 
