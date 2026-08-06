@@ -52,7 +52,11 @@ interface SubscriptionProductConfig {
 // keeps this table a straight product/plan-ID swap, nothing else to change.
 export function getSubscriptionProducts(): Record<SubscriptionPlanId, SubscriptionProductConfig> {
   return {
-    core: { whopMonthlyPlanId: requiredEnv("WHOP_PLAN_CORE_MONTHLY"), whopYearlyPlanId: null, monthlyCreditsPerPeriod: 1250 },
+    core: {
+      whopMonthlyPlanId: requiredEnv("WHOP_PLAN_CORE_MONTHLY"),
+      whopYearlyPlanId: requiredEnv("WHOP_PLAN_CORE_YEARLY"),
+      monthlyCreditsPerPeriod: 1250,
+    },
     pro: {
       whopMonthlyPlanId: requiredEnv("WHOP_PLAN_PRO_MONTHLY"),
       whopYearlyPlanId: requiredEnv("WHOP_PLAN_PRO_YEARLY"),

@@ -1,10 +1,26 @@
-import { Check, Star } from "lucide-react";
+import NumberFlow from "@number-flow/react";
+import { CheckCheck, Database, Search, Sparkles } from "lucide-react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/utils";
+
+// Splits "1,000 Credits (AI Tools)" into a bold lead ("1,000 Credits") and a
+// plain trailing descriptor ("(AI Tools)").
+function splitFeatureText(text: string): { bold: string; rest: string } {
+  const parenIndex = text.indexOf(" (");
+  if (parenIndex === -1) return { bold: text, rest: "" };
+  return { bold: text.slice(0, parenIndex), rest: text.slice(parenIndex + 1) };
+}
+
+// First 3 features are always credits / niche-bends / transcripts across all
+// three tiers (see lib/mock/pricing.ts) -- a fixed icon per position instead
+// of keyword-matching free text.
+const FEATURE_ICONS = [Sparkles, Search, Database];
+
+const INCLUDES_HEADING: Record<PricingPlan["id"], string> = {
+  core: "Core includes:",
+  pro: "Everything in Core, plus:",
+  scale: "Everything in Pro, plus:",
+};
 
 export function PricingCard({
   plan,
@@ -18,81 +34,99 @@ export function PricingCard({
   ctaHref?: string;
 }) {
   const yearlyUnavailable = plan.monthlyOnly && frequency === "yearly";
-  const monthlyEquivalent = Math.round(plan.price.yearly / 12);
-  const price = frequency === "yearly" ? monthlyEquivalent : plan.price.monthly;
-  const percentOff =
-    plan.price.monthly > 0 && !plan.monthlyOnly
-      ? Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100)
-      : 0;
+  const price = frequency === "yearly" ? plan.price.yearly : plan.price.monthly;
+
+  const topFeatures = plan.features.slice(0, 3);
+  const includes = plan.features.slice(3);
+
+  const ctaClassName = cn(
+    "mb-6 w-full rounded-xl p-4 text-center text-xl font-semibold transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50",
+    plan.recommended
+      ? "border border-blue-400/60 bg-gradient-to-t from-blue-500 to-blue-600 text-white shadow-blue"
+      : "border border-white/10 bg-gradient-to-t from-neutral-900 to-neutral-700 text-white shadow-card"
+  );
 
   return (
-    <Card
+    <div
       className={cn(
-        "relative flex flex-col gap-6",
-        plan.recommended && "border-primary shadow-blue ring-2 ring-primary/20",
-        yearlyUnavailable && "opacity-50"
+        "relative flex flex-col rounded-card-lg border transition-shadow",
+        plan.recommended ? "border-primary/40 bg-accent shadow-blue" : "border-hairline bg-surface shadow-card hover:shadow-card-hover"
       )}
     >
-      <div className="absolute right-6 top-6 flex items-center gap-2">
-        {plan.recommended && (
-          <Badge>
-            <Star className="h-3 w-3 fill-current" />
-            Popular
-          </Badge>
-        )}
-        {frequency === "yearly" && percentOff > 0 && <Badge variant="success">{percentOff}% off</Badge>}
-      </div>
-
-      <div>
-        <h3 className="text-base font-semibold text-heading">{plan.name}</h3>
-        <p className="mt-1 text-sm text-body">{plan.info}</p>
-      </div>
-
-      <div>
+      <div className="p-6 text-left">
+        <div className="flex justify-between">
+          <h3 className="mb-2 text-3xl font-semibold text-heading">{plan.name}</h3>
+          {plan.recommended && (
+            <span className="flex h-fit items-center gap-1 rounded-full bg-primary px-3 py-1 text-sm font-medium text-white shadow-[0_4px_14px_-2px_rgba(51,92,255,0.55)]">
+              <img src="/icons/fire.svg" alt="" className="h-4 w-4" />
+              Popular
+            </span>
+          )}
+        </div>
+        <p className="mb-4 text-sm text-body">{plan.info}</p>
         {yearlyUnavailable ? (
           <p className="text-sm text-body">Not available on yearly billing</p>
         ) : (
-          <>
-            <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-semibold text-heading">${price}</span>
-              {price > 0 && <span className="text-sm text-body">/month</span>}
-            </div>
-            {frequency === "yearly" && (
-              <p className="mt-1 text-xs text-body">Billed annually at ${plan.price.yearly}/year</p>
-            )}
-          </>
+          <div className="flex items-baseline">
+            <span className="text-4xl font-semibold text-heading">
+              $<NumberFlow value={price} className="text-4xl font-semibold" />
+            </span>
+            <span className="ml-1 text-body">/{frequency === "yearly" ? "year" : "month"}</span>
+          </div>
         )}
-        {plan.limits && <p className="mt-1 text-xs text-body">{plan.limits}</p>}
       </div>
 
-      <ul className="flex flex-1 flex-col gap-2.5">
-        {plan.features.map((feature, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-heading">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            {feature.tooltip ? (
-              <Tooltip content={feature.tooltip}>
-                <span className="cursor-default border-b border-dashed border-hairline">{feature.text}</span>
-              </Tooltip>
-            ) : (
-              feature.text
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="px-6 pb-6 pt-0">
+        {yearlyUnavailable ? (
+          <button type="button" disabled className={ctaClassName}>
+            {plan.cta}
+          </button>
+        ) : ctaHref ? (
+          <a href={ctaHref} className={ctaClassName}>
+            {plan.cta}
+          </a>
+        ) : (
+          <button type="button" onClick={() => onSelect?.(plan)} className={ctaClassName}>
+            {plan.cta}
+          </button>
+        )}
 
-      {yearlyUnavailable ? (
-        <Button variant="secondary" bevel={false} disabled>
-          {plan.cta}
-        </Button>
-      ) : ctaHref ? (
-        <Button href={ctaHref} variant={plan.recommended ? "primary" : "secondary"} bevel={false}>
-          {plan.cta}
-        </Button>
-      ) : (
-        <Button variant={plan.recommended ? "primary" : "secondary"} bevel={false} onClick={() => onSelect?.(plan)}>
-          {plan.cta}
-        </Button>
-      )}
-    </Card>
+        <ul className="space-y-2 py-5 font-semibold">
+          {topFeatures.map((feature, i) => {
+            const Icon = FEATURE_ICONS[i];
+            return (
+              <li key={feature.text} className="flex items-center">
+                <span className="mr-3 mt-0.5 grid place-content-center text-subtle">
+                  <Icon size={20} />
+                </span>
+                <span className="text-sm text-body">{feature.text}</span>
+              </li>
+            );
+          })}
+        </ul>
+
+        {includes.length > 0 && (
+          <div className="space-y-3 border-t border-hairline pt-4">
+            <h4 className="mb-3 text-base font-medium text-heading">{INCLUDES_HEADING[plan.id]}</h4>
+            <ul className="space-y-2 font-semibold">
+              {includes.map((feature) => {
+                const { bold, rest } = splitFeatureText(feature.text);
+                return (
+                  <li key={feature.text} className="flex items-center">
+                    <span className="mr-3 mt-0.5 grid h-6 w-6 place-content-center rounded-full border border-primary/40 bg-accent">
+                      <CheckCheck className="h-4 w-4 text-primary" />
+                    </span>
+                    <span className="text-sm text-body">
+                      <span className="font-semibold text-heading">{bold}</span>
+                      {rest && <span className="ml-1">{rest}</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

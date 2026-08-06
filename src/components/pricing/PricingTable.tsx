@@ -5,6 +5,14 @@ import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 
+function maxYearlyPercentOff(plans: PricingPlan[]): number {
+  return plans.reduce((max, plan) => {
+    if (plan.monthlyOnly || plan.price.monthly === 0) return max;
+    const percentOff = Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100);
+    return Math.max(max, percentOff);
+  }, 0);
+}
+
 export function PricingTable({
   plans,
   ctaHref,
@@ -16,7 +24,7 @@ export function PricingTable({
   /** When true, ignores ctaHref and starts a Polar checkout for the signed-in user instead. */
   authenticated?: boolean;
 }) {
-  const [frequency, setFrequency] = useState<PricingFrequency>("monthly");
+  const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +52,12 @@ export function PricingTable({
     }
   }
 
+  const savePercent = maxYearlyPercentOff(plans);
+
   return (
-    <div className="flex flex-col items-center gap-8">
-      <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} />
-      <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-3">
+    <div className="flex flex-col items-center">
+      <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} savePercent={savePercent || undefined} />
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-6 md:grid-cols-3">
         {plans.map((plan) =>
           authenticated ? (
             <PricingCard

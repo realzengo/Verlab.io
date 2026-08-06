@@ -35,9 +35,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (period !== "monthly" && period !== "yearly") {
     return NextResponse.json({ error: "Invalid period" }, { status: 400 });
   }
-  if (planId === "core" && period === "yearly") {
-    return NextResponse.json({ error: "Core does not support yearly billing" }, { status: 400 });
-  }
 
   const redirectUrl = process.env.WHOP_CHECKOUT_SUCCESS_URL;
   if (!redirectUrl) {
