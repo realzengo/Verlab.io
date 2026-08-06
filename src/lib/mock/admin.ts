@@ -56,6 +56,7 @@ export const USAGE_SERIES: UsagePoint[] = Array.from({ length: 30 }, (_, i) => {
     mcp: Math.max(2, Math.round(20 + wave(i, 9, 10, 1.5) + i * 0.4)),
     image: Math.max(3, Math.round(30 + wave(i, 12, 6, 0.8))),
     video: Math.max(1, Math.round(10 + wave(i, 6, 6, 1.2))),
+    voiceover: Math.max(1, Math.round(8 + wave(i, 5, 7, 1.8))),
   };
 });
 

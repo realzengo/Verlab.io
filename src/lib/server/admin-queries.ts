@@ -41,6 +41,7 @@ const TOOL_LABELS: Record<AdminToolKey, string> = {
   mcp: "MCP",
   image: "Image Generator",
   video: "Video Generator",
+  voiceover: "Voiceover Generator",
 };
 
 const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
@@ -51,6 +52,7 @@ const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
   mcp: "rose",
   image: "sky",
   video: "orange",
+  voiceover: "green",
 };
 
 const PLAN_LABEL: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
@@ -103,7 +105,7 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
 
   const days = last30Days();
   const byDay = new Map(
-    days.map((d) => [d, { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0, image: 0, video: 0 }])
+    days.map((d) => [d, { bend: 0, niches: 0, transcripts: 0, downloader: 0, mcp: 0, image: 0, video: 0, voiceover: 0 }])
   );
   const totals: Record<AdminToolKey, number> = {
     bend: 0,
@@ -113,6 +115,7 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
     mcp: 0,
     image: 0,
     video: 0,
+    voiceover: 0,
   };
 
   for (const row of data ?? []) {

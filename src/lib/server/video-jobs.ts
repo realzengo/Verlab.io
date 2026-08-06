@@ -1,11 +1,18 @@
 // Shared "finish a video job" logic, called from two places that must stay
-// in lockstep: the fal webhook handler (src/app/api/webhooks/fal/route.ts,
+// in lockstep: the Replicate webhook handler (src/app/api/webhooks/replicate/route.ts,
 // the primary completion path) and the cron reconciliation sweep
 // (src/app/api/cron/video-poll/route.ts, the backstop for missed/failed
 // webhook deliveries). Factored out once rather than duplicated so those two
 // callers can never drift on charging/storage/status logic.
+//
+// Migrated off fal.ai onto Replicate (see replicate-video.ts) -- this only
+// advances rows with a replicate_prediction_id populated. Any row still
+// "queued"/"processing" from before this migration (fal_request_id
+// populated, replicate_prediction_id null) has no completion path left and
+// will age out via the existing STALE_JOB_MS timeout in
+// /api/generate-video's GET handler rather than being specially migrated.
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkVideoJobStatus, downloadFalAsset, fetchVideoJobResult } from "./fal-video";
+import { getVideoJobResult, downloadVideoAsset } from "./replicate-video";
 import { chargeUser } from "./credits";
 import { recordUsageEvent } from "./usage";
 import { slugifyModelName } from "@/lib/config/pricing";
@@ -17,8 +24,8 @@ export interface VideoJobRow {
   user_id: string;
   mode: "create" | "edit" | "motion";
   model: string;
-  fal_model_slug: string;
-  fal_request_id: string | null;
+  replicate_model: string | null;
+  replicate_prediction_id: string | null;
   status: "queued" | "processing" | "completed" | "failed";
   credits_quoted: number;
   credits_charged: number | null;
@@ -27,28 +34,33 @@ export interface VideoJobRow {
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
- * Advances one video_generations row by checking fal's current job status
- * and, if finished, uploading the result into Storage and charging credits.
- * Safe to call repeatedly / concurrently for the same row (both the "already
- * settled" short-circuit and the credit charge are idempotent) -- the
- * webhook and cron sweep can and will race each other for the same job.
+ * Advances one video_generations row by checking Replicate's current job
+ * status and, if finished, uploading the result into Storage and charging
+ * credits. Safe to call repeatedly / concurrently for the same row (both the
+ * "already settled" short-circuit and the credit charge are idempotent) --
+ * the webhook and cron sweep can and will race each other for the same job.
  */
 export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = createAdminClient()): Promise<void> {
   if (row.status === "completed" || row.status === "failed") return;
-  if (!row.fal_request_id) return; // submit always sets this before the row is visible to either caller
+  if (!row.replicate_prediction_id) return; // submit always sets this before the row is visible to either caller
 
   try {
-    const falStatus = await checkVideoJobStatus(row.fal_model_slug, row.fal_request_id);
+    const result = await getVideoJobResult(row.replicate_prediction_id);
 
-    if (falStatus !== "COMPLETED") {
+    if (result.status !== "succeeded") {
+      const isTerminalFailure = result.status === "failed" || result.status === "canceled" || result.status === "aborted";
+      if (isTerminalFailure) {
+        await admin.from("video_generations").update({ status: "failed", error_message: result.errorMessage }).eq("id", row.id);
+        return;
+      }
       if (row.status === "queued") {
         await admin.from("video_generations").update({ status: "processing" }).eq("id", row.id);
       }
       return;
     }
 
-    const result = await fetchVideoJobResult(row.fal_model_slug, row.fal_request_id);
-    const video = await downloadFalAsset(result.videoUrl);
+    if (!result.videoUrl) throw new Error("Replicate reported success but returned no video output");
+    const video = await downloadVideoAsset(result.videoUrl);
 
     const outputPath = `${row.user_id}/${row.id}/output.mp4`;
     const { error: uploadError } = await admin.storage
@@ -56,23 +68,11 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
       .upload(outputPath, video.bytes, { contentType: video.contentType, upsert: true });
     if (uploadError) throw new Error(`Video storage upload failed: ${uploadError.message}`);
 
-    let thumbnailPath: string | null = null;
-    if (result.thumbnailUrl) {
-      // Best-effort -- v1 has no server-side frame-extraction fallback when
-      // a model doesn't hand back a thumbnail (no ffmpeg dependency added
-      // for this), so a missing thumbnail just means the UI falls back to
-      // the <video> element's own first-frame render. Never fails the job.
-      try {
-        const thumb = await downloadFalAsset(result.thumbnailUrl);
-        thumbnailPath = `${row.user_id}/${row.id}/thumb.jpg`;
-        await admin.storage
-          .from(STORAGE_BUCKET)
-          .upload(thumbnailPath, thumb.bytes, { contentType: thumb.contentType, upsert: true });
-      } catch (thumbError) {
-        console.error("[video-jobs] Thumbnail upload failed (non-fatal):", thumbError);
-        thumbnailPath = null;
-      }
-    }
+    // Replicate doesn't hand back a separate thumbnail the way fal's
+    // response shape sometimes did -- v1 has no server-side frame-extraction
+    // fallback (no ffmpeg dependency added for this), so the UI falls back
+    // to the <video> element's own first-frame render instead.
+    const thumbnailPath: string | null = null;
 
     // Atomically claim the charge for this row: only the caller whose
     // UPDATE actually matches a still-null credits_charged row goes on to

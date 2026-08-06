@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -101,6 +101,13 @@ const TOOLS: {
     videoDark: "/videos/downloader-dark.mp4",
     videoPosterDark: "/videos/downloader-dark-poster.jpg",
     videoScale: 1.35,
+  },
+  {
+    title: "Voiceover",
+    description: "Turn scripts into natural-sounding voiceovers with AI voices in seconds.",
+    href: "/app/voiceover-generator",
+    icon: Mic2,
+    tone: "cat-2",
   },
 ];
 

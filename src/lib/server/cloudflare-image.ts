@@ -1,4 +1,4 @@
-import { generateImageWithFal, hasFalFallback } from "./fal-image";
+import { generateImageWithReplicate, hasReplicateFallback } from "./replicate-image";
 
 // Cloudflare Workers AI text-to-image models. There is no @cf/google/
 // "nano-banana" family on this account (verified live against Cloudflare's
@@ -38,15 +38,15 @@ export const IMAGE_MODEL_MAP: Record<string, { id: string; format: "json" | "mul
 
 // `quality` isn't a real Cloudflare param (confirmed live -- passing it to
 // any of these models' /ai/run/ endpoint is silently ignored), and Nano
-// Banana 2 has no fal.ai equivalent with a real quality knob, so for that
+// Banana 2 has no Replicate equivalent with a real quality knob, so for that
 // tier "Quality" maps to a real model swap instead, worst-to-best (only 1
 // real upgrade rung available -- Pro's model -- so Auto/Low resolve to the
 // base model and Medium/High both resolve to the upgrade). GPT Image 2 used
-// to work the same way, but fal.ai's openai/gpt-image-2 has its own genuine
-// `quality: auto/low/medium/high` param (see fal-image.ts) -- swapping it
-// away to a different model/company entirely on Medium/High was actively
-// wrong once that became available, so it's deliberately left out of this
-// ladder and its quality value is passed straight through instead.
+// to work the same way, but Replicate's openai/gpt-image-2 has its own
+// genuine `quality: auto/low/medium/high` param (see replicate-image.ts) --
+// swapping it away to a different model/company entirely on Medium/High was
+// actively wrong once that became available, so it's deliberately left out
+// of this ladder and its quality value is passed straight through instead.
 const QUALITY_MODEL_LADDER: Record<string, string[]> = {
   "Nano Banana 2": ["Nano Banana 2", "Nano Banana Pro"],
 };
@@ -150,8 +150,7 @@ async function callCloudflare(
 
   // Bounded so a hung Cloudflare call can't outlive the route's after()
   // maxDuration budget and get silently killed before ever reaching the
-  // catch block that would mark the generation row "failed" (see the same
-  // comment in fal-image.ts).
+  // catch block that would mark the generation row "failed".
   const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${entry.id}`, {
     ...init,
     signal: AbortSignal.timeout(180_000),
@@ -193,13 +192,13 @@ async function callCloudflare(
 // Cloudflare's flux-2-* models (what "Nano Banana Pro" and "GPT Image 2" are
 // mapped to) are genuinely slow -- live-confirmed at 93s for a single
 // 1024x768 flux-2-dev image, even at its already-reduced maxDimension.
-// fal.ai's nano-banana-pro / openai/gpt-image-2 are the real models these
-// tiers are named after, and are expected to be much faster, so for these
-// two prefer fal over Cloudflare instead of only falling back to it on
-// error. If fal is unavailable (e.g. exhausted balance -- see fal-image.ts)
-// this just fails fast and falls through to the normal Cloudflare path
-// below, so it's safe to ship ahead of fal being funded.
-const PREFER_FAL_MODELS = new Set(["Nano Banana Pro", "GPT Image 2"]);
+// Replicate's google/nano-banana-pro / openai/gpt-image-2 are the real
+// models these tiers are named after, and are expected to be much faster,
+// so for these two prefer Replicate over Cloudflare instead of only falling
+// back to it on error. If Replicate is unavailable (e.g. no
+// REPLICATE_API_TOKEN, or exhausted balance -- see replicate-image.ts) this
+// just fails fast and falls through to the normal Cloudflare path below.
+const PREFER_REPLICATE_MODELS = new Set(["Nano Banana Pro", "GPT Image 2"]);
 
 async function runOnce(
   resolvedModel: string,
@@ -213,22 +212,22 @@ async function runOnce(
   referenceImages?: string[]
 ): Promise<string> {
   // Cloudflare Workers AI has no confirmed img2img path for any of the
-  // models in IMAGE_MODEL_MAP on this account -- only fal.ai's `/edit`
-  // endpoints (see fal-image.ts) can actually honor a reference image. If
-  // we let this fall through to the plain Cloudflare text-to-image call
-  // below on error, the reference image(s) would silently get dropped again
-  // (the original bug), so a reference image always goes through fal, with
-  // no Cloudflare fallback.
+  // models in IMAGE_MODEL_MAP on this account -- only Replicate's Nano
+  // Banana / GPT Image 2 models (see replicate-image.ts) can actually honor
+  // a reference image. If we let this fall through to the plain Cloudflare
+  // text-to-image call below on error, the reference image(s) would
+  // silently get dropped again (the original bug), so a reference image
+  // always goes through Replicate, with no Cloudflare fallback.
   if (referenceImages && referenceImages.length > 0) {
-    if (!hasFalFallback(resolvedModel)) {
+    if (!hasReplicateFallback(resolvedModel)) {
       throw new Error(`${resolvedModel} doesn't support reference images yet.`);
     }
-    return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality, referenceImages);
+    return await generateImageWithReplicate(resolvedModel, prompt, aspectRatio, resolution, width, height, quality, referenceImages);
   }
 
-  if (PREFER_FAL_MODELS.has(resolvedModel) && hasFalFallback(resolvedModel)) {
+  if (PREFER_REPLICATE_MODELS.has(resolvedModel) && hasReplicateFallback(resolvedModel)) {
     try {
-      return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
+      return await generateImageWithReplicate(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
     } catch {
       // fall through to the Cloudflare path below as a backup
     }
@@ -244,8 +243,8 @@ async function runOnce(
         error = retryError;
       }
     }
-    if (hasFalFallback(resolvedModel)) {
-      return await generateImageWithFal(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
+    if (hasReplicateFallback(resolvedModel)) {
+      return await generateImageWithReplicate(resolvedModel, prompt, aspectRatio, resolution, width, height, quality);
     }
     throw error;
   }

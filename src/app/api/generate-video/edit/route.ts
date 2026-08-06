@@ -2,18 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getVideoPromptEditCost } from "@/lib/config/pricing";
 import { getEditVideoModel } from "@/lib/config/video-models";
 import { getUserCredits } from "@/lib/server/credits";
-import { submitVideoJob, FalVideoError } from "@/lib/server/fal-video";
+import { submitVideoJob, ReplicateVideoError } from "@/lib/server/replicate-video";
 import { validateReferenceImage } from "@/lib/server/video-validation";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const maxDuration = 30; // submits to fal's queue and returns, same as /api/generate-video (see that route's comment)
+export const maxDuration = 30; // submits to Replicate and returns, same as /api/generate-video (see that route's comment)
 
 const STORAGE_BUCKET = "videos";
-// Long enough for fal to fetch the video promptly after we submit the job
-// (well before this expires) without minting a URL that outlives its need.
+// Long enough for Replicate to fetch the video promptly after we submit the
+// job (well before this expires) without minting a URL that outlives its need.
 const SOURCE_SIGNED_URL_TTL_SECONDS = 15 * 60;
 
 interface GenerateVideoEditRequestBody {
@@ -123,23 +123,26 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Could not load source video" }, { status: 500 });
   }
 
-  // fal's image params accept a data-URI string directly (same as Create's
-  // start/end frames in generate-video/route.ts's buildFalCreateInput) --
-  // only the source video needs a real fetchable URL, since it's already
-  // sitting in our own private bucket rather than freshly uploaded by the
-  // client this request.
-  const falInput: Record<string, unknown> = {
+  // Replicate's image params accept a data-URI string directly (same as
+  // Create's start/end frames in generate-video/route.ts's
+  // buildReplicateCreateInput) -- only the source video needs a real
+  // fetchable URL, since it's already sitting in our own private bucket
+  // rather than freshly uploaded by the client this request. Field names
+  // here (video_url, image_urls) are carried over unverified from the
+  // pre-migration fal version -- see video-models.ts's EDIT_VIDEO_MODELS
+  // comment for the same disclosure.
+  const replicateInput: Record<string, unknown> = {
     video_url: signedSource.signedUrl,
     prompt: prompt.trim(),
   };
-  if (referenceImages.length > 0) falInput.image_urls = referenceImages;
+  if (referenceImages.length > 0) replicateInput.image_urls = referenceImages;
 
-  const webhookUrl = `${request.nextUrl.origin}/api/webhooks/fal`;
+  const webhookUrl = `${request.nextUrl.origin}/api/webhooks/replicate`;
   const rowIds: string[] = [];
   const failures: string[] = [];
 
-  // Each output is its own fal job, same rationale as Create's loop in
-  // generate-video/route.ts.
+  // Each output is its own Replicate prediction, same rationale as Create's
+  // loop in generate-video/route.ts.
   for (let i = 0; i < outputs!; i++) {
     const { data: row, error: insertError } = await supabase
       .from("video_generations")
@@ -148,7 +151,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         mode: "edit",
         operation: "prompt_edit",
         model: model.id,
-        fal_model_slug: model.falSlug,
+        replicate_model: model.replicateModel,
         prompt: prompt.trim(),
         params: { sourceGenerationId, durationSeconds: sourceDurationSeconds, referenceImageCount: referenceImages.length },
         source_video_path: sourceRow.output_video_path,
@@ -165,12 +168,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
 
     try {
-      const { requestId } = await submitVideoJob(model.falSlug, falInput, webhookUrl);
-      await supabase.from("video_generations").update({ fal_request_id: requestId }).eq("id", row.id);
+      const { predictionId } = await submitVideoJob(model.replicateModel, replicateInput, webhookUrl);
+      await supabase.from("video_generations").update({ replicate_prediction_id: predictionId }).eq("id", row.id);
       rowIds.push(row.id);
     } catch (submitError) {
       console.error("[generate-video/edit] submitVideoJob failed:", submitError);
-      const message = submitError instanceof FalVideoError ? submitError.message : "Could not start edit";
+      const message = submitError instanceof ReplicateVideoError ? submitError.message : "Could not start edit";
       await supabase.from("video_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
       failures.push(message);
     }

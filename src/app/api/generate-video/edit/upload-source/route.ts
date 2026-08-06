@@ -50,7 +50,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       mode: "edit",
       operation: "uploaded",
       model: "Uploaded video",
-      fal_model_slug: "uploaded", // placeholder -- no fal app backs this row, it never gets submitted to fal's queue
+      // No replicate_model/replicate_prediction_id -- this row is never
+      // submitted to Replicate, it's just a client-direct-upload record.
       prompt: null,
       params: { durationSeconds },
       credits_quoted: 0,

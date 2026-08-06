@@ -1,57 +1,57 @@
-// Central catalog for the Video Generator's Create tab -- every fal.ai
+// Central catalog for the Video Generator's Create tab -- every Replicate
 // video model this app exposes, plus the knobs each one actually accepts.
 // This is the video equivalent of IMAGE_MODEL_MAP (cloudflare-image.ts) /
-// MODEL_OPTIONS (ImageGenerator.tsx), but for a fundamentally different
-// provider shape: fal's video apps are queue-based (queue.fal.run), not the
-// synchronous fal.run/{model} calls fal-image.ts makes, so this table feeds
-// fal-video.ts's queue client instead.
+// MODEL_OPTIONS (ImageGenerator.tsx), and feeds replicate-video.ts's
+// prediction client.
 //
-// `falSlug` values below are live-verified (see the comment directly above
-// VIDEO_MODELS for how) rather than best-effort guesses -- treat any future
-// addition to this table the way fal-image.ts treats its own FAL_MODEL_SLUG
-// map (comment there: "Live-confirmed... 200s once funded"). A wrong slug
-// fails loudly (404 from fal), never silently.
+// Migrated off fal.ai (queue.fal.run) onto Replicate's predictions API --
+// see replicate-video.ts's module header for why the async submit+webhook
+// shape carries over unchanged even though the provider underneath is
+// different. Unlike fal, no separate image-to-video model/slug is needed:
+// every Replicate model below takes the start/end frame as just another
+// input field on the SAME model, which simplifies this table considerably
+// (no imageToVideoFalSlug, no DurationFormat variance -- Replicate's
+// duration fields are plain integers across the board per the schemas
+// checked).
 //
-// Note on catalog parity with competitor products: "Sora 2" (OpenAI/
-// ChatGPT-exclusive) is NOT available on fal.ai and is deliberately absent
-// here.
+// `replicateModel` values were confirmed to exist via Replicate's own
+// text-to-video collection listing as of this writing. Their exact INPUT
+// FIELD NAMES below (imageField, endFrameField, resolution handling) are
+// BEST-EFFORT: Replicate's per-model schema pages render client-side and
+// couldn't be scraped for a full OpenAPI schema from this environment (see
+// replicate-image.ts's module header for the same caveat). Where a field
+// name is explicitly noted as "confirmed" it was read directly off the
+// model's own Replicate page; everything else is inferred from sibling
+// models' conventions and needs live verification before the first real
+// deploy -- same "don't trust, verify live" discipline this file always
+// used for fal slugs, just not yet completed for the Replicate side. A
+// wrong field name 422s loudly (with Replicate's real accepted-field list
+// in the error body) rather than silently misbehaving.
+//
+// Note on catalog parity: the previous "Gemini Omni" tier (fal-ai's
+// google/gemini-omni-flash) has NO confirmed Replicate equivalent -- Google
+// doesn't appear to host a combined omni-modal video model there as of this
+// writing -- so it was dropped rather than pointed at a guessed slug.
 
 export type VideoModelTier = "budget" | "value" | "premium" | "flagship";
-
-// How each fal app wants `duration` on the wire -- confirmed per model
-// against fal's public queue OpenAPI schema (https://fal.ai/api/openapi/
-// queue/openapi.json?endpoint_id={falSlug}), not guessed:
-//   "suffix_s" -- string with a trailing "s", e.g. "8s" (Veo 3 family).
-//   "plain_string" -- string of the bare integer, e.g. "5" (Kling, Seedance).
-//   "integer" -- a JSON number, e.g. 6 (Grok Imagine, Gemini Omni).
-// Sending the wrong shape either 422s or (worse) gets silently coerced/
-// ignored depending on the model's pydantic schema, so this must stay
-// correct per model rather than assuming one shape fits all fal apps.
-export type DurationFormat = "suffix_s" | "plain_string" | "integer";
 
 export interface VideoModelConfig {
   /** Display name -- also the value stored in video_generations.model and the dropdown key. */
   id: string;
-  /** fal app id for the text-to-video call, called as queue.fal.run/{falSlug} (see fal-video.ts). Live-verified via fal's queue OpenAPI schema as of this writing. */
-  falSlug: string;
-  // Every fal video app that accepts a start/end frame ships it as a
-  // *separate* queue endpoint from the plain text-to-video one (different
-  // required fields, sometimes a different pydantic model entirely) -- there
-  // is no single endpoint that does both. Only present when
-  // supportsImageToVideo is true; buildFalCreateInput (generate-video/
-  // route.ts) submits here instead of `falSlug` whenever a start frame is
-  // given.
-  imageToVideoFalSlug?: string;
-  // Request-body field name each i2v endpoint uses for the start frame --
-  // NOT uniform across providers (Kling wants start_image_url, Seedance/Veo/
-  // Grok want image_url). Defaults to "image_url" when supportsImageToVideo
-  // is true and this is omitted.
-  startFrameField?: string;
-  // Same idea for the end/tail frame, only meaningful when supportsEndFrame
-  // is true. Every model that supports it uses "end_image_url" (confirmed
-  // via fal's OpenAPI schema), so this only exists as an escape hatch.
+  /** Replicate model slug, called via predictions.create({ model: replicateModel, ... }) -- see replicate-video.ts. */
+  replicateModel: string;
+  /** Field name for the start/first frame image. Defaults to "image" (Seedance-confirmed; assumed for others) if omitted. */
+  imageField?: string;
+  /** Field name for the end/last frame image. Defaults to "last_frame_image" (Seedance-confirmed) if omitted. Only used when supportsEndFrame is true. */
   endFrameField?: string;
-  durationFormat: DurationFormat;
+  /**
+   * How resolution maps onto this model's real input field. "direct" sends
+   * the picked value straight through a `resolution` field (Seedance,
+   * Grok Imagine -- both take literal "480p"/"720p"). "kling_mode" is
+   * Kling's own confirmed shape: no `resolution` field at all, instead a
+   * `mode: "standard"|"pro"` field where "standard"=720p, "pro"=1080p.
+   */
+  resolutionMode?: "direct" | "kling_mode";
   tier: VideoModelTier;
   description: string;
   logo?: string;
@@ -63,18 +63,12 @@ export interface VideoModelConfig {
   durations: number[];
   aspectRatios: string[];
   /**
-   * Resolution options this model's fal endpoint accepts via a "resolution"
-   * enum field -- confirmed per model against fal's live queue OpenAPI
-   * schema, same live-verification discipline as falSlug (see module
-   * header). Undefined when the endpoint's schema has no resolution field
-   * at all (Kling 3.0, Gemini Omni as of this writing) -- the picker stays
-   * hidden for those rather than sending a param the endpoint would 422 on.
-   * First entry doubles as the UI default in defaultSettingsFor
-   * (VideoGenerator.tsx), chosen to match each endpoint's own schema
-   * default.
+   * Resolution options exposed in the UI. First entry doubles as the
+   * default in defaultSettingsFor (VideoGenerator.tsx). Undefined when the
+   * model has no resolution control at all.
    */
   resolutions?: string[];
-  /** ESTIMATED -- see pricing.ts's own disclosure convention. Correct against real fal invoices once live. */
+  /** ESTIMATED -- see pricing.ts's own disclosure convention. Correct against real Replicate invoices once live. */
   pricePerSecondUsd: number;
 }
 
@@ -83,84 +77,66 @@ const GROK_ICON = "/logos/ai/grok.svg";
 const KLING_ICON = "/logos/ai/kling.svg";
 const SEEDANCE_ICON = "/logos/ai/seedance.webp";
 
-// Every falSlug + durationFormat + aspectRatios/durations pairing below was
-// checked against fal's live queue OpenAPI schema
-// (https://fal.ai/api/openapi/queue/openapi.json?endpoint_id={falSlug}) and,
-// separately, a real POST to https://queue.fal.run/{falSlug} with an empty
-// body -- fal validates on dequeue rather than at submit time, so this
-// returns HTTP 200/IN_QUEUE immediately and the job settles (COMPLETED, with
-// an error body) in well under a second, before any real render starts.
-// Confirmed a 422 "prompt: Field required" for all 6, proving the slug is
-// real and reachable, at effectively zero cost. Tier picked for Kling
-// 3.0/Seedance 2 is the cheaper of the two (standard/fast) since neither
-// name in the source screenshot specified a quality tier.
-//
-// imageToVideoFalSlug entries were checked the same way against each
-// provider's own image-to-video schema: Veo 3 (both tiers), Kling 3.0,
-// Seedance 2, and Grok Imagine all expose one; Gemini Omni's schema has no
-// image field at all (text prompt only), so it stays text-to-video-only.
-//
-// resolutions entries were checked against the same schemas (both the
-// text-to-video and image-to-video endpoint, where both exist -- confirmed
-// identical enum/default on each pair): Veo 3 (both tiers) accept "720p"/
-// "1080p" (default 720p); Seedance 2 and Grok Imagine accept "480p"/"720p"
-// (default 720p). Kling 3.0's and Gemini Omni's schemas have no resolution
-// field at all, so those two omit `resolutions` and the picker stays hidden
-// for them rather than sending a param that would 422.
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
     id: "Veo 3 Fast",
-    falSlug: "fal-ai/veo3/fast",
-    imageToVideoFalSlug: "fal-ai/veo3/fast/image-to-video",
-    durationFormat: "suffix_s",
+    replicateModel: "google/veo-3.1-fast",
     tier: "premium",
     description: "Google Veo, native audio — faster & cheaper tier",
     logo: GEMINI_ICON,
     supportsImageToVideo: true,
-    supportsEndFrame: false,
+    supportsEndFrame: true, // Veo 3.1's own description advertises "reference image and last frame support" -- field name unconfirmed, assumed "last_frame_image"
     supportsAudio: true,
     durations: [4, 6, 8],
     aspectRatios: ["16:9", "9:16"],
     resolutions: ["720p", "1080p"],
+    resolutionMode: "direct",
     pricePerSecondUsd: 0.25,
   },
   {
     id: "Veo 3 Quality",
-    falSlug: "fal-ai/veo3",
-    imageToVideoFalSlug: "fal-ai/veo3/image-to-video",
-    durationFormat: "suffix_s",
+    replicateModel: "google/veo-3.1",
     tier: "flagship",
     description: "Best for realism — native audio, premium quality",
     logo: GEMINI_ICON,
     supportsImageToVideo: true,
-    supportsEndFrame: false,
+    supportsEndFrame: true,
     supportsAudio: true,
     durations: [4, 6, 8],
     aspectRatios: ["16:9", "9:16"],
     resolutions: ["720p", "1080p"],
+    resolutionMode: "direct",
     pricePerSecondUsd: 0.75,
   },
   {
     id: "Kling 3.0",
-    falSlug: "fal-ai/kling-video/v3/standard/text-to-video",
-    imageToVideoFalSlug: "fal-ai/kling-video/v3/standard/image-to-video",
-    startFrameField: "start_image_url",
-    durationFormat: "plain_string",
+    replicateModel: "kwaivgi/kling-v3-video",
+    // CONFIRMED (Replicate's own model page): mode: "standard"(720p)/"pro"(1080p),
+    // duration: integer 3-15s, aspect_ratio (ignored once a start image is
+    // given), generate_audio: boolean, negative_prompt, multi_prompt.
+    // Start/end image field names are NOT confirmed -- guessed below.
+    imageField: "start_image",
     tier: "premium",
     description: "Best for cinematic, animated shots",
     logo: KLING_ICON,
     supportsImageToVideo: true,
-    supportsEndFrame: true,
+    supportsEndFrame: false, // no confirmed end-frame field for this model -- left off rather than guessed
     supportsAudio: true,
     durations: [5, 10],
     aspectRatios: ["16:9", "9:16", "1:1"],
+    resolutions: ["720p", "1080p"],
+    resolutionMode: "kling_mode",
     pricePerSecondUsd: 0.15,
   },
   {
     id: "Seedance 2",
-    falSlug: "bytedance/seedance-2.0/fast/text-to-video",
-    imageToVideoFalSlug: "bytedance/seedance-2.0/fast/image-to-video",
-    durationFormat: "plain_string",
+    replicateModel: "bytedance/seedance-2.0-fast",
+    // CONFIRMED (Replicate's own model page): prompt, duration (-1 = "intelligent duration"),
+    // aspect_ratio (supports "adaptive"), resolution: 480p/720p, image (first frame),
+    // last_frame_image (end frame), camera_fixed.
+    imageField: "image",
+    endFrameField: "last_frame_image",
+    resolutionMode: "direct",
     tier: "premium",
     description: "Fast reference and asset generation",
     logo: SEEDANCE_ICON,
@@ -174,9 +150,14 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
   },
   {
     id: "Grok Imagine",
-    falSlug: "xai/grok-imagine-video/text-to-video",
-    imageToVideoFalSlug: "xai/grok-imagine-video/image-to-video",
-    durationFormat: "integer",
+    replicateModel: "xai/grok-imagine-video",
+    // Partially confirmed (Replicate's own model page): prompt (required),
+    // duration 1-15s, aspect_ratio, resolution 480p/720p, image (i2v).
+    // No confirmed audio-toggle field, so supportsAudio is left off even
+    // though the model's description mentions native synchronized audio --
+    // safer to not send an unconfirmed field than guess its name.
+    imageField: "image",
+    resolutionMode: "direct",
     tier: "premium",
     description: "xAI's video model — fast, expressive motion",
     logo: GROK_ICON,
@@ -187,25 +168,6 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     aspectRatios: ["16:9", "9:16", "1:1"],
     resolutions: ["720p", "480p"],
     pricePerSecondUsd: 0.2,
-  },
-  {
-    id: "Gemini Omni",
-    falSlug: "google/gemini-omni-flash",
-    durationFormat: "integer",
-    tier: "flagship",
-    description: "Google Gemini — omni-modal generation",
-    logo: GEMINI_ICON,
-    // Schema checked directly (see module header) -- no image_url or
-    // equivalent field exists on this app at all, so unlike the other 5
-    // models this one genuinely has no image-to-video path to wire up.
-    supportsImageToVideo: false,
-    supportsEndFrame: false,
-    // No generate_audio (or any audio) param in this app's schema -- unlike
-    // the Veo/Kling/Seedance apps above, audio isn't a togglable input here.
-    supportsAudio: false,
-    durations: [8],
-    aspectRatios: ["16:9", "9:16"],
-    pricePerSecondUsd: 0.5,
   },
 ];
 
@@ -218,14 +180,16 @@ export const DEFAULT_VIDEO_MODEL = "Veo 3 Fast";
 // ── Edit tab operations ─────────────────────────────────────────────────
 // These run against an existing video rather than picking from the Create
 // catalog above, so they're modeled as fixed operations, each backed by one
-// fal app. Slugs are TBD -- verify against fal's live video-editing catalog
-// before wiring (see the module header note on live-verification).
+// Replicate model. Slugs are TBD -- these were never live-verified even in
+// the original fal.ai version of this table (see the prior git history),
+// so this carries the same disclosure forward rather than regressing it:
+// verify against Replicate's live catalog before wiring.
 
 export interface VideoEditOperationConfig {
   id: "upscale" | "reframe" | "extend";
   label: string;
   description: string;
-  falSlug: string | null; // null for "extend", which reuses a Create model's i2v mode instead of a dedicated fal app
+  replicateModel: string | null; // null for "extend", which reuses a Create model's i2v mode instead of a dedicated model
 }
 
 export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
@@ -233,19 +197,19 @@ export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
     id: "upscale",
     label: "Upscale",
     description: "Enhance resolution and clean up detail",
-    falSlug: "fal-ai/topaz/upscale/video", // TBD, verify live
+    replicateModel: "topaz-labs/video-upscale", // TBD, verify live
   },
   {
     id: "reframe",
     label: "Reframe",
     description: "Change aspect ratio with AI outpainting",
-    falSlug: "fal-ai/luma-dream-machine/reframe", // TBD, verify live
+    replicateModel: "luma/reframe-video", // TBD, verify live
   },
   {
     id: "extend",
     label: "Extend",
     description: "Continue the video past its current ending",
-    falSlug: null,
+    replicateModel: null,
   },
 ];
 
@@ -253,19 +217,18 @@ export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
 // A model-choice operation (like Create's text_to_video/image_to_video),
 // not a flat single-purpose op like upscale/reframe/extend above -- this is
 // the competitor-parity "describe how you want to edit this video" flow:
-// takes an existing generated video as @Video1 plus up to 4 reference
-// images/elements addressed as @Image1.."@Image4 in the prompt, and
-// re-renders it with the requested change while keeping the source's
-// motion/camera. Slugs, param names (video_url/prompt/image_urls), the
-// duration constraint (source clip must be 3-10.05s), and pricing are from
-// fal's public model docs as of this writing (fal.ai/models/fal-ai/
-// kling-video/o1/{,standard/}video-to-video/edit) -- confirm live before
-// the first real call, same discipline as every other falSlug in this file.
+// takes an existing generated video plus up to 4 reference images/elements
+// and re-renders it with the requested change while keeping the source's
+// motion/camera. kwaivgi/kling-o1 was confirmed to exist via Replicate's
+// own Kling collection listing; its video-to-video-edit input field names
+// (video_url/prompt/image_urls-equivalents) and the duration constraint are
+// carried over from the pre-migration fal version as best-effort
+// placeholders -- verify live before the first real deploy.
 export interface PromptEditModelConfig {
   id: string;
-  falSlug: string;
+  replicateModel: string;
   description: string;
-  /** fal rejects source videos shorter/longer than this -- enforced client + server side before submit. */
+  /** Source video duration bounds this editing flow accepts -- carried over from the fal version, unverified against Replicate's schema. */
   minSourceDurationSeconds: number;
   maxSourceDurationSeconds: number;
   maxReferenceImages: number;
@@ -275,21 +238,12 @@ export interface PromptEditModelConfig {
 export const EDIT_VIDEO_MODELS: PromptEditModelConfig[] = [
   {
     id: "Kling O1 Edit",
-    falSlug: "fal-ai/kling-video/o1/video-to-video/edit",
+    replicateModel: "kwaivgi/kling-o1",
     description: "Best quality — swap subjects, restyle scenes, keep the original motion",
     minSourceDurationSeconds: 3,
     maxSourceDurationSeconds: 10.05,
     maxReferenceImages: 4,
     pricePerSecondUsd: 0.168,
-  },
-  {
-    id: "Kling O1 Edit (Standard)",
-    falSlug: "fal-ai/kling-video/o1/standard/video-to-video/edit",
-    description: "Faster and cheaper — same editing flow, lighter tier",
-    minSourceDurationSeconds: 3,
-    maxSourceDurationSeconds: 10.05,
-    maxReferenceImages: 4,
-    pricePerSecondUsd: 0.126,
   },
 ];
 
@@ -302,14 +256,14 @@ export function getEditVideoModel(id: string): PromptEditModelConfig | undefined
 // ── Motion tab ───────────────────────────────────────────────────────────
 export interface MotionModelConfig {
   id: string;
-  falSlug: string; // TBD, verify live
+  replicateModel: string; // TBD, verify live
   description: string;
 }
 
 export const MOTION_MODELS: MotionModelConfig[] = [
   {
     id: "Motion Transfer",
-    falSlug: "fal-ai/kling-video/motion-control", // TBD, verify live
+    replicateModel: "kwaivgi/kling-v2.5-turbo-pro", // TBD, verify live -- motion-control/puppeteer specific slug not confirmed
     description: "Drive a character image using a reference video's motion",
   },
 ];

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, PenLine } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
@@ -76,6 +76,13 @@ const TOOLS: {
     videoDark: "/videos/downloader-dark.mp4",
     videoPosterDark: "/videos/downloader-dark-poster.jpg",
     videoScale: 1.35,
+  },
+  {
+    title: "Voiceover",
+    description: "Turn scripts into natural-sounding voiceovers with AI voices in seconds.",
+    href: "/app/voiceover-generator",
+    icon: Mic2,
+    tone: "cat-2",
   },
 ];
 

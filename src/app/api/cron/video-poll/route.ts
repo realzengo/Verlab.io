@@ -17,13 +17,13 @@ function isAuthorized(request: NextRequest): boolean {
 }
 
 /**
- * Backstop for /api/webhooks/fal: actively polls fal for the status of
- * every video_generations row still in flight, so a job finishes correctly
- * even if fal's webhook delivery is dropped, delayed, or never configured
- * (e.g. local dev, where fal can't reach localhost at all -- see the plan's
- * verification notes). advanceVideoJob is idempotent against a job the
- * webhook already finished (short-circuits on status/credits_charged), so
- * this can run on a tight interval without risking a double charge.
+ * Backstop for /api/webhooks/replicate: actively polls Replicate for the
+ * status of every video_generations row still in flight, so a job finishes
+ * correctly even if Replicate's webhook delivery is dropped, delayed, or
+ * never configured (e.g. local dev, where Replicate can't reach localhost
+ * at all). advanceVideoJob is idempotent against a job the webhook already
+ * finished (short-circuits on status/credits_charged), so this can run on a
+ * tight interval without risking a double charge.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!isAuthorized(request)) {
@@ -33,9 +33,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const admin = createAdminClient();
   const { data: rows, error } = await admin
     .from("video_generations")
-    .select("id, user_id, mode, model, fal_model_slug, fal_request_id, status, credits_quoted, credits_charged")
+    .select("id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged")
     .in("status", ["queued", "processing"])
-    .not("fal_request_id", "is", null)
+    .not("replicate_prediction_id", "is", null)
     .returns<VideoJobRow[]>();
 
   if (error) {

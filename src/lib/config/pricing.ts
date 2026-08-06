@@ -300,6 +300,19 @@ export function getVideoPromptEditCost(input: { model: string; sourceDurationSec
   return perVideoCredits * outputs;
 }
 
+// ── Voiceover generation ────────────────────────────────────────────────
+// Replicate bills minimax/speech-02-turbo per-call on their end; no public
+// flat per-character rate is published as of this writing, so this follows
+// the same ESTIMATED-cost discipline as the rest of this file -- a
+// conservative $/1000-characters estimate, correct against a real Replicate
+// invoice once live. Charged per segment (each is its own Replicate call),
+// not once for the whole script.
+const VOICEOVER_COST_PER_1K_CHARS_USD = 0.06;
+
+export function getVoiceoverSegmentCost(characterCount: number): number {
+  return creditsForCost((Math.max(1, characterCount) / 1000) * VOICEOVER_COST_PER_1K_CHARS_USD);
+}
+
 // ── Subscription plans ──────────────────────────────────────────────────
 // NOTE: this is a credit-focused reference constant, distinct from the
 // existing `plan_definitions` DB table (supabase/migrations/20260716120012_

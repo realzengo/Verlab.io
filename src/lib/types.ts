@@ -446,7 +446,7 @@ export interface SignupPoint {
   trials: number;
 }
 
-export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp" | "image" | "video";
+export type AdminToolKey = "bend" | "niches" | "transcripts" | "downloader" | "mcp" | "image" | "video" | "voiceover";
 
 export type UsagePoint = { date: string } & Record<AdminToolKey, number>;
 

@@ -25,8 +25,9 @@ interface GenerateImageRequestBody {
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 // Matches EDIT_VIDEO_MODELS' maxReferenceImages convention (video-models.ts)
-// -- fal's /edit endpoints (see fal-image.ts) accept more, but this keeps
-// prompt-following reasonable and the request body bounded.
+// -- Replicate's Nano Banana / GPT Image 2 models (see replicate-image.ts)
+// accept more, but this keeps prompt-following reasonable and the request
+// body bounded.
 const MAX_REFERENCE_IMAGES = 4;
 const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 

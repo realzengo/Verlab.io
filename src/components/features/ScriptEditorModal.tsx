@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check,
   Copy,
   FileText,
   Loader2,
   MessageSquare,
+  Mic2,
   Pencil,
   Plus,
   Redo2,
@@ -18,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { writeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import {
   buildScriptOutput,
@@ -43,6 +46,7 @@ interface ChatMessage {
 const QUICK_PROMPTS = ["Tighten the hook", "Make it punchier", "Shorten this script"];
 
 export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModalProps) {
+  const router = useRouter();
   const parsedInitial = useMemo(() => parseScriptOutput(script.content), [script.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [title, setTitle] = useState(parsedInitial.title ?? script.prompt);
@@ -176,6 +180,11 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
     await navigator.clipboard.writeText(currentScript);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleGenerateVoiceover() {
+    writeVoiceoverHandoff({ title, script: currentScript });
+    router.push("/app/voiceover-generator");
   }
 
   async function handleSendChatEdit() {
@@ -437,14 +446,25 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
               {duration}
             </span>
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-xs font-semibold text-heading transition-colors hover:bg-app"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 rounded-lg border border-hairline px-3 py-1.5 text-xs font-semibold text-heading transition-colors hover:bg-app"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateVoiceover}
+                disabled={!currentScript.trim()}
+                className="flex items-center gap-1.5 rounded-lg bg-btn-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-btn-primary-hover disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Mic2 className="h-3.5 w-3.5" />
+                Generate Voiceover
+              </button>
+            </div>
           </div>
         </div>
 

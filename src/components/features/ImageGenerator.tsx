@@ -72,10 +72,10 @@ export const QUALITY_OPTIONS = [
   { value: "high", label: "High" },
 ];
 
-// Models with a tunable Quality control -- Nano Banana 2 has no fal.ai
+// Models with a tunable Quality control -- Nano Banana 2 has no Replicate
 // equivalent with a real quality knob, so its tiers swap to a better model
 // instead (QUALITY_MODEL_LADDER in cloudflare-image.ts). GPT Image 2's real
-// fal.ai model has a genuine quality param, so its tiers apply directly
+// Replicate model has a genuine quality param, so its tiers apply directly
 // without changing models. Nano Banana Pro (the top of the ladder) has
 // nothing better to swap to and no native quality param either, so it
 // doesn't get this control.
@@ -83,16 +83,16 @@ export const QUALITY_LADDER_MODELS = new Set(["Nano Banana 2", "GPT Image 2"]);
 
 // Models where Resolution is a real, working lever server-side: the two
 // ladder models above (via width/height scaling on their Cloudflare calls)
-// plus Nano Banana Pro, whose fal.ai endpoint has a genuine 1K/2K/4K
-// `resolution` param (see fal-image.ts).
+// plus Nano Banana Pro, whose Replicate model has a genuine 1K/2K/4K
+// `resolution` param (see replicate-image.ts).
 export const RESOLUTION_MODELS = new Set(["Nano Banana 2", "GPT Image 2", "Nano Banana Pro"]);
 
 export const RESOLUTIONS = ["512px", "1K", "2K", "4K"] as const;
 
 // Mirrors resolveQualityModel() in src/lib/server/cloudflare-image.ts (kept
 // separate rather than imported, since that file is server-only and pulls in
-// fal-image.ts). Only used here to price the button correctly -- the real
-// resolution that determines the actual charge always happens server-side.
+// replicate-image.ts). Only used here to price the button correctly -- the
+// real resolution that determines the actual charge always happens server-side.
 const COST_QUALITY_LADDER: Record<string, string[]> = {
   "Nano Banana 2": ["Nano Banana 2", "Nano Banana Pro"],
 };
