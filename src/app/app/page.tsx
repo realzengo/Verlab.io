@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, SquareDashed, SquarePlay, Wand2, Zap } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Plug, SquarePlay, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,9 +11,9 @@ function displayName(user: User | null): string {
 }
 
 const QUICK_ACTIONS: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Quick Editor", href: "/app/bend", icon: Zap },
-  { label: "Full Editor", href: "/app/bend", icon: SquareDashed },
-  { label: "AI Videos", href: "/app/niches", icon: SquarePlay },
+  { label: "AI Images", href: "/app/image-generator", icon: ImageIcon },
+  { label: "MCP", href: "/app/mcp", icon: Plug },
+  { label: "AI Videos", href: "/app/video-generator", icon: SquarePlay },
 ];
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set

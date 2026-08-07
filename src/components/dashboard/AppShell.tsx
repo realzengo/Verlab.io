@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
-import { PaywallModal } from "@/components/dashboard/PaywallModal";
+import { PaywallPricing } from "@/components/dashboard/PaywallPricing";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { McpBackground } from "@/components/mcp/McpBackground";
 import { cn } from "@/lib/utils";
@@ -43,22 +43,16 @@ export function AppShell({
 
   const topBarAndMain = (
     <>
-      <TopBar onMenuClick={() => setMobileNavOpen(true)} />
-      <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">{children}</main>
+      <TopBar onMenuClick={() => setMobileNavOpen(true)} heading={isPaywalled ? "Pricing" : undefined} isPaywalled={isPaywalled} />
+      <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">
+        {isPaywalled ? <PaywallPricing hasNeverPaid={hasNeverPaid} /> : children}
+      </main>
     </>
   );
 
   return (
     <NicheSidebarProvider>
-      {isPaywalled && <PaywallModal hasNeverPaid={hasNeverPaid} />}
-
-      {/* inert (not just pointer-events-none) also pulls this out of the tab
-          order and blocks all input while paywalled, matching the modal's
-          "the blurred dashboard is the only thing behind it" contract. */}
-      <div
-        inert={isPaywalled}
-        className={cn("flex min-h-screen w-full bg-app", isPaywalled && "pointer-events-none blur-md select-none")}
-      >
+      <div className="flex min-h-screen w-full bg-app">
         <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
         {showBackdrop && (

@@ -16,7 +16,7 @@ export function PlanTopupToggle({
 }) {
   return (
     <div className="flex w-full justify-center mb-10">
-      <div className="inline-flex items-center rounded-full border border-slate-200 bg-white p-0.5 shadow-sm">
+      <div className="inline-flex items-center rounded-full border border-hairline bg-surface p-0.5 shadow-card">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -24,8 +24,8 @@ export function PlanTopupToggle({
             onClick={() => onChange(t.id)}
             className={
               activeTab === t.id
-                ? "rounded-full bg-[#0b1120] px-4 py-1.5 text-sm font-medium text-white transition-all"
-                : "rounded-full bg-transparent px-4 py-1.5 text-sm font-medium text-slate-500 transition-all hover:text-slate-800"
+                ? "rounded-full bg-heading px-4 py-1.5 text-sm font-medium text-background transition-all"
+                : "rounded-full bg-transparent px-4 py-1.5 text-sm font-medium text-subtle transition-all hover:text-heading"
             }
           >
             {t.label}

@@ -17,13 +17,13 @@ export function PricingFrequencyToggle({
 
   return (
     <div className="mb-20 flex justify-center">
-      <div className="inline-flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
+      <div className="inline-flex items-center gap-2.5 rounded-full border border-hairline bg-surface px-4 py-2 shadow-card">
         <button
           type="button"
           onClick={() => onChange("monthly")}
           className={cn(
             "text-sm transition-colors",
-            isYearly ? "text-slate-400 hover:text-slate-600" : "font-semibold text-slate-900"
+            isYearly ? "text-subtle hover:text-body" : "font-semibold text-heading"
           )}
         >
           Monthly
@@ -36,7 +36,7 @@ export function PricingFrequencyToggle({
           onClick={() => onChange(isYearly ? "monthly" : "yearly")}
           className={cn(
             "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200",
-            isYearly ? "bg-blue-500" : "bg-slate-300"
+            isYearly ? "bg-primary" : "bg-btn-secondary-border"
           )}
         >
           <span
@@ -52,14 +52,14 @@ export function PricingFrequencyToggle({
           onClick={() => onChange("yearly")}
           className={cn(
             "text-sm transition-colors",
-            isYearly ? "font-semibold text-slate-900" : "text-slate-400 hover:text-slate-600"
+            isYearly ? "font-semibold text-heading" : "text-subtle hover:text-body"
           )}
         >
           Annual
         </button>
 
         {savePercent ? (
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600">
+          <span className="rounded-full bg-success-tint px-2.5 py-1 text-xs font-semibold text-success">
             Save up to {savePercent}%
           </span>
         ) : null}

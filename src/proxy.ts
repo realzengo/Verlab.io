@@ -122,10 +122,11 @@ export async function proxy(request: NextRequest) {
       // something to spend, not about the subscription row specifically.
       const hasCredits = (profile?.credits ?? 0) > 0;
 
-      // No redirect: the dashboard itself still renders (blurred, inert,
-      // with a paywall modal on top -- see AppShell.tsx) instead of bouncing
-      // straight to /pricing. This header is how that server-rendered layout
-      // finds out, since middleware and the layout run in separate contexts.
+      // No redirect: the dashboard itself still renders, sidebar and all,
+      // with the main content area swapped for an inline pricing view (see
+      // AppShell.tsx / PaywallPricing.tsx) instead of bouncing straight to
+      // /pricing. This header is how that server-rendered layout finds out,
+      // since middleware and the layout run in separate contexts.
       if (!hasActiveSubscription && !hasCredits) {
         requestHeaders.set("x-paywalled", "1");
 

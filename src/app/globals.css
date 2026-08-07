@@ -933,9 +933,13 @@ body {
   /* Hover-to-pause has to live here, unlayered, alongside the animation
      itself — a Tailwind `hover:[animation-play-state:paused]` utility sits
      in `@layer utilities`, which always loses to this unlayered rule
-     regardless of specificity, so it would silently never apply. */
-  .animate-marquee:hover {
-    animation-play-state: paused;
+     regardless of specificity, so it would silently never apply.
+     Scoped to hover-capable pointers only — on touch devices a tap leaves
+     a "stuck" hover state that would otherwise freeze the marquee. */
+  @media (hover: hover) {
+    .animate-marquee:hover {
+      animation-play-state: paused;
+    }
   }
 
   /* Testimonials rows — content is duplicated 4x, so a 25% shift is a

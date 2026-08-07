@@ -6,15 +6,6 @@ import { StarIcon } from "@/components/landing/StarIcon";
 export function Hero() {
   return (
     <section className="relative isolate mx-auto flex max-w-6xl flex-col items-center px-4 pb-6 pt-20 text-center sm:px-6 sm:pb-10 sm:pt-28 lg:px-8 md:pt-40">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-1/2 -z-10 w-screen -translate-x-1/2"
-        style={{
-          background:
-            "radial-gradient(60% 45% at 50% 0%, rgba(221,242,255,0.9) 0%, rgba(221,242,255,0) 70%), linear-gradient(to bottom, rgba(221,242,255,0.75) 0%, rgba(221,242,255,0.3) 40%, rgba(221,242,255,0) 78%)",
-        }}
-      />
-
       <TrustBadge />
 
       <div className="relative flex w-full justify-center">

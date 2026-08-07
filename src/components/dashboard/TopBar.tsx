@@ -18,9 +18,12 @@ function defaultHeading(pathname: string): string {
 export function TopBar({
   heading,
   onMenuClick,
+  isPaywalled = false,
 }: {
   heading?: string;
   onMenuClick: () => void;
+  /** Hides the Upgrade button and credit balance -- both point at a plan/credits the user doesn't have yet while the main content area is already the pricing view (see AppShell). */
+  isPaywalled?: boolean;
 }) {
   const pathname = usePathname();
   const resolvedHeading = heading ?? defaultHeading(pathname);
@@ -58,19 +61,23 @@ export function TopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          onClick={() => setIsUpgradeOpen(true)}
-          className="flex items-center gap-1.5 rounded-full bg-btn-primary py-1.5 pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
-        >
-          <Rocket className="h-3.5 w-3.5" fill="currentColor" />
-          <span className="hidden sm:inline-block">Upgrade</span>
-        </button>
-        <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
+        {!isPaywalled && (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsUpgradeOpen(true)}
+              className="flex items-center gap-1.5 rounded-full bg-btn-primary py-1.5 pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
+            >
+              <Rocket className="h-3.5 w-3.5" fill="currentColor" />
+              <span className="hidden sm:inline-block">Upgrade</span>
+            </button>
+            <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
+          </>
+        )}
         <ProfileDropdown />
       </div>
 
-      <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />
+      {!isPaywalled && <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />}
     </div>
   );
 }

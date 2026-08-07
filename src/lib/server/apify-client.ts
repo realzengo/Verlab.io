@@ -1,4 +1,5 @@
 import { scrapeCreatorsGet } from "./video-provider";
+import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
 export type ApifyScraperErrorCode = "not_configured" | "unsupported_url" | "not_found" | "provider_error";
@@ -106,6 +107,8 @@ interface YoutubeScraperItem {
   channelName?: string;
   channelAvatarUrl?: string;
   channelThumbnail?: string | { url?: string };
+  channelId?: string;
+  channelUsername?: string;
 }
 
 // Best-effort: different actor versions have used different field names for
@@ -115,6 +118,26 @@ function pickYoutubeAvatarUrl(item: YoutubeScraperItem): string | undefined {
   if (item.channelAvatarUrl) return item.channelAvatarUrl;
   if (typeof item.channelThumbnail === "string") return item.channelThumbnail;
   return item.channelThumbnail?.url;
+}
+
+// Live-confirmed (2026-08): the current streamers~youtube-scraper actor
+// build no longer returns *any* avatar field on its items -- channelName/
+// channelUrl/channelUsername/channelId are the only channel-level fields
+// present, so pickYoutubeAvatarUrl above is always undefined in practice.
+// ScrapeCreators' /v1/youtube/channel endpoint (already used as the
+// full-scrape fallback below) does return a real avatar, so it's worth one
+// extra cheap lookup here rather than falling all the way back to an
+// initials avatar for every single YouTube bend.
+async function fetchYoutubeAvatarViaScrapeCreators(item: YoutubeScraperItem): Promise<string | undefined> {
+  const channelParams: Record<string, string> | undefined = item.channelId
+    ? { channelId: item.channelId }
+    : item.channelUsername
+      ? { handle: item.channelUsername }
+      : undefined;
+  if (!channelParams) return undefined;
+
+  const info = await scrapeCreatorsGet<ScrapeCreatorsChannelInfoResponse>("/v1/youtube/channel", channelParams);
+  return info.avatar?.image?.sources?.[0]?.url;
 }
 
 interface TiktokScraperItem {
@@ -127,6 +150,49 @@ export interface ScrapedChannel {
   channelName: string;
   avatarUrl?: string;
   videos: NicheBendVideo[];
+}
+
+const AVATAR_BUCKET = "channel-avatars";
+
+// Deterministic short key so re-bending the same channel URL reuses (rather
+// than piles up) the same storage object.
+function hashKey(value: string): string {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  return hash.toString(36);
+}
+
+// Both scraper backends can hand back a channel avatar hosted directly on
+// the platform's own CDN. TikTok's URLs in particular are signed with a
+// short (roughly one to two week) expiry baked into the URL itself
+// (`x-expires`) -- live-confirmed to 403 well before "Recent bends" (which
+// keeps showing old entries indefinitely) would ever be revisited. Mirroring
+// the bytes into our own public bucket once, at scrape time, means the URL
+// persisted to niche_bend_jobs.analysis never goes stale. Best-effort: any
+// failure here just falls back to the original (eventually-expiring) URL
+// rather than losing the avatar outright.
+async function mirrorAvatar(sourceUrl: string, platform: NicheBendPlatform, requestUrl: string): Promise<string> {
+  try {
+    const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) return sourceUrl;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+
+    const admin = createAdminClient();
+    await ensureBucket(admin, AVATAR_BUCKET, {
+      public: true,
+      fileSizeLimit: 5 * 1024 * 1024,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    });
+
+    const key = `${platform}/${hashKey(requestUrl)}.jpg`;
+    const { error } = await admin.storage.from(AVATAR_BUCKET).upload(key, bytes, { contentType, upsert: true });
+    if (error) return sourceUrl;
+
+    return admin.storage.from(AVATAR_BUCKET).getPublicUrl(key).data.publicUrl;
+  } catch {
+    return sourceUrl;
+  }
 }
 
 // Apify is the primary channel-scraping provider, but it's a single point of
@@ -142,16 +208,21 @@ export async function scrapeChannelVideos(
   videoType: NicheBendVideoType,
   limit = 10
 ): Promise<ScrapedChannel> {
-  try {
-    return await scrapeChannelVideosViaApify(url, platform, videoType, limit);
-  } catch (primaryError) {
+  const scraped = await (async () => {
     try {
-      return await scrapeChannelVideosViaScrapeCreators(url, platform, videoType, limit);
-    } catch (fallbackError) {
-      console.error("[niche-bend] ScrapeCreators fallback also failed:", fallbackError);
-      throw primaryError;
+      return await scrapeChannelVideosViaApify(url, platform, videoType, limit);
+    } catch (primaryError) {
+      try {
+        return await scrapeChannelVideosViaScrapeCreators(url, platform, videoType, limit);
+      } catch (fallbackError) {
+        console.error("[niche-bend] ScrapeCreators fallback also failed:", fallbackError);
+        throw primaryError;
+      }
     }
-  }
+  })();
+
+  if (!scraped.avatarUrl) return scraped;
+  return { ...scraped, avatarUrl: await mirrorAvatar(scraped.avatarUrl, platform, url) };
 }
 
 async function scrapeChannelVideosViaApify(
@@ -173,9 +244,11 @@ async function scrapeChannelVideosViaApify(
       throw new ApifyScraperError("not_found", "No videos found for that YouTube channel.");
     }
 
+    const avatarUrl = pickYoutubeAvatarUrl(items[0]) ?? (await fetchYoutubeAvatarViaScrapeCreators(items[0]).catch(() => undefined));
+
     return {
       channelName: items[0].channelName?.trim() || url,
-      avatarUrl: pickYoutubeAvatarUrl(items[0]),
+      avatarUrl,
       videos: items.slice(0, limit).map((item) => ({
         title: item.title ?? "Untitled",
         views: humanizeViewCount(Number(item.viewCount) || 0),
