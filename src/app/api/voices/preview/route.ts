@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVoiceOption, VOICE_PREVIEW_TEXT } from "@/lib/config/voices";
+import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
 import { generateSpeech, ReplicateTtsError } from "@/lib/server/replicate-tts";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +46,12 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const speech = await generateSpeech({ text: VOICE_PREVIEW_TEXT, voiceId: voice.id, speed: 1, stability: 80 });
+    const speech = await generateSpeech({
+      text: VOICE_PREVIEW_TEXT,
+      voiceId: voice.id,
+      stylePrompt: "Say the following.",
+      languageCode: DEFAULT_LANGUAGE_CODE,
+    });
     let { error: uploadError } = await admin.storage
       .from(STORAGE_BUCKET)
       .upload(key, speech.bytes, { contentType: speech.contentType, upsert: true });

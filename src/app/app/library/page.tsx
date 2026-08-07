@@ -103,6 +103,16 @@ function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }
   );
 }
 
+function VideoPlayIndicator() {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+        <Film className="h-4 w-4" />
+      </span>
+    </div>
+  );
+}
+
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
@@ -203,7 +213,9 @@ export default function LibraryPage() {
       const extension = url.slice(5, url.indexOf(";")).split("/")[1] ?? "jpg";
       const slug = asset.title.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
       downloadDataUrl(url, `${slug}.${extension}`);
-    } else if (asset.type === "image") {
+    } else if (asset.type === "image" || asset.type === "video") {
+      // Both routes support ?download=1 to set a Content-Disposition
+      // filename, same as the image route's own download handling above.
       const link = document.createElement("a");
       link.href = `${url}${url.includes("?") ? "&" : "?"}download=1`;
       link.click();
@@ -371,6 +383,7 @@ export default function LibraryPage() {
                     className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60 bg-accent"
                   >
                     <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
+                    {asset.type === "video" && <VideoPlayIndicator />}
                   </button>
                 )}
 
@@ -483,7 +496,17 @@ export default function LibraryPage() {
 
               <div className="flex min-h-[30vh] flex-1 items-center justify-center bg-slate-100 p-6 dark:bg-black">
                 <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
-                  <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
+                  {previewAsset.type === "video" && previewAsset.fileUrl ? (
+                    <video
+                      key={previewAsset.id}
+                      src={previewAsset.fileUrl}
+                      controls
+                      autoPlay
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
+                  )}
                 </div>
               </div>
 
@@ -516,7 +539,10 @@ export default function LibraryPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => previewAsset.thumbnailUrl && window.open(previewAsset.thumbnailUrl, "_blank")}
+                    onClick={() => {
+                      const url = previewAsset.fileUrl ?? previewAsset.thumbnailUrl;
+                      if (url) window.open(url, "_blank");
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
                   >
                     <ExternalLink className="h-4 w-4" />

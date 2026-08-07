@@ -27,6 +27,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TopUpModal } from "@/components/TopUpModal";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { consumeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import {
   DEFAULT_VIDEO_MODEL,
   VIDEO_MODELS,
@@ -397,6 +398,11 @@ export function VideoGenerator() {
   const [history, setHistory] = useState<GenerationHistoryItem[] | null>(null);
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
+  // Purely a same-tick UI affordance -- the actual download is a same-origin
+  // navigation (see downloadVideo), which we can't observe completion of, so
+  // this just gives the dock button a brief pressed/spinner state instead of
+  // looking like a dead click.
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   function copyPreviewPrompt() {
     if (!previewItem?.prompt) return;
@@ -484,6 +490,22 @@ export function VideoGenerator() {
     loadHistory();
     return () => pollCancelRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Picks up an image handed off from the Image Generator's "Animate" action
+  // (see ImageGenerator.tsx) -- lands it as the Create tab's start frame,
+  // ready for image-to-video. Must run post-mount, not as a lazy useState
+  // initializer: this component is server-rendered first (sessionStorage
+  // doesn't exist there), and reading browser storage during the initial
+  // client render would create a hydration mismatch against that empty
+  // server-rendered output.
+  useEffect(() => {
+    const handoff = consumeImageToVideoHandoff();
+    if (!handoff) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from sessionStorage, not a derived/external sync
+    setActiveTab("create");
+    setMobileView("generate");
+    setStartFrame({ dataUrl: handoff.imageDataUrl, mode: "upload" });
   }, []);
 
   // ── Edit tab state ───────────────────────────────────────────────────
@@ -701,6 +723,7 @@ export function VideoGenerator() {
   // Create-tab items without needing to branch on item.mode.
   function attachSourceForEdit(item: GenerationHistoryItem, prefill: boolean) {
     setActiveTab("edit");
+    setMobileView("generate");
     setEditSource(item);
     setEditReferenceImages([]);
     setEditPrompt(prefill ? (item.prompt ?? "") : "");
@@ -805,6 +828,8 @@ export function VideoGenerator() {
   }
 
   function recreateFromHistory(item: GenerationHistoryItem) {
+    setActiveTab("create");
+    setMobileView("generate");
     setPrompt(item.prompt ?? "");
     if (getVideoModel(item.model)) {
       setSelectedModel(item.model);
@@ -824,11 +849,16 @@ export function VideoGenerator() {
   }
 
   function downloadVideo(id: string) {
+    setDownloadingId(id);
     const link = document.createElement("a");
     link.href = `/api/library/video/${id}?download=1`;
     document.body.appendChild(link);
     link.click();
     link.remove();
+    // Same-origin navigation, not a fetch -- there's no completion event to
+    // wait on, so this just holds the pressed/spinner state long enough to
+    // read as a deliberate action rather than clearing it instantly.
+    setTimeout(() => setDownloadingId((current) => (current === id ? null : current)), 1000);
   }
 
   async function deleteGeneration(id: string) {
@@ -1361,10 +1391,16 @@ export function VideoGenerator() {
                     >
                       <button
                         type="button"
+                        disabled={downloadingId === previewItem.id}
                         onClick={() => downloadVideo(previewItem.id)}
-                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
                       >
-                        <Download className="h-3.5 w-3.5" /> Download
+                        {downloadingId === previewItem.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        {downloadingId === previewItem.id ? "Downloading" : "Download"}
                       </button>
                       <button
                         type="button"
@@ -1380,7 +1416,15 @@ export function VideoGenerator() {
                         type="button"
                         onClick={() => {
                           closePreview();
-                          recreateFromHistory(previewItem);
+                          // Mirrors the grid tiles' branch (see onRecreate above):
+                          // an edit-mode item has no standalone create-tab
+                          // equivalent to "recreate", so re-attach it as an edit
+                          // source with its prompt/model prefilled instead.
+                          if (previewItem.mode === "edit") {
+                            attachSourceForEdit(previewItem, true);
+                          } else {
+                            recreateFromHistory(previewItem);
+                          }
                         }}
                         className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/90"
                       >

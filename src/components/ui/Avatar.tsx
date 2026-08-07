@@ -38,11 +38,14 @@ export function Avatar({
   src,
   size = "md",
   className,
+  hideInitials = false,
 }: {
   name: string;
   src?: string | null;
   size?: keyof typeof SIZE_CLASSES;
   className?: string;
+  /** Render just the gradient circle, no initials -- for decorative avatars where the name is shown alongside anyway. */
+  hideInitials?: boolean;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -70,7 +73,7 @@ export function Avatar({
       )}
       style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})`, color: fg }}
     >
-      {initials(name)}
+      {!hideInitials && initials(name)}
     </div>
   );
 }

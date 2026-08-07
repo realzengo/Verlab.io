@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import type { PricingFrequency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -11,54 +10,59 @@ export function PricingFrequencyToggle({
 }: {
   frequency: PricingFrequency;
   onChange: (frequency: PricingFrequency) => void;
-  /** Shown as a "Save X%" pill next to the Yearly label when set. */
+  /** Shown as a "Save up to X%" pill when set. */
   savePercent?: number;
 }) {
+  const isYearly = frequency === "yearly";
+
   return (
-    <div className="flex justify-center">
-      <div className="relative z-10 mx-auto flex w-fit rounded-full border border-hairline bg-app p-1">
+    <div className="mb-20 flex justify-center">
+      <div className="inline-flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
         <button
           type="button"
           onClick={() => onChange("monthly")}
           className={cn(
-            "relative z-10 h-10 w-fit rounded-full px-3 py-1 font-medium transition-colors sm:h-12 sm:px-6 sm:py-2",
-            frequency === "monthly" ? "text-white" : "text-subtle hover:text-heading"
+            "text-sm transition-colors",
+            isYearly ? "text-slate-400 hover:text-slate-600" : "font-semibold text-slate-900"
           )}
         >
-          {frequency === "monthly" && (
-            <motion.span
-              layoutId="pricing-frequency-pill"
-              className="absolute left-0 top-0 h-10 w-full rounded-full border-4 border-blue-600 bg-gradient-to-t from-blue-500 via-blue-400 to-blue-600 shadow-sm shadow-blue-600 sm:h-12"
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
+          Monthly
+        </button>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isYearly}
+          onClick={() => onChange(isYearly ? "monthly" : "yearly")}
+          className={cn(
+            "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200",
+            isYearly ? "bg-blue-500" : "bg-slate-300"
           )}
-          <span className="relative">Monthly</span>
+        >
+          <span
+            className={cn(
+              "absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow-md transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isYearly && "translate-x-4"
+            )}
+          />
         </button>
 
         <button
           type="button"
           onClick={() => onChange("yearly")}
           className={cn(
-            "relative z-10 h-10 w-fit shrink-0 rounded-full px-3 py-1 font-medium transition-colors sm:h-12 sm:px-6 sm:py-2",
-            frequency === "yearly" ? "text-white" : "text-subtle hover:text-heading"
+            "text-sm transition-colors",
+            isYearly ? "font-semibold text-slate-900" : "text-slate-400 hover:text-slate-600"
           )}
         >
-          {frequency === "yearly" && (
-            <motion.span
-              layoutId="pricing-frequency-pill"
-              className="absolute left-0 top-0 h-10 w-full rounded-full border-4 border-blue-600 bg-gradient-to-t from-blue-500 via-blue-400 to-blue-600 shadow-sm shadow-blue-600 sm:h-12"
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          )}
-          <span className="relative flex items-center gap-2">
-            Yearly
-            {savePercent ? (
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-black">
-                Save {savePercent}%
-              </span>
-            ) : null}
-          </span>
+          Annual
         </button>
+
+        {savePercent ? (
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600">
+            Save up to {savePercent}%
+          </span>
+        ) : null}
       </div>
     </div>
   );

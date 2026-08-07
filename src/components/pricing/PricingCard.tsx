@@ -1,5 +1,4 @@
 import NumberFlow from "@number-flow/react";
-import { CheckCheck, Database, Search, Sparkles } from "lucide-react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -11,122 +10,131 @@ function splitFeatureText(text: string): { bold: string; rest: string } {
   return { bold: text.slice(0, parenIndex), rest: text.slice(parenIndex + 1) };
 }
 
-// First 3 features are always credits / niche-bends / transcripts across all
-// three tiers (see lib/mock/pricing.ts) -- a fixed icon per position instead
-// of keyword-matching free text.
-const FEATURE_ICONS = [Sparkles, Search, Database];
-
-const INCLUDES_HEADING: Record<PricingPlan["id"], string> = {
-  core: "Core includes:",
-  pro: "Everything in Core, plus:",
-  scale: "Everything in Pro, plus:",
-};
+// The reference always shows a per-month figure -- in yearly mode that's the
+// discounted monthly-equivalent (annual total / 12), with the real annual
+// total moved into the subtext ("per month, billed at $X per year").
+function yearlySavePercent(plan: PricingPlan): number {
+  if (plan.monthlyOnly || plan.price.monthly === 0) return 0;
+  return Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100);
+}
 
 export function PricingCard({
   plan,
   frequency,
   onSelect,
   ctaHref,
+  compact = false,
 }: {
   plan: PricingPlan;
   frequency: PricingFrequency;
   onSelect?: (plan: PricingPlan) => void;
   ctaHref?: string;
+  /** Skips the recommended card's scale-up — for narrow containers (e.g. the admin preview) where the 8% scale would overflow and overlap neighboring content. */
+  compact?: boolean;
 }) {
   const yearlyUnavailable = plan.monthlyOnly && frequency === "yearly";
-  const price = frequency === "yearly" ? plan.price.yearly : plan.price.monthly;
-
-  const topFeatures = plan.features.slice(0, 3);
-  const includes = plan.features.slice(3);
+  const isYearly = frequency === "yearly";
+  const price = isYearly ? Math.round(plan.price.yearly / 12) : plan.price.monthly;
+  const savePercent = isYearly ? yearlySavePercent(plan) : 0;
 
   const ctaClassName = cn(
-    "mb-6 w-full rounded-xl p-4 text-center text-xl font-semibold transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50",
+    "mb-5 w-full rounded-xl py-2.5 text-center text-[13px] font-semibold transition-all disabled:pointer-events-none disabled:opacity-50",
     plan.recommended
-      ? "border border-blue-400/60 bg-gradient-to-t from-blue-500 to-blue-600 text-white shadow-blue"
-      : "border border-white/10 bg-gradient-to-t from-neutral-900 to-neutral-700 text-white shadow-card"
+      ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
+      : "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
   );
 
-  return (
-    <div
-      className={cn(
-        "relative flex flex-col rounded-card-lg border transition-shadow",
-        plan.recommended ? "border-primary/40 bg-accent shadow-blue" : "border-hairline bg-surface shadow-card hover:shadow-card-hover"
-      )}
-    >
-      <div className="p-6 text-left">
-        <div className="flex justify-between">
-          <h3 className="mb-2 text-3xl font-semibold text-heading">{plan.name}</h3>
-          {plan.recommended && (
-            <span className="flex h-fit items-center gap-1 rounded-full bg-primary px-3 py-1 text-sm font-medium text-white shadow-[0_4px_14px_-2px_rgba(51,92,255,0.55)]">
-              <img src="/icons/fire.svg" alt="" className="h-4 w-4" />
-              Popular
+  const priceBlock = (
+    <>
+      <h2 className="mb-1.5 text-lg font-semibold text-slate-900">{plan.name}</h2>
+      <p className="mb-4 text-[13px] text-slate-500">{plan.info}</p>
+
+      {yearlyUnavailable ? (
+        <p className="mt-2 mb-5 text-[11px] text-slate-500">Not available on yearly billing</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="text-3xl font-bold leading-none text-slate-900">
+              $<NumberFlow value={price} className="text-3xl font-bold leading-none text-slate-900" />
             </span>
-          )}
-        </div>
-        <p className="mb-4 text-sm text-body">{plan.info}</p>
-        {yearlyUnavailable ? (
-          <p className="text-sm text-body">Not available on yearly billing</p>
-        ) : (
-          <div className="flex items-baseline">
-            <span className="text-4xl font-semibold text-heading">
-              $<NumberFlow value={price} className="text-4xl font-semibold" />
-            </span>
-            <span className="ml-1 text-body">/{frequency === "yearly" ? "year" : "month"}</span>
+            {savePercent > 0 && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                Save {savePercent}%
+              </span>
+            )}
           </div>
-        )}
-      </div>
+          <p className="mt-2 mb-5 text-[11px] text-slate-500">
+            {isYearly ? `per month, billed at $${plan.price.yearly} per year` : "billed monthly"}
+          </p>
+        </>
+      )}
 
-      <div className="px-6 pb-6 pt-0">
-        {yearlyUnavailable ? (
-          <button type="button" disabled className={ctaClassName}>
-            {plan.cta}
-          </button>
-        ) : ctaHref ? (
-          <a href={ctaHref} className={ctaClassName}>
-            {plan.cta}
-          </a>
-        ) : (
-          <button type="button" onClick={() => onSelect?.(plan)} className={ctaClassName}>
-            {plan.cta}
-          </button>
-        )}
+      {yearlyUnavailable ? (
+        <button type="button" disabled className={ctaClassName}>
+          {plan.cta}
+        </button>
+      ) : ctaHref ? (
+        <a href={ctaHref} className={ctaClassName}>
+          {plan.cta}
+        </a>
+      ) : (
+        <button type="button" onClick={() => onSelect?.(plan)} className={ctaClassName}>
+          {plan.cta}
+        </button>
+      )}
 
-        <ul className="space-y-2 py-5 font-semibold">
-          {topFeatures.map((feature, i) => {
-            const Icon = FEATURE_ICONS[i];
+      <div className="mt-1 flex w-full flex-col">
+        <p className="mb-2.5 text-[11px] font-bold text-slate-900">Whats inside:</p>
+
+        <ul className="flex w-full flex-col">
+          {plan.features.map((feature) => {
+            const { bold, rest } = splitFeatureText(feature.text);
             return (
-              <li key={feature.text} className="flex items-center">
-                <span className="mr-3 mt-0.5 grid place-content-center text-subtle">
-                  <Icon size={20} />
-                </span>
-                <span className="text-sm text-body">{feature.text}</span>
+              <li key={feature.text} className="flex w-full flex-col">
+                <div className="flex w-full items-start gap-2">
+                  <svg
+                    className={cn("mt-0.5 h-3 w-3 shrink-0", plan.recommended ? "text-blue-600" : "text-slate-900")}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+
+                  <div className="flex flex-wrap items-center gap-1 text-xs">
+                    <span className="font-semibold text-slate-900">{bold}</span>
+                    {rest && <span className="text-slate-500">{rest}</span>}
+                  </div>
+                </div>
+
+                <div className="my-2.5 h-px w-full bg-slate-100" />
               </li>
             );
           })}
         </ul>
-
-        {includes.length > 0 && (
-          <div className="space-y-3 border-t border-hairline pt-4">
-            <h4 className="mb-3 text-base font-medium text-heading">{INCLUDES_HEADING[plan.id]}</h4>
-            <ul className="space-y-2 font-semibold">
-              {includes.map((feature) => {
-                const { bold, rest } = splitFeatureText(feature.text);
-                return (
-                  <li key={feature.text} className="flex items-center">
-                    <span className="mr-3 mt-0.5 grid h-6 w-6 place-content-center rounded-full border border-primary/40 bg-accent">
-                      <CheckCheck className="h-4 w-4 text-primary" />
-                    </span>
-                    <span className="text-sm text-body">
-                      <span className="font-semibold text-heading">{bold}</span>
-                      {rest && <span className="ml-1">{rest}</span>}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
+
+  if (plan.recommended) {
+    return (
+      <div
+        className={cn(
+          "relative z-10 flex flex-col rounded-[2rem] bg-gradient-to-b from-blue-600 to-blue-400 p-[6px] pt-0",
+          !compact && "lg:scale-[1.08]"
+        )}
+      >
+        <div className="flex h-9 items-center justify-center gap-1.5 text-sm font-bold text-white">
+          <img src="/icons/fire.svg" alt="" className="h-5 w-5" />
+          Most Popular
+        </div>
+        <div className="flex w-full h-full flex-grow flex-col items-stretch rounded-[1.625rem] bg-white px-6 py-8 text-left">
+          {priceBlock}
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">{priceBlock}</div>;
 }

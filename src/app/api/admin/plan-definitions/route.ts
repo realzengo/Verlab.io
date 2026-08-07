@@ -20,6 +20,22 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "plans is required" }, { status: 400 });
   }
 
+  for (const plan of body.plans) {
+    const label = plan?.id ?? "unknown";
+    if (!plan?.id || !plan.name?.trim() || !plan.cta?.trim() || !plan.info?.trim()) {
+      return NextResponse.json({ error: `Plan "${label}" is missing a required field (name, CTA, or description)` }, { status: 400 });
+    }
+    if (typeof plan.price?.monthly !== "number" || !Number.isFinite(plan.price.monthly) || plan.price.monthly < 0) {
+      return NextResponse.json({ error: `Plan "${label}" has an invalid monthly price` }, { status: 400 });
+    }
+    if (!plan.monthlyOnly && (typeof plan.price?.yearly !== "number" || !Number.isFinite(plan.price.yearly) || plan.price.yearly < 0)) {
+      return NextResponse.json({ error: `Plan "${label}" has an invalid yearly price` }, { status: 400 });
+    }
+    if (!Array.isArray(plan.features)) {
+      return NextResponse.json({ error: `Plan "${label}" has invalid features` }, { status: 400 });
+    }
+  }
+
   const admin = createAdminClient();
 
   const rows = body.plans.map((plan, index) => ({

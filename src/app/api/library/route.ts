@@ -5,9 +5,8 @@ import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/t
 
 // There's no dedicated `user_assets` table -- this unifies the real
 // sources the app already writes to instead of introducing a new table
-// nothing else populates. The Video tab intentionally has no source yet:
-// it's reserved for output from future video-generation tools, not the
-// `downloads` table (ingested/downloaded videos are a separate concern).
+// nothing else populates. Videos come from `video_generations` (not the
+// `downloads` table -- ingested/downloaded videos are a separate concern).
 //
 // `image_generations.images` holds raw base64 data URLs (up to 4K res,
 // multi-MB each as text) with no separate thumbnail column yet. Selecting
@@ -18,6 +17,9 @@ import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/t
 // so the list can stay byte-light; actual image bytes are served lazily,
 // one at a time, from /api/library/image/[id]/[index].
 const IMAGE_SELECT = "id, prompt, model, outputs, created_at";
+// Same byte-light approach: no raw video bytes here, just the path columns
+// /api/library/video/[id] needs to mint signed playback/thumbnail URLs.
+const VIDEO_SELECT = "id, prompt, model, output_video_path, thumbnail_path, created_at";
 const SOP_SELECT = "id, analysis, chosen_bend, created_at";
 
 async function handleGET(request: NextRequest): Promise<NextResponse> {
@@ -36,15 +38,24 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   const sort = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
 
   const wantsImages = type === "all" || type === "image";
+  const wantsVideos = type === "all" || type === "video";
   const wantsSops = type === "all" || type === "sop";
 
   // Capped well below the old 100 to bound how many lazy image requests
   // one Library page load can fan out into.
-  const [imagesResult, sopsResult] = await Promise.all([
+  const [imagesResult, videosResult, sopsResult] = await Promise.all([
     wantsImages
       ? supabase
           .from("image_generations")
           .select(IMAGE_SELECT)
+          .eq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(40)
+      : Promise.resolve({ data: [] as never[], error: null }),
+    wantsVideos
+      ? supabase
+          .from("video_generations")
+          .select(VIDEO_SELECT)
           .eq("status", "completed")
           .order("created_at", { ascending: false })
           .limit(40)
@@ -54,7 +65,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
       : Promise.resolve({ data: [] as never[], error: null }),
   ]);
 
-  for (const result of [imagesResult, sopsResult]) {
+  for (const result of [imagesResult, videosResult, sopsResult]) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
     }
@@ -77,6 +88,22 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
         createdAt: row.created_at,
       });
     }
+  }
+
+  for (const row of videosResult.data ?? []) {
+    // Playback bytes are served lazily too, same reason as images: videos
+    // live in a private Storage bucket, so /api/library/video/[id] mints a
+    // short-lived signed URL per request instead of one being in this row.
+    assets.push({
+      id: `video-${row.id}`,
+      type: "video",
+      title: row.prompt || "Generated video",
+      fileUrl: `/api/library/video/${row.id}`,
+      thumbnailUrl: row.thumbnail_path ? `/api/library/video/${row.id}?variant=thumbnail` : null,
+      sizeBytes: null,
+      category: row.model,
+      createdAt: row.created_at,
+    });
   }
 
   for (const row of sopsResult.data ?? []) {

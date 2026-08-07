@@ -512,6 +512,20 @@ export interface PromoCode {
   createdAt: string;
 }
 
+export interface ApiProvider {
+  id: string;
+  name: string;
+  category: string;
+  envVar: string | null;
+  websiteUrl: string | null;
+  notes: string | null;
+  monthlyCost: number;
+  currency: string;
+  isActive: boolean;
+  configured: boolean;
+  updatedAt: string;
+}
+
 export type AdminRole = "owner" | "admin" | "support";
 
 export interface AdminTeamMember {

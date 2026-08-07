@@ -16,25 +16,59 @@ export function getReplicateClient(): Replicate {
   return new Replicate({ auth: apiToken });
 }
 
-// Replicate throttles accounts with less than $5 in credit to a burst of 1
-// request per ~6s (confirmed live: a real 429 body reading "Your rate limit
-// for creating predictions is reduced to 6 requests per minute with a burst
-// of 1 requests while you have less than $5.0 in credit... retry_after: 4").
-// This is expected/routine for a freshly-funded account, not an error
-// condition worth surfacing to the user on the first hit -- retry a couple
-// times with the delay Replicate itself reports before giving up.
-export async function withReplicateRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+// Replicate throttles the whole account (not per-model) to a burst of 1
+// request per ~10s once its balance drops under $5 (confirmed live: a real
+// 429 body reading "Your rate limit for creating predictions is reduced to 6
+// requests per minute with a burst of 1 requests while you have less than
+// $5.0 in credit... retry_after: 9"). This is expected/routine for a
+// low-balance account, not an error condition worth surfacing on the first
+// hit -- retry with the delay Replicate itself reports before giving up.
+//
+// The trap this used to fall into: callers that fan out several segments
+// concurrently (see generate-voiceover's SEGMENT_CONCURRENCY) each discover
+// the throttle independently -- N simultaneous calls each get their own 429,
+// each retry on their own clock, and collide again next round. Confirmed
+// live: a 3-4 segment "Line by Line" script would exhaust its 3 retries
+// entirely on repeated collisions and fail outright, while even a single
+// "All at Once" call could get caught behind another in-flight job's
+// collision and take 60s+ for what should be a ~6s prediction.
+//
+// This module-level gate fixes that: the first caller to hit a 429 records
+// the reported cooldown here, so every other in-process caller (regardless
+// of which model or which route triggered it) waits it out too instead of
+// re-discovering the same throttle the hard way. Once the account is funded
+// past $5 the throttle stops firing entirely and this never engages, so it
+// doesn't cap a healthy account's real concurrency.
+let nextAllowedRequestAt = 0;
+
+async function waitForRateLimitGate(): Promise<void> {
+  const waitMs = nextAllowedRequestAt - Date.now();
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+export async function withReplicateRetry<T>(fn: () => Promise<T>, maxRetries = 4): Promise<T> {
   for (let attempt = 0; ; attempt++) {
+    await waitForRateLimitGate();
     try {
       return await fn();
     } catch (error) {
-      const response = (error as { response?: Response })?.response;
-      if (response?.status !== 429 || attempt >= maxRetries) throw error;
+      if (attempt >= maxRetries) throw error;
 
-      const retryAfterHeader = response.headers.get("retry-after");
-      const delaySeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
-      const delayMs = Number.isFinite(delaySeconds) ? delaySeconds * 1000 : 5000 * (attempt + 1);
-      await new Promise((resolve) => setTimeout(resolve, Math.max(1000, delayMs)));
+      const response = (error as { response?: Response })?.response;
+      if (response?.status === 429) {
+        const retryAfterHeader = response.headers.get("retry-after");
+        const delaySeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+        const delayMs = Number.isFinite(delaySeconds) ? delaySeconds * 1000 : 5000 * (attempt + 1);
+        nextAllowedRequestAt = Date.now() + Math.max(1000, delayMs);
+        continue;
+      }
+
+      // Not a rate limit -- e.g. a bare "fetch failed" from a transient
+      // network hiccup, which is common enough across a multi-segment job
+      // that it deserves a short retry rather than failing the whole
+      // generation over one dropped connection.
+      if (response) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
     }
   }
 }

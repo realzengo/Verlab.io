@@ -57,7 +57,7 @@ export function PricingTable({
   return (
     <div className="flex flex-col items-center">
       <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} savePercent={savePercent || undefined} />
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-start">
         {plans.map((plan) =>
           authenticated ? (
             <PricingCard

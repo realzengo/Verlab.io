@@ -1,5 +1,5 @@
 import { CreditCard, Gauge, Users, Wallet, Wand2 } from "lucide-react";
-import { getOverviewData } from "@/lib/server/admin-queries";
+import { getApiProviders, getOverviewData } from "@/lib/server/admin-queries";
 import { ADMIN_NAV } from "@/lib/mock/nav";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +22,7 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
   "/admin/credits": "Balances, spend & manual grants",
   "/admin/promo-codes": "Discount & referral codes",
   "/admin/revenue": "MRR, churn & transactions",
+  "/admin/api-costs": "What you owe each API provider monthly",
   "/admin/usage": "Tool adoption & activity",
   "/admin/system": "Job queue & endpoint health",
   "/admin/settings": "Feature flags & admin team",
@@ -44,6 +45,8 @@ export default async function AdminOverviewPage() {
     currentMrr: CURRENT_MRR,
     payingUsers: PAYING_USERS,
   } = await getOverviewData();
+  const API_PROVIDERS = await getApiProviders();
+  const apiMonthlySpend = API_PROVIDERS.filter((p) => p.isActive).reduce((sum, p) => sum + p.monthlyCost, 0);
 
   const signupLabels = SIGNUP_SERIES.map((p) => p.date);
   const signups30d = SIGNUP_SERIES.reduce((s, p) => s + p.signups, 0);
@@ -78,6 +81,7 @@ export default async function AdminOverviewPage() {
       CURRENT_MRR > 0
         ? { badge: `${formatCurrency(CURRENT_MRR)} MRR`, badgeTone: "success" }
         : { badge: "Awaiting first payment", badgeTone: "warning" },
+    "/admin/api-costs": { badge: `${formatCurrency(apiMonthlySpend)}/mo` },
     "/admin/usage": { badge: `${formatNumber(toolRunsToday)} runs today` },
     "/admin/system": {
       badge: jobsFailed > 0 ? `${jobsFailed} failed` : `${jobsQueued} in flight`,

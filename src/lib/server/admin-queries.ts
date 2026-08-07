@@ -7,6 +7,7 @@ import type {
   AdminToolKey,
   AdminUser,
   ApiEndpointHealth,
+  ApiProvider,
   CreditsAdminUser,
   CreditsOverview,
   FeatureFlag,
@@ -409,6 +410,33 @@ export async function getEndpointHealthToday(): Promise<ApiEndpointHealth[]> {
       };
     })
     .sort((a, b) => b.callsToday - a.callsToday);
+}
+
+// monthly_cost is an admin-entered budget figure, not pulled from any
+// provider's billing API -- none of the integrated providers expose one
+// here. `configured` just checks whether the referenced env var has a
+// value set on this deployment, so a provider can be flagged as wired up
+// or not without ever reading/exposing the secret itself.
+export async function getApiProviders(): Promise<ApiProvider[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("api_providers")
+    .select("id, name, category, env_var, website_url, notes, monthly_cost, currency, is_active, updated_at")
+    .order("sort_order");
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    envVar: row.env_var,
+    websiteUrl: row.website_url,
+    notes: row.notes,
+    monthlyCost: row.monthly_cost,
+    currency: row.currency,
+    isActive: row.is_active,
+    configured: row.env_var ? !!process.env[row.env_var] : false,
+    updatedAt: row.updated_at,
+  }));
 }
 
 export async function getFeatureFlags(): Promise<FeatureFlag[]> {

@@ -7,16 +7,48 @@ import { cn } from "@/lib/utils";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
+import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTopupToggle";
 import { PACKS, shortRate, type PackId } from "@/components/TopUpModal";
+import { createClient } from "@/lib/supabase/client";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 
-type Tab = "plan" | "topup";
+type Tab = PlanTopupTab;
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "plan", label: "Upgrade Plan" },
-  { id: "topup", label: "Top-up Credits" },
-];
+// Mirrors planRowToPricingPlan in src/lib/server/admin-queries.ts, which
+// can't be imported here -- it pulls in the service-role Supabase client,
+// which must never reach a client bundle. plan_definitions has a public-read
+// RLS policy, so the browser client can query it directly instead.
+interface PlanDefinitionRow {
+  id: string;
+  name: string;
+  info: string;
+  price_monthly: number;
+  price_yearly: number;
+  recommended: boolean;
+  monthly_only: boolean;
+  cta: string;
+  features: { text: string; tooltip?: string }[];
+  limits: string | null;
+}
+
+function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
+  return {
+    id: row.id as PricingPlan["id"],
+    name: row.name,
+    info: row.info,
+    price: { monthly: row.price_monthly, yearly: row.price_yearly },
+    recommended: row.recommended || undefined,
+    monthlyOnly: row.monthly_only || undefined,
+    cta: row.cta,
+    features: row.features,
+    limits: row.limits ?? undefined,
+  };
+}
+
+function goToCheckoutUrl(url: string) {
+  window.location.href = url;
+}
 
 function maxYearlyPercentOff(plans: PricingPlan[]): number {
   return plans.reduce((max, plan) => {
@@ -24,10 +56,6 @@ function maxYearlyPercentOff(plans: PricingPlan[]): number {
     const percentOff = Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100);
     return Math.max(max, percentOff);
   }, 0);
-}
-
-function goToCheckoutUrl(url: string) {
-  window.location.href = url;
 }
 
 export function UpgradeModal({
@@ -40,6 +68,7 @@ export function UpgradeModal({
   initialTab?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [plans, setPlans] = useState<PricingPlan[]>(PRICING_PLANS);
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -59,6 +88,25 @@ export function UpgradeModal({
     setWasOpen(isOpen);
     if (isOpen) setTab(initialTab);
   }
+
+  // Re-fetches live, admin-editable pricing every time the modal opens --
+  // PRICING_PLANS is a stale fallback only (see the plan_definitions
+  // migration comment: it's meant to replace that mock, not run alongside
+  // it indefinitely).
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("plan_definitions").select("*").order("sort_order");
+      if (!cancelled && data && data.length > 0) {
+        setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -119,8 +167,8 @@ export function UpgradeModal({
     }
   }
 
-  const maxPercentOff = maxYearlyPercentOff(PRICING_PLANS);
   const activePack = PACKS.find((pack) => pack.id === selectedPack) ?? PACKS[0];
+  const savePercent = maxYearlyPercentOff(plans);
 
   // Portaled to <body> so the fixed overlay always covers the full viewport
   // (including the sidebar) -- some pages wrap their content in a
@@ -133,7 +181,7 @@ export function UpgradeModal({
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card-hover"
+        className="relative flex max-h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card-hover"
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -145,29 +193,8 @@ export function UpgradeModal({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-10 sm:py-10">
-          <div className="mx-auto w-fit rounded-full border border-hairline bg-app p-1">
-            <div className="relative flex">
-              <span
-                className="absolute inset-y-1 z-10 w-[calc(50%-4px)] rounded-full bg-primary transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(${tab === "topup" ? "100%" : "0%"})` }}
-                aria-hidden
-              />
-              {TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    "relative z-20 rounded-full px-5 py-2 text-sm font-medium tracking-tight transition-colors",
-                    tab === t.id ? "text-white" : "text-subtle hover:text-heading"
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-12 sm:py-10 lg:px-16">
+          <PlanTopupToggle activeTab={tab} onChange={setTab} />
 
           <div className="mt-6 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-heading sm:text-3xl">
@@ -183,13 +210,13 @@ export function UpgradeModal({
           {tab === "plan" ? (
             <>
               <div className="mt-7">
-                <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} savePercent={maxPercentOff || undefined} />
+                <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} savePercent={savePercent || undefined} />
               </div>
 
               {planError && <p className="mt-4 text-center text-sm text-danger">{planError}</p>}
 
-              <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-5">
-                {PRICING_PLANS.map((plan) => (
+              <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-8">
+                {plans.map((plan) => (
                   <PricingCard
                     key={plan.id}
                     plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}

@@ -55,6 +55,8 @@ export interface VideoModelConfig {
   tier: VideoModelTier;
   description: string;
   logo?: string;
+  /** Logo is already a filled square/circular app icon (own background) -- render full-bleed rather than as a small centered glyph. */
+  logoFullBleed?: boolean;
   supportsImageToVideo: boolean;
   /** First+last frame conditioning -- a subset of image-to-video models support this, not just a start frame. */
   supportsEndFrame: boolean;
@@ -76,6 +78,7 @@ const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GROK_ICON = "/logos/ai/grok.svg";
 const KLING_ICON = "/logos/ai/kling.svg";
 const SEEDANCE_ICON = "/logos/ai/seedance.webp";
+const SORA_ICON = "/logos/ai/sora.png";
 
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
@@ -107,6 +110,27 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     resolutions: ["720p", "1080p"],
     resolutionMode: "direct",
     pricePerSecondUsd: 0.75,
+  },
+  {
+    id: "Sora 2",
+    replicateModel: "openai/sora-2",
+    // Best-effort, NOT live-verified (same caveat as Grok Imagine below):
+    // prompt, seconds (4/8/12), image (i2v reference frame), native audio
+    // track. Resolution is tied to aspect ratio on the base (non-Pro) tier
+    // rather than an independent field, so only one resolution is exposed.
+    imageField: "image",
+    tier: "flagship",
+    description: "OpenAI's video model — strong physics & realism, native audio",
+    logo: SORA_ICON,
+    logoFullBleed: true,
+    supportsImageToVideo: true,
+    supportsEndFrame: false,
+    supportsAudio: true,
+    durations: [4, 8, 12],
+    aspectRatios: ["16:9", "9:16"],
+    resolutions: ["720p"],
+    resolutionMode: "direct",
+    pricePerSecondUsd: 0.1,
   },
   {
     id: "Kling 3.0",

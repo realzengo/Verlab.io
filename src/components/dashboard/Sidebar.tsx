@@ -171,7 +171,7 @@ export function Sidebar({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1 w-1 rounded-full bg-primary transition-all duration-200 ease-out"
+        className="pointer-events-none absolute left-0 w-1.5 rounded-r-full bg-primary transition-all duration-200 ease-out"
         style={{
           top: hoverIndicator ? hoverIndicator.top + 6 : 0,
           height: hoverIndicator ? hoverIndicator.height - 12 : 0,

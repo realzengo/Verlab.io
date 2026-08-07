@@ -192,6 +192,45 @@ body {
   overflow-x: clip;
 }
 
+/* Premium scrollbar — thin, rounded, low-contrast track that only firms up
+   on hover, matching the rest of the app's understated chrome instead of
+   the OS default. Firefox reads scrollbar-color/-width; every Chromium
+   engine (Windows, macOS, Linux) reads the ::-webkit-scrollbar rules. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 24, 39, 0.18) transparent;
+}
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(17, 24, 39, 0.16);
+  border-radius: 9999px;
+  border: 3px solid var(--background);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(17, 24, 39, 0.32);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.dark {
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--background);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   @keyframes bend-in {
     0% {
@@ -1298,4 +1337,43 @@ html[data-scrolling="true"] *::after {
   .liquid-glass-puck {
     transition: none;
   }
+}
+
+/* Premium range slider — a transparent native <input type="range"> stacked
+   over a hand-drawn gradient fill bar (see SliderRow), so only the thumb
+   needs styling here. */
+.premium-slider {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.premium-slider::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+.premium-slider::-moz-range-track {
+  background: transparent;
+  height: 100%;
+}
+.premium-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.2), 0 0 0 4px rgba(51, 92, 255, 0.14);
+  cursor: pointer;
+}
+.premium-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.2), 0 0 0 4px rgba(51, 92, 255, 0.14);
+  cursor: pointer;
+}
+.premium-slider:focus-visible {
+  outline: none;
 }

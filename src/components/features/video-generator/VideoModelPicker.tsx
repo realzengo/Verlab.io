@@ -10,11 +10,22 @@ export interface ModelPickerOption {
   id: string;
   description: string;
   logo?: string;
+  /** Logo is already a filled square/circular app icon (own background, no transparent margin) -- render it filling the whole avatar circle instead of as a small centered glyph. */
+  logoFullBleed?: boolean;
 }
 
 export function ModelIcon({ model, small }: { model: ModelPickerOption; small?: boolean }) {
   const wrapperSize = small ? "h-5 w-5" : "h-8 w-8";
   const glyphSize = small ? 11 : 16;
+
+  if (model.logo && model.logoFullBleed) {
+    const px = small ? 20 : 32;
+    return (
+      <span className={cn("flex shrink-0 overflow-hidden rounded-full ring-1 ring-slate-900/[0.04] dark:ring-white/[0.06]", wrapperSize)}>
+        <Image src={model.logo} alt="" width={px} height={px} className="h-full w-full object-cover" />
+      </span>
+    );
+  }
 
   if (model.logo) {
     return (

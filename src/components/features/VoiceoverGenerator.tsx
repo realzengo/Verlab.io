@@ -2,24 +2,37 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
+  History,
+  Languages,
+  List,
+  ListChecks,
   Loader2,
+  Mic2,
   Pause,
   Play,
   Plus,
-  Repeat,
+  RotateCcw,
   Search,
+  Settings2,
   SkipBack,
   SkipForward,
   Sparkles,
-  Trash2,
+  Wand2,
+  X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
+import { IconButton } from "@/components/ui/IconButton";
 import { PlasticButton } from "@/components/ui/plastic-button";
+import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
+import { HistoryPanel, type VoiceoverHistoryItem } from "@/components/features/voiceover-generator/HistoryPanel";
 import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
+import { DEFAULT_LANGUAGE_CODE, LANGUAGE_OPTIONS } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { consumeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
@@ -29,6 +42,7 @@ import { cn, downloadBlob } from "@/lib/utils";
 type GenerationMode = "line_by_line" | "all_at_once";
 type View = "input" | "loading" | "editor";
 type EditorTab = "editor" | "audio";
+type VoiceGenderFilter = "All" | "Male" | "Female";
 
 interface SegmentState {
   text: string;
@@ -55,87 +69,47 @@ function estimateSegmentTexts(script: string, mode: GenerationMode): string[] {
   return lines.length > 0 ? lines : [trimmed];
 }
 
+const VOICEOVER_LOADING_PHASES = [
+  { at: 0, label: "splitting script" },
+  { at: 22, label: "finding natural pauses" },
+  { at: 48, label: "synthesizing voice" },
+  { at: 75, label: "mixing segments" },
+  { at: 92, label: "finalizing audio" },
+];
+
 const MAX_SCRIPT_CHARS = 5000;
-const DEFAULT_SPEED = 1.08;
-const DEFAULT_STABILITY = 80;
+// Matches the Gemini TTS model's own default `prompt` value, and the server
+// route's 500-char cap on stylePrompt (see generate-voiceover/route.ts).
+const DEFAULT_STYLE_PROMPT = "Say the following.";
+const MAX_STYLE_PROMPT_CHARS = 500;
 
 function segmentUrl(generationId: string, index: number): string {
   return `/api/generate-voiceover/${generationId}/segments/${index}`;
 }
 
+function formatTime(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 // ── Small presentational pieces ─────────────────────────────────────────
 
-function SliderRow({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  format,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  format: (value: number) => string;
-}) {
-  return (
-    <div className="mt-4 first:mt-3">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{label}</span>
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{format(value)}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-blue-500 dark:bg-zinc-700"
-      />
-    </div>
-  );
-}
-
-function IconButton({
-  onClick,
-  active,
-  destructive,
-  disabled,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  active?: boolean;
-  destructive?: boolean;
-  disabled?: boolean;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      className={cn(
-        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-        destructive
-          ? "text-slate-400 hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-          : active
-            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-            : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-zinc-800 dark:hover:text-slate-200"
-      )}
-    >
-      {children}
-    </button>
-  );
-}
+// Quick-tap presets for the free-text `prompt` style instruction Gemini TTS
+// actually accepts (see src/lib/server/replicate-tts.ts) -- there's no
+// numeric speed/stability knob on this model, so these fill the box with a
+// ready-made instruction that the user can still edit directly afterward.
+const STYLE_PRESETS: { label: string; prompt: string }[] = [
+  { label: "Natural", prompt: "Say the following." },
+  { label: "Calm & Professional", prompt: "Say this in a calm, professional tone." },
+  { label: "Energetic", prompt: "Speak with excitement and energy." },
+  { label: "Warm & Friendly", prompt: "Say this in a warm, friendly tone." },
+  { label: "Fast-Paced", prompt: "Say the following quickly and energetically." },
+  { label: "Slow & Deliberate", prompt: "Say the following slowly and deliberately." },
+  { label: "Whispered", prompt: "Say the following in a hushed whisper." },
+  { label: "Dramatic", prompt: "Say the following dramatically, like narrating a movie trailer." },
+];
 
 function VoiceCard({
   voice,
@@ -143,41 +117,86 @@ function VoiceCard({
   onSelect,
   onPlay,
   isPreviewLoading,
+  isPreviewPlaying,
 }: {
   voice: VoiceOption;
   selected: boolean;
   onSelect: () => void;
   onPlay: () => void;
   isPreviewLoading: boolean;
+  isPreviewPlaying: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors",
+        "group relative flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all duration-200",
         selected
-          ? "border-blue-500 bg-blue-50/60 ring-2 ring-blue-500 dark:bg-blue-500/10"
-          : "border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+          ? "border-primary/60 bg-gradient-to-b from-accent to-accent/40 shadow-[0_0_0_1px_var(--color-primary),0_10px_28px_-8px_rgba(51,92,255,0.4)] dark:from-primary/[0.12] dark:to-primary/[0.03]"
+          : "border-hairline bg-surface shadow-card hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-hover"
       )}
     >
-      <Avatar name={voice.id} size="md" />
+      <Avatar
+        name={voice.id}
+        size="md"
+        hideInitials
+        className={cn("shadow-sm ring-2", selected ? "ring-primary/25" : "ring-surface dark:ring-white/5")}
+      />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{voice.id}</p>
-          <Badge>{voice.style}</Badge>
+        <div className="flex items-baseline gap-1">
+          <p className="truncate text-sm font-semibold text-heading">{voice.id}</p>
+          <span className="text-subtle">·</span>
+          <span className="truncate text-sm font-medium text-primary">{voice.gender}</span>
         </div>
+        <p className="truncate text-xs text-subtle">{voice.description}</p>
       </div>
+      {selected && (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_6px_rgba(51,92,255,0.5)]">
+          <Check className="h-3 w-3" strokeWidth={3} />
+        </span>
+      )}
       <button
         type="button"
         onClick={(event) => {
           event.stopPropagation();
           onPlay();
         }}
-        aria-label={`Preview ${voice.id}`}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800"
+        aria-label={isPreviewPlaying ? `Stop ${voice.id} preview` : `Preview ${voice.id}`}
+        className={cn(
+          "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-200 hover:scale-105 active:scale-[0.94]",
+          selected || isPreviewPlaying
+            ? "text-white"
+            : "bg-app text-subtle ring-1 ring-inset ring-black/[0.06] hover:text-primary hover:ring-primary/30 dark:bg-white/5 dark:ring-white/10"
+        )}
+        style={
+          selected || isPreviewPlaying
+            ? {
+                background: "linear-gradient(to bottom, rgb(59, 130, 246), rgb(37, 99, 235))",
+                boxShadow:
+                  "0 2px 8px 0 rgba(37, 99, 235, 0.4), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(37, 99, 235, 0.5) inset",
+              }
+            : undefined
+        }
       >
-        {isPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+        {(selected || isPreviewPlaying) && (
+          <span
+            className="pointer-events-none absolute left-1/2 top-0 h-2/5 w-[70%] -translate-x-1/2 rounded-t-full"
+            style={{
+              background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 80%)",
+              filter: "blur(1px)",
+            }}
+          />
+        )}
+        <span className="relative z-10 flex items-center justify-center">
+          {isPreviewLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isPreviewPlaying ? (
+            <Pause className="h-3.5 w-3.5" fill="currentColor" />
+          ) : (
+            <Play className="h-3.5 w-3.5" fill="currentColor" />
+          )}
+        </span>
       </button>
     </button>
   );
@@ -196,31 +215,33 @@ function Timeline({
   const step = total <= 10 ? 0.5 : total <= 30 ? 1 : total <= 120 ? 5 : 10;
   const ticks: number[] = [];
   for (let t = 0; t <= total; t += step) ticks.push(t);
+  const playheadPct = Math.min(100, (currentTime / total) * 100);
 
   return (
-    <div>
-      <div className="relative h-4 text-[10px] font-medium text-slate-400">
-        {ticks.map((t) => (
+    <div className="relative">
+      <div className="relative h-4 text-[10px] font-medium text-subtle">
+        {ticks.map((t, i) => (
           <span key={t} className="absolute -translate-x-1/2" style={{ left: `${(t / total) * 100}%` }}>
-            {t % 1 === 0 ? t : t.toFixed(1)}s
+            {i % 2 === 0 ? `${t % 1 === 0 ? t : t.toFixed(1)}s` : "•"}
           </span>
         ))}
       </div>
-      <div className="relative mt-1 flex h-9 w-full overflow-hidden rounded-lg bg-slate-100 dark:bg-zinc-900">
+      <div className="mt-1 flex h-9 w-full items-stretch gap-1">
         {durations.map((duration, index) => (
           <div
             key={index}
             className={cn(
-              "h-full border-r border-white/70 dark:border-black/40",
-              index === activeIndex ? "bg-blue-400 dark:bg-blue-500/70" : "bg-blue-200 dark:bg-blue-500/25"
+              "flex items-center justify-center rounded-full border text-[11px] font-bold transition-colors",
+              index === activeIndex ? "border-primary bg-primary text-white" : "border-primary/30 bg-accent text-primary"
             )}
-            style={{ width: `${(duration / total) * 100}%` }}
-          />
+            style={{ width: `${(duration / total) * 100}%`, minWidth: 26 }}
+          >
+            {index + 1}
+          </div>
         ))}
-        <div
-          className="absolute inset-y-0 w-0.5 bg-blue-600"
-          style={{ left: `${Math.min(100, (currentTime / total) * 100)}%` }}
-        />
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 w-px bg-primary" style={{ left: `${playheadPct}%` }}>
+        <span className="absolute -left-[5px] -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-surface" />
       </div>
     </div>
   );
@@ -232,13 +253,19 @@ export function VoiceoverGenerator() {
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE_ID);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("line_by_line");
-  const [speed, setSpeed] = useState(DEFAULT_SPEED);
-  const [stability, setStability] = useState(DEFAULT_STABILITY);
+  const generationMode: GenerationMode = "all_at_once";
+  const [stylePrompt, setStylePrompt] = useState(DEFAULT_STYLE_PROMPT);
+  const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
+
+  const [sidebarTab, setSidebarTab] = useState<"settings" | "history">("settings");
+  const [historyRefreshSignal, setHistoryRefreshSignal] = useState(0);
+  const [selectingHistoryId, setSelectingHistoryId] = useState<string | null>(null);
 
   const [isVoiceDrawerOpen, setIsVoiceDrawerOpen] = useState(false);
   const [voiceSearch, setVoiceSearch] = useState("");
+  const [voiceGenderFilter, setVoiceGenderFilter] = useState<VoiceGenderFilter>("All");
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -248,6 +275,7 @@ export function VoiceoverGenerator() {
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [segments, setSegments] = useState<SegmentState[]>([]);
   const pollCancelRef = useRef<(() => void) | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   const [editorTab, setEditorTab] = useState<EditorTab>("editor");
   const [isAddingSegment, setIsAddingSegment] = useState(false);
@@ -289,11 +317,17 @@ export function VoiceoverGenerator() {
 
   const filteredVoices = useMemo(() => {
     return VOICE_OPTIONS.filter((voice) => {
+      if (voiceGenderFilter !== "All" && voice.gender !== voiceGenderFilter) return false;
       if (!voiceSearch.trim()) return true;
       const query = voiceSearch.trim().toLowerCase();
-      return voice.id.toLowerCase().includes(query) || voice.style.toLowerCase().includes(query);
+      return (
+        voice.id.toLowerCase().includes(query) ||
+        voice.style.toLowerCase().includes(query) ||
+        voice.gender.toLowerCase().includes(query) ||
+        voice.description.toLowerCase().includes(query)
+      );
     });
-  }, [voiceSearch]);
+  }, [voiceSearch, voiceGenderFilter]);
 
   const estimatedSegments = useMemo(() => estimateSegmentTexts(script, generationMode), [script, generationMode]);
   const estimatedCredits = useMemo(
@@ -307,12 +341,17 @@ export function VoiceoverGenerator() {
     return () => pollCancelRef.current?.();
   }, []);
 
-  function resetSliders() {
-    setSpeed(DEFAULT_SPEED);
-    setStability(DEFAULT_STABILITY);
+  function resetStyle() {
+    setStylePrompt(DEFAULT_STYLE_PROMPT);
+    setLanguageCode(DEFAULT_LANGUAGE_CODE);
   }
 
   async function playVoicePreview(voice: VoiceOption) {
+    if (playingPreviewId === voice.id) {
+      previewAudioRef.current?.pause();
+      setPlayingPreviewId(null);
+      return;
+    }
     setPreviewingVoiceId(voice.id);
     setPreviewError(null);
     try {
@@ -324,6 +363,7 @@ export function VoiceoverGenerator() {
       if (previewAudioRef.current) {
         previewAudioRef.current.src = data.url;
         await previewAudioRef.current.play();
+        setPlayingPreviewId(voice.id);
       }
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : "Could not load preview");
@@ -352,6 +392,7 @@ export function VoiceoverGenerator() {
           setSegments(row.segments.map((s) => ({ text: s.text, durationSeconds: s.durationSeconds })));
           setView("editor");
           setIsGenerating(false);
+          setHistoryRefreshSignal((n) => n + 1);
         } else if (row.status === "failed") {
           setGenerationError(row.error_message ?? "Something went wrong. Try again.");
           setView("input");
@@ -370,6 +411,29 @@ export function VoiceoverGenerator() {
     );
   }
 
+  // Real completion arrives via `pollGeneration` above, which can take up to
+  // a few minutes -- so the bar can't just sweep to 100% on a fixed timer
+  // (it would finish and loop several times before the voiceover is
+  // actually ready). Instead it creeps toward a near-complete cap and holds
+  // there; only the real `setView("editor")` on completion ever unmounts it.
+  useEffect(() => {
+    if (view !== "loading") {
+      setLoadingProgress(0);
+      return;
+    }
+    const cap = 96;
+    const easeSeconds = 45;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (ts: number) => {
+      const elapsed = (ts - start) / 1000;
+      setLoadingProgress(cap * (1 - Math.exp(-elapsed / easeSeconds)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [view]);
+
   async function handleGenerate() {
     if (!script.trim() || isGenerating) return;
     setIsGenerating(true);
@@ -380,7 +444,7 @@ export function VoiceoverGenerator() {
       const response = await fetch("/api/generate-voiceover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, script, voiceId, speed, stability, generationMode }),
+        body: JSON.stringify({ title, script, voiceId, stylePrompt, languageCode, generationMode }),
       });
 
       if (response.status === 402) {
@@ -525,11 +589,44 @@ export function VoiceoverGenerator() {
     }
   }
 
+  async function handleSelectHistoryItem(item: VoiceoverHistoryItem) {
+    if (selectingHistoryId) return;
+    setSelectingHistoryId(item.id);
+    setGenerationError(null);
+    try {
+      const response = await fetch(`/api/generate-voiceover?id=${item.id}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Could not load that generation");
+      const row = data?.generations?.[0];
+      if (!row) throw new Error("That generation could not be found");
+
+      audioRef.current?.pause();
+      setPlayingIndex(null);
+      setIsSequenceMode(false);
+      setCurrentTime(0);
+
+      setTitle(row.title ?? "");
+      setScript(row.script ?? "");
+      setVoiceId(row.voice_id);
+      setStylePrompt(row.style_prompt);
+      setLanguageCode(row.language_code);
+      setGenerationId(row.id);
+      setSegments((row.segments ?? []).map((s: { text: string; durationSeconds: number }) => ({ text: s.text, durationSeconds: s.durationSeconds })));
+      setEditorTab("editor");
+      setView("editor");
+      setSidebarTab("settings");
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : "Could not load that generation");
+    } finally {
+      setSelectingHistoryId(null);
+    }
+  }
+
   const charCount = script.length;
 
   return (
     <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
-      <audio ref={previewAudioRef} className="hidden" />
+      <audio ref={previewAudioRef} className="hidden" onEnded={() => setPlayingPreviewId(null)} />
       <audio
         ref={audioRef}
         className="hidden"
@@ -545,63 +642,61 @@ export function VoiceoverGenerator() {
           <h1 className="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-white dark:via-white dark:to-blue-400 sm:text-4xl">
             {view === "editor" ? "Generate Voiceover" : "Create Voiceover"}
           </h1>
-          <p className="mt-2 text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400 sm:text-sm">
+          <p className="mt-2 text-xs font-medium tracking-wide text-subtle sm:text-sm">
             Turn a script into natural-sounding narration.
           </p>
         </div>
 
         {generationError && (
-          <p className="mb-4 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
+          <p className="mb-4 rounded-xl bg-danger-tint px-4 py-2.5 text-sm font-medium text-danger" role="alert">
             {generationError}
           </p>
         )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* ── Left column: main workspace ───────────────────────────── */}
-          <div className="relative flex min-h-[600px] flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="relative flex min-h-[600px] flex-col rounded-2xl border border-hairline bg-app p-3 shadow-card dark:bg-surface">
             {view !== "editor" && (
               <>
-                <input
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Untitled Script"
-                  disabled={view === "loading"}
-                  className="w-full bg-transparent text-lg font-semibold text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-600"
-                />
+                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface dark:bg-[#0D0D10]">
+                  <input
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Untitled Script"
+                    disabled={view === "loading"}
+                    className="w-full bg-transparent px-4 pt-4 text-lg font-semibold text-heading outline-none placeholder:text-subtle disabled:opacity-60"
+                  />
 
-                {view === "loading" ? (
-                  <div className="relative mt-3 flex flex-1 flex-col items-center justify-center gap-3 rounded-xl bg-slate-50 dark:bg-zinc-900/50">
-                    <span className="absolute right-4 top-4 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm dark:bg-zinc-800 dark:text-slate-400">
-                      Wait 1-3 minutes...
-                    </span>
-                    <div className="relative flex h-14 w-14 items-center justify-center">
-                      <span className="absolute h-14 w-14 animate-ping rounded-full bg-blue-400/30" />
-                      <Sparkles className="relative h-7 w-7 animate-pulse text-blue-500" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Splitting Script</p>
-                    <p className="max-w-xs text-center text-xs text-slate-400">
-                      Finding pauses that sound natural when spoken...
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <textarea
-                      value={script}
-                      onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
-                      placeholder="Type your script here..."
-                      maxLength={MAX_SCRIPT_CHARS}
-                      className="mt-3 min-h-[320px] flex-1 resize-none bg-transparent text-sm leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-zinc-600"
-                    />
-                    <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-zinc-800">
-                      <span className="text-xs font-medium text-slate-400">
-                        {charCount.toLocaleString()}/{MAX_SCRIPT_CHARS.toLocaleString()}
+                  {view === "loading" ? (
+                    <div className="relative m-3 mt-2 flex flex-1 flex-col items-center justify-center gap-3 rounded-lg bg-surface px-6">
+                      <span className="absolute right-4 top-4 rounded-full bg-surface px-3 py-1 text-xs font-medium text-subtle shadow-card">
+                        Wait 1-3 minutes...
                       </span>
-                      <Badge>
-                        {estimatedCredits} credit{estimatedCredits === 1 ? "" : "s"}
-                      </Badge>
+                      <ProgressiveFluxLoader
+                        phases={VOICEOVER_LOADING_PHASES}
+                        value={loadingProgress}
+                      />
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <textarea
+                        value={script}
+                        onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
+                        placeholder="Type your script here..."
+                        maxLength={MAX_SCRIPT_CHARS}
+                        className="mt-2 min-h-[300px] flex-1 resize-none bg-transparent px-4 pb-3 text-sm leading-relaxed text-body outline-none placeholder:text-subtle"
+                      />
+                      <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
+                        <span className="text-xs font-medium text-subtle">
+                          {charCount.toLocaleString()}/{MAX_SCRIPT_CHARS.toLocaleString()}
+                        </span>
+                        <Badge>
+                          {estimatedCredits} credit{estimatedCredits === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <PlasticButton
                   text="Generate"
@@ -609,7 +704,7 @@ export function VoiceoverGenerator() {
                   loadingText="Generating…"
                   disabled={!script.trim()}
                   onClick={handleGenerate}
-                  className="mt-4 w-full py-3"
+                  className="mt-3 w-full py-3"
                   trailing={<Sparkles className="h-4 w-4" />}
                 />
               </>
@@ -618,20 +713,19 @@ export function VoiceoverGenerator() {
             {view === "editor" && generationId && (
               <>
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="truncate text-base font-semibold text-slate-900 dark:text-white">{title || "Untitled Script"}</h2>
-                  <div className="flex shrink-0 rounded-full bg-slate-100 p-1 dark:bg-zinc-900">
+                  <h2 className="truncate text-base font-semibold text-heading">{title || "Untitled Script"}</h2>
+                  <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
                     {(["editor", "audio"] as const).map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setEditorTab(tab)}
                         className={cn(
-                          "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                          editorTab === tab
-                            ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                            : "text-slate-500 dark:text-slate-400"
+                          "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                          editorTab === tab ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
                         )}
                       >
+                        {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
                         {tab === "editor" ? "Voiceover editor" : "Generated audio"}
                       </button>
                     ))}
@@ -642,19 +736,18 @@ export function VoiceoverGenerator() {
                   {editorTab === "editor" ? (
                     <>
                       {segments.map((segment, index) => (
-                        <div
-                          key={index}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl border p-3 transition-colors",
-                            playingIndex === index
-                              ? "border-blue-300 bg-blue-50/50 dark:border-blue-500/40 dark:bg-blue-500/5"
-                              : "border-slate-200 bg-slate-50/60 dark:border-zinc-800 dark:bg-zinc-900/40"
-                          )}
-                        >
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-slate-500 shadow-sm dark:bg-zinc-800 dark:text-slate-400">
+                        <div key={index} className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
                             {index + 1}
                           </span>
-                          <p className="min-w-0 flex-1 truncate text-sm text-slate-700 dark:text-slate-200">{segment.text}</p>
+                          <div
+                            className={cn(
+                              "min-w-0 flex-1 rounded-xl border px-4 py-2.5 shadow-card transition-colors",
+                              playingIndex === index ? "border-primary/40 bg-accent/60" : "border-hairline bg-surface"
+                            )}
+                          >
+                            <p className="truncate text-sm text-body">{segment.text}</p>
+                          </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <IconButton title="Play segment" onClick={() => playSegment(index)} active={playingIndex === index && !isSequenceMode}>
                               {playingIndex === index && !isSequenceMode && isPlaying ? (
@@ -664,7 +757,7 @@ export function VoiceoverGenerator() {
                               )}
                             </IconButton>
                             <IconButton title="Loop segment" onClick={() => toggleLoopForSegment(index)} active={loopIndex === index}>
-                              <Repeat className="h-3.5 w-3.5" />
+                              <RotateCcw className="h-3.5 w-3.5" />
                             </IconButton>
                             <IconButton
                               title="Delete segment"
@@ -672,20 +765,20 @@ export function VoiceoverGenerator() {
                               disabled={deletingIndex === index}
                               onClick={() => handleDeleteSegment(index)}
                             >
-                              {deletingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              {deletingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                             </IconButton>
                           </div>
                         </div>
                       ))}
 
                       {isAddingSegment ? (
-                        <div className="rounded-xl border border-slate-200 p-3 dark:border-zinc-800">
+                        <div className="rounded-xl border border-hairline p-3">
                           <textarea
                             value={newSegmentText}
                             onChange={(event) => setNewSegmentText(event.target.value.slice(0, 1000))}
                             placeholder="Type the new segment's text..."
                             autoFocus
-                            className="min-h-[70px] w-full resize-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                            className="min-h-[70px] w-full resize-none bg-transparent text-sm text-body outline-none placeholder:text-subtle"
                           />
                           <div className="mt-2 flex items-center justify-end gap-2">
                             <button
@@ -694,7 +787,7 @@ export function VoiceoverGenerator() {
                                 setIsAddingSegment(false);
                                 setNewSegmentText("");
                               }}
-                              className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                              className="rounded-lg px-3 py-1.5 text-xs font-medium text-subtle hover:bg-accent hover:text-heading"
                             >
                               Cancel
                             </button>
@@ -711,27 +804,30 @@ export function VoiceoverGenerator() {
                         <button
                           type="button"
                           onClick={() => setIsAddingSegment(true)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-slate-400 hover:text-slate-700 dark:border-zinc-700 dark:text-slate-400 dark:hover:border-zinc-600 dark:hover:text-slate-200"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-medium text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
                         >
                           <Plus className="h-4 w-4" /> Add Segment
                         </button>
                       )}
                     </>
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-slate-50 py-16 text-center dark:bg-zinc-900/50">
-                      <Sparkles className="h-6 w-6 text-blue-400" />
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{segments.length} segments generated</p>
-                      <p className="text-xs text-slate-400">Use the player below to listen to the full voiceover.</p>
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-app/60 py-16 text-center">
+                      <Sparkles className="h-6 w-6 text-primary" />
+                      <p className="text-sm font-semibold text-heading">{segments.length} segments generated</p>
+                      <p className="text-xs text-subtle">Use the player below to listen to the full voiceover.</p>
                     </div>
                   )}
                 </div>
 
-                {exportError && <p className="mt-2 text-xs font-medium text-red-500">{exportError}</p>}
+                {exportError && <p className="mt-2 text-xs font-medium text-danger">{exportError}</p>}
 
                 {/* ── Bottom audio player ─────────────────────────────── */}
-                <div className="mt-4 border-t border-slate-100 pt-4 dark:border-zinc-800">
+                <div className="mt-4 border-t border-hairline pt-4">
                   <Timeline durations={durations.length > 0 ? durations : [1]} currentTime={currentTime} activeIndex={playingIndex} />
-                  <div className="mt-3 flex items-center justify-between">
+                  <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <span className="text-xs font-medium tabular-nums text-subtle">
+                      {formatTime(currentTime)} / {formatTime(durations.reduce((sum, d) => sum + d, 0))}
+                    </span>
                     <div className="flex items-center gap-1.5">
                       <IconButton
                         title="Previous segment"
@@ -745,9 +841,18 @@ export function VoiceoverGenerator() {
                         onClick={togglePlayPause}
                         disabled={segments.length === 0}
                         aria-label={isSequenceMode && isPlaying ? "Pause" : "Play"}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900"
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        style={{
+                          background: "linear-gradient(to bottom, rgb(59, 130, 246), rgb(37, 99, 235))",
+                          boxShadow:
+                            "0 2px 8px 0 rgba(37, 99, 235, 0.4), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(37, 99, 235, 0.5) inset",
+                        }}
                       >
-                        {isSequenceMode && isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-0.5" />}
+                        {isSequenceMode && isPlaying ? (
+                          <Pause className="h-4 w-4" fill="currentColor" />
+                        ) : (
+                          <Play className="h-4 w-4" fill="currentColor" />
+                        )}
                       </button>
                       <IconButton
                         title="Next segment"
@@ -757,14 +862,16 @@ export function VoiceoverGenerator() {
                         <SkipForward className="h-4 w-4" />
                       </IconButton>
                     </div>
-                    <PlasticButton
-                      text="Export"
-                      loading={isExporting}
-                      loadingText="Exporting…"
-                      disabled={segments.length === 0}
-                      onClick={handleExport}
-                      trailing={<Download className="h-3.5 w-3.5" />}
-                    />
+                    <div className="flex justify-end">
+                      <PlasticButton
+                        text="Export"
+                        loading={isExporting}
+                        loadingText="Exporting…"
+                        disabled={segments.length === 0}
+                        onClick={handleExport}
+                        trailing={<Download className="h-3.5 w-3.5" />}
+                      />
+                    </div>
                   </div>
                 </div>
               </>
@@ -774,33 +881,50 @@ export function VoiceoverGenerator() {
           {/* ── Right column: sidebar / voice drawer ──────────────────── */}
           <div className="relative">
             {isVoiceDrawerOpen ? (
-              <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="flex items-center gap-2 border-b border-slate-100 p-4 dark:border-zinc-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsVoiceDrawerOpen(false)}
-                    aria-label="Back"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Select a Voice</h2>
+              <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-hairline bg-app/60 shadow-card dark:bg-white/[0.015]">
+                <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsVoiceDrawerOpen(false)}
+                      aria-label="Back"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-accent hover:text-primary"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <h2 className="text-sm font-semibold text-heading">Select a Voice</h2>
+                  </div>
+                  <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
+                    {(["All", "Male", "Female"] as const).map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setVoiceGenderFilter(option)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                          voiceGenderFilter === option ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
+                        )}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="px-4 pt-3">
+                <div className="px-4 pt-3.5">
                   <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" />
                     <input
                       value={voiceSearch}
                       onChange={(event) => setVoiceSearch(event.target.value)}
                       placeholder="Search voices"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-slate-100 dark:focus:border-blue-500"
+                      className="w-full rounded-xl border border-hairline bg-surface py-2.5 pl-9 pr-3 text-sm text-heading shadow-card outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
                     />
                   </div>
                 </div>
 
                 {previewError && (
-                  <p className="mx-4 mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-500/10 dark:text-red-400" role="alert">
+                  <p className="mx-4 mt-2 rounded-lg bg-danger-tint px-3 py-2 text-xs font-medium text-danger" role="alert">
                     {previewError}
                   </p>
                 )}
@@ -809,13 +933,13 @@ export function VoiceoverGenerator() {
                   type="button"
                   disabled
                   title="Coming soon"
-                  className="mx-4 mt-3 flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-400 opacity-70 dark:border-zinc-700 dark:text-slate-500"
+                  className="mx-4 mt-3.5 flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-subtle opacity-70"
                 >
                   <Plus className="h-4 w-4" /> Add Your Voice
                   <Badge>Coming soon</Badge>
                 </button>
 
-                <div className="mt-3 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+                <div className="mt-3.5 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4 pt-1">
                   {filteredVoices.map((voice) => (
                     <VoiceCard
                       key={voice.id}
@@ -824,68 +948,146 @@ export function VoiceoverGenerator() {
                       onSelect={() => {
                         setVoiceId(voice.id);
                         setIsVoiceDrawerOpen(false);
+                        previewAudioRef.current?.pause();
+                        setPlayingPreviewId(null);
                       }}
                       onPlay={() => playVoicePreview(voice)}
                       isPreviewLoading={previewingVoiceId === voice.id}
+                      isPreviewPlaying={playingPreviewId === voice.id}
                     />
                   ))}
                   {filteredVoices.length === 0 && (
-                    <p className="py-8 text-center text-sm text-slate-400">No voices match your search.</p>
+                    <p className="py-8 text-center text-sm text-subtle">No voices match your search.</p>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Voice Style</h2>
+              <div className="flex h-full flex-col gap-3 rounded-3xl bg-app p-3 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+                <div className="flex shrink-0 rounded-xl bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+                  {(
+                    [
+                      { key: "settings", label: "Settings", icon: Settings2 },
+                      { key: "history", label: "History", icon: History },
+                    ] as const
+                  ).map(({ key, label, icon: TabIcon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSidebarTab(key)}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                        sidebarTab === key ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
+                      )}
+                    >
+                      <TabIcon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {sidebarTab === "history" ? (
+                  <HistoryPanel onSelect={handleSelectHistoryItem} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
+                ) : (
+                  <div className="rounded-2xl border border-hairline bg-surface shadow-card dark:bg-white/[0.02]">
+                    <div className="group p-5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-accent to-primary/15 text-primary">
+                          <Mic2 className="h-3.5 w-3.5" />
+                        </span>
+                        <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Voice Style</h2>
+                      </div>
                   <button
                     type="button"
                     onClick={() => setIsVoiceDrawerOpen(true)}
-                    className="mt-2.5 flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition-colors hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                    className="group/row mt-3 flex w-full items-center gap-3 rounded-xl border border-hairline bg-app/60 p-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50 dark:bg-white/[0.02]"
                   >
-                    <Avatar name={selectedVoice.id} size="md" />
+                    <Avatar name={selectedVoice.id} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{selectedVoice.id}</p>
-                      <p className="truncate text-xs text-slate-400">{selectedVoice.style}</p>
+                      <div className="flex items-baseline gap-1">
+                        <p className="truncate text-sm font-semibold text-heading">{selectedVoice.id}</p>
+                        <span className="text-subtle">·</span>
+                        <span className="truncate text-sm font-medium text-primary">{selectedVoice.gender}</span>
+                      </div>
+                      <p className="truncate text-xs text-subtle">{selectedVoice.description}</p>
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-transform duration-200 group-hover/row:translate-x-0.5">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </span>
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-                  <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Generation Mode</h2>
-                  <div className="mt-2.5 flex rounded-full bg-slate-100 p-1 dark:bg-zinc-900">
-                    {([
-                      { value: "line_by_line", label: "Line by Line" },
-                      { value: "all_at_once", label: "All at Once" },
-                    ] as const).map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setGenerationMode(option.value)}
-                        className={cn(
-                          "flex-1 rounded-full py-1.5 text-xs font-semibold transition-colors",
-                          generationMode === option.value
-                            ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                            : "text-slate-500 dark:text-slate-400"
-                        )}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="border-t border-hairline p-5">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Voice Adjustment</h2>
-                    <button type="button" onClick={resetSliders} className="text-xs font-semibold text-blue-500 hover:text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-primary ring-1 ring-primary/10">
+                        <Wand2 className="h-3.5 w-3.5" />
+                      </span>
+                      <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Speaking Style</h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={resetStyle}
+                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/10"
+                    >
+                      <RotateCcw className="h-3 w-3" />
                       Reset
                     </button>
                   </div>
-                  <SliderRow label="Speed" value={speed} min={0.5} max={2} step={0.01} onChange={setSpeed} format={(v) => v.toFixed(2)} />
-                  <SliderRow label="Stability" value={stability} min={0} max={100} step={1} onChange={setStability} format={(v) => `${v}%`} />
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {STYLE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setStylePrompt(preset.prompt)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 ease-[cubic-bezier(0.19,1,0.22,1)]",
+                          stylePrompt === preset.prompt
+                            ? "bg-gradient-to-b from-primary to-primary-hover text-white shadow-[0_1px_1px_rgba(255,255,255,0.25)_inset,0_4px_12px_-2px_rgba(51,92,255,0.5),0_0_0_5px_rgba(51,92,255,0.14)]"
+                            : "bg-app text-subtle shadow-[0_1px_2px_rgba(16,24,40,0.04)] ring-1 ring-inset ring-hairline hover:-translate-y-px hover:text-heading hover:shadow-[0_2px_6px_rgba(16,24,40,0.06)] hover:ring-primary/25 dark:bg-white/[0.03]"
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative mt-3">
+                    <textarea
+                      value={stylePrompt}
+                      onChange={(event) => setStylePrompt(event.target.value.slice(0, MAX_STYLE_PROMPT_CHARS))}
+                      placeholder="Describe how it should sound, e.g. &quot;Speak with excitement and energy.&quot;"
+                      rows={2}
+                      className="w-full resize-none rounded-xl border border-hairline bg-app/60 p-3 pb-5 text-sm text-heading outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
+                    />
+                    <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium tabular-nums text-subtle/60">
+                      {stylePrompt.length}/{MAX_STYLE_PROMPT_CHARS}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 border-t border-hairline pt-4">
+                    <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                      <Languages className="h-3 w-3" />
+                      Language
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={languageCode}
+                        onChange={(event) => setLanguageCode(event.target.value)}
+                        className="w-full appearance-none rounded-lg border border-hairline bg-app/60 px-3 py-2 pr-8 text-sm text-heading outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
+                      >
+                        {LANGUAGE_OPTIONS.map((language) => (
+                          <option key={language.code} value={language.code}>
+                            {language.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" />
+                    </div>
+                  </div>
                 </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

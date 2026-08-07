@@ -1,52 +1,79 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 import {
+  AlignLeft,
   Check,
+  Clipboard,
   Copy,
   Download,
-  ExternalLink,
   GalleryVerticalEnd,
   ImageIcon,
+  Info,
   LayoutGrid,
   Loader2,
   Minus,
+  ImagePlus,
+  MoreVertical,
   Plus,
   Search,
   Sparkles,
   SlidersHorizontal,
+  Trash2,
   Upload,
+  Video,
+  Wand2,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
 import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { writeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
 
+// Replicate listing for each option's underlying model -- mirrors
+// REPLICATE_MODEL in src/lib/server/replicate-image.ts (that file is
+// server-only, so the slugs are duplicated here rather than imported).
 export const MODEL_OPTIONS = [
-  { value: "Nano Banana", label: "Nano Banana", icon: GEMINI_ICON, description: "Fast, lower quality — 1 credit" },
-  { value: "Nano Banana 2", label: "Nano Banana 2", icon: GEMINI_ICON, description: "Recommended — 2-3 credits" },
+  {
+    value: "Nano Banana",
+    label: "Nano Banana",
+    icon: GEMINI_ICON,
+    description: "Fast, lower quality — 1 credit",
+    href: "https://replicate.com/google/nano-banana",
+  },
+  {
+    value: "Nano Banana 2",
+    label: "Nano Banana 2",
+    icon: GEMINI_ICON,
+    description: "Recommended — 2-3 credits",
+    href: "https://replicate.com/google/nano-banana-2",
+  },
   {
     value: "Nano Banana Pro",
     label: "Nano Banana Pro",
     icon: GEMINI_ICON,
     description: "Highest quality, slower — 3-4 credits",
+    href: "https://replicate.com/google/nano-banana-pro",
   },
   {
     value: "Nano Banana 2 Lite",
     label: "Nano Banana 2 Lite",
     icon: GEMINI_ICON,
     description: "Fastest & cheapest — 1 credit",
+    href: "https://replicate.com/google/nano-banana",
   },
   {
     value: "GPT Image 2",
@@ -54,6 +81,7 @@ export const MODEL_OPTIONS = [
     icon: GPT_ICON,
     invertDark: true,
     description: "Sharp detail, great prompt following — 3-4 credits",
+    href: "https://replicate.com/openai/gpt-image-2",
   },
 ];
 
@@ -136,9 +164,13 @@ interface GenerationHistoryItem {
 type MosaicCell = { kind: "pending" } | { kind: "item"; item: GenerationHistoryItem };
 
 interface PreviewItem {
+  id: string;
+  index: number;
   src: string;
   prompt: string;
   model: string;
+  aspectRatio: string;
+  outputs: number;
   createdAt: string;
 }
 
@@ -189,14 +221,16 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   link.click();
 }
 
-function openDataUrlInNewTab(dataUrl: string) {
+// Used by the preview modal's "Remix" action to hand a generated image back
+// in as a reference image -- the reference-image slot takes a File (it's
+// shared with the manual upload input), not a data URL.
+function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, base64] = dataUrl.split(",");
   const mime = header.match(/^data:([^;]+);/)?.[1] ?? "image/jpeg";
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
-  window.open(url, "_blank");
+  return new File([bytes], filename, { type: mime });
 }
 
 function PendingGenerationTile({ aspectRatio, fill = false }: { aspectRatio: string; fill?: boolean }) {
@@ -232,7 +266,364 @@ function RatioIcon({ ratio, className }: { ratio: string; className?: string }) 
   );
 }
 
+type HistoryTileAction = "download" | "remix" | "animate" | "addReference" | "delete";
+const HISTORY_MENU_WIDTH = 192; // px -- w-48
+
+// A "Recent Generations" gallery card. Hovering raises a dark quick-action
+// overlay (model/time badges, download/copy/more, and a Remix/Animate bar)
+// on top of the thumbnail -- mirrors the competitor gallery pattern the user
+// referenced, without needing to open the full preview modal for common
+// actions. Shared between the Mosaic and Grid layouts, which only differ in
+// how they size the tile (aspect-ratio style vs. a fixed aspect-square class).
+function HistoryTile({
+  item,
+  style,
+  className,
+  loading,
+  onOpen,
+  onDownload,
+  onCopyPrompt,
+  onRemix,
+  onAnimate,
+  onAddAsReference,
+  onDelete,
+  onError,
+}: {
+  item: GenerationHistoryItem;
+  style?: React.CSSProperties;
+  className?: string;
+  loading: boolean;
+  onOpen: () => void;
+  onDownload: () => Promise<void>;
+  onCopyPrompt: () => void;
+  onRemix: () => Promise<void>;
+  onAnimate: () => Promise<void>;
+  onAddAsReference: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const [busyAction, setBusyAction] = useState<HistoryTileAction | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setPortalTarget(document.body), []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || moreButtonRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [menuOpen]);
+
+  async function runAction(action: HistoryTileAction, fn: () => Promise<void>) {
+    setBusyAction(action);
+    try {
+      await fn();
+    } catch {
+      onError("Something went wrong. Try again.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function toggleMenu(event: React.MouseEvent) {
+    event.stopPropagation();
+    if (!menuOpen && moreButtonRef.current) {
+      const rect = moreButtonRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 6,
+        left: Math.max(8, Math.min(rect.right - HISTORY_MENU_WIDTH, window.innerWidth - HISTORY_MENU_WIDTH - 8)),
+      });
+    }
+    setMenuOpen((prev) => !prev);
+  }
+
+  return (
+    <div
+      className={cn(
+        "group relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950",
+        className
+      )}
+      style={style}
+    >
+      <button type="button" disabled={loading} onClick={onOpen} className="absolute inset-0 block h-full w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
+        <img src={`/api/library/image/${item.id}/0?w=640`} alt="" className="h-full w-full object-cover" />
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
+            <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+          </div>
+        )}
+      </button>
+
+      {/* Always pointer-events-none: the gradient/badges/caption must let
+          clicks fall through to the "open" button above -- only the actual
+          buttons inside (each explicitly pointer-events-auto) intercept. */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/50" />
+
+        <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
+          <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md">
+            <Sparkles className="h-3 w-3 shrink-0" />
+            {item.model}
+          </span>
+          <span className="whitespace-nowrap rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white/80 backdrop-blur-md">
+            {formatRelativeTime(item.created_at)}
+          </span>
+        </div>
+
+        <div className="pointer-events-auto absolute right-2.5 top-2.5 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void runAction("download", onDownload);
+            }}
+            disabled={busyAction !== null}
+            aria-label="Download"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80 disabled:opacity-60"
+          >
+            {busyAction === "download" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onCopyPrompt();
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            aria-label="Copy prompt"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
+          >
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            ref={moreButtonRef}
+            type="button"
+            onClick={toggleMenu}
+            aria-label="More options"
+            aria-expanded={menuOpen}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80",
+              menuOpen && "bg-black/80"
+            )}
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="pointer-events-auto absolute inset-x-0 bottom-0 p-2.5">
+          <p className="mb-2 line-clamp-2 text-xs font-medium leading-snug text-white/90">{item.prompt}</p>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void runAction("remix", onRemix);
+              }}
+              disabled={busyAction !== null}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
+            >
+              {busyAction === "remix" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              Remix
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void runAction("animate", onAnimate);
+              }}
+              disabled={busyAction !== null}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
+            >
+              {busyAction === "animate" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
+              Animate
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {portalTarget &&
+        menuPos &&
+        createPortal(
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                style={{ top: menuPos.top, left: menuPos.left, width: HISTORY_MENU_WIDTH }}
+                className="fixed z-[110] overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 py-1.5 shadow-2xl backdrop-blur-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onCopyPrompt();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:bg-white/10"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy prompt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void runAction("addReference", onAddAsReference);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-white/90 transition-colors hover:bg-white/10"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  Add as reference
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void runAction("delete", onDelete);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalTarget
+        )}
+    </div>
+  );
+}
+
+const REF_PREVIEW_MAX_DIM = 280; // px -- the floating hover preview's longer side is capped here
+const REF_PREVIEW_MARGIN = 16; // keep the floating preview clear of viewport edges
+
+// The small reference-image chip that sits in the toolbar once a file is
+// attached. Hovering it raises a large floating preview that tracks the
+// cursor (spring-smoothed, not 1:1) -- clicking the thumbnail re-opens the
+// file picker to swap the image, while the corner "x" removes it.
+function RefPreviewThumbnail({ src, onRemove, onReplace }: { src: string; onRemove: () => void; onReplace: () => void }) {
+  const [hovering, setHovering] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
+  // The floating preview should show the reference image at its own aspect
+  // ratio (not force-cropped into a square), so its natural size is loaded
+  // up front rather than discovered mid-hover.
+  const [naturalDims, setNaturalDims] = useState<{ width: number; height: number } | null>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springX = useSpring(mouseX, { stiffness: 350, damping: 32, mass: 0.6 });
+  const springY = useSpring(mouseY, { stiffness: 350, damping: 32, mass: 0.6 });
+
+  // Portals render as a plain function-call side effect during SSR too, where
+  // `document` doesn't exist -- deferring the target to an effect keeps this
+  // safe for any caller that might render it during the initial (server) pass.
+  useEffect(() => setPortalTarget(document.body), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setNaturalDims({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = src;
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  const ratio = naturalDims ? naturalDims.width / naturalDims.height : 1;
+  const previewWidth = Math.round(ratio >= 1 ? REF_PREVIEW_MAX_DIM : REF_PREVIEW_MAX_DIM * ratio);
+  const previewHeight = Math.round(ratio >= 1 ? REF_PREVIEW_MAX_DIM / ratio : REF_PREVIEW_MAX_DIM);
+
+  function handleMouseMove(event: React.MouseEvent) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Prefer above-right of the cursor; flip to whichever side keeps the
+    // preview fully on-screen when the cursor is near an edge.
+    const left =
+      event.clientX + REF_PREVIEW_MARGIN + previewWidth <= vw
+        ? event.clientX + REF_PREVIEW_MARGIN
+        : event.clientX - REF_PREVIEW_MARGIN - previewWidth;
+    const top =
+      event.clientY - previewHeight - REF_PREVIEW_MARGIN >= 0
+        ? event.clientY - previewHeight - REF_PREVIEW_MARGIN
+        : Math.min(event.clientY + REF_PREVIEW_MARGIN, vh - previewHeight - REF_PREVIEW_MARGIN);
+    mouseX.set(left);
+    mouseY.set(top);
+  }
+
+  return (
+    <div
+      className="group relative shrink-0"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onMouseMove={handleMouseMove}
+    >
+      <button
+        type="button"
+        onClick={onReplace}
+        aria-label="Replace reference image"
+        className="block h-9 w-9 overflow-hidden rounded-xl border border-slate-200 shadow-sm outline-none transition-colors duration-150 hover:border-slate-300 dark:border-white/[0.1] dark:hover:border-white/[0.2]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not a static asset */}
+        <img src={src} alt="Reference" className="h-full w-full object-cover" />
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove();
+        }}
+        aria-label="Remove reference image"
+        className="absolute -right-1.5 -top-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 hover:text-slate-800 dark:border-white/[0.12] dark:bg-zinc-800 dark:text-slate-400 dark:hover:text-slate-200"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+
+      {portalTarget &&
+        createPortal(
+          <AnimatePresence>
+            {hovering && (
+              <motion.div
+                aria-hidden="true"
+                className="pointer-events-none fixed z-[100]"
+                style={{ left: springX, top: springY, width: previewWidth, height: previewHeight }}
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not a static asset */}
+                <img
+                  src={src}
+                  alt=""
+                  className="h-full w-full rounded-2xl border-[3px] border-white object-cover shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalTarget
+        )}
+    </div>
+  );
+}
+
 export function ImageGenerator() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState("Nano Banana 2");
 
@@ -260,6 +651,7 @@ export function ImageGenerator() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [refImage, setRefImage] = useState<File | null>(null);
+  const [refImagePreviewUrl, setRefImagePreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -279,6 +671,12 @@ export function ImageGenerator() {
   // full image on demand. These track that in-flight fetch.
   const [loadingPreviewId, setLoadingPreviewId] = useState<string | null>(null);
   const [previewLoadError, setPreviewLoadError] = useState<string | null>(null);
+  // The DB row backing whatever's currently in `generatedImages` -- lets the
+  // fresh-generation grid's preview clicks carry a real id/aspect-ratio/
+  // outputs (for Delete/Reuse) the same way history-tab previews do.
+  const [generatedRow, setGeneratedRow] = useState<GenerationHistoryItem | null>(null);
+  const [isDeletingPreview, setIsDeletingPreview] = useState(false);
+  const [previewActionError, setPreviewActionError] = useState<string | null>(null);
 
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
@@ -334,6 +732,16 @@ export function ImageGenerator() {
   useEffect(() => {
     setPromptCopied(false);
   }, [previewItem]);
+
+  useEffect(() => {
+    if (!refImage) {
+      setRefImagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(refImage);
+    setRefImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [refImage]);
 
   useEffect(() => {
     if (!previewItem) {
@@ -438,6 +846,7 @@ export function ImageGenerator() {
           setError(match.error_message ?? "Something went wrong. Try again.");
         } else {
           setGeneratedImages(match.images ?? []);
+          setGeneratedRow(match);
           // The charge for this generation lands right before the row flips
           // to "completed" (see generate-image/route.ts's after() block) --
           // safe to signal now rather than waiting for the header's next poll.
@@ -472,13 +881,159 @@ export function ImageGenerator() {
     setPreviewLoadError(null);
     try {
       const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
-      setPreviewItem({ src, prompt: item.prompt, model: item.model, createdAt: item.created_at });
+      setPreviewItem({
+        id: item.id,
+        index: 0,
+        src,
+        prompt: item.prompt,
+        model: item.model,
+        aspectRatio: item.aspect_ratio,
+        outputs: item.outputs,
+        createdAt: item.created_at,
+      });
     } catch {
       setPreviewLoadError("Could not load that image.");
       setTimeout(() => setPreviewLoadError(null), 3000);
     } finally {
       setLoadingPreviewId(null);
     }
+  }
+
+  // Deletes the single image the preview modal has open. `image_generations`
+  // rows can hold multiple outputs, so this only drops one -- the API
+  // removes the whole row once its last image goes (see
+  // /api/library/image/[id]/[index]/route.ts).
+  async function deletePreviewImage() {
+    if (!previewItem) return;
+    const target = previewItem;
+    setIsDeletingPreview(true);
+    setPreviewActionError(null);
+    try {
+      const response = await fetch(`/api/library/image/${target.id}/${target.index}`, { method: "DELETE" });
+      if (!response.ok) throw new Error();
+      if (generatedRow?.id === target.id) {
+        setGeneratedImages((prev) => prev.filter((_, index) => index !== target.index));
+      }
+      setHistory((prev) =>
+        prev
+          ? prev.map((row) => (row.id === target.id ? { ...row, outputs: row.outputs - 1 } : row)).filter((row) => row.outputs > 0)
+          : prev
+      );
+      setPreviewItem(null);
+    } catch {
+      setPreviewActionError("Could not delete this image. Try again.");
+      setTimeout(() => setPreviewActionError(null), 3000);
+    } finally {
+      setIsDeletingPreview(false);
+    }
+  }
+
+  function copyPreviewPrompt() {
+    if (!previewItem) return;
+    navigator.clipboard.writeText(previewItem.prompt).then(() => {
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 1500);
+    });
+  }
+
+  // Repopulates the generate form with this image's exact prompt/model/
+  // aspect-ratio/outputs and scrolls to it -- mirrors VideoGenerator's
+  // recreateFromHistory. Writes directly into modelSettings by
+  // `item.model` rather than going through updateModelSettings (which
+  // closes over `selectedModel`, still the *old* value on this same tick
+  // since setSelectedModel hasn't committed yet).
+  function reuseFromPreview() {
+    if (!previewItem) return;
+    const item = previewItem;
+    setActiveTab("generate");
+    if (MODEL_OPTIONS.some((option) => option.value === item.model)) {
+      setSelectedModel(item.model);
+    }
+    setModelSettings((prev) => ({
+      ...prev,
+      [item.model]: { ...(prev[item.model] ?? DEFAULT_MODEL_SETTINGS), aspectRatio: item.aspectRatio, outputs: item.outputs },
+    }));
+    setPrompt(item.prompt);
+    setPreviewItem(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Attaches this image as the reference image for a new generation (the
+  // same mechanism as the manual "Ref Image" upload), carrying its prompt
+  // over as a starting point the user can tweak.
+  function remixFromPreview() {
+    if (!previewItem) return;
+    const item = previewItem;
+    const extension = getMimeType(item.src).split("/")[1] ?? "png";
+    setActiveTab("generate");
+    setRefImage(dataUrlToFile(item.src, `remix-source.${extension}`));
+    setPrompt(item.prompt);
+    setPreviewItem(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Hands the image off to the Video Generator as an image-to-video start
+  // frame -- see image-to-video-handoff.ts.
+  function animateFromPreview() {
+    if (!previewItem) return;
+    writeImageToVideoHandoff({ imageDataUrl: previewItem.src });
+    router.push("/app/video-generator");
+  }
+
+  // Gallery-tile equivalents of the three actions above, invoked straight
+  // from the "Recent Generations" hover overlay instead of the full preview
+  // modal -- so they work off a byte-light history row and fetch the full
+  // image on demand, same as openHistoryPreview does.
+  async function downloadHistoryItem(item: GenerationHistoryItem) {
+    const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
+    const extension = getMimeType(src).split("/")[1] ?? "jpg";
+    const slug = item.prompt.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
+    downloadDataUrl(src, `${slug}.${extension}`);
+  }
+
+  async function remixFromHistoryItem(item: GenerationHistoryItem) {
+    const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
+    const extension = getMimeType(src).split("/")[1] ?? "png";
+    setRefImage(dataUrlToFile(src, `remix-source.${extension}`));
+    setPrompt(item.prompt);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function animateFromHistoryItem(item: GenerationHistoryItem) {
+    const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
+    writeImageToVideoHandoff({ imageDataUrl: src });
+    router.push("/app/video-generator");
+  }
+
+  // Unlike Remix, this only attaches the image as a reference -- it leaves
+  // whatever prompt the user has already typed alone.
+  async function addAsReferenceFromHistoryItem(item: GenerationHistoryItem) {
+    const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
+    const extension = getMimeType(src).split("/")[1] ?? "png";
+    setRefImage(dataUrlToFile(src, `reference.${extension}`));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Deletes every output of this generation (not just one image), then drops
+  // the whole row. The API only exposes a per-index DELETE, so this repeats
+  // it against index 0 -- each delete compacts the remaining array, so the
+  // next output always lands back at index 0 -- sequentially awaited to
+  // avoid two overlapping requests racing on the same stored array.
+  async function deleteHistoryItem(item: GenerationHistoryItem) {
+    for (let i = 0; i < item.outputs; i++) {
+      const response = await fetch(`/api/library/image/${item.id}/0`, { method: "DELETE" });
+      if (!response.ok) throw new Error();
+    }
+    setHistory((prev) => prev?.filter((row) => row.id !== item.id) ?? prev);
+    if (generatedRow?.id === item.id) {
+      setGeneratedImages([]);
+      setGeneratedRow(null);
+    }
+  }
+
+  function reportGalleryActionError(message: string) {
+    setPreviewLoadError(message);
+    setTimeout(() => setPreviewLoadError(null), 3000);
   }
 
   async function handleGenerate() {
@@ -536,30 +1091,28 @@ export function ImageGenerator() {
 
   const refImageButton = (
     <>
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className={cn(
-          "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-          "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-          "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
-        )}
-      >
-        <Upload className="h-3.5 w-3.5 shrink-0" />
-        {refImage ? refImage.name : "Ref Image"}
-      </button>
-      {refImage && (
-        <button
-          type="button"
-          onClick={() => {
+      {refImage && refImagePreviewUrl ? (
+        <RefPreviewThumbnail
+          src={refImagePreviewUrl}
+          onReplace={() => fileInputRef.current?.click()}
+          onRemove={() => {
             setRefImage(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
-          aria-label="Remove reference image"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.97] dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-400 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1] dark:hover:text-slate-200"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+            "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+            "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
+            "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
+          )}
         >
-          <X className="h-3.5 w-3.5" />
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          Ref Image
         </button>
       )}
       <input
@@ -845,7 +1398,17 @@ export function ImageGenerator() {
                       key={index}
                       type="button"
                       onClick={() =>
-                        setPreviewItem({ src, prompt, model: selectedModel, createdAt: new Date().toISOString() })
+                        generatedRow &&
+                        setPreviewItem({
+                          id: generatedRow.id,
+                          index,
+                          src,
+                          prompt,
+                          model: selectedModel,
+                          aspectRatio: generatedRow.aspect_ratio,
+                          outputs: generatedRow.outputs,
+                          createdAt: new Date().toISOString(),
+                        })
                       }
                       className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
                     >
@@ -1234,26 +1797,20 @@ export function ImageGenerator() {
                         const { item } = cell;
                         const [w, h] = item.aspect_ratio.split(":").map(Number);
                         return (
-                          <button
+                          <HistoryTile
                             key={item.id}
-                            type="button"
-                            disabled={loadingPreviewId === item.id}
-                            onClick={() => openHistoryPreview(item)}
-                            className="group relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
+                            item={item}
                             style={{ aspectRatio: `${w} / ${h}` }}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
-                            <img
-                              src={`/api/library/image/${item.id}/0?w=640`}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                            {loadingPreviewId === item.id && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
-                                <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
-                              </div>
-                            )}
-                          </button>
+                            loading={loadingPreviewId === item.id}
+                            onOpen={() => openHistoryPreview(item)}
+                            onDownload={() => downloadHistoryItem(item)}
+                            onCopyPrompt={() => navigator.clipboard.writeText(item.prompt)}
+                            onRemix={() => remixFromHistoryItem(item)}
+                            onAnimate={() => animateFromHistoryItem(item)}
+                            onAddAsReference={() => addAsReferenceFromHistoryItem(item)}
+                            onDelete={() => deleteHistoryItem(item)}
+                            onError={reportGalleryActionError}
+                          />
                         );
                       })}
                     </div>
@@ -1267,21 +1824,20 @@ export function ImageGenerator() {
                     </div>
                   ))}
                   {visibleHistory?.map((item) => (
-                    <button
+                    <HistoryTile
                       key={item.id}
-                      type="button"
-                      disabled={loadingPreviewId === item.id}
-                      onClick={() => openHistoryPreview(item)}
-                      className="group relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
-                      <img src={`/api/library/image/${item.id}/0?w=400`} alt="" className="h-full w-full object-cover" />
-                      {loadingPreviewId === item.id && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
-                          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
-                        </div>
-                      )}
-                    </button>
+                      item={item}
+                      className="aspect-square"
+                      loading={loadingPreviewId === item.id}
+                      onOpen={() => openHistoryPreview(item)}
+                      onDownload={() => downloadHistoryItem(item)}
+                      onCopyPrompt={() => navigator.clipboard.writeText(item.prompt)}
+                      onRemix={() => remixFromHistoryItem(item)}
+                      onAnimate={() => animateFromHistoryItem(item)}
+                      onAddAsReference={() => addAsReferenceFromHistoryItem(item)}
+                      onDelete={() => deleteHistoryItem(item)}
+                      onError={reportGalleryActionError}
+                    />
                   ))}
                 </div>
               )}
@@ -1309,117 +1865,188 @@ export function ImageGenerator() {
       </div>
 
       <AnimatePresence>
-        {previewItem && (
-          <motion.div
-            key="preview-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md sm:overflow-y-auto sm:p-10 dark:bg-black/80"
-            onClick={() => setPreviewItem(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 4 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(event) => event.stopPropagation()}
-              className="relative flex h-[100dvh] w-full flex-col-reverse overflow-hidden bg-white dark:bg-[#0b0b0e] sm:h-auto sm:max-h-[min(88vh,880px)] sm:w-fit sm:max-w-full sm:flex-row sm:overflow-y-auto sm:rounded-[28px] sm:border sm:border-slate-200 sm:shadow-[0_40px_120px_-24px_rgba(15,23,42,0.25),0_0_0_1px_rgba(15,23,42,0.03)] dark:sm:border-white/10 dark:sm:shadow-[0_40px_120px_-24px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.05)]"
-            >
-              {/* Metadata panel — a mobile bottom sheet (rounded top, grab handle,
-                  safe-area padding) that becomes a plain side panel at sm+ */}
-              <div className="relative z-[1] -mt-5 flex max-h-[46dvh] w-full shrink-0 flex-col gap-5 overflow-y-auto rounded-t-[24px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-16px_32px_-24px_rgba(15,23,42,0.25)] dark:bg-[#0b0b0e] dark:shadow-[0_-16px_32px_-24px_rgba(0,0,0,0.7)] sm:z-auto sm:mt-0 sm:max-h-none sm:w-[292px] sm:gap-6 sm:rounded-none sm:p-6 sm:pb-6 sm:shadow-none">
-                <div className="mx-auto h-1 w-9 shrink-0 rounded-full bg-slate-200 dark:bg-white/15 sm:hidden" />
-
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="line-clamp-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-slate-900 dark:text-white/90">
-                    {previewItem.prompt}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(previewItem.prompt).then(() => {
-                        setPromptCopied(true);
-                        setTimeout(() => setPromptCopied(false), 1500);
-                      });
+        {previewItem &&
+          (() => {
+            const previewModel = MODEL_OPTIONS.find((option) => option.value === previewItem.model);
+            const closePreview = () => setPreviewItem(null);
+            return (
+              <motion.div
+                key="preview-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 overflow-hidden bg-black"
+                onClick={closePreview}
+              >
+                {/* Ambient backdrop: the same image, blown up and blurred, gives the
+                    modal its color -- mirrors the video preview's cinematic treatment */}
+                <div className="absolute inset-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- decorative blurred backdrop copy */}
+                  <img src={previewItem.src} alt="" className="h-full w-full scale-125 object-cover opacity-80 blur-[90px]" />
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: "radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.35) 65%, rgba(0,0,0,0.8) 100%)",
                     }}
-                    aria-label="Copy prompt"
-                    className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-                  >
-                    {promptCopied ? <Check className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
+                  />
                 </div>
 
-                <dl className="flex flex-col gap-2.5 border-t border-slate-200 pt-5 text-[13px] dark:border-white/[0.08]">
-                  {(
-                    [
-                      ["Model", previewItem.model],
-                      ["Dimensions", previewDims ? `${previewDims.width} × ${previewDims.height}` : "—"],
-                      ["File size", getDataUrlSize(previewItem.src)],
-                      ["Media type", getMimeType(previewItem.src)],
-                      ["Created on", formatDate(previewItem.createdAt)],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <div key={label} className="flex items-center justify-between gap-4">
-                      <dt className="text-slate-400 dark:text-white/40">{label}</dt>
-                      <dd className="text-right font-medium text-slate-700 dark:text-white/85">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <div className="mt-auto flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const extension = getMimeType(previewItem.src).split("/")[1] ?? "jpg";
-                      const slug = previewItem.prompt.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
-                      downloadDataUrl(previewItem.src, `${slug}.${extension}`);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98] sm:py-2.5"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openDataUrlInNewTab(previewItem.src)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08] sm:py-2.5"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    View
-                  </button>
-                </div>
-              </div>
-
-              {/* Image, sized to its own aspect ratio rather than cropped into a fixed box.
-                  flex-1 + a height floor on mobile: it always fills whatever the bottom
-                  sheet leaves behind, so a long prompt can never push the close button
-                  off-screen, and non-matching ratios simply letterbox (as in Photos/Google Photos). */}
-              <div className="relative flex min-h-[30dvh] flex-1 items-center justify-center bg-slate-100 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:bg-black sm:max-h-[min(88vh,880px)] sm:min-h-0 sm:flex-none sm:shrink-0 sm:p-6">
                 <button
                   type="button"
-                  onClick={() => setPreviewItem(null)}
+                  onClick={closePreview}
                   aria-label="Close"
-                  className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white sm:top-3 sm:h-8 sm:w-8"
+                  className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 lg:hidden"
                 >
                   <X className="h-4 w-4" />
                 </button>
-                {/* eslint-disable-next-line @next/next/no-img-element -- generated image preview from a stored data URL */}
-                <img
-                  src={previewItem.src}
-                  alt=""
-                  className="h-auto max-h-full w-auto max-w-full object-contain sm:max-h-[min(80vh,780px)] sm:max-w-[min(64vw,780px)] sm:rounded-xl"
-                />
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
+
+                <div className="relative z-10 flex h-full w-full" onClick={(event) => event.stopPropagation()}>
+                  <div className="relative flex flex-1 items-center justify-center p-6 pb-28 lg:p-10 lg:pb-28">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- generated image preview from a stored data URL */}
+                    <img
+                      src={previewItem.src}
+                      alt=""
+                      className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_50px_140px_-30px_rgba(0,0,0,0.9)]"
+                    />
+
+                    {/* Floating dark-glass action bar, bottom-center */}
+                    <div
+                      className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-2xl border border-white/10 bg-black/60 p-1.5 backdrop-blur-xl"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const extension = getMimeType(previewItem.src).split("/")[1] ?? "jpg";
+                          const slug = previewItem.prompt.trim().slice(0, 40).replace(/\s+/g, "-") || "image";
+                          downloadDataUrl(previewItem.src, `${slug}.${extension}`);
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/90"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        onClick={remixFromPreview}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Wand2 className="h-3.5 w-3.5" />
+                        Remix
+                      </button>
+                      <button
+                        type="button"
+                        onClick={animateFromPreview}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Video className="h-3.5 w-3.5" />
+                        Animate
+                      </button>
+                      <div className="mx-0.5 h-5 w-px shrink-0 bg-white/10" />
+                      <button
+                        type="button"
+                        onClick={reuseFromPreview}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Reuse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={copyPreviewPrompt}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        {promptCopied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
+                        {promptCopied ? "Copied" : "Copy Prompt"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeletingPreview}
+                        onClick={deletePreviewImage}
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
+                      >
+                        {isDeletingPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right-hand floating dark glass info panel (desktop only) */}
+                  <div className="hidden h-full w-[380px] shrink-0 flex-col gap-5 overflow-y-auto border-l border-white/10 bg-black/30 p-6 backdrop-blur-2xl lg:flex">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {previewModel && (
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white p-1">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- small model badge icon */}
+                            <img src={previewModel.icon} alt="" className="h-full w-full object-contain" />
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-white">{previewItem.model}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closePreview}
+                        aria-label="Close"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                          <AlignLeft className="h-3.5 w-3.5" />
+                          Prompt
+                        </div>
+                        <button
+                          type="button"
+                          onClick={copyPreviewPrompt}
+                          className="flex items-center gap-1 text-[11px] font-medium text-white/60 transition-colors hover:text-white"
+                        >
+                          {promptCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {promptCopied ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-white/90">{previewItem.prompt}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                        <Info className="h-3.5 w-3.5" />
+                        Information
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-y-4">
+                        <div>
+                          <div className="text-[11px] text-white/40">Dimensions</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">
+                            {previewDims ? `${previewDims.width} × ${previewDims.height}` : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">File size</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{getDataUrlSize(previewItem.src)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">Media type</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{getMimeType(previewItem.src)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-white/40">Created</div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{formatDate(previewItem.createdAt)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
       </AnimatePresence>
 
-      {previewLoadError && (
+      {(previewLoadError || previewActionError) && (
         <div className="fixed inset-x-0 bottom-6 z-[60] mx-auto w-fit rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
-          {previewLoadError}
+          {previewLoadError || previewActionError}
         </div>
       )}
 

@@ -48,7 +48,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: row, error: fetchError } = await supabase
     .from("voiceover_generations")
-    .select("id, status, voice_id, speed, stability, segments")
+    .select("id, status, voice_id, style_prompt, language_code, segments")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -69,7 +69,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
   const existingSegments: VoiceoverSegment[] = Array.isArray(row.segments) ? row.segments : [];
 
   try {
-    const speech = await generateSpeech({ text, voiceId: row.voice_id, speed: row.speed, stability: row.stability });
+    const speech = await generateSpeech({ text, voiceId: row.voice_id, stylePrompt: row.style_prompt, languageCode: row.language_code });
     const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
     const newPosition = existingSegments.length;
     const audioPath = `${user.id}/${row.id}/${newPosition}-${Date.now()}.${extension}`;
@@ -85,7 +85,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
       .upload(audioPath, speech.bytes, { contentType: speech.contentType, upsert: true });
     if (uploadError) throw new Error(`Voiceover storage upload failed: ${uploadError.message}`);
 
-    const newSegment: VoiceoverSegment = { index: newPosition, text, audioPath, durationSeconds: estimateDurationSeconds(text, row.speed) };
+    const newSegment: VoiceoverSegment = { index: newPosition, text, audioPath, durationSeconds: estimateDurationSeconds(text) };
     const segments = [...existingSegments, newSegment];
 
     const { error: updateError } = await supabase.from("voiceover_generations").update({ segments }).eq("id", row.id).eq("user_id", user.id);

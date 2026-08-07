@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ExternalLink } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -14,9 +14,17 @@ interface PillDropdownOption {
   invertDark?: boolean;
   description?: string;
   ratio?: string;
+  /** Link to the option's source (e.g. its listing on Replicate) — shown as a small external-link affordance that opens without selecting the option. */
+  href?: string;
 }
 
-function RatioIcon({ ratio, className }: { ratio: string; className?: string }) {
+function RatioIcon({
+  ratio,
+  className,
+}: {
+  ratio: string;
+  className?: string;
+}) {
   const [w, h] = ratio.split(":").map(Number);
   const size = 12;
   const width = w >= h ? size : Math.max(3, Math.round((size * w) / h));
@@ -26,7 +34,13 @@ function RatioIcon({ ratio, className }: { ratio: string; className?: string }) 
     <span
       aria-hidden="true"
       className={className}
-      style={{ width, height, display: "inline-block", borderRadius: 2, border: "1.5px solid currentColor" }}
+      style={{
+        width,
+        height,
+        display: "inline-block",
+        borderRadius: 2,
+        border: "1.5px solid currentColor",
+      }}
     />
   );
 }
@@ -43,7 +57,15 @@ interface PillDropdownProps {
   openUp?: boolean;
 }
 
-export function PillDropdown({ value, options, onChange, className, labelPrefix, icon: Icon, openUp = false }: PillDropdownProps) {
+export function PillDropdown({
+  value,
+  options,
+  onChange,
+  className,
+  labelPrefix,
+  icon: Icon,
+  openUp = false,
+}: PillDropdownProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +73,10 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
     if (!open) return;
 
     function handlePointerDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -82,10 +107,13 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
           "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
-          open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
+          open &&
+            "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10",
         )}
       >
-        {Icon && <Icon className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" />}
+        {Icon && (
+          <Icon className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" />
+        )}
         {current?.icon && (
           <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
             <Image
@@ -93,7 +121,10 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
               alt=""
               width={11}
               height={11}
-              className={cn("h-[11px] w-[11px] shrink-0 object-contain", current.invertDark && "dark:invert")}
+              className={cn(
+                "h-[11px] w-[11px] shrink-0 object-contain",
+                current.invertDark && "dark:invert",
+              )}
             />
           </span>
         )}
@@ -103,15 +134,25 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
           </span>
         )}
         <span className="whitespace-nowrap tracking-[-0.01em]">
-          {labelPrefix && <span className="text-slate-500 dark:text-slate-400">{labelPrefix} </span>}
-          <span className={labelPrefix ? "font-semibold text-blue-600 dark:text-blue-400" : undefined}>
+          {labelPrefix && (
+            <span className="text-slate-500 dark:text-slate-400">
+              {labelPrefix}{" "}
+            </span>
+          )}
+          <span
+            className={
+              labelPrefix
+                ? "font-semibold text-blue-600 dark:text-blue-400"
+                : undefined
+            }
+          >
             {current?.label ?? value}
           </span>
         </span>
         <ChevronDown
           className={cn(
             "h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
-            open && "rotate-180 text-blue-500 dark:text-blue-400"
+            open && "rotate-180 text-blue-500 dark:text-blue-400",
           )}
         />
       </button>
@@ -126,73 +167,106 @@ export function PillDropdown({ value, options, onChange, className, labelPrefix,
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
               "absolute left-0 z-50 max-h-80 w-max min-w-[11rem] overflow-y-auto rounded-2xl p-1.5",
-              openUp ? "bottom-full mb-2 origin-bottom-left" : "top-full mt-2 origin-top-left",
+              openUp
+                ? "bottom-full mb-2 origin-bottom-left"
+                : "top-full mt-2 origin-top-left",
               "border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
+              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]",
             )}
           >
             {options.map((option) => {
               const selected = option.value === value;
               return (
-                <button
+                <div
                   key={option.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150",
+                    "flex w-full items-center gap-1 rounded-xl transition-colors duration-150",
                     selected
-                      ? "bg-blue-500/10 font-semibold text-blue-600 dark:bg-blue-500/15 dark:text-blue-300"
-                      : "text-slate-600 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:bg-white/[0.06]"
+                      ? "bg-blue-500/10 dark:bg-blue-500/15"
+                      : "hover:bg-slate-100/80 dark:hover:bg-white/[0.06]",
                   )}
                 >
-                  {option.icon && (
-                    <span
-                      className={cn(
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
-                        selected
-                          ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
-                          : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]"
-                      )}
-                    >
-                      <Image
-                        src={option.icon}
-                        alt=""
-                        width={14}
-                        height={14}
-                        className={cn("h-3.5 w-3.5 shrink-0 object-contain", option.invertDark && "dark:invert")}
-                      />
-                    </span>
-                  )}
-                  {option.ratio && (
-                    <span
-                      className={cn(
-                        "flex h-6 w-6 shrink-0 items-center justify-center",
-                        selected ? "text-blue-500 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"
-                      )}
-                    >
-                      <RatioIcon ratio={option.ratio} />
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block whitespace-nowrap">{option.label}</span>
-                    {option.description && (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150",
+                      selected
+                        ? "font-semibold text-blue-600 dark:text-blue-300"
+                        : "text-slate-600 dark:text-slate-300",
+                    )}
+                  >
+                    {option.icon && (
                       <span
                         className={cn(
-                          "block truncate text-xs font-normal",
-                          selected ? "text-blue-500/70 dark:text-blue-400/60" : "text-slate-400 dark:text-slate-500"
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
+                          selected
+                            ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
+                            : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
                         )}
                       >
-                        {option.description}
+                        <Image
+                          src={option.icon}
+                          alt=""
+                          width={14}
+                          height={14}
+                          className={cn(
+                            "h-3.5 w-3.5 shrink-0 object-contain",
+                            option.invertDark && "dark:invert",
+                          )}
+                        />
                       </span>
                     )}
-                  </span>
-                  {selected && <Check className="h-3.5 w-3.5 shrink-0 text-blue-500 dark:text-blue-400" />}
-                </button>
+                    {option.ratio && (
+                      <span
+                        className={cn(
+                          "flex h-6 w-6 shrink-0 items-center justify-center",
+                          selected
+                            ? "text-blue-500 dark:text-blue-400"
+                            : "text-slate-400 dark:text-slate-500",
+                        )}
+                      >
+                        <RatioIcon ratio={option.ratio} />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block whitespace-nowrap">
+                        {option.label}
+                      </span>
+                      {option.description && (
+                        <span
+                          className={cn(
+                            "block truncate text-xs font-normal",
+                            selected
+                              ? "text-blue-500/70 dark:text-blue-400/60"
+                              : "text-slate-400 dark:text-slate-500",
+                          )}
+                        >
+                          {option.description}
+                        </span>
+                      )}
+                    </span>
+                    {selected && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
+                    )}
+                  </button>
+                  {option.href && (
+                    <a
+                      href={option.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`View ${option.label} on Replicate`}
+                      className="shrink-0 rounded-md p-1.5 mr-1.5 text-slate-300 transition-colors duration-150 hover:text-blue-500 dark:text-slate-600 dark:hover:text-blue-400"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
               );
             })}
           </motion.div>
