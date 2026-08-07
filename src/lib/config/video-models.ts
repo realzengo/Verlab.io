@@ -65,6 +65,14 @@ export interface VideoModelConfig {
   durations: number[];
   aspectRatios: string[];
   /**
+   * Overrides the literal value sent for `aspect_ratio` when a model's own
+   * Replicate schema doesn't use the "16:9"/"9:16" labels shown in the UI --
+   * confirmed live for Sora 2, which 422s on the ratio strings and wants
+   * "landscape"/"portrait" instead. Keyed by the aspectRatios label; falls
+   * back to sending that label as-is when a model has no entry here.
+   */
+  aspectRatioValues?: Record<string, string>;
+  /**
    * Resolution options exposed in the UI. First entry doubles as the
    * default in defaultSettingsFor (VideoGenerator.tsx). Undefined when the
    * model has no resolution control at all.
@@ -128,6 +136,10 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     supportsAudio: true,
     durations: [4, 8, 12],
     aspectRatios: ["16:9", "9:16"],
+    // CONFIRMED live: Sora 2's aspect_ratio is an enum of "landscape"/"portrait",
+    // not the "16:9"/"9:16" ratio strings every other model here accepts --
+    // it 422s otherwise ("aspect_ratio must be one of: \"portrait\", \"landscape\"").
+    aspectRatioValues: { "16:9": "landscape", "9:16": "portrait" },
     resolutions: ["720p"],
     resolutionMode: "direct",
     pricePerSecondUsd: 0.1,

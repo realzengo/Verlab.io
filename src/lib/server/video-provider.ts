@@ -41,10 +41,12 @@ export class VideoProviderError extends Error {
 
 // `fetch` throws a bare TypeError ("fetch failed") for transient network
 // blips (DNS hiccup, connection reset) — these aren't real provider failures
-// and are worth a couple of quick retries before giving up and surfacing the
-// generic "something went wrong" error to the user.
-const NETWORK_RETRY_ATTEMPTS = 2;
-const NETWORK_RETRY_DELAY_MS = 500;
+// and are worth a few retries with backoff before giving up and surfacing the
+// generic "something went wrong" error to the user. A DNS resolution outage
+// (getaddrinfo ENOTFOUND) can outlast a sub-second retry window, so this
+// backs off exponentially rather than linearly to cover longer blips.
+const NETWORK_RETRY_ATTEMPTS = 4;
+const NETWORK_RETRY_BASE_DELAY_MS = 500;
 
 async function fetchWithRetry(input: string | URL, init?: RequestInit): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
@@ -52,7 +54,7 @@ async function fetchWithRetry(input: string | URL, init?: RequestInit): Promise<
       return await fetch(input, init);
     } catch (error) {
       if (attempt >= NETWORK_RETRY_ATTEMPTS) throw error;
-      await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_DELAY_MS * (attempt + 1)));
+      await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_BASE_DELAY_MS * 2 ** attempt));
     }
   }
 }

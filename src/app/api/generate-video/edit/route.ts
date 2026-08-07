@@ -137,7 +137,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   };
   if (referenceImages.length > 0) replicateInput.image_urls = referenceImages;
 
-  const webhookUrl = `${request.nextUrl.origin}/api/webhooks/replicate`;
+  // See generate-video/route.ts's handlePOST for why this is conditional on
+  // https -- Replicate 422s on submit for a non-HTTPS webhook (localhost in
+  // dev), and that route's GET handler (mode=edit included) already
+  // reconciles in-flight dev jobs by polling as a stand-in for the webhook.
+  const webhookUrl = request.nextUrl.protocol === "https:" ? `${request.nextUrl.origin}/api/webhooks/replicate` : undefined;
   const rowIds: string[] = [];
   const failures: string[] = [];
 

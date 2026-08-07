@@ -202,14 +202,118 @@ function VoiceCard({
   );
 }
 
+// Decoded per-segment amplitude peaks, keyed by audio URL so switching tabs
+// or re-rendering the timeline doesn't re-fetch/re-decode audio already seen.
+const waveformPeakCache = new Map<string, number[]>();
+const WAVEFORM_SAMPLE_COUNT = 300;
+
+function useWaveformPeaks(url: string | null): number[] | null {
+  // Cache hits resolve synchronously during render; the effect below only
+  // ever fires for genuine cache misses, and only calls setState from inside
+  // the async fetch/decode callback (an external-system response), never
+  // directly in the effect body.
+  const cached = url ? (waveformPeakCache.get(url) ?? null) : null;
+  const [fetched, setFetched] = useState<{ url: string; peaks: number[] } | null>(null);
+
+  useEffect(() => {
+    if (!url || waveformPeakCache.has(url)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioContext = new AudioContext();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const channel = audioBuffer.getChannelData(0);
+        const blockSize = Math.max(1, Math.floor(channel.length / WAVEFORM_SAMPLE_COUNT));
+        const result: number[] = [];
+        for (let i = 0; i < WAVEFORM_SAMPLE_COUNT; i++) {
+          const start = i * blockSize;
+          let sum = 0;
+          for (let j = 0; j < blockSize; j++) sum += Math.abs(channel[start + j] ?? 0);
+          result.push(sum / blockSize);
+        }
+        const max = Math.max(...result, 0.0001);
+        const normalized = result.map((v) => Math.min(1, v / max));
+        void audioContext.close();
+        waveformPeakCache.set(url, normalized);
+        if (!cancelled) setFetched({ url, peaks: normalized });
+      } catch {
+        // Leave peaks empty on failure; the bar simply renders without a waveform.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return cached ?? (fetched && fetched.url === url ? fetched.peaks : null);
+}
+
+// Renders decoded peaks as a bar waveform on a canvas sized to its container,
+// so bars stay crisp at any segment width instead of stretching a fixed set.
+function Waveform({ url, color }: { url: string | null; color: string }) {
+  const peaks = useWaveformPeaks(url);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    function draw() {
+      const rect = container!.getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      const dpr = window.devicePixelRatio || 1;
+      canvas!.width = width * dpr;
+      canvas!.height = height * dpr;
+      canvas!.style.width = `${width}px`;
+      canvas!.style.height = `${height}px`;
+      const ctx = canvas!.getContext("2d");
+      if (!ctx || !peaks || peaks.length === 0) return;
+      ctx.scale(dpr, dpr);
+
+      const barWidth = 2;
+      const gap = 2;
+      const barCount = Math.max(1, Math.floor(width / (barWidth + gap)));
+      const mid = height / 2;
+      ctx.fillStyle = color;
+      for (let i = 0; i < barCount; i++) {
+        const peak = peaks[Math.min(peaks.length - 1, Math.floor((i / barCount) * peaks.length))];
+        const barHeight = Math.max(2, peak * height * 0.82);
+        const x = i * (barWidth + gap);
+        const y = mid - barHeight / 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
+        ctx.fill();
+      }
+    }
+
+    draw();
+    const resizeObserver = new ResizeObserver(draw);
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [peaks, color]);
+
+  return (
+    <div ref={containerRef} className="pointer-events-none absolute inset-0">
+      <canvas ref={canvasRef} className="block h-full w-full" />
+    </div>
+  );
+}
+
 function Timeline({
   durations,
   currentTime,
   activeIndex,
+  generationId,
 }: {
   durations: number[];
   currentTime: number;
   activeIndex: number | null;
+  generationId: string | null;
 }) {
   const total = Math.max(0.5, durations.reduce((sum, d) => sum + d, 0));
   const step = total <= 10 ? 0.5 : total <= 30 ? 1 : total <= 120 ? 5 : 10;
@@ -231,12 +335,16 @@ function Timeline({
           <div
             key={index}
             className={cn(
-              "flex items-center justify-center rounded-full border text-[11px] font-bold transition-colors",
+              "relative flex items-center justify-center overflow-hidden rounded-full border text-[11px] font-bold transition-colors",
               index === activeIndex ? "border-primary bg-primary text-white" : "border-primary/30 bg-accent text-primary"
             )}
             style={{ width: `${(duration / total) * 100}%`, minWidth: 26 }}
           >
-            {index + 1}
+            <Waveform
+              url={generationId ? segmentUrl(generationId, index) : null}
+              color={index === activeIndex ? "rgba(255,255,255,0.55)" : "rgba(51,92,255,0.35)"}
+            />
+            <span className="relative z-10 drop-shadow-sm">{index + 1}</span>
           </div>
         ))}
       </div>
@@ -823,7 +931,12 @@ export function VoiceoverGenerator() {
 
                 {/* ── Bottom audio player ─────────────────────────────── */}
                 <div className="mt-4 border-t border-hairline pt-4">
-                  <Timeline durations={durations.length > 0 ? durations : [1]} currentTime={currentTime} activeIndex={playingIndex} />
+                  <Timeline
+                    durations={durations.length > 0 ? durations : [1]}
+                    currentTime={currentTime}
+                    activeIndex={playingIndex}
+                    generationId={generationId}
+                  />
                   <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                     <span className="text-xs font-medium tabular-nums text-subtle">
                       {formatTime(currentTime)} / {formatTime(durations.reduce((sum, d) => sum + d, 0))}

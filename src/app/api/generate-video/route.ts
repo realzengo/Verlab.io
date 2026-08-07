@@ -46,7 +46,7 @@ function buildReplicateCreateInput(
   }
 ): Record<string, unknown> {
   const input: Record<string, unknown> = {
-    aspect_ratio: params.aspectRatio,
+    aspect_ratio: model.aspectRatioValues?.[params.aspectRatio] ?? params.aspectRatio,
     duration: params.durationSeconds,
   };
   if (params.prompt) input.prompt = params.prompt;
@@ -219,7 +219,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const operation = startFrameImage || endFrameImage ? "image_to_video" : "text_to_video";
-  const webhookUrl = `${request.nextUrl.origin}/api/webhooks/replicate`;
+  // Replicate rejects non-HTTPS webhook URLs outright (some models, e.g.
+  // Sora 2, 422 on submit rather than just never firing it) -- in local dev
+  // request.nextUrl.origin is http://localhost, so omit it entirely rather
+  // than send an invalid one. The GET handler above already reconciles
+  // in-flight dev jobs by polling on this same endpoint as a stand-in for
+  // the webhook, so completion still works without it.
+  const webhookUrl = request.nextUrl.protocol === "https:" ? `${request.nextUrl.origin}/api/webhooks/replicate` : undefined;
   const replicateInput = buildReplicateCreateInput(model, {
     prompt,
     aspectRatio,
