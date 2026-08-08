@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   History,
-  Languages,
   List,
   ListChecks,
   Loader2,
@@ -32,7 +30,7 @@ import { PlasticButton } from "@/components/ui/plastic-button";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { HistoryPanel, type VoiceoverHistoryItem } from "@/components/features/voiceover-generator/HistoryPanel";
 import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
-import { DEFAULT_LANGUAGE_CODE, LANGUAGE_OPTIONS } from "@/lib/config/languages";
+import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { consumeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
@@ -1311,27 +1309,6 @@ export function VoiceoverGenerator() {
                     <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium tabular-nums text-subtle/60">
                       {stylePrompt.length}/{MAX_STYLE_PROMPT_CHARS}
                     </span>
-                  </div>
-
-                  <div className="mt-4 border-t border-hairline pt-4">
-                    <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-subtle">
-                      <Languages className="h-3 w-3" />
-                      Language
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={languageCode}
-                        onChange={(event) => setLanguageCode(event.target.value)}
-                        className="w-full appearance-none rounded-lg border border-hairline bg-app/60 px-3 py-2 pr-8 text-sm text-heading outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
-                      >
-                        {LANGUAGE_OPTIONS.map((language) => (
-                          <option key={language.code} value={language.code}>
-                            {language.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" />
-                    </div>
                   </div>
                 </div>
                   </div>
