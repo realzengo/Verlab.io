@@ -107,7 +107,14 @@ export function createMcpServer(userId: string): McpServer {
       server,
       widget.resourceUri,
       widget.resourceUri,
-      { _meta: { ui: { csp: { resourceDomains: RESOURCE_DOMAINS } } } },
+      {
+        _meta: {
+          ui: {
+            csp: { resourceDomains: RESOURCE_DOMAINS },
+            ...(widget.permissions ? { permissions: widget.permissions } : {}),
+          },
+        },
+      },
       async () => ({
         contents: [{ uri: widget.resourceUri, mimeType: RESOURCE_MIME_TYPE, text: widget.html }],
       })

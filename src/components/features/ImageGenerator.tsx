@@ -34,6 +34,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
 import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { readHistoryCache, writeHistoryCache } from "@/lib/client/history-cache";
 import { writeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
@@ -659,7 +660,7 @@ export function ImageGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
-  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(null);
+  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("image"));
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -728,6 +729,13 @@ export function ImageGenerator() {
     loadHistory();
     return () => pollCancelRef.current?.();
   }, []);
+
+  // Mirrors every history update into localStorage so the next mount (tab
+  // revisit, full refresh) can hydrate its initial state from here instead
+  // of rendering an empty grid until the fetch above resolves.
+  useEffect(() => {
+    if (history) writeHistoryCache("image", history);
+  }, [history]);
 
   useEffect(() => {
     setPromptCopied(false);

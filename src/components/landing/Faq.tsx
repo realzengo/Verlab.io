@@ -33,7 +33,7 @@ export function Faq() {
         </h2>
       </div>
 
-      <div className="mt-8 rounded-[32px] bg-[linear-gradient(135deg,var(--color-primary)_0%,white_65%)] p-[6px] dark:bg-[linear-gradient(135deg,var(--color-primary)_0%,rgba(255,255,255,0.15)_65%)] sm:mt-12">
+      <div className="mt-8 rounded-[32px] bg-[linear-gradient(135deg,var(--color-primary)_0%,#bfdbfe_65%)] p-[6px] dark:bg-[linear-gradient(135deg,var(--color-primary)_0%,rgba(147,197,253,0.35)_65%)] sm:mt-12">
         <div className="rounded-[30px] bg-surface p-3 sm:p-4">
           <div className="flex flex-col gap-3">
             {FAQ_ITEMS.map((item) => {

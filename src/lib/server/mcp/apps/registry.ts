@@ -24,6 +24,10 @@ interface WidgetDefinition {
   resourceUri: string;
   html: string;
   outputSchema: Record<string, z.ZodTypeAny>;
+  // Sandbox permissions this widget needs from the host (maps to Permission
+  // Policy grants) -- e.g. clipboardWrite for widgets with a "Copy" button.
+  // Omitted entirely means none requested (the host's secure default).
+  permissions?: { clipboardWrite?: Record<string, never> };
 }
 
 // Versioned suffixes -- MCP hosts commonly treat resource URIs as
@@ -38,7 +42,12 @@ const WIDGETS = {
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
-  scriptCard: { resourceUri: "ui://verlab/script-card-v5.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
+  scriptCard: {
+    resourceUri: "ui://verlab/script-card-v5.html",
+    html: scriptCardHtml,
+    outputSchema: ScriptCardSchema,
+    permissions: { clipboardWrite: {} },
+  },
   imageGalleryCard: {
     resourceUri: "ui://verlab/image-gallery-card-v6.html",
     html: imageGalleryCardHtml,
@@ -48,6 +57,9 @@ const WIDGETS = {
     resourceUri: "ui://verlab/transcript-card-v5.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
+    // Export panel falls back to a clipboard copy when the host can't do a
+    // mediated file download (see exportTranscript's catch in the widget).
+    permissions: { clipboardWrite: {} },
   },
   downloadCard: {
     resourceUri: "ui://verlab/download-card-v4.html",

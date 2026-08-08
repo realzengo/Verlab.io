@@ -58,6 +58,26 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 }
 
 function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }) {
+  // Videos never get a server-extracted thumbnail_path (no ffmpeg
+  // frame-extraction step exists), so thumbnailUrl is always null for them --
+  // rendering the real <video> here (same approach as the preview modal and
+  // VideoGenerator's own gallery) lets the browser paint its own first frame
+  // instead of falling through to the plain icon placeholder below.
+  if (asset.type === "video" && asset.fileUrl) {
+    return (
+      <video
+        src={asset.fileUrl}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onMouseEnter={(event) => void event.currentTarget.play().catch(() => {})}
+        onMouseLeave={(event) => event.currentTarget.pause()}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    );
+  }
+
   if (asset.thumbnailUrl) {
     // Our own /api/library/image/... route resizes server-side when a `w`
     // param is given, so the grid never pulls the full-resolution original.
@@ -339,8 +359,8 @@ export default function LibraryPage() {
       {visibleAssets === null ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="overflow-hidden rounded-card-lg border border-hairline bg-surface p-2.5 shadow-card">
-              <div className="aspect-[4/3] animate-pulse rounded-card-sm bg-accent" />
+            <div key={i} className="overflow-hidden rounded-lg border border-hairline bg-surface p-2.5 shadow-card">
+              <div className="aspect-[4/3] animate-pulse rounded-md bg-accent" />
               <div className="flex flex-col gap-2 px-1 pt-3 pb-1">
                 <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-accent" />
                 <div className="h-3 w-1/2 animate-pulse rounded-full bg-accent" />
@@ -349,7 +369,7 @@ export default function LibraryPage() {
           ))}
         </div>
       ) : visibleAssets.length === 0 ? (
-        <div className="mt-6 flex h-64 flex-col items-center justify-center gap-3 rounded-card-lg border border-dashed border-hairline text-body/60">
+        <div className="mt-6 flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-hairline text-body/60">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-primary">
             <Sparkles className="h-5 w-5" />
           </span>
@@ -365,14 +385,14 @@ export default function LibraryPage() {
               <div
                 key={asset.id}
                 className={cn(
-                  "group relative flex flex-col rounded-card-lg border border-hairline bg-surface p-2.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
+                  "group relative flex flex-col rounded-lg border border-hairline bg-surface p-2.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
                   openMenuId === asset.id && "z-30"
                 )}
               >
                 {asset.type === "sop" ? (
                   <Link
                     href={asset.fileUrl ?? "#"}
-                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60 bg-accent"
+                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
                   >
                     <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
                   </Link>
@@ -380,7 +400,7 @@ export default function LibraryPage() {
                   <button
                     type="button"
                     onClick={() => setPreviewAsset(asset)}
-                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-card-sm border border-hairline/60 bg-accent"
+                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
                   >
                     <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
                     {asset.type === "video" && <VideoPlayIndicator />}

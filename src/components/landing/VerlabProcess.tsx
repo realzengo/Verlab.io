@@ -540,7 +540,7 @@ function StepOneCard() {
   const { ref, inView } = useInView<HTMLDivElement>();
   return (
     <div ref={ref}>
-      <CardShell step={1} title="Find a Viral Hook" description="Start with a proven video that already has millions of views.">
+      <CardShell step={1} title="Find a Viral Niche" description="Start with a proven video that already has millions of views.">
         <HookMockup active={inView} />
       </CardShell>
     </div>

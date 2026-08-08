@@ -70,8 +70,8 @@ export function Nav() {
               <Image
                 src="/verlab-studio-logo.png"
                 alt="Verlab Studio"
-                width={9342}
-                height={2768}
+                width={1200}
+                height={356}
                 sizes="160px"
                 priority
                 className="h-9 w-auto dark:hidden sm:h-11"

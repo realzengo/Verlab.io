@@ -21,7 +21,7 @@ export function Hero() {
         </h1>
       </div>
 
-      <p className="mt-4 max-w-xl text-base font-bold leading-relaxed text-gray-400 sm:hidden">
+      <p className="mt-4 max-w-xl text-sm font-bold leading-relaxed text-gray-400 sm:hidden">
         Everything you need to grow and profit.
       </p>
       <p className="mt-7 hidden max-w-2xl text-lg font-bold leading-relaxed text-gray-400 sm:block">
@@ -43,6 +43,7 @@ export function Hero() {
           alt="YouTube, Instagram, TikTok"
           width={628}
           height={46}
+          priority
           className="mt-5 h-auto w-full max-w-[240px] sm:mt-6 sm:max-w-md"
         />
       </div>

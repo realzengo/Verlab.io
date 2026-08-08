@@ -10,7 +10,18 @@ import { withApiLogging } from "@/lib/server/api-logging";
 // session-scoped client (RLS on video_generations enforces auth.uid() =
 // user_id, same as /api/downloads/file/[id] relies on for `downloads`),
 // then mints a short-lived signed URL with the service-role client (the
-// only client that can read a private bucket) and redirects to it.
+// only client that can read a private bucket).
+//
+// Proxied rather than redirected: a redirect hands the browser a
+// freshly-tokened signed URL every request, which is a guaranteed cache
+// miss (different URL each time) -- that's why "Recent Generations" tiles
+// re-fetched their video from scratch, black-frame flash and all, on every
+// mount/refresh. Fetching the bytes here and returning them under the
+// stable `/api/library/video/[id]` URL with an immutable Cache-Control
+// (matching /api/library/image/[id]/[index]'s existing convention) lets
+// the browser cache them for real, so a revisited generation loads
+// instantly from disk instead of re-downloading. Range is forwarded both
+// ways so seeking/scrubbing still works.
 const SIGNED_URL_TTL_SECONDS = 10 * 60;
 
 const STORAGE_BUCKET = "videos";
@@ -48,16 +59,33 @@ async function handleGET(
 
   const wantsDownload = request.nextUrl.searchParams.get("download") === "1";
   const admin = createAdminClient();
-  const { data: signed, error } = await admin.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS, wantsDownload ? { download: `clypa-${id}.mp4` } : undefined);
+  const { data: signed, error } = await admin.storage.from(STORAGE_BUCKET).createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
 
   if (error || !signed) {
     console.error("[library/video] Failed to sign storage URL:", error);
     return NextResponse.json({ error: "Could not load video" }, { status: 500 });
   }
 
-  return NextResponse.redirect(signed.signedUrl);
+  const range = request.headers.get("range");
+  const upstream = await fetch(signed.signedUrl, range ? { headers: { Range: range } } : undefined);
+  if (!upstream.ok || !upstream.body) {
+    console.error("[library/video] Upstream fetch failed:", upstream.status);
+    return NextResponse.json({ error: "Could not load video" }, { status: 502 });
+  }
+
+  const headers = new Headers();
+  headers.set("Content-Type", upstream.headers.get("content-type") ?? "video/mp4");
+  headers.set("Accept-Ranges", "bytes");
+  // Same reasoning as the image route's identical header: generated video
+  // output is immutable once written, safe to cache hard on the client.
+  headers.set("Cache-Control", "private, max-age=31536000, immutable");
+  const contentLength = upstream.headers.get("content-length");
+  if (contentLength) headers.set("Content-Length", contentLength);
+  const contentRange = upstream.headers.get("content-range");
+  if (contentRange) headers.set("Content-Range", contentRange);
+  if (wantsDownload) headers.set("Content-Disposition", `attachment; filename="clypa-${id}.mp4"`);
+
+  return new NextResponse(upstream.body, { status: upstream.status, headers });
 }
 
 // Deletes both the DB row and its Storage objects. Ownership is checked

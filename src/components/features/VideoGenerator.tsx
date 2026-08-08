@@ -27,6 +27,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TopUpModal } from "@/components/TopUpModal";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { readHistoryCache, writeHistoryCache } from "@/lib/client/history-cache";
 import { consumeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import {
   DEFAULT_VIDEO_MODEL,
@@ -395,7 +396,7 @@ export function VideoGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
 
-  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(null);
+  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("video-create"));
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
   // Purely a same-tick UI affordance -- the actual download is a same-origin
@@ -492,6 +493,13 @@ export function VideoGenerator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mirrors every history update into localStorage so the next mount (tab
+  // revisit, full refresh) can hydrate its initial state from here instead
+  // of rendering an empty grid until the fetch above resolves.
+  useEffect(() => {
+    if (history) writeHistoryCache("video-create", history);
+  }, [history]);
+
   // Picks up an image handed off from the Image Generator's "Animate" action
   // (see ImageGenerator.tsx) -- lands it as the Create tab's start frame,
   // ready for image-to-video. Must run post-mount, not as a lazy useState
@@ -522,7 +530,7 @@ export function VideoGenerator() {
   const editElapsedSeconds = useElapsedSeconds(editIsGenerating);
   const [editPendingCount, setEditPendingCount] = useState(0);
   const [editError, setEditError] = useState<string | null>(null);
-  const [editHistory, setEditHistory] = useState<GenerationHistoryItem[] | null>(null);
+  const [editHistory, setEditHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("video-edit"));
   const [isUploadingSource, setIsUploadingSource] = useState(false);
 
   const editPollCancelRef = useRef<(() => void) | null>(null);
@@ -607,6 +615,10 @@ export function VideoGenerator() {
     return () => editPollCancelRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (editHistory) writeHistoryCache("video-edit", editHistory);
+  }, [editHistory]);
 
   async function handleGenerateEdit() {
     if (!canSubmitEdit || !editSource) return;

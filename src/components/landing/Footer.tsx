@@ -8,8 +8,8 @@ const LINK_GROUPS: LinkGroup[] = [
   {
     heading: "Generate Videos",
     links: [
-      { label: "Niche Bending", href: "/app/bend" },
-      { label: "Script Generator", href: "/app/scripts" },
+      { label: "Niche Bending", href: "/script-bending" },
+      { label: "Script Generator", href: "/script-bending" },
       { label: "Image Generator", href: "/app/image-generator" },
       { label: "Video Library", href: "/app/library" },
     ],
@@ -45,10 +45,10 @@ const LINK_GROUPS: LinkGroup[] = [
 // Flat, heading-free link list for the phone-width footer — condensed labels
 // so every entry stays on one line inside a narrow 3-col grid.
 const MOBILE_FOOTER_LINKS: { label: string; href: string }[] = [
-  { label: "Niche Bending", href: "/app/bend" },
+  { label: "Niche Bending", href: "/script-bending" },
   { label: "Niches", href: "/app/niches" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Scripts", href: "/app/scripts" },
+  { label: "Scripts", href: "/script-bending" },
   { label: "Transcripts", href: "/app/transcripts" },
   { label: "How it Works", href: "/#workflow" },
   { label: "Images", href: "/app/image-generator" },
