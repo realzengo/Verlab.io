@@ -302,16 +302,21 @@ function ScrubWaveform({ peaks, progress }: { peaks: number[] | null; progress: 
       const barCount = Math.max(1, Math.floor(width / (barWidth + gap)));
       const mid = height / 2;
       const playedBars = progress * barCount;
+      // A single brand blue at two alphas (rather than two hand-picked hex
+      // colors) so bars read correctly on both the light indigo-tint well
+      // and the dark well without a separate light/dark color pair.
+      ctx.fillStyle = "#335cff";
       for (let i = 0; i < barCount; i++) {
         const peak = peaks[Math.min(peaks.length - 1, Math.floor((i / barCount) * peaks.length))];
         const barHeight = Math.max(2.5, peak * height * 0.85);
         const x = i * (barWidth + gap);
         const y = mid - barHeight / 2;
-        ctx.fillStyle = i < playedBars ? "#6c94ff" : "rgba(108, 148, 255, 0.28)";
+        ctx.globalAlpha = i < playedBars ? 1 : 0.32;
         ctx.beginPath();
         ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
         ctx.fill();
       }
+      ctx.globalAlpha = 1;
     }
 
     draw();
@@ -338,6 +343,8 @@ function Timeline({
   isPlaying,
   onTogglePlay,
   disabled,
+  onDeleteSegment,
+  deletingIndex,
 }: {
   durations: number[];
   currentTime: number;
@@ -346,10 +353,21 @@ function Timeline({
   isPlaying: boolean;
   onTogglePlay: () => void;
   disabled: boolean;
+  onDeleteSegment?: (index: number) => void;
+  deletingIndex?: number | null;
 }) {
   const total = Math.max(0.5, durations.reduce((sum, d) => sum + d, 0));
   const progress = Math.min(1, currentTime / total);
   const combinedPeaks = useCombinedWaveformPeaks(generationId, durations);
+  const showSegments = !disabled && durations.length > 1 && !!onDeleteSegment;
+
+  // Boundaries for the per-segment dividers/hover-delete overlay below.
+  let boundaryCursor = 0;
+  const segmentZones = durations.map((duration, index) => {
+    const startPct = (boundaryCursor / total) * 100;
+    boundaryCursor += duration;
+    return { index, startPct, widthPct: (duration / total) * 100 };
+  });
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -405,24 +423,59 @@ function Timeline({
         )}
       </button>
 
-      {/* The waveform well stays a fixed dark color in both themes -- like a
-          recessed audio-editor track -- so the blue bars and white playhead
-          always have guaranteed contrast, instead of picking two more color
-          pairs to track light/dark. */}
+      {/* Branded-tint well in light mode, recessed near-black well in dark --
+          either way the bars/playhead below are colored to hold contrast
+          against both. */}
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={cn(
-          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-[#0c0d13] ring-1 ring-inset ring-white/[0.05]",
+          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-accent ring-1 ring-inset ring-accent-line",
+          "dark:bg-[#0c0d13] dark:ring-white/[0.05]",
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         )}
       >
         <ScrubWaveform peaks={combinedPeaks} progress={progress} />
+
+        {showSegments &&
+          segmentZones.map(({ index, startPct, widthPct }) => (
+            <div
+              key={index}
+              className={cn(
+                "group absolute inset-y-0 flex items-start justify-end",
+                index > 0 && "border-l border-black/10 dark:border-white/10"
+              )}
+              style={{ left: `${startPct}%`, width: `${widthPct}%` }}
+            >
+              <div className="pointer-events-none absolute inset-0 bg-primary/0 transition-colors group-hover:bg-primary/10" />
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeleteSegment?.(index);
+                }}
+                disabled={deletingIndex === index}
+                aria-label={`Delete segment ${index + 1}`}
+                className="pointer-events-auto relative z-10 m-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-heading text-surface opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-danger disabled:cursor-not-allowed disabled:opacity-100"
+              >
+                {deletingIndex === index ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  <X className="h-2.5 w-2.5" strokeWidth={3} />
+                )}
+              </button>
+            </div>
+          ))}
+
+        {/* bg-heading/text pairing is intentionally inverted per theme
+            (near-black in light, near-white in dark) so this cursor stays
+            visible against the well above regardless of theme. */}
         <div
           className={cn(
-            "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)] transition-transform",
+            "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-heading shadow-[0_0_6px_rgba(51,92,255,0.55)] transition-transform",
             isScrubbing && "scale-y-125"
           )}
           style={{ left: `${progress * 100}%` }}
@@ -1092,6 +1145,8 @@ export function VoiceoverGenerator() {
                     isPlaying={isSequenceMode && isPlaying}
                     onTogglePlay={togglePlayPause}
                     disabled={segments.length === 0}
+                    onDeleteSegment={handleDeleteSegment}
+                    deletingIndex={deletingIndex}
                   />
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
