@@ -202,58 +202,80 @@ function VoiceCard({
   );
 }
 
-// Decoded per-segment amplitude peaks, keyed by audio URL so switching tabs
-// or re-rendering the timeline doesn't re-fetch/re-decode audio already seen.
+// Decoded amplitude peaks, keyed by segment audio URL so switching tabs or
+// re-rendering the timeline doesn't re-fetch/re-decode audio already seen.
 const waveformPeakCache = new Map<string, number[]>();
 const WAVEFORM_SAMPLE_COUNT = 300;
+const COMBINED_SAMPLE_COUNT = 240;
 
-function useWaveformPeaks(url: string | null): number[] | null {
-  // Cache hits resolve synchronously during render; the effect below only
-  // ever fires for genuine cache misses, and only calls setState from inside
-  // the async fetch/decode callback (an external-system response), never
-  // directly in the effect body.
-  const cached = url ? (waveformPeakCache.get(url) ?? null) : null;
-  const [fetched, setFetched] = useState<{ url: string; peaks: number[] } | null>(null);
+async function loadPeaks(url: string): Promise<number[]> {
+  const cached = waveformPeakCache.get(url);
+  if (cached) return cached;
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const audioContext = new AudioContext();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  const channel = audioBuffer.getChannelData(0);
+  const blockSize = Math.max(1, Math.floor(channel.length / WAVEFORM_SAMPLE_COUNT));
+  const result: number[] = [];
+  for (let i = 0; i < WAVEFORM_SAMPLE_COUNT; i++) {
+    const start = i * blockSize;
+    let sum = 0;
+    for (let j = 0; j < blockSize; j++) sum += Math.abs(channel[start + j] ?? 0);
+    result.push(sum / blockSize);
+  }
+  const max = Math.max(...result, 0.0001);
+  const normalized = result.map((v) => Math.min(1, v / max));
+  void audioContext.close();
+  waveformPeakCache.set(url, normalized);
+  return normalized;
+}
+
+// Stitches every segment's decoded peaks into one continuous track, each
+// sized proportionally to its share of total duration, so the scrubber reads
+// as a single waveform rather than per-segment blocks.
+function useCombinedWaveformPeaks(generationId: string | null, durations: number[]): number[] | null {
+  const [, forceUpdate] = useState(0);
+  const durationsKey = durations.join(",");
 
   useEffect(() => {
-    if (!url || waveformPeakCache.has(url)) return;
+    if (!generationId || durations.length === 0) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioContext = new AudioContext();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        const channel = audioBuffer.getChannelData(0);
-        const blockSize = Math.max(1, Math.floor(channel.length / WAVEFORM_SAMPLE_COUNT));
-        const result: number[] = [];
-        for (let i = 0; i < WAVEFORM_SAMPLE_COUNT; i++) {
-          const start = i * blockSize;
-          let sum = 0;
-          for (let j = 0; j < blockSize; j++) sum += Math.abs(channel[start + j] ?? 0);
-          result.push(sum / blockSize);
-        }
-        const max = Math.max(...result, 0.0001);
-        const normalized = result.map((v) => Math.min(1, v / max));
-        void audioContext.close();
-        waveformPeakCache.set(url, normalized);
-        if (!cancelled) setFetched({ url, peaks: normalized });
-      } catch {
-        // Leave peaks empty on failure; the bar simply renders without a waveform.
-      }
-    })();
+    const urls = durations.map((_, i) => segmentUrl(generationId, i));
+    Promise.all(urls.map((url) => loadPeaks(url).catch(() => null))).then(() => {
+      if (!cancelled) forceUpdate((n) => n + 1);
+    });
     return () => {
       cancelled = true;
     };
-  }, [url]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- durationsKey stands in for durations (a fresh array reference every render) so this only re-fetches when segment lengths actually change
+  }, [generationId, durationsKey]);
 
-  return cached ?? (fetched && fetched.url === url ? fetched.peaks : null);
+  if (!generationId || durations.length === 0) return null;
+
+  const total = durations.reduce((sum, d) => sum + d, 0) || 1;
+  const combined = new Array(COMBINED_SAMPLE_COUNT).fill(0);
+  let cursor = 0;
+  durations.forEach((duration, i) => {
+    const peaks = waveformPeakCache.get(segmentUrl(generationId, i));
+    const fraction = duration / total;
+    const startIdx = Math.round(cursor * COMBINED_SAMPLE_COUNT);
+    const endIdx = Math.round((cursor + fraction) * COMBINED_SAMPLE_COUNT);
+    if (peaks) {
+      for (let idx = startIdx; idx < endIdx; idx++) {
+        const t = endIdx > startIdx ? (idx - startIdx) / (endIdx - startIdx) : 0;
+        combined[idx] = peaks[Math.min(peaks.length - 1, Math.floor(t * peaks.length))];
+      }
+    }
+    cursor += fraction;
+  });
+  return combined;
 }
 
-// Renders decoded peaks as a bar waveform on a canvas sized to its container,
-// so bars stay crisp at any segment width instead of stretching a fixed set.
-function Waveform({ url, color }: { url: string | null; color: string }) {
-  const peaks = useWaveformPeaks(url);
+// Renders decoded peaks as a two-tone bar waveform -- bright ahead of the
+// unplayed remainder, dimmed in what's already played -- on a canvas sized to
+// its container so bars stay crisp at any width.
+function ScrubWaveform({ peaks, progress }: { peaks: number[] | null; progress: number }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -272,19 +294,22 @@ function Waveform({ url, color }: { url: string | null; color: string }) {
       canvas!.style.width = `${width}px`;
       canvas!.style.height = `${height}px`;
       const ctx = canvas!.getContext("2d");
-      if (!ctx || !peaks || peaks.length === 0) return;
+      if (!ctx) return;
+      ctx.clearRect(0, 0, width, height);
+      if (!peaks || peaks.length === 0) return;
       ctx.scale(dpr, dpr);
 
-      const barWidth = 2;
+      const barWidth = 2.5;
       const gap = 2;
       const barCount = Math.max(1, Math.floor(width / (barWidth + gap)));
       const mid = height / 2;
-      ctx.fillStyle = color;
+      const playedBars = progress * barCount;
       for (let i = 0; i < barCount; i++) {
         const peak = peaks[Math.min(peaks.length - 1, Math.floor((i / barCount) * peaks.length))];
-        const barHeight = Math.max(2, peak * height * 0.82);
+        const barHeight = Math.max(2.5, peak * height * 0.85);
         const x = i * (barWidth + gap);
         const y = mid - barHeight / 2;
+        ctx.fillStyle = i < playedBars ? "#6c94ff" : "rgba(108, 148, 255, 0.28)";
         ctx.beginPath();
         ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
         ctx.fill();
@@ -295,7 +320,7 @@ function Waveform({ url, color }: { url: string | null; color: string }) {
     const resizeObserver = new ResizeObserver(draw);
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
-  }, [peaks, color]);
+  }, [peaks, progress]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
@@ -304,99 +329,106 @@ function Waveform({ url, color }: { url: string | null; color: string }) {
   );
 }
 
+// The scrub bar users drag to choose playback position: a single dark
+// "player chrome" pill (play button + continuous waveform + elapsed time)
+// that reads as one deliberate control rather than a row of parts.
 function Timeline({
   durations,
   currentTime,
-  activeIndex,
   generationId,
   onSeek,
+  isPlaying,
+  onTogglePlay,
+  disabled,
 }: {
   durations: number[];
   currentTime: number;
-  activeIndex: number | null;
   generationId: string | null;
   onSeek: (time: number) => void;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  disabled: boolean;
 }) {
   const total = Math.max(0.5, durations.reduce((sum, d) => sum + d, 0));
-  const step = total <= 10 ? 0.5 : total <= 30 ? 1 : total <= 120 ? 5 : 10;
-  const ticks: number[] = [];
-  for (let t = 0; t <= total; t += step) ticks.push(t);
-  const playheadPct = Math.min(100, (currentTime / total) * 100);
+  const progress = Math.min(1, currentTime / total);
+  const combinedPeaks = useCombinedWaveformPeaks(generationId, durations);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const scrubTime = currentTime;
 
-  function timeFromClientX(clientX: number): number {
+  function progressFromClientX(clientX: number): number {
     const el = trackRef.current;
-    if (!el) return scrubTime;
+    if (!el) return progress;
     const rect = el.getBoundingClientRect();
-    const fraction = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
-    return fraction * total;
+    return rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (disabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setIsScrubbing(true);
-    onSeek(timeFromClientX(event.clientX));
+    onSeek(progressFromClientX(event.clientX) * total);
   }
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (!isScrubbing) return;
-    onSeek(timeFromClientX(event.clientX));
+    onSeek(progressFromClientX(event.clientX) * total);
   }
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (!isScrubbing) return;
     setIsScrubbing(false);
-    onSeek(timeFromClientX(event.clientX));
+    onSeek(progressFromClientX(event.clientX) * total);
   }
 
   return (
-    <div className="relative">
-      <div className="relative h-4 text-[10px] font-medium text-subtle">
-        {ticks.map((t, i) => (
-          <span key={t} className="absolute -translate-x-1/2" style={{ left: `${(t / total) * 100}%` }}>
-            {i % 2 === 0 ? `${t % 1 === 0 ? t : t.toFixed(1)}s` : "•"}
-          </span>
-        ))}
-      </div>
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-2xl bg-gradient-to-b from-[#181a24] to-[#0a0a0f] p-2 ring-1 ring-white/[0.06] transition-opacity",
+        "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07),0_10px_28px_-12px_rgba(0,0,0,0.6)]",
+        disabled && "opacity-50"
+      )}
+    >
+      <button
+        type="button"
+        onClick={onTogglePlay}
+        disabled={disabled}
+        aria-label={isPlaying ? "Pause" : "Play"}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform active:scale-95 disabled:cursor-not-allowed"
+        style={{
+          background: "linear-gradient(to bottom, rgb(84, 132, 255), rgb(51, 92, 255))",
+          boxShadow:
+            "0 2px 10px 0 rgba(51,92,255,0.55), 0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
+        }}
+      >
+        {isPlaying ? (
+          <Pause className="h-3.5 w-3.5" fill="currentColor" />
+        ) : (
+          <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" />
+        )}
+      </button>
+
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="relative mt-1 flex h-9 w-full touch-none select-none items-stretch gap-1 cursor-pointer"
-      >
-        {durations.map((duration, index) => (
-          <div
-            key={index}
-            className={cn(
-              "relative flex items-center justify-center overflow-hidden rounded-full border text-[11px] font-bold transition-colors",
-              index === activeIndex ? "border-primary bg-primary text-white" : "border-primary/30 bg-accent text-primary"
-            )}
-            style={{ width: `${(duration / total) * 100}%`, minWidth: 26 }}
-          >
-            <Waveform
-              url={generationId ? segmentUrl(generationId, index) : null}
-              color={index === activeIndex ? "rgba(255,255,255,0.55)" : "rgba(51,92,255,0.35)"}
-            />
-            <span className="relative z-10 drop-shadow-sm">{index + 1}</span>
-          </div>
-        ))}
-      </div>
-      <div
         className={cn(
-          "pointer-events-none absolute inset-y-0 w-px bg-primary transition-[left] duration-75",
-          isScrubbing ? "" : "ease-out"
+          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-black/25 ring-1 ring-inset ring-white/[0.04]",
+          disabled ? "cursor-not-allowed" : "cursor-pointer"
         )}
-        style={{ left: `${playheadPct}%` }}
       >
-        <span
+        <ScrubWaveform peaks={combinedPeaks} progress={progress} />
+        <div
           className={cn(
-            "absolute -left-[5px] -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-surface transition-transform",
-            isScrubbing && "scale-125"
+            "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)] transition-transform",
+            isScrubbing && "scale-y-125"
           )}
+          style={{ left: `${progress * 100}%` }}
         />
       </div>
+
+      <span className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-white/45">
+        {formatTime(currentTime)} <span className="text-white/25">/ {formatTime(total)}</span>
+      </span>
     </div>
   );
 }
@@ -1052,14 +1084,13 @@ export function VoiceoverGenerator() {
                   <Timeline
                     durations={durations.length > 0 ? durations : [1]}
                     currentTime={currentTime}
-                    activeIndex={playingIndex}
                     generationId={generationId}
                     onSeek={seekToGlobalTime}
+                    isPlaying={isSequenceMode && isPlaying}
+                    onTogglePlay={togglePlayPause}
+                    disabled={segments.length === 0}
                   />
-                  <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <span className="text-xs font-medium tabular-nums text-subtle">
-                      {formatTime(currentTime)} / {formatTime(durations.reduce((sum, d) => sum + d, 0))}
-                    </span>
+                  <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <IconButton
                         title="Previous segment"
@@ -1068,24 +1099,6 @@ export function VoiceoverGenerator() {
                       >
                         <SkipBack className="h-4 w-4" />
                       </IconButton>
-                      <button
-                        type="button"
-                        onClick={togglePlayPause}
-                        disabled={segments.length === 0}
-                        aria-label={isSequenceMode && isPlaying ? "Pause" : "Play"}
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                        style={{
-                          background: "linear-gradient(to bottom, rgb(59, 130, 246), rgb(37, 99, 235))",
-                          boxShadow:
-                            "0 2px 8px 0 rgba(37, 99, 235, 0.4), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(37, 99, 235, 0.5) inset",
-                        }}
-                      >
-                        {isSequenceMode && isPlaying ? (
-                          <Pause className="h-4 w-4" fill="currentColor" />
-                        ) : (
-                          <Play className="h-4 w-4" fill="currentColor" />
-                        )}
-                      </button>
                       <IconButton
                         title="Next segment"
                         onClick={() => playSequenceFrom(Math.min(segments.length - 1, (playingIndex ?? 0) + 1))}
@@ -1094,16 +1107,14 @@ export function VoiceoverGenerator() {
                         <SkipForward className="h-4 w-4" />
                       </IconButton>
                     </div>
-                    <div className="flex justify-end">
-                      <PlasticButton
-                        text="Export"
-                        loading={isExporting}
-                        loadingText="Exporting…"
-                        disabled={segments.length === 0}
-                        onClick={handleExport}
-                        trailing={<Download className="h-3.5 w-3.5" />}
-                      />
-                    </div>
+                    <PlasticButton
+                      text="Export"
+                      loading={isExporting}
+                      loadingText="Exporting…"
+                      disabled={segments.length === 0}
+                      onClick={handleExport}
+                      trailing={<Download className="h-3.5 w-3.5" />}
+                    />
                   </div>
                 </div>
               </>
