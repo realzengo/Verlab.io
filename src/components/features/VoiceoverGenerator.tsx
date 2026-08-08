@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Check,
   ChevronDown,
@@ -309,17 +309,46 @@ function Timeline({
   currentTime,
   activeIndex,
   generationId,
+  onSeek,
 }: {
   durations: number[];
   currentTime: number;
   activeIndex: number | null;
   generationId: string | null;
+  onSeek: (time: number) => void;
 }) {
   const total = Math.max(0.5, durations.reduce((sum, d) => sum + d, 0));
   const step = total <= 10 ? 0.5 : total <= 30 ? 1 : total <= 120 ? 5 : 10;
   const ticks: number[] = [];
   for (let t = 0; t <= total; t += step) ticks.push(t);
   const playheadPct = Math.min(100, (currentTime / total) * 100);
+
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const scrubTime = currentTime;
+
+  function timeFromClientX(clientX: number): number {
+    const el = trackRef.current;
+    if (!el) return scrubTime;
+    const rect = el.getBoundingClientRect();
+    const fraction = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
+    return fraction * total;
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsScrubbing(true);
+    onSeek(timeFromClientX(event.clientX));
+  }
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!isScrubbing) return;
+    onSeek(timeFromClientX(event.clientX));
+  }
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!isScrubbing) return;
+    setIsScrubbing(false);
+    onSeek(timeFromClientX(event.clientX));
+  }
 
   return (
     <div className="relative">
@@ -330,7 +359,13 @@ function Timeline({
           </span>
         ))}
       </div>
-      <div className="mt-1 flex h-9 w-full items-stretch gap-1">
+      <div
+        ref={trackRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        className="relative mt-1 flex h-9 w-full touch-none select-none items-stretch gap-1 cursor-pointer"
+      >
         {durations.map((duration, index) => (
           <div
             key={index}
@@ -348,8 +383,19 @@ function Timeline({
           </div>
         ))}
       </div>
-      <div className="pointer-events-none absolute inset-y-0 w-px bg-primary" style={{ left: `${playheadPct}%` }}>
-        <span className="absolute -left-[5px] -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-surface" />
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-y-0 w-px bg-primary transition-[left] duration-75",
+          isScrubbing ? "" : "ease-out"
+        )}
+        style={{ left: `${playheadPct}%` }}
+      >
+        <span
+          className={cn(
+            "absolute -left-[5px] -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-primary bg-surface transition-transform",
+            isScrubbing && "scale-125"
+          )}
+        />
       </div>
     </div>
   );
@@ -382,6 +428,7 @@ export function VoiceoverGenerator() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [segments, setSegments] = useState<SegmentState[]>([]);
+  const [creditsQuoted, setCreditsQuoted] = useState<number | null>(null);
   const pollCancelRef = useRef<(() => void) | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
@@ -486,6 +533,7 @@ export function VoiceoverGenerator() {
       status: string;
       error_message: string | null;
       segments: { text: string; durationSeconds: number }[];
+      credits_quoted?: number;
     } | null>(
       async () => {
         const response = await fetch(`/api/generate-voiceover?id=${id}`);
@@ -498,6 +546,7 @@ export function VoiceoverGenerator() {
         if (!row) return;
         if (row.status === "completed") {
           setSegments(row.segments.map((s) => ({ text: s.text, durationSeconds: s.durationSeconds })));
+          setCreditsQuoted(row.credits_quoted ?? null);
           setView("editor");
           setIsGenerating(false);
           setHistoryRefreshSignal((n) => n + 1);
@@ -643,6 +692,57 @@ export function VoiceoverGenerator() {
     void audioRef.current.play();
   }
 
+  function seekToGlobalTime(time: number) {
+    if (!generationId || !audioRef.current || durations.length === 0) return;
+    const total = durations.reduce((sum, d) => sum + d, 0) || 1;
+    const clamped = Math.max(0, Math.min(total - 0.01, time));
+    let acc = 0;
+    let index = durations.length - 1;
+    for (let i = 0; i < durations.length; i++) {
+      if (clamped < acc + durations[i]) {
+        index = i;
+        break;
+      }
+      acc += durations[i];
+    }
+    const localTime = Math.max(0, clamped - acc);
+    const audio = audioRef.current;
+    const wasPlaying = isPlaying;
+
+    setCurrentTime(clamped);
+    setIsSequenceMode(true);
+
+    if (playingIndex === index) {
+      audio.currentTime = localTime;
+      if (wasPlaying) void audio.play();
+      return;
+    }
+
+    setPlayingIndex(index);
+    audio.src = segmentUrl(generationId, index);
+    const onReady = () => {
+      audio.currentTime = localTime;
+      if (wasPlaying) void audio.play();
+      audio.removeEventListener("loadedmetadata", onReady);
+    };
+    audio.addEventListener("loadedmetadata", onReady);
+  }
+
+  function handleGenerateAgain() {
+    audioRef.current?.pause();
+    pollCancelRef.current?.();
+    setPlayingIndex(null);
+    setIsPlaying(false);
+    setIsSequenceMode(false);
+    setCurrentTime(0);
+    setLoopIndex(null);
+    setGenerationId(null);
+    setSegments([]);
+    setCreditsQuoted(null);
+    setGenerationError(null);
+    setView("input");
+  }
+
   function togglePlayPause() {
     if (!audioRef.current) return;
     if (isPlaying && isSequenceMode) {
@@ -720,6 +820,7 @@ export function VoiceoverGenerator() {
       setLanguageCode(row.language_code);
       setGenerationId(row.id);
       setSegments((row.segments ?? []).map((s: { text: string; durationSeconds: number }) => ({ text: s.text, durationSeconds: s.durationSeconds })));
+      setCreditsQuoted(row.credits_quoted ?? null);
       setEditorTab("editor");
       setView("editor");
       setSidebarTab("settings");
@@ -820,23 +921,40 @@ export function VoiceoverGenerator() {
 
             {view === "editor" && generationId && (
               <>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="truncate text-base font-semibold text-heading">{title || "Untitled Script"}</h2>
-                  <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
-                    {(["editor", "audio"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setEditorTab(tab)}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                          editorTab === tab ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
-                        )}
-                      >
-                        {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
-                        {tab === "editor" ? "Voiceover editor" : "Generated audio"}
-                      </button>
-                    ))}
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h2 className="truncate text-base font-semibold text-heading">{title || "Untitled Script"}</h2>
+                    {creditsQuoted !== null && (
+                      <Badge>
+                        {creditsQuoted} credit{creditsQuoted === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateAgain}
+                      className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-semibold text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Generate again
+                    </button>
+                    <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
+                      {(["editor", "audio"] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setEditorTab(tab)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                            editorTab === tab ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
+                          )}
+                        >
+                          {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
+                          {tab === "editor" ? "Voiceover editor" : "Generated audio"}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -936,6 +1054,7 @@ export function VoiceoverGenerator() {
                     currentTime={currentTime}
                     activeIndex={playingIndex}
                     generationId={generationId}
+                    onSeek={seekToGlobalTime}
                   />
                   <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                     <span className="text-xs font-medium tabular-nums text-subtle">
