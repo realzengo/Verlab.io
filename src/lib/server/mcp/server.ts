@@ -70,7 +70,13 @@ export function createMcpServer(userId: string): McpServer {
       title: "Verlab",
       version: "1.0.0",
       websiteUrl: "https://verlab.io",
-      icons: [{ src: "https://verlab.io/logo-icon.png", mimeType: "image/png", sizes: ["2363x2363"] }],
+      // Two sizes so hosts that pick the closest match (rather than just
+      // scaling one image down) have a real small icon to use in compact
+      // UI like a connector/tool picker, not just the large brand mark.
+      icons: [
+        { src: "https://verlab.io/logo-icon.png", mimeType: "image/png", sizes: ["256x256"] },
+        { src: "https://verlab.io/icon.png", mimeType: "image/png", sizes: ["512x512"] },
+      ],
     },
     {
       instructions:
