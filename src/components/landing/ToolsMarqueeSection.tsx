@@ -62,6 +62,31 @@ const TOOLS: MarqueeTool[] = [
 const AUTOPLAY_SPEED = 45;
 
 function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // The track is tripled for a seamless infinite loop, so most copies of
+  // each video are off-screen at any moment. Autoplaying all of them at
+  // once forces the browser to fetch every clip immediately on page load
+  // (this section carries 5MB+ videos) -- only play the copies that are
+  // actually visible, same approach as VideoMarqueeSection's VideoCard.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.play().catch(() => {});
+        } else {
+          el.pause();
+        }
+      },
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Link
       href="/login"
@@ -71,10 +96,10 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
       <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm sm:mb-3">
         {video ? (
           <video
+            ref={videoRef}
             src={video}
             poster={videoPoster}
             className="h-full w-full object-cover"
-            autoPlay
             loop
             muted
             playsInline
