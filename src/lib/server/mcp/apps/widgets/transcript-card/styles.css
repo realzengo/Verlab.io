@@ -3,17 +3,92 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  margin-top: 8px;
 }
 
 .v-line {
   display: flex;
-  gap: 8px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: var(--v-radius-xs);
   font-size: 13px;
+  transition: background var(--v-ease);
+}
+
+.v-line:hover {
+  background: var(--v-fill);
 }
 
 .v-line-ts {
-  color: var(--v-subtle);
   flex: none;
+  font-family: var(--v-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--v-primary);
+  background: var(--v-accent);
+  border-radius: 5px;
+  padding: 2px 6px;
   font-variant-numeric: tabular-nums;
+}
+
+.v-line-text {
+  color: var(--v-body);
+  line-height: 1.5;
+}
+
+.v-export {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--v-hairline);
+  position: relative;
+}
+
+.v-export-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--v-radius-pill);
+  background: var(--v-fill);
+  color: var(--v-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--v-ease), color var(--v-ease);
+}
+
+.v-export-toggle:hover,
+.v-export-toggle.is-open {
+  background: var(--v-accent);
+  color: var(--v-primary);
+}
+
+.v-export-toggle svg {
+  width: 13px;
+  height: 13px;
+}
+
+.v-export-chevron {
+  display: inline-flex;
+  transition: transform var(--v-ease);
+}
+
+.v-export-toggle.is-open .v-export-chevron {
+  transform: rotate(180deg);
+}
+
+.v-export-panel {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.v-export-status {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--v-subtle);
 }

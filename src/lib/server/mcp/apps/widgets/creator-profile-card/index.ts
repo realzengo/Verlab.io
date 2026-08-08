@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, sendChatMessage, LOGO_MARK } from "../../shared/host";
 
 interface AnalyzedVideo {
   title: string;
@@ -32,6 +32,7 @@ interface CreatorProfileData {
 
 const root = document.getElementById("root")!;
 let videos: AnalyzedVideo[] = [];
+let channelName = "Creator";
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
@@ -96,7 +97,7 @@ function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): str
 
 function render(data: CreatorProfileData | null) {
   videos = data?.videos ?? [];
-  const channelName = data?.channelName ?? "Creator";
+  channelName = data?.channelName ?? "Creator";
 
   let body: string;
   if (data?.error_message) {
@@ -111,6 +112,10 @@ function render(data: CreatorProfileData | null) {
       <div class="v-bench">${renderBars(videos)}</div>
       ${data?.summary ? `<p class="v-summary">${escapeHtml(data.summary)}</p>` : ""}
       ${data?.analysis ? renderFullReport(data.analysis, Boolean(data.docBase64)) : ""}
+      <div class="v-quick-actions">
+        <button type="button" class="v-quick-pill" id="action-hooks">Extract top hooks</button>
+        <button type="button" class="v-quick-pill" id="action-script">Write a script in this style</button>
+      </div>
     `;
   } else {
     body = `<div class="v-empty">${escapeHtml(data?.note ?? `Analyzing ${channelName}'s top videos…`)}</div>`;
@@ -136,8 +141,20 @@ const app = connectApp({
 });
 
 root.addEventListener("click", (event) => {
-  const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".v-bench-row-link");
-  if (!button) return;
-  const video = videos[Number(button.dataset.index)];
-  openLink(app, video?.url);
+  const target = event.target as HTMLElement;
+
+  const bench = target.closest<HTMLButtonElement>(".v-bench-row-link");
+  if (bench) {
+    const video = videos[Number(bench.dataset.index)];
+    openLink(app, video?.url);
+    return;
+  }
+
+  if (target.closest("#action-hooks")) {
+    sendChatMessage(app, `Extract the top hooks from ${channelName}'s videos you just analyzed.`);
+    return;
+  }
+  if (target.closest("#action-script")) {
+    sendChatMessage(app, `Write me a script in ${channelName}'s style.`);
+  }
 });

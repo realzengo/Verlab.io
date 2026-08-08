@@ -38,14 +38,14 @@ const WIDGETS = {
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
-  scriptCard: { resourceUri: "ui://verlab/script-card-v4.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
+  scriptCard: { resourceUri: "ui://verlab/script-card-v5.html", html: scriptCardHtml, outputSchema: ScriptCardSchema },
   imageGalleryCard: {
     resourceUri: "ui://verlab/image-gallery-card-v6.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },
   transcriptCard: {
-    resourceUri: "ui://verlab/transcript-card-v4.html",
+    resourceUri: "ui://verlab/transcript-card-v5.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
   },
@@ -55,12 +55,12 @@ const WIDGETS = {
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card-v5.html",
+    resourceUri: "ui://verlab/creator-profile-card-v6.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
   nicheFinderCard: {
-    resourceUri: "ui://verlab/niche-finder-card-v4.html",
+    resourceUri: "ui://verlab/niche-finder-card-v5.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
   },

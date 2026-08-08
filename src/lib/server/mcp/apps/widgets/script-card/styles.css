@@ -7,3 +7,86 @@
   overflow-y: auto;
   margin: 0;
 }
+
+.v-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.v-seg-block {
+  margin-top: 14px;
+}
+
+.v-seg-block:first-of-type {
+  margin-top: 12px;
+}
+
+.v-seg-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: var(--v-subtle);
+}
+
+.v-seg-hook .v-seg-label {
+  color: var(--v-primary);
+}
+
+.v-seg-cta .v-seg-label {
+  color: var(--v-success);
+}
+
+.v-seg-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: var(--v-radius-sm);
+  overflow: hidden;
+}
+
+.v-seg-hook .v-seg-lines {
+  background: var(--v-accent);
+}
+
+.v-seg-cta .v-seg-lines {
+  background: var(--v-success-tint);
+}
+
+.v-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--v-radius-xs);
+}
+
+.v-seg-body .v-line:hover {
+  background: var(--v-fill);
+}
+
+.v-line-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--v-body);
+}
+
+.v-seg-hook .v-line-text {
+  color: var(--v-heading);
+  font-weight: 600;
+}
+
+.v-copy-line {
+  opacity: 0;
+  transition: opacity var(--v-ease), background var(--v-ease), color var(--v-ease);
+}
+
+.v-line:hover .v-copy-line,
+.v-copy-line:focus-visible {
+  opacity: 1;
+}

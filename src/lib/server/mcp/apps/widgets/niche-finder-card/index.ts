@@ -228,7 +228,7 @@ function renderVideoList(videos: NicheReportVideo[]): string {
               <div class="vf-video-title">${escapeHtml(truncate(video.title, 55))}</div>
               <div class="vf-video-sub">${avatar}${author}</div>
             </div>
-            <span class="vf-video-views">${escapeHtml(video.views)}</span>
+            <span class="vf-video-views vf-num">${escapeHtml(video.views)}</span>
           </button>`;
         })
         .join("")}
@@ -251,7 +251,7 @@ function renderReport(platform: Platform, niches: NicheReportEntry[], live: bool
         <div class="vf-tags">
           <span class="vf-tag">${escapeHtml(PLATFORM_LABEL[entry.platform])}</span>
           <span class="vf-tag vf-tag-neutral">${escapeHtml(entry.category)}</span>
-          <span class="vf-tag ${entry.momentumTrend === "up" ? "vf-tag-up" : entry.momentumTrend === "down" ? "vf-tag-down" : "vf-tag-neutral"}">${TREND_LABEL[entry.momentumTrend]} · ${Math.round(entry.momentumScore)}/100</span>
+          <span class="vf-tag ${entry.momentumTrend === "up" ? "vf-tag-up" : entry.momentumTrend === "down" ? "vf-tag-down" : "vf-tag-neutral"}">${TREND_LABEL[entry.momentumTrend]} &middot; <span class="vf-num">${Math.round(entry.momentumScore)}/100</span></span>
         </div>
         <p class="vf-text">${escapeHtml(entry.description)}</p>
         <div class="vf-callout">
