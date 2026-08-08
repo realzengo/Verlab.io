@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 
@@ -56,7 +57,7 @@ function ComparisonListItem({
   return (
     <li className="flex items-center gap-3">
       {icon}
-      <span className={textClassName}>{children}</span>
+      <span className={cn("text-sm sm:text-base", textClassName)}>{children}</span>
     </li>
   );
 }
@@ -67,24 +68,24 @@ export function ComparisonSection() {
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
-        <h2 className="text-5xl font-medium tracking-tight text-slate-900 md:text-6xl">
+        <h2 className="text-2xl font-medium tracking-tight text-slate-900 sm:text-4xl md:text-6xl">
           Before VS After <span className="font-black">Verlab</span>
         </h2>
-        <p className="mt-4 text-lg text-slate-500">
+        <p className="mt-3 text-sm text-slate-500 sm:mt-4 sm:text-base md:text-lg">
           Verlab doesn&apos;t replace your voice. It multiplies it.
         </p>
       </div>
 
       <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-6 sm:mt-16 sm:gap-8 lg:grid-cols-2">
         {/* Card 1: Other Tools */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm sm:p-10 md:p-14">
+        <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:p-10 md:p-14">
           <div className="pointer-events-none absolute right-0 top-0 -z-10 h-full w-2/3 opacity-40">
             <IntersectingCirclesPattern dotClassName="fill-slate-400 stroke-none" />
           </div>
 
-          <h3 className="mb-8 font-serif text-xl italic text-slate-700">Other Tools</h3>
+          <h3 className="mb-6 font-serif text-lg italic text-slate-700 sm:mb-8 sm:text-xl">Other Tools</h3>
 
-          <ul className="flex flex-col gap-6">
+          <ul className="flex flex-col gap-4 sm:gap-6">
             {OTHER_TOOLS_ITEMS.map((item) => (
               <ComparisonListItem
                 key={item}
@@ -105,7 +106,7 @@ export function ComparisonSection() {
         <div
           ref={ref}
           data-inview={inView}
-          className="anim-gate comparison-winner-border relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:p-10 md:p-14"
+          className="anim-gate comparison-winner-border relative overflow-hidden rounded-3xl bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:p-10 md:p-14"
         >
           <div
             aria-hidden
@@ -115,12 +116,12 @@ export function ComparisonSection() {
             <IntersectingCirclesPattern dotClassName="fill-blue-500 stroke-none drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
           </div>
 
-          <div className="mb-8 flex items-center gap-2">
-            <span className="font-serif text-xl italic text-slate-700">With</span>
-            <span className="text-2xl font-black text-slate-900">VERLAB</span>
+          <div className="mb-6 flex items-center gap-2 sm:mb-8">
+            <span className="font-serif text-lg italic text-slate-700 sm:text-xl">With</span>
+            <span className="text-xl font-black text-slate-900 sm:text-2xl">VERLAB</span>
           </div>
 
-          <ul className="flex flex-col gap-6">
+          <ul className="flex flex-col gap-4 sm:gap-6">
             {VERLAB_ITEMS.map((item) => (
               <ComparisonListItem
                 key={item}
@@ -139,15 +140,15 @@ export function ComparisonSection() {
       </div>
 
       <div className="mt-10 text-center sm:mt-16">
-        <button
-          type="button"
+        <Link
+          href="/app"
           className={cn(
-            "rounded-full bg-blue-600 px-10 py-4 text-lg font-semibold text-white",
+            "inline-block rounded-full bg-blue-600 px-10 py-4 text-lg font-semibold text-white",
             "transition-all hover:scale-105 hover:bg-blue-700",
           )}
         >
           Try Verlab Now
-        </button>
+        </Link>
       </div>
     </section>
   );

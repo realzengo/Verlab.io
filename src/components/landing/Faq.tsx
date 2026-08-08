@@ -28,7 +28,7 @@ export function Faq() {
           FAQ
           <CircleDot className="h-3.5 w-3.5 text-slate-300" />
         </span>
-        <h2 className="text-[28px] font-extrabold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+        <h2 className="text-2xl font-extrabold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
           Frequently asked questions
         </h2>
       </div>
@@ -44,12 +44,12 @@ export function Faq() {
                     type="button"
                     onClick={() => setOpenId(isOpen ? null : item.id)}
                     aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between gap-4 rounded-2xl px-6 py-5 text-left transition-colors duration-200 focus:outline-none sm:px-7"
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left transition-colors duration-200 focus:outline-none sm:gap-4 sm:px-7 sm:py-5"
                   >
-                    <span className="text-base font-bold text-heading">{item.question}</span>
+                    <span className="text-sm font-bold text-heading sm:text-base">{item.question}</span>
                     <ChevronDown
                       className={cn(
-                        "h-5 w-5 shrink-0 text-primary transition-transform duration-300 ease-out",
+                        "h-4 w-4 shrink-0 text-primary transition-transform duration-300 ease-out sm:h-5 sm:w-5",
                         isOpen && "rotate-180"
                       )}
                       strokeWidth={2.5}
@@ -62,7 +62,7 @@ export function Faq() {
                     )}
                   >
                     <div className="overflow-hidden">
-                      <div className="px-6 pb-5 text-[15px] leading-[1.65] text-body sm:px-7">{item.answer}</div>
+                      <div className="px-4 pb-4 text-sm leading-[1.65] text-body sm:px-7 sm:pb-5 sm:text-[15px]">{item.answer}</div>
                     </div>
                   </div>
                 </div>

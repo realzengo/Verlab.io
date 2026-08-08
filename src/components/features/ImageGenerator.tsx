@@ -44,37 +44,30 @@ import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
 
-// Replicate listing for each option's underlying model -- mirrors
-// REPLICATE_MODEL in src/lib/server/replicate-image.ts (that file is
-// server-only, so the slugs are duplicated here rather than imported).
 export const MODEL_OPTIONS = [
   {
     value: "Nano Banana",
     label: "Nano Banana",
     icon: GEMINI_ICON,
     description: "Fast, lower quality — 1 credit",
-    href: "https://replicate.com/google/nano-banana",
   },
   {
     value: "Nano Banana 2",
     label: "Nano Banana 2",
     icon: GEMINI_ICON,
     description: "Recommended — 2-3 credits",
-    href: "https://replicate.com/google/nano-banana-2",
   },
   {
     value: "Nano Banana Pro",
     label: "Nano Banana Pro",
     icon: GEMINI_ICON,
     description: "Highest quality, slower — 3-4 credits",
-    href: "https://replicate.com/google/nano-banana-pro",
   },
   {
     value: "Nano Banana 2 Lite",
     label: "Nano Banana 2 Lite",
     icon: GEMINI_ICON,
     description: "Fastest & cheapest — 1 credit",
-    href: "https://replicate.com/google/nano-banana",
   },
   {
     value: "GPT Image 2",
@@ -82,7 +75,6 @@ export const MODEL_OPTIONS = [
     icon: GPT_ICON,
     invertDark: true,
     description: "Sharp detail, great prompt following — 3-4 credits",
-    href: "https://replicate.com/openai/gpt-image-2",
   },
 ];
 

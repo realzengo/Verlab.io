@@ -111,7 +111,7 @@ export default function Testimonial2() {
           Reviews
           <CircleDot className="h-3.5 w-3.5 text-slate-300" />
         </span>
-        <h2 className="text-3xl md:text-5xl font-bold tracking-tight">What our users are saying</h2>
+        <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight">What our users are saying</h2>
       </div>
 
       {/* Main Container acting as the viewport for background and fades */}

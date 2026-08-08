@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
@@ -36,11 +37,16 @@ export function Nav() {
     };
   }, []);
 
+  // Full-page takeover locks the page underneath -- there's nothing to
+  // scroll-to-dismiss anymore, so this just stops the body from scrolling
+  // behind the overlay while it's open.
   useEffect(() => {
     if (!mobileOpen) return;
-    const onScroll = () => setMobileOpen(false);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, [mobileOpen]);
 
   return (
@@ -120,45 +126,77 @@ export function Nav() {
           </div>
         </div>
 
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-300 ease-in-out sm:hidden",
-            mobileOpen ? "mt-2 grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="overflow-hidden">
-            <div
-              className={cn(
-                "flex flex-col gap-1 border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-300 ease-in-out dark:border-zinc-800 dark:bg-zinc-900",
-                isScrolled ? "rounded-xl" : "rounded-none",
-                mobileOpen ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0",
-              )}
+      </div>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-0 z-[110] flex flex-col bg-white sm:hidden dark:bg-zinc-900"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
+              <Link href="/" onClick={() => setMobileOpen(false)} className="flex shrink-0 items-center">
+                <Image
+                  src="/verlab-studio-logo.png"
+                  alt="Verlab Studio"
+                  width={1200}
+                  height={356}
+                  sizes="160px"
+                  className="h-9 w-auto dark:hidden"
+                />
+                <Image
+                  src="/landing-header-logo-dark.png"
+                  alt="Verlab"
+                  width={887}
+                  height={237}
+                  sizes="160px"
+                  className="hidden h-9 w-auto dark:block"
+                />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close menu"
+                className="-mr-1 flex shrink-0 items-center justify-center p-2 text-slate-700 outline-none focus:outline-none focus-visible:outline-none dark:text-slate-200"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.08, ease: "easeOut" }}
+              className="flex flex-1 flex-col overflow-y-auto"
             >
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-black dark:text-slate-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                  className="flex items-center justify-between border-b border-slate-100 px-5 py-5 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-zinc-800 dark:text-slate-200 dark:hover:bg-zinc-800"
                 >
                   {link.label}
                 </Link>
               ))}
+            </motion.div>
+
+            <div className="shrink-0 border-t border-slate-200 p-4 dark:border-zinc-800">
               <Link
                 href="/app"
                 onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "mt-1 flex items-center justify-center gap-1.5 bg-btn-primary px-4 py-3 text-sm font-bold text-white transition-all duration-300 ease-in-out",
-                  isScrolled ? "rounded-xl" : "rounded-none",
-                )}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-btn-primary px-4 py-3.5 text-sm font-bold text-white"
               >
                 Get Started
                 <ArrowRight size={16} className="shrink-0" />
               </Link>
             </div>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

@@ -580,7 +580,7 @@ function StepThreeCard() {
 export function VerlabProcess() {
   return (
     <section className="w-full pb-14 pt-10 sm:pb-24 sm:pt-16">
-      <div className="text-center">
+      <div className="px-5 text-center sm:px-6">
         <span
           className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
           style={{
@@ -598,10 +598,10 @@ export function VerlabProcess() {
           How it Works
           <CircleDot className="h-3.5 w-3.5 text-slate-300" />
         </span>
-        <h2 className="text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl md:text-5xl">
           Go Viral in 3 Simple Steps
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-sm font-normal text-slate-500 md:text-base">
+        <p className="mx-auto mt-3 max-w-xl text-sm font-normal text-slate-500 sm:mt-4 md:text-base">
           Discover viral ideas, extract what makes them work, and transform them into unique scripts tailored to your niche.
         </p>
       </div>

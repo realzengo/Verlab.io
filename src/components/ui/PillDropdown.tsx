@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ExternalLink } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -14,8 +14,6 @@ interface PillDropdownOption {
   invertDark?: boolean;
   description?: string;
   ratio?: string;
-  /** Link to the option's source (e.g. its listing on Replicate) — shown as a small external-link affordance that opens without selecting the option. */
-  href?: string;
 }
 
 function RatioIcon({
@@ -177,96 +175,76 @@ export function PillDropdown({
             {options.map((option) => {
               const selected = option.value === value;
               return (
-                <div
+                <button
                   key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
                   className={cn(
-                    "flex w-full items-center gap-1 rounded-xl transition-colors duration-150",
+                    "flex w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150",
                     selected
-                      ? "bg-blue-500/10 dark:bg-blue-500/15"
-                      : "hover:bg-slate-100/80 dark:hover:bg-white/[0.06]",
+                      ? "bg-blue-500/10 font-semibold text-blue-600 dark:bg-blue-500/15 dark:text-blue-300"
+                      : "text-slate-600 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:bg-white/[0.06]",
                   )}
                 >
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    onClick={() => {
-                      onChange(option.value);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150",
-                      selected
-                        ? "font-semibold text-blue-600 dark:text-blue-300"
-                        : "text-slate-600 dark:text-slate-300",
-                    )}
-                  >
-                    {option.icon && (
-                      <span
+                  {option.icon && (
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
+                        selected
+                          ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
+                          : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
+                      )}
+                    >
+                      <Image
+                        src={option.icon}
+                        alt=""
+                        width={14}
+                        height={14}
                         className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
-                          selected
-                            ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
-                            : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
+                          "h-3.5 w-3.5 shrink-0 object-contain",
+                          option.invertDark && "dark:invert",
                         )}
-                      >
-                        <Image
-                          src={option.icon}
-                          alt=""
-                          width={14}
-                          height={14}
-                          className={cn(
-                            "h-3.5 w-3.5 shrink-0 object-contain",
-                            option.invertDark && "dark:invert",
-                          )}
-                        />
-                      </span>
-                    )}
-                    {option.ratio && (
+                      />
+                    </span>
+                  )}
+                  {option.ratio && (
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center",
+                        selected
+                          ? "text-blue-500 dark:text-blue-400"
+                          : "text-slate-400 dark:text-slate-500",
+                      )}
+                    >
+                      <RatioIcon ratio={option.ratio} />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block whitespace-nowrap">
+                      {option.label}
+                    </span>
+                    {option.description && (
                       <span
                         className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center",
+                          "block truncate text-xs font-normal",
                           selected
-                            ? "text-blue-500 dark:text-blue-400"
+                            ? "text-blue-500/70 dark:text-blue-400/60"
                             : "text-slate-400 dark:text-slate-500",
                         )}
                       >
-                        <RatioIcon ratio={option.ratio} />
+                        {option.description}
                       </span>
                     )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block whitespace-nowrap">
-                        {option.label}
-                      </span>
-                      {option.description && (
-                        <span
-                          className={cn(
-                            "block truncate text-xs font-normal",
-                            selected
-                              ? "text-blue-500/70 dark:text-blue-400/60"
-                              : "text-slate-400 dark:text-slate-500",
-                          )}
-                        >
-                          {option.description}
-                        </span>
-                      )}
-                    </span>
-                    {selected && (
-                      <Check className="h-3.5 w-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
-                    )}
-                  </button>
-                  {option.href && (
-                    <a
-                      href={option.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`View ${option.label} on Replicate`}
-                      className="shrink-0 rounded-md p-1.5 mr-1.5 text-slate-300 transition-colors duration-150 hover:text-blue-500 dark:text-slate-600 dark:hover:text-blue-400"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                  </span>
+                  {selected && (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
                   )}
-                </div>
+                </button>
               );
             })}
           </motion.div>
