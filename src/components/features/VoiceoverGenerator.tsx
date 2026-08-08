@@ -85,13 +85,6 @@ function segmentUrl(generationId: string, index: number): string {
   return `/api/generate-voiceover/${generationId}/segments/${index}`;
 }
 
-function formatTime(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
 // ── Small presentational pieces ─────────────────────────────────────────
 
 // Quick-tap presets for the free-text `prompt` style instruction Gemini TTS
@@ -200,174 +193,70 @@ function VoiceCard({
   );
 }
 
-// Decoded amplitude peaks, keyed by segment audio URL so switching tabs or
-// re-rendering the timeline doesn't re-fetch/re-decode audio already seen.
-const waveformPeakCache = new Map<string, number[]>();
-const WAVEFORM_SAMPLE_COUNT = 300;
-const COMBINED_SAMPLE_COUNT = 240;
-
-async function loadPeaks(url: string): Promise<number[]> {
-  const cached = waveformPeakCache.get(url);
-  if (cached) return cached;
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  const audioContext = new AudioContext();
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  const channel = audioBuffer.getChannelData(0);
-  const blockSize = Math.max(1, Math.floor(channel.length / WAVEFORM_SAMPLE_COUNT));
-  const result: number[] = [];
-  for (let i = 0; i < WAVEFORM_SAMPLE_COUNT; i++) {
-    const start = i * blockSize;
-    let sum = 0;
-    for (let j = 0; j < blockSize; j++) sum += Math.abs(channel[start + j] ?? 0);
-    result.push(sum / blockSize);
-  }
-  const max = Math.max(...result, 0.0001);
-  const normalized = result.map((v) => Math.min(1, v / max));
-  void audioContext.close();
-  waveformPeakCache.set(url, normalized);
-  return normalized;
+// One decimal place ("1.1", "3.9") -- matches the precision voiceover clips
+// actually need (most segments run a few seconds) and is what the timeline
+// below is styled after.
+function formatSeconds(seconds: number): string {
+  return Math.max(0, seconds).toFixed(1);
 }
 
-// Stitches every segment's decoded peaks into one continuous track, each
-// sized proportionally to its share of total duration, so the scrubber reads
-// as a single waveform rather than per-segment blocks.
-function useCombinedWaveformPeaks(generationId: string | null, durations: number[]): number[] | null {
-  const [, forceUpdate] = useState(0);
-  const durationsKey = durations.join(",");
-
-  useEffect(() => {
-    if (!generationId || durations.length === 0) return;
-    let cancelled = false;
-    const urls = durations.map((_, i) => segmentUrl(generationId, i));
-    Promise.all(urls.map((url) => loadPeaks(url).catch(() => null))).then(() => {
-      if (!cancelled) forceUpdate((n) => n + 1);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- durationsKey stands in for durations (a fresh array reference every render) so this only re-fetches when segment lengths actually change
-  }, [generationId, durationsKey]);
-
-  if (!generationId || durations.length === 0) return null;
-
-  const total = durations.reduce((sum, d) => sum + d, 0) || 1;
-  const combined = new Array(COMBINED_SAMPLE_COUNT).fill(0);
-  let cursor = 0;
-  durations.forEach((duration, i) => {
-    const peaks = waveformPeakCache.get(segmentUrl(generationId, i));
-    const fraction = duration / total;
-    const startIdx = Math.round(cursor * COMBINED_SAMPLE_COUNT);
-    const endIdx = Math.round((cursor + fraction) * COMBINED_SAMPLE_COUNT);
-    if (peaks) {
-      for (let idx = startIdx; idx < endIdx; idx++) {
-        const t = endIdx > startIdx ? (idx - startIdx) / (endIdx - startIdx) : 0;
-        combined[idx] = peaks[Math.min(peaks.length - 1, Math.floor(t * peaks.length))];
-      }
-    }
-    cursor += fraction;
-  });
-  return combined;
+// Whole-second labels from 0 up to the last full second, plus one final tick
+// at the exact (fractional) total -- e.g. total=3.9 -> 0s, 1s, 2s, 3s, 3.9s.
+function buildRulerTicks(total: number): { time: number; label: string }[] {
+  const lastWhole = Math.floor(total);
+  const ticks = Array.from({ length: lastWhole + 1 }, (_, s) => ({ time: s, label: `${s}s` }));
+  if (total - lastWhole > 0.05) ticks.push({ time: total, label: `${formatSeconds(total)}s` });
+  return ticks;
 }
 
-// Renders decoded peaks as a two-tone bar waveform -- bright ahead of the
-// unplayed remainder, dimmed in what's already played -- on a canvas sized to
-// its container so bars stay crisp at any width.
-function ScrubWaveform({ peaks, progress }: { peaks: number[] | null; progress: number }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    function draw() {
-      const rect = container!.getBoundingClientRect();
-      const width = Math.max(1, rect.width);
-      const height = Math.max(1, rect.height);
-      const dpr = window.devicePixelRatio || 1;
-      canvas!.width = width * dpr;
-      canvas!.height = height * dpr;
-      canvas!.style.width = `${width}px`;
-      canvas!.style.height = `${height}px`;
-      const ctx = canvas!.getContext("2d");
-      if (!ctx) return;
-      ctx.clearRect(0, 0, width, height);
-      if (!peaks || peaks.length === 0) return;
-      ctx.scale(dpr, dpr);
-
-      const barWidth = 2.5;
-      const gap = 2;
-      const barCount = Math.max(1, Math.floor(width / (barWidth + gap)));
-      const mid = height / 2;
-      const playedBars = progress * barCount;
-      // A single brand blue at two alphas (rather than two hand-picked hex
-      // colors) so bars read correctly on both the light indigo-tint well
-      // and the dark well without a separate light/dark color pair.
-      ctx.fillStyle = "#335cff";
-      for (let i = 0; i < barCount; i++) {
-        const peak = peaks[Math.min(peaks.length - 1, Math.floor((i / barCount) * peaks.length))];
-        const barHeight = Math.max(2.5, peak * height * 0.85);
-        const x = i * (barWidth + gap);
-        const y = mid - barHeight / 2;
-        ctx.globalAlpha = i < playedBars ? 1 : 0.32;
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, barHeight, barWidth / 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    draw();
-    const resizeObserver = new ResizeObserver(draw);
-    resizeObserver.observe(container);
-    return () => resizeObserver.disconnect();
-  }, [peaks, progress]);
-
-  return (
-    <div ref={containerRef} className="pointer-events-none absolute inset-0">
-      <canvas ref={canvasRef} className="block h-full w-full" />
-    </div>
-  );
+// Unlabeled midpoint dots between consecutive whole-second ticks, purely as
+// a ruler density cue.
+function buildRulerMidpoints(total: number): number[] {
+  const lastWhole = Math.floor(total);
+  const dots: number[] = [];
+  for (let s = 0.5; s < lastWhole; s += 1) dots.push(s);
+  return dots;
 }
 
-// The scrub bar users drag to choose playback position: a single dark
-// "player chrome" pill (play button + continuous waveform + elapsed time)
-// that reads as one deliberate control rather than a row of parts.
-function Timeline({
+// The "Generated audio" tab's player: a time readout + transport controls up
+// top, then a ruler and a row of solid, numbered segment blocks below with a
+// single playhead spanning both -- modeled on a professional timeline
+// scrubber rather than the old continuous-waveform pill.
+function AudioScrubberPanel({
   durations,
   currentTime,
-  generationId,
   onSeek,
   isPlaying,
   onTogglePlay,
+  onPrev,
+  onNext,
+  onExport,
+  isExporting,
+  exportError,
   disabled,
   onDeleteSegment,
   deletingIndex,
 }: {
   durations: number[];
   currentTime: number;
-  generationId: string | null;
   onSeek: (time: number) => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onExport: () => void;
+  isExporting: boolean;
+  exportError: string | null;
   disabled: boolean;
-  onDeleteSegment?: (index: number) => void;
-  deletingIndex?: number | null;
+  onDeleteSegment: (index: number) => void;
+  deletingIndex: number | null;
 }) {
   const total = Math.max(0.5, durations.reduce((sum, d) => sum + d, 0));
-  const progress = Math.min(1, currentTime / total);
-  const combinedPeaks = useCombinedWaveformPeaks(generationId, durations);
-  const showSegments = !disabled && durations.length > 1 && !!onDeleteSegment;
+  const progress = disabled ? 0 : Math.min(1, currentTime / total);
+  const ticks = useMemo(() => buildRulerTicks(total), [total]);
+  const midpoints = useMemo(() => buildRulerMidpoints(total), [total]);
 
-  // Boundaries for the per-segment dividers/hover-delete overlay below.
-  let boundaryCursor = 0;
-  const segmentZones = durations.map((duration, index) => {
-    const startPct = (boundaryCursor / total) * 100;
-    boundaryCursor += duration;
-    return { index, startPct, widthPct: (duration / total) * 100 };
-  });
+  const zones = durations.map((duration, index) => ({ index, widthPct: (duration / total) * 100 }));
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -378,7 +267,6 @@ function Timeline({
     const rect = el.getBoundingClientRect();
     return rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
   }
-
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (disabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -396,70 +284,107 @@ function Timeline({
   }
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border border-hairline bg-surface p-2 shadow-card transition-opacity",
-        "dark:border-transparent dark:bg-gradient-to-b dark:from-[#181a24] dark:to-[#0a0a0f]",
-        "dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07),0_10px_28px_-12px_rgba(0,0,0,0.6)]",
-        disabled && "opacity-50"
-      )}
-    >
-      <button
-        type="button"
-        onClick={onTogglePlay}
-        disabled={disabled}
-        aria-label={isPlaying ? "Pause" : "Play"}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform active:scale-95 disabled:cursor-not-allowed"
-        style={{
-          background: "linear-gradient(to bottom, rgb(84, 132, 255), rgb(51, 92, 255))",
-          boxShadow:
-            "0 2px 10px 0 rgba(51,92,255,0.55), 0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
-        }}
-      >
-        {isPlaying ? (
-          <Pause className="h-3.5 w-3.5" fill="currentColor" />
-        ) : (
-          <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" />
-        )}
-      </button>
+    <div className="flex flex-col gap-6 rounded-2xl border border-hairline bg-surface p-5 shadow-card sm:p-6">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <span className="justify-self-start font-mono text-sm font-semibold tabular-nums text-heading">
+          {formatSeconds(currentTime)} <span className="text-subtle">/ {formatSeconds(total)}</span>
+        </span>
 
-      {/* Branded-tint well in light mode, recessed near-black well in dark --
-          either way the bars/playhead below are colored to hold contrast
-          against both. */}
-      <div
-        ref={trackRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        className={cn(
-          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-accent ring-1 ring-inset ring-accent-line",
-          "dark:bg-[#0c0d13] dark:ring-white/[0.05]",
-          disabled ? "cursor-not-allowed" : "cursor-pointer"
-        )}
-      >
-        <ScrubWaveform peaks={combinedPeaks} progress={progress} />
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={disabled}
+            aria-label="Previous segment"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors hover:bg-accent hover:text-heading disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <SkipBack className="h-4 w-4" fill="currentColor" />
+          </button>
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            disabled={disabled}
+            aria-label={isPlaying ? "Pause" : "Play"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              background: "linear-gradient(to bottom, rgb(84, 132, 255), rgb(51, 92, 255))",
+              boxShadow:
+                "0 2px 10px 0 rgba(51,92,255,0.55), 0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
+            }}
+          >
+            {isPlaying ? (
+              <Pause className="h-4 w-4" fill="currentColor" />
+            ) : (
+              <Play className="h-4 w-4 translate-x-[1px]" fill="currentColor" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={disabled}
+            aria-label="Next segment"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors hover:bg-accent hover:text-heading disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <SkipForward className="h-4 w-4" fill="currentColor" />
+          </button>
+        </div>
 
-        {showSegments &&
-          segmentZones.map(({ index, startPct, widthPct }) => (
+        <div className="justify-self-end">
+          <PlasticButton
+            text="Export"
+            loading={isExporting}
+            loadingText="Exporting…"
+            disabled={disabled}
+            onClick={onExport}
+            trailing={<Download className="h-3.5 w-3.5" />}
+            className="!px-4 !py-1.5 text-xs"
+          />
+        </div>
+      </div>
+
+      <div className="relative">
+        {/* Time ruler -- whole-second labels plus a midpoint dot between each. */}
+        <div className="relative h-4 text-[11px] font-medium text-subtle">
+          {ticks.map((tick) => (
+            <span key={tick.time} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${(tick.time / total) * 100}%` }}>
+              {tick.label}
+            </span>
+          ))}
+          {midpoints.map((time) => (
+            <span key={time} className="absolute -translate-x-1/2 text-subtle/50" style={{ left: `${(time / total) * 100}%` }}>
+              ·
+            </span>
+          ))}
+        </div>
+
+        {/* Segment blocks -- solid, numbered, individually deletable on hover. */}
+        <div
+          ref={trackRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className={cn(
+            "relative mt-2 flex h-14 touch-none select-none gap-1.5",
+            disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+          )}
+        >
+          {zones.map(({ index, widthPct }) => (
             <div
               key={index}
-              className={cn(
-                "group absolute inset-y-0 flex items-start justify-end",
-                index > 0 && "border-l border-black/10 dark:border-white/10"
-              )}
-              style={{ left: `${startPct}%`, width: `${widthPct}%` }}
+              style={{ width: `${widthPct}%` }}
+              className="group relative flex min-w-0 shrink-0 items-center justify-center rounded-xl border-2 border-primary/50 bg-primary/10 transition-colors hover:bg-primary/15 dark:border-primary/40 dark:bg-primary/[0.12]"
             >
-              <div className="pointer-events-none absolute inset-0 bg-primary/0 transition-colors group-hover:bg-primary/10" />
+              <span className="text-sm font-bold text-primary">{index + 1}</span>
               <button
                 type="button"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onDeleteSegment?.(index);
+                  onDeleteSegment(index);
                 }}
                 disabled={deletingIndex === index}
                 aria-label={`Delete segment ${index + 1}`}
-                className="pointer-events-auto relative z-10 m-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-heading text-surface opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-danger disabled:cursor-not-allowed disabled:opacity-100"
+                className="pointer-events-auto absolute right-1.5 top-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-heading text-surface opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-danger disabled:cursor-not-allowed disabled:opacity-100"
               >
                 {deletingIndex === index ? (
                   <Loader2 className="h-2.5 w-2.5 animate-spin" />
@@ -469,22 +394,23 @@ function Timeline({
               </button>
             </div>
           ))}
+        </div>
 
-        {/* bg-heading/text pairing is intentionally inverted per theme
-            (near-black in light, near-white in dark) so this cursor stays
-            visible against the well above regardless of theme. */}
+        {/* Playhead -- a single column (dot + line) spanning the ruler and
+            blocks above, positioned by the same left% as everything else. */}
         <div
           className={cn(
-            "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-heading shadow-[0_0_6px_rgba(51,92,255,0.55)] transition-transform",
-            isScrubbing && "scale-y-125"
+            "pointer-events-none absolute inset-y-0 flex -translate-x-1/2 flex-col items-center transition-transform",
+            isScrubbing && "scale-x-125"
           )}
           style={{ left: `${progress * 100}%` }}
-        />
+        >
+          <span className="h-3 w-3 shrink-0 rounded-full bg-primary shadow-[0_0_6px_rgba(51,92,255,0.55)] ring-4 ring-primary/20" />
+          <span className="w-px flex-1 bg-primary/60" />
+        </div>
       </div>
 
-      <span className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-subtle dark:text-white/45">
-        {formatTime(currentTime)} <span className="text-subtle/60 dark:text-white/25">/ {formatTime(total)}</span>
-      </span>
+      {exportError && <p className="text-xs font-medium text-danger">{exportError}</p>}
     </div>
   );
 }
@@ -525,9 +451,9 @@ export function VoiceoverGenerator() {
   const [newSegmentText, setNewSegmentText] = useState("");
   const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
 
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const [loopIndex, setLoopIndex] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   // Whether the shared <audio> element is currently mid-playback, and
   // whether that playback is the sequential bottom-player (auto-advances on
@@ -577,6 +503,7 @@ export function VoiceoverGenerator() {
     () => estimatedSegments.reduce((sum, text) => sum + getVoiceoverSegmentCost(text.length), 0),
     [estimatedSegments]
   );
+  const newSegmentCredits = useMemo(() => getVoiceoverSegmentCost(newSegmentText.length), [newSegmentText]);
 
   const durations = segments.map((s) => s.durationSeconds);
 
@@ -757,18 +684,43 @@ export function VoiceoverGenerator() {
   function playSegment(index: number) {
     if (!generationId || !audioRef.current) return;
     setIsSequenceMode(false);
+    audioRef.current.loop = false;
     audioRef.current.src = segmentUrl(generationId, index);
-    audioRef.current.loop = loopIndex === index;
     setPlayingIndex(index);
     void audioRef.current.play();
   }
 
-  function toggleLoopForSegment(index: number) {
-    setLoopIndex((prev) => {
-      const next = prev === index ? null : index;
-      if (audioRef.current && playingIndex === index) audioRef.current.loop = next === index;
-      return next;
-    });
+  // Re-runs TTS for just this segment's (possibly edited) text, keeping the
+  // generation's existing voice/style/language, and swaps in the new audio
+  // once the server confirms it -- the "Voiceover editor" tab's regenerate
+  // button. Stops playback of the segment being replaced so a stale <audio>
+  // src never lingers pointed at now-superseded audio.
+  async function handleRegenerateSegment(index: number) {
+    if (!generationId || regeneratingIndex !== null) return;
+    const text = segments[index]?.text.trim();
+    if (!text) return;
+    setRegeneratingIndex(index);
+    try {
+      const response = await fetch(`/api/generate-voiceover/${generationId}/segments/${index}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Could not regenerate segment");
+
+      setSegments((prev) =>
+        prev.map((s, i) => (i === index ? { text: data.segment.text, durationSeconds: data.segment.durationSeconds } : s))
+      );
+      if (playingIndex === index) {
+        audioRef.current?.pause();
+        setPlayingIndex(null);
+      }
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : "Could not regenerate segment");
+    } finally {
+      setRegeneratingIndex(null);
+    }
   }
 
   function playSequenceFrom(index: number) {
@@ -823,7 +775,6 @@ export function VoiceoverGenerator() {
     setIsPlaying(false);
     setIsSequenceMode(false);
     setCurrentTime(0);
-    setLoopIndex(null);
     setGenerationId(null);
     setSegments([]);
     setCreditsQuoted(null);
@@ -1046,55 +997,76 @@ export function VoiceoverGenerator() {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-2 overflow-y-auto pr-1">
-                  {editorTab === "editor" ? (
-                    <>
-                      {segments.map((segment, index) => (
-                        <div key={index} className="flex items-center gap-2.5">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                            {index + 1}
-                          </span>
-                          <div
-                            className={cn(
-                              "min-w-0 flex-1 rounded-xl border px-4 py-2.5 shadow-card transition-colors",
-                              playingIndex === index ? "border-primary/40 bg-accent/60" : "border-hairline bg-surface"
+                {editorTab === "editor" ? (
+                  <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+                    {segments.map((segment, index) => (
+                      <div key={index} className="flex items-center gap-2.5">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                          {index + 1}
+                        </span>
+                        <input
+                          value={segment.text}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setSegments((prev) => prev.map((s, i) => (i === index ? { ...s, text: value } : s)));
+                          }}
+                          disabled={regeneratingIndex === index}
+                          aria-label={`Segment ${index + 1} text`}
+                          className={cn(
+                            "min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-sm text-body shadow-card outline-none transition-colors disabled:opacity-60",
+                            playingIndex === index ? "border-primary/40 bg-accent/60" : "border-hairline bg-surface",
+                            "focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
+                          )}
+                        />
+                        <div className="flex shrink-0 items-center gap-1">
+                          <IconButton title="Play segment" onClick={() => playSegment(index)} active={playingIndex === index && !isSequenceMode}>
+                            {playingIndex === index && !isSequenceMode && isPlaying ? (
+                              <Pause className="h-3.5 w-3.5" />
+                            ) : (
+                              <Play className="h-3.5 w-3.5" />
                             )}
+                          </IconButton>
+                          <IconButton
+                            title="Regenerate segment"
+                            onClick={() => handleRegenerateSegment(index)}
+                            disabled={regeneratingIndex !== null || !segment.text.trim()}
                           >
-                            <p className="truncate text-sm text-body">{segment.text}</p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <IconButton title="Play segment" onClick={() => playSegment(index)} active={playingIndex === index && !isSequenceMode}>
-                              {playingIndex === index && !isSequenceMode && isPlaying ? (
-                                <Pause className="h-3.5 w-3.5" />
-                              ) : (
-                                <Play className="h-3.5 w-3.5" />
-                              )}
-                            </IconButton>
-                            <IconButton title="Loop segment" onClick={() => toggleLoopForSegment(index)} active={loopIndex === index}>
+                            {regeneratingIndex === index ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
                               <RotateCcw className="h-3.5 w-3.5" />
-                            </IconButton>
-                            <IconButton
-                              title="Delete segment"
-                              destructive
-                              disabled={deletingIndex === index}
-                              onClick={() => handleDeleteSegment(index)}
-                            >
-                              {deletingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                            </IconButton>
-                          </div>
+                            )}
+                          </IconButton>
+                          <IconButton
+                            title="Delete segment"
+                            destructive
+                            disabled={deletingIndex === index}
+                            onClick={() => handleDeleteSegment(index)}
+                          >
+                            {deletingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                          </IconButton>
                         </div>
-                      ))}
+                      </div>
+                    ))}
 
-                      {isAddingSegment ? (
-                        <div className="rounded-xl border border-hairline p-3">
-                          <textarea
-                            value={newSegmentText}
-                            onChange={(event) => setNewSegmentText(event.target.value.slice(0, 1000))}
-                            placeholder="Type the new segment's text..."
-                            autoFocus
-                            className="min-h-[70px] w-full resize-none bg-transparent text-sm text-body outline-none placeholder:text-subtle"
-                          />
-                          <div className="mt-2 flex items-center justify-end gap-2">
+                    {isAddingSegment ? (
+                      <div className="rounded-xl border border-hairline p-3">
+                        <textarea
+                          value={newSegmentText}
+                          onChange={(event) => setNewSegmentText(event.target.value.slice(0, 1000))}
+                          placeholder="Type the new segment's text..."
+                          autoFocus
+                          className="min-h-[70px] w-full resize-none bg-transparent text-sm text-body outline-none placeholder:text-subtle"
+                        />
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          {newSegmentText.trim() ? (
+                            <Badge>
+                              {newSegmentCredits} credit{newSegmentCredits === 1 ? "" : "s"}
+                            </Badge>
+                          ) : (
+                            <span />
+                          )}
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => {
@@ -1114,67 +1086,36 @@ export function VoiceoverGenerator() {
                             />
                           </div>
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setIsAddingSegment(true)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-medium text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
-                        >
-                          <Plus className="h-4 w-4" /> Add Segment
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-app/60 py-16 text-center">
-                      <Sparkles className="h-6 w-6 text-primary" />
-                      <p className="text-sm font-semibold text-heading">{segments.length} segments generated</p>
-                      <p className="text-xs text-subtle">Use the player below to listen to the full voiceover.</p>
-                    </div>
-                  )}
-                </div>
-
-                {exportError && <p className="mt-2 text-xs font-medium text-danger">{exportError}</p>}
-
-                {/* ── Bottom audio player ─────────────────────────────── */}
-                <div className="mt-4 border-t border-hairline pt-4">
-                  <Timeline
-                    durations={durations.length > 0 ? durations : [1]}
-                    currentTime={currentTime}
-                    generationId={generationId}
-                    onSeek={seekToGlobalTime}
-                    isPlaying={isSequenceMode && isPlaying}
-                    onTogglePlay={togglePlayPause}
-                    disabled={segments.length === 0}
-                    onDeleteSegment={handleDeleteSegment}
-                    deletingIndex={deletingIndex}
-                  />
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <IconButton
-                        title="Previous segment"
-                        onClick={() => playSequenceFrom(Math.max(0, (playingIndex ?? 0) - 1))}
-                        disabled={segments.length === 0}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSegment(true)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-medium text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
                       >
-                        <SkipBack className="h-4 w-4" />
-                      </IconButton>
-                      <IconButton
-                        title="Next segment"
-                        onClick={() => playSequenceFrom(Math.min(segments.length - 1, (playingIndex ?? 0) + 1))}
-                        disabled={segments.length === 0}
-                      >
-                        <SkipForward className="h-4 w-4" />
-                      </IconButton>
-                    </div>
-                    <PlasticButton
-                      text="Export"
-                      loading={isExporting}
-                      loadingText="Exporting…"
+                        <Plus className="h-4 w-4" /> Add Segment
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-1 flex-col justify-center">
+                    <AudioScrubberPanel
+                      durations={durations.length > 0 ? durations : [1]}
+                      currentTime={currentTime}
+                      onSeek={seekToGlobalTime}
+                      isPlaying={isSequenceMode && isPlaying}
+                      onTogglePlay={togglePlayPause}
+                      onPrev={() => playSequenceFrom(Math.max(0, (playingIndex ?? 0) - 1))}
+                      onNext={() => playSequenceFrom(Math.min(segments.length - 1, (playingIndex ?? 0) + 1))}
+                      onExport={handleExport}
+                      isExporting={isExporting}
+                      exportError={exportError}
                       disabled={segments.length === 0}
-                      onClick={handleExport}
-                      trailing={<Download className="h-3.5 w-3.5" />}
+                      onDeleteSegment={handleDeleteSegment}
+                      deletingIndex={deletingIndex}
                     />
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
