@@ -1208,7 +1208,16 @@ export function VoiceoverGenerator() {
                 </div>
               </div>
             ) : (
-              <div className="flex h-full flex-col gap-3 rounded-3xl bg-app p-3 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+              <div
+                className={cn(
+                  "flex flex-col gap-3 rounded-3xl bg-app p-3 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10",
+                  // History needs the full column height to size its own scroll
+                  // area (see HistoryPanel's h-full max-h-[720px]); Settings has
+                  // no such need and should just hug its content instead of
+                  // stretching to match the (usually taller) left column.
+                  sidebarTab === "history" && "h-full"
+                )}
+              >
                 <div className="flex shrink-0 rounded-xl bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
                   {(
                     [
