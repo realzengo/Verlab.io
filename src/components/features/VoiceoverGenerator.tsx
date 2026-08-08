@@ -382,8 +382,9 @@ function Timeline({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl bg-gradient-to-b from-[#181a24] to-[#0a0a0f] p-2 ring-1 ring-white/[0.06] transition-opacity",
-        "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07),0_10px_28px_-12px_rgba(0,0,0,0.6)]",
+        "flex items-center gap-3 rounded-2xl border border-hairline bg-surface p-2 shadow-card transition-opacity",
+        "dark:border-transparent dark:bg-gradient-to-b dark:from-[#181a24] dark:to-[#0a0a0f]",
+        "dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07),0_10px_28px_-12px_rgba(0,0,0,0.6)]",
         disabled && "opacity-50"
       )}
     >
@@ -406,13 +407,17 @@ function Timeline({
         )}
       </button>
 
+      {/* The waveform well stays a fixed dark color in both themes -- like a
+          recessed audio-editor track -- so the blue bars and white playhead
+          always have guaranteed contrast, instead of picking two more color
+          pairs to track light/dark. */}
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={cn(
-          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-black/25 ring-1 ring-inset ring-white/[0.04]",
+          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-[#0c0d13] ring-1 ring-inset ring-white/[0.05]",
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         )}
       >
@@ -426,8 +431,8 @@ function Timeline({
         />
       </div>
 
-      <span className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-white/45">
-        {formatTime(currentTime)} <span className="text-white/25">/ {formatTime(total)}</span>
+      <span className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-subtle dark:text-white/45">
+        {formatTime(currentTime)} <span className="text-subtle/60 dark:text-white/25">/ {formatTime(total)}</span>
       </span>
     </div>
   );
