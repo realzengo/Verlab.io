@@ -47,12 +47,12 @@ export function TopBar({
     <div
       className={cn(
         "relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8",
-        // Niche Finder's sticky search bar uses a light gray fill -- match it
-        // here so the two don't show a seam before the page is scrolled.
-        // Scoped to this one route rather than applied globally, since other
-        // pages (home, MCP) rely on TopBar staying transparent over their
-        // own background effects.
-        pathname.startsWith("/app/niches") && "bg-[#F6F6F8]"
+        // Niche Finder's sticky search bar uses the app-background fill --
+        // match it here so the two don't show a seam before the page is
+        // scrolled. Scoped to this one route rather than applied globally,
+        // since other pages (home, MCP) rely on TopBar staying transparent
+        // over their own background effects.
+        pathname.startsWith("/app/niches") && "bg-app"
       )}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
