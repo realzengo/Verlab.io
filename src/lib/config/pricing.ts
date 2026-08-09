@@ -74,6 +74,12 @@ const CREATOR_ANALYSIS_SCRAPE_COST_USD = 0.015 * 2;
 // video transcripts (~6000 input tokens: titles + concatenated transcript
 // text) producing one ~180-word paragraph (~300 output tokens).
 const CREATOR_ANALYSIS_LLM_COST_USD = (6000 / 1e6) * 3 + (300 / 1e6) * 15;
+// One OpenRouter deepseek-v3.2 call (openrouter-client.ts pricing, ~$0.27/
+// $0.40 per MTok in/out) producing 4 structured video-idea cards from a
+// video's niche/title/views/velocity/outlier context -- ~500 input tokens
+// (system prompt + source video context), ~1200 output tokens (4 ideas x
+// title/description/audience/production notes/hashtags).
+const VIDEO_IDEAS_COST_USD = (500 / 1e6) * 0.27 + (1200 / 1e6) * 0.4;
 
 export const TOOL_CREDIT_COSTS = {
   nicheBend: {
@@ -107,6 +113,9 @@ export const TOOL_CREDIT_COSTS = {
       5 * creditsForCost(TRANSCRIPTS_EXTRACT_COST_USD) +
       creditsForCost(CREATOR_ANALYSIS_SCRAPE_COST_USD) +
       creditsForCost(CREATOR_ANALYSIS_LLM_COST_USD),
+  },
+  niches: {
+    videoIdeas: creditsForCost(VIDEO_IDEAS_COST_USD),
   },
   video: {
     // Client-side FFmpeg WASM compression -- zero server compute. chargeUser

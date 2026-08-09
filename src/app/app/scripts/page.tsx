@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   ChevronRight,
@@ -169,8 +170,14 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
   );
 }
 
-export default function ScriptWriterPage() {
-  const [prompt, setPrompt] = useState("");
+function ScriptWriterPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Prefilled from a "Generate script" handoff (see the video-idea cards in
+  // VideoDetailModal) -- a lazy initializer rather than an effect so the URL
+  // param is read once, at first render, without an extra setState-in-effect
+  // render pass.
+  const [prompt, setPrompt] = useState(() => searchParams.get("idea") ?? "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +207,17 @@ export default function ScriptWriterPage() {
     if (!query) return history;
     return history.filter((item) => item.prompt.toLowerCase().includes(query));
   }, [history, search]);
+
+  // Strips the one-time "idea" handoff param from the URL after it's been
+  // consumed by the lazy prompt initializer above, so the long idea text
+  // doesn't linger in the address bar or get reapplied on a later
+  // back/forward navigation. Runs once on mount only.
+  useEffect(() => {
+    if (searchParams.get("idea")) {
+      router.replace("/app/scripts", { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load the user's persisted SOP/Transcript reference files and past
   // scripts once on mount, so nothing needs re-uploading between visits.
@@ -745,5 +763,13 @@ export default function ScriptWriterPage() {
         danger
       />
     </div>
+  );
+}
+
+export default function ScriptWriterPage() {
+  return (
+    <Suspense fallback={null}>
+      <ScriptWriterPageInner />
+    </Suspense>
   );
 }
