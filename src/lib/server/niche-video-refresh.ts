@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { fetchNicheYoutubeVideos } from "@/lib/server/youtube-client";
+import { backfillTikTokVideoFollowerCounts } from "@/lib/server/tiktok-follower-cache";
 import { NICHE_HASHTAGS, type NicheName } from "@/lib/niches-catalog";
 
 export type VideoPlatform = "tiktok" | "youtube";
@@ -109,14 +110,17 @@ export async function refreshNicheVideoCache(
   if (!claimed) return false;
 
   try {
-    const scraped =
-      platform === "tiktok"
-        ? await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER)
-        : await fetchNicheYoutubeVideos(
-            NICHE_HASHTAGS[niche],
-            targetCount + BACKFILL_BUFFER,
-            region === GLOBAL_REGION ? null : region
-          );
+    let scraped;
+    if (platform === "tiktok") {
+      const tiktokVideos = await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER);
+      scraped = await backfillTikTokVideoFollowerCounts(admin, tiktokVideos);
+    } else {
+      scraped = await fetchNicheYoutubeVideos(
+        NICHE_HASHTAGS[niche],
+        targetCount + BACKFILL_BUFFER,
+        region === GLOBAL_REGION ? null : region
+      );
+    }
     if (scraped.length === 0) return false;
 
     const { error: upsertError } = await admin.from("trending_videos").upsert(

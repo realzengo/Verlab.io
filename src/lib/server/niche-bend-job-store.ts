@@ -3,12 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import {
   NicheBendAiError,
+  conversationHasTranscripts,
   generateSopContent,
   regenerateCandidates,
   regenerateOneCandidate,
   researchChannel,
   researchFromManualVideos,
 } from "./niche-bend-ai";
+import { backfillAvatarUrl } from "./apify-client";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -98,7 +100,7 @@ async function setCachedResearch(cacheKey: string, entry: ResearchCacheEntry): P
 
 const PHASE_TEXT: Record<NicheBendJobStatus, { statusText: string; progress: number }> = {
   opening_channel: { statusText: "Opening channel…", progress: 10 },
-  reading_videos: { statusText: "Reading top 10 videos…", progress: 35 },
+  reading_videos: { statusText: "Reading & transcribing top videos…", progress: 35 },
   identifying_format: { statusText: "Identifying the format…", progress: 60 },
   generating_bends: { statusText: "Generating your niche bends…", progress: 85 },
   ready: { statusText: "Ready", progress: 100 },
@@ -194,8 +196,13 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
 
     const cacheKey = researchCacheKey(job.source_url, job.platform, job.video_type);
     const cached = await getCachedResearch(cacheKey);
+    // A cache entry written before real transcripts ever landed for this
+    // channel (see the transcriptCount check below) isn't worth reusing --
+    // treat it as a miss so this request gives transcript fetching a fresh,
+    // independent shot instead of perpetuating title-only SOPs forever.
+    const cacheIsUsable = cached !== null && conversationHasTranscripts(cached.conversation);
 
-    if (cached) {
+    if (cached && cacheIsUsable) {
       await updateJob(supabase, job.id, { status: "generating_bends" });
       try {
         await chargeUser(
@@ -241,7 +248,14 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
     }
     const outcome = await researchChannel(job.source_url, job.platform, job.video_type);
     await updateJob(supabase, job.id, { status: "generating_bends" });
-    await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
+    // Only cache research that actually landed real transcripts -- this cache
+    // is shared cross-user with no expiry, so caching a transcript-less
+    // result (a slow/rate-limited ScrapeCreators moment) would permanently
+    // stick every future SOP for this channel with title-only grounding
+    // instead of giving the next request a fresh shot at fetching them.
+    if (outcome.transcriptCount > 0) {
+      await setCachedResearch(cacheKey, { analysis: outcome.analysis, conversation: outcome.conversation });
+    }
     await updateJob(supabase, job.id, {
       status: "ready",
       analysis: outcome.analysis,
@@ -304,9 +318,29 @@ export async function createJob(
   return job;
 }
 
+// Self-healing fix for rows scraped before the avatar-fallback lookups
+// existed (or hit by an actor that omitted the field): fills in avatarUrl
+// and persists it, so the lookup only ever has to run once per row. No-op
+// (no network call) once analysis has an avatarUrl, so this is cheap to run
+// on every read. Best-effort -- a lookup failure just leaves the row as-is.
+type AvatarBackfillableRow = Pick<NicheBendJobRow, "id" | "source_url" | "platform" | "analysis">;
+
+async function backfillRowAvatar<T extends AvatarBackfillableRow>(supabase: SupabaseClient, row: T): Promise<T> {
+  if (!row.analysis || row.analysis.avatarUrl) return row;
+  const avatarUrl = await backfillAvatarUrl(row.source_url, row.platform).catch(() => undefined);
+  if (!avatarUrl) return row;
+  const analysis = { ...row.analysis, avatarUrl };
+  await updateJob(supabase, row.id, { analysis }).catch(() => {});
+  return { ...row, analysis };
+}
+
+// Every reader of a job (status polling, SOP preview, regenerate-candidate,
+// history/library lists) goes through this or listJobs below, so wiring the
+// backfill in here means no call site has to remember to ask for it.
 export async function getJob(supabase: SupabaseClient, id: string): Promise<NicheBendJobRow | null> {
   const { data } = await supabase.from("niche_bend_jobs").select(JOB_COLUMNS).eq("id", id).maybeSingle();
-  return (data as NicheBendJobRow) ?? null;
+  const job = (data as NicheBendJobRow) ?? null;
+  return job ? backfillRowAvatar(supabase, job) : null;
 }
 
 // RLS scopes the delete to the caller's own jobs, so this is a no-op (zero
@@ -353,6 +387,14 @@ export async function listJobs(
 
   const { data } = await query;
   return (data as NicheBendJobHistoryRow[]) ?? [];
+}
+
+// List variant of backfillRowAvatar above, for the history/library routes.
+export async function backfillMissingAvatars(
+  supabase: SupabaseClient,
+  rows: NicheBendJobHistoryRow[]
+): Promise<NicheBendJobHistoryRow[]> {
+  return Promise.all(rows.map((row) => backfillRowAvatar(supabase, row)));
 }
 
 // RLS scopes the update to the caller's own jobs, same as deleteJob.

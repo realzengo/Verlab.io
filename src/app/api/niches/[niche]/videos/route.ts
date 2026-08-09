@@ -65,6 +65,9 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   const followersMax = searchParams.get("followersMax");
   const postedAfter = searchParams.get("postedAfter");
   const postedBefore = searchParams.get("postedBefore");
+  const q = searchParams.get("q");
+  const sortParam = searchParams.get("sort");
+  const sort: "views" | "newest" = sortParam === "newest" ? "newest" : "views";
 
   const result = await getNicheVideosPage(niche, isAllNiches, {
     page,
@@ -79,6 +82,8 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
     followersMax,
     postedAfter,
     postedBefore,
+    q,
+    sort,
   });
 
   return NextResponse.json(result);

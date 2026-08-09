@@ -12,6 +12,7 @@ import {
   Filter,
   ImageIcon,
   type LucideIcon,
+  Mic2,
   MoreHorizontal,
   Sparkles,
   Trash2,
@@ -22,19 +23,21 @@ import type { LibraryAsset, LibraryAssetType } from "@/lib/types";
 import { cn, formatBytes, formatRelativeTime } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-type TabValue = "all" | "image" | "video" | "sop";
+type TabValue = "all" | "image" | "video" | "sop" | "voiceover";
 
 const TABS: { value: TabValue; label: string }[] = [
   { value: "all", label: "All" },
   { value: "image", label: "Images" },
   { value: "video", label: "Video" },
   { value: "sop", label: "SOPs" },
+  { value: "voiceover", label: "Voiceovers" },
 ];
 
 const TYPE_BADGE: Record<LibraryAssetType, { label: string; icon: LucideIcon; chip: string; text: string }> = {
   image: { label: "Image", icon: ImageIcon, chip: "bg-cat-1-tint", text: "text-cat-1" },
   video: { label: "Video", icon: Film, chip: "bg-cat-6-tint", text: "text-cat-6" },
   sop: { label: "SOP", icon: Sparkles, chip: "bg-cat-7-tint", text: "text-cat-7" },
+  voiceover: { label: "Voiceover", icon: Mic2, chip: "bg-cat-2-tint", text: "text-cat-2" },
 };
 
 const SORT_OPTIONS: { value: "newest" | "oldest"; label: string }[] = [
@@ -115,7 +118,8 @@ function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }
     );
   }
 
-  const Icon = asset.type === "video" ? Film : asset.type === "sop" ? Sparkles : ImageIcon;
+  const Icon =
+    asset.type === "video" ? Film : asset.type === "sop" ? Sparkles : asset.type === "voiceover" ? Mic2 : ImageIcon;
   return (
     <div className="absolute inset-0 flex items-center justify-center">
       <Icon className="h-8 w-8 text-slate-300 dark:text-zinc-700" />
@@ -205,6 +209,10 @@ export default function LibraryPage() {
       if (asset.type === "sop") {
         const jobId = asset.id.replace(/^sop-/, "");
         await setBendSaved(jobId, false);
+      } else if (asset.type === "voiceover") {
+        const generationId = asset.id.replace(/^voiceover-/, "");
+        const response = await fetch(`/api/generate-voiceover?id=${generationId}`, { method: "DELETE" });
+        if (!response.ok) throw new Error();
       } else {
         // id is `image-${dbId}-${index}` -- dbId itself may contain dashes
         // (it's a uuid), so only the trailing `-<digits>` is the index.
@@ -389,7 +397,7 @@ export default function LibraryPage() {
                   openMenuId === asset.id && "z-30"
                 )}
               >
-                {asset.type === "sop" ? (
+                {asset.type === "sop" || asset.type === "voiceover" ? (
                   <Link
                     href={asset.fileUrl ?? "#"}
                     className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
@@ -435,7 +443,7 @@ export default function LibraryPage() {
                             ref={actionMenuRef}
                             className="absolute top-full right-0 z-20 mt-1 w-44 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover"
                           >
-                            {asset.type === "sop" ? (
+                            {asset.type === "sop" || asset.type === "voiceover" ? (
                               <Link
                                 href={asset.fileUrl ?? "#"}
                                 onClick={() => setOpenMenuId(null)}

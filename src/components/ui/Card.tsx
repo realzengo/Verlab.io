@@ -5,13 +5,15 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   padded?: boolean;
   hoverLift?: boolean;
+  shadow?: boolean;
 }
 
-export function Card({ children, padded = true, hoverLift = false, className, ...rest }: CardProps) {
+export function Card({ children, padded = true, hoverLift = false, shadow = true, className, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-card border border-hairline bg-surface shadow-card",
+        "rounded-card border border-hairline bg-surface",
+        shadow && "shadow-card",
         padded && "p-6",
         hoverLift && "transition-[transform,box-shadow] hover:-translate-y-[3px] hover:shadow-card-hover",
         className

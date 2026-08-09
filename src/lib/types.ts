@@ -596,7 +596,7 @@ export interface CreditsAdminUser {
   credits: number;
 }
 
-export type LibraryAssetType = "image" | "video" | "sop";
+export type LibraryAssetType = "image" | "video" | "sop" | "voiceover";
 
 export interface LibraryAsset {
   id: string;
@@ -606,5 +606,109 @@ export interface LibraryAsset {
   thumbnailUrl: string | null;
   sizeBytes: number | null;
   category: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Faceless channel classifier
+// ---------------------------------------------------------------------------
+
+export type FacelessCategory =
+  | "2D Animation"
+  | "3D Animation"
+  | "Whiteboard"
+  | "Stock Footage"
+  | "AI Pictures"
+  | "Screen Recording"
+  | "Documentary";
+
+export type FacelessComplexity = "EASY" | "MEDIUM" | "HARD" | "LEGENDARY";
+
+export type FacelessSort = "trending" | "newest" | "views";
+
+export interface FacelessChannelVideo {
+  title: string;
+  description?: string;
+  /** Only populated for channels discovered via the SociaVault trending
+   * pipeline (see faceless-tiktok-discovery.ts) -- Apify/ScrapeCreators
+   * single-URL ingestion doesn't surface these. */
+  viewsCount?: string;
+  likesCount?: string;
+  /** Raw counts, alongside the humanized display strings above -- lets
+   * range filters (e.g. "views >= 100000") compare exact numbers instead of
+   * re-parsing an already-rounded "1.7M" string. */
+  viewCount?: number;
+  likeCount?: number;
+  coverUrl?: string;
+  postedAt?: string | null;
+  videoUrl?: string;
+}
+
+/** One video from TikTok's real, unfiltered trending feed (see
+ * fetchTikTokTrendingFeed in sociavault-client.ts) -- not tied to a
+ * niche_channels row, so `category` is a best-effort guess from the
+ * caption's own hashtags ("Trending" when nothing in it matches our
+ * catalog) rather than a verified classification. */
+export interface TrendingFeedVideo {
+  id: string;
+  platform: NicheBendPlatform;
+  category: string;
+  thumbnailUrl: string;
+  videoUrl: string;
+  viewsCount: string;
+  likesCount: string;
+  viewCount: number;
+  followerCount: number;
+  postedAt: string | null;
+}
+
+export interface FacelessClassification {
+  is_faceless: boolean;
+  confidence_score: number;
+  faceless_category: FacelessCategory;
+  complexity: FacelessComplexity;
+  viral_velocity_score: number;
+  reasoning: string;
+}
+
+export interface NicheChannel {
+  id: string;
+  platform: NicheBendPlatform;
+  channelUrl: string;
+  channelTitle: string;
+  channelDescription: string;
+  avatarUrl: string | null;
+  subscriberCount: number;
+  totalViews: number;
+  niche: string | null;
+  visualTags: string[];
+  recentVideos: FacelessChannelVideo[];
+  isFaceless: boolean | null;
+  facelessConfidence: number | null;
+  facelessCategory: FacelessCategory | null;
+  complexity: FacelessComplexity | null;
+  viralVelocityScore: number | null;
+  classificationReasoning: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+}
+
+/** Slimmer row shape for the admin "Niche Channels" table -- omits the
+ * description/tags/videos the classifier reads but the list view doesn't show. */
+export interface AdminNicheChannel {
+  id: string;
+  platform: NicheBendPlatform;
+  channelUrl: string;
+  channelTitle: string;
+  avatarUrl: string | null;
+  subscriberCount: number;
+  totalViews: number;
+  niche: string | null;
+  isFaceless: boolean | null;
+  facelessConfidence: number | null;
+  facelessCategory: FacelessCategory | null;
+  complexity: FacelessComplexity | null;
+  viralVelocityScore: number | null;
+  verifiedAt: string | null;
   createdAt: string;
 }

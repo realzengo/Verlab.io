@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
+import { backfillTikTokVideoFollowerCounts } from "@/lib/server/tiktok-follower-cache";
 import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (videos.length === 0) {
       throw new Error("No trending videos returned");
     }
+
+    await backfillTikTokVideoFollowerCounts(admin, videos);
 
     // The trending set changes entirely between refreshes, so replace rather
     // than upsert — otherwise videos that fall out of trending would linger.

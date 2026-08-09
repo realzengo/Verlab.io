@@ -35,7 +35,7 @@ export function Stepper({
                 <span
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors duration-300",
-                    (current || complete) && "bg-primary text-white",
+                    (current || complete) && "bg-gradient-to-br from-[#6d93ff] to-primary text-white",
                     !current && !complete && "bg-accent text-body"
                   )}
                 >
@@ -53,7 +53,7 @@ export function Stepper({
               {index < STEPS.length - 1 && (
                 <div className="h-px flex-1 bg-hairline">
                   <div
-                    className="h-full bg-primary transition-[width] duration-500 ease-out"
+                    className="h-full bg-gradient-to-r from-[#6d93ff] to-primary transition-[width] duration-500 ease-out"
                     style={{ width: complete ? "100%" : "0%" }}
                   />
                 </div>

@@ -21,6 +21,7 @@ const IMAGE_SELECT = "id, prompt, model, outputs, created_at";
 // /api/library/video/[id] needs to mint signed playback/thumbnail URLs.
 const VIDEO_SELECT = "id, prompt, model, output_video_path, thumbnail_path, created_at";
 const SOP_SELECT = "id, analysis, chosen_bend, created_at";
+const VOICEOVER_SELECT = "id, title, voice_id, created_at";
 
 async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -40,10 +41,11 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   const wantsImages = type === "all" || type === "image";
   const wantsVideos = type === "all" || type === "video";
   const wantsSops = type === "all" || type === "sop";
+  const wantsVoiceovers = type === "all" || type === "voiceover";
 
   // Capped well below the old 100 to bound how many lazy image requests
   // one Library page load can fan out into.
-  const [imagesResult, videosResult, sopsResult] = await Promise.all([
+  const [imagesResult, videosResult, sopsResult, voiceoversResult] = await Promise.all([
     wantsImages
       ? supabase
           .from("image_generations")
@@ -63,9 +65,17 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     wantsSops
       ? supabase.from("niche_bend_jobs").select(SOP_SELECT).eq("saved", true).order("created_at", { ascending: false }).limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),
+    wantsVoiceovers
+      ? supabase
+          .from("voiceover_generations")
+          .select(VOICEOVER_SELECT)
+          .eq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(40)
+      : Promise.resolve({ data: [] as never[], error: null }),
   ]);
 
-  for (const result of [imagesResult, videosResult, sopsResult]) {
+  for (const result of [imagesResult, videosResult, sopsResult, voiceoversResult]) {
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
     }
@@ -117,6 +127,23 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
       thumbnailUrl: analysis.avatarUrl ?? null,
       sizeBytes: null,
       category: chosenBend?.nicheName || analysis.detectedNiche || "SOP",
+      createdAt: row.created_at,
+    });
+  }
+
+  for (const row of voiceoversResult.data ?? []) {
+    // No single audio file lives on the row -- segments are stitched
+    // client-side (see VoiceoverGenerator's exportSegmentsAsWav) -- so this
+    // opens the generator with the generation preloaded instead of pointing
+    // at playable bytes, same posture as SOPs' fileUrl above.
+    assets.push({
+      id: `voiceover-${row.id}`,
+      type: "voiceover",
+      title: row.title || "Untitled Script",
+      fileUrl: `/app/voiceover-generator?id=${row.id}`,
+      thumbnailUrl: null,
+      sizeBytes: null,
+      category: row.voice_id,
       createdAt: row.created_at,
     });
   }

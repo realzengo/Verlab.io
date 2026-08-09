@@ -7,6 +7,7 @@ import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
+import { cn } from "@/lib/utils";
 
 function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
@@ -43,7 +44,17 @@ export function TopBar({
     pathname.startsWith("/app/settings");
 
   return (
-    <div className="relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8">
+    <div
+      className={cn(
+        "relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8",
+        // Niche Finder's sticky search bar is solid white -- match it here
+        // so the two don't show a seam before the page is scrolled. Scoped
+        // to this one route rather than applied globally, since other pages
+        // (home, MCP) rely on TopBar staying transparent over their own
+        // background effects.
+        pathname.startsWith("/app/niches") && "bg-surface"
+      )}
+    >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"

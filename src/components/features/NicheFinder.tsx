@@ -2,25 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Heart,
-  Loader2,
-  MessageCircle,
-  Play,
-  Share2,
-  Users,
-  Wand2,
-} from "lucide-react";
+import { Eye, Heart, Loader2, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
+import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
-  VideoFilterBar,
+  NicheTopBar,
   type VideoPlatformFilter,
   type VideoRangeFilters,
+  type VideoSort,
   type VideoTimeWindow,
-} from "@/components/features/VideoFilterBar";
+} from "@/components/features/NicheTopBar";
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
 import type { TrendingVideo } from "@/lib/types";
@@ -126,12 +117,12 @@ function gradientForId(id: string): string {
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length];
 }
 
-const PLATFORM_BADGE: Record<TrendingVideo["platform"], { label: string; className: string }> = {
-  tiktok: { label: "TikTok", className: "bg-red-600" },
-  // YouTube's own red (#FF0000) rather than reusing tiktok's bg-red-600 —
-  // close enough to each other otherwise that the two badges would be hard
-  // to tell apart at a glance.
-  youtube: { label: "YouTube", className: "bg-[#FF0000]" },
+const PLATFORM_BADGE: Record<
+  TrendingVideo["platform"],
+  { label: string; icon: typeof YouTubeIcon }
+> = {
+  tiktok: { label: "TikTok", icon: TikTokIcon },
+  youtube: { label: "YouTube", icon: YouTubeIcon },
 };
 
 function formatCompactNumber(count: number): string {
@@ -158,56 +149,6 @@ function formatTimeAgo(isoDate: string | null): string | null {
   return `${Math.floor(diffDays / 365)}y ago`;
 }
 
-// "Infinite" pagination: the API never reports a total, just whether there's
-// a next page (see hasMore in /api/niches/[niche]/videos), so this only ever
-// shows the current page number and a Next button — no total page count.
-function Pagination({
-  page,
-  hasMore,
-  onChange,
-}: {
-  page: number;
-  hasMore: boolean;
-  onChange: (page: number) => void;
-}) {
-  if (page === 1 && !hasMore) return null;
-
-  return (
-    <nav aria-label="Trending videos pagination" className="mt-6 flex items-center justify-center gap-3">
-      <button
-        type="button"
-        onClick={() => onChange(page - 1)}
-        disabled={page === 1}
-        aria-label="Previous page"
-        className="flex h-8 items-center gap-1 rounded-full border border-hairline bg-surface px-3 text-xs font-semibold text-body transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" />
-        Prev
-      </button>
-
-      <span className="text-xs font-semibold text-body">Page {page}</span>
-
-      <button
-        type="button"
-        onClick={() => onChange(page + 1)}
-        disabled={!hasMore}
-        aria-label="Next page"
-        className="flex h-8 items-center gap-1 rounded-full border border-hairline bg-surface px-3 text-xs font-semibold text-body transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Next
-        <ChevronRight className="h-3.5 w-3.5" />
-      </button>
-    </nav>
-  );
-}
-
-function initialsFor(name: string): string {
-  const cleaned = name.replace(/^@/, "").trim();
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return cleaned.slice(0, 2).toUpperCase() || "??";
-}
-
 
 function TrendingVideoCard({ video }: { video: TrendingVideo }) {
   const [saved, setSaved] = useState(false);
@@ -215,9 +156,10 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
   const timeAgo = formatTimeAgo(video.postedAt);
   const niche = video.niche;
   const style = videoStyle(video);
+  const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-shadow hover:shadow-card-hover">
+    <div className="group/card flex flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-hover">
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
         {video.coverUrl && !coverFailed && (
@@ -227,25 +169,20 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
             alt=""
             referrerPolicy="no-referrer"
             onError={() => setCoverFailed(true)}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-black/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/50" />
 
         <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
-          <span
-            className={cn(
-              "rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white",
-              PLATFORM_BADGE[video.platform].className
-            )}
-          >
-            {PLATFORM_BADGE[video.platform].label}
-          </span>
-          {video.hashtag && (
-            <span className="rounded-md bg-black/40 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
-              #{video.hashtag}
+          <span className="flex items-center gap-1 rounded-full bg-black/45 py-1 pl-1 pr-2 ring-1 ring-inset ring-white/15 backdrop-blur-md">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white">
+              <PlatformIcon className="h-2.5 w-2.5" />
             </span>
-          )}
+            <span className="text-[9px] font-bold uppercase tracking-wide text-white">
+              {PLATFORM_BADGE[video.platform].label}
+            </span>
+          </span>
         </div>
 
         <button
@@ -253,9 +190,9 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
           onClick={() => setSaved((prev) => !prev)}
           aria-label="Save video"
           aria-pressed={saved}
-          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50"
+          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-inset ring-white/15 backdrop-blur-md transition-all hover:bg-black/55 active:scale-90"
         >
-          <Heart className={cn("h-3.5 w-3.5", saved && "fill-red-500 text-red-500")} />
+          <Heart className={cn("h-3.5 w-3.5 transition-colors", saved && "fill-red-500 text-red-500")} />
         </button>
 
         <a
@@ -265,46 +202,31 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
           aria-label={`Watch "${video.title}" on ${PLATFORM_BADGE[video.platform].label}`}
           className="absolute inset-0 flex items-center justify-center opacity-90 transition-opacity group-hover:opacity-100"
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-card-hover">
-            <Play className="h-4.5 w-4.5 fill-ink text-ink" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-card-hover ring-1 ring-inset ring-black/5 transition-transform duration-200 group-hover:scale-110">
+            <Play className="h-4.5 w-4.5 translate-x-0.5 fill-ink text-ink" />
           </div>
         </a>
 
         <div className="absolute bottom-2.5 left-2.5 right-11">
-          <p className="line-clamp-2 text-xs font-semibold leading-snug text-white [text-shadow:0_1px_3px_rgb(0_0_0_/_0.8)]">
-            {video.title}
-          </p>
-          <p className="mt-1 text-[11px] font-medium text-white/85 [text-shadow:0_1px_2px_rgb(0_0_0_/_0.8)]">
-            {video.views} views
-          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 ring-1 ring-inset ring-white/10 backdrop-blur-md">
+            <Eye className="h-3 w-3 text-white/80" />
+            <span className="text-[10px] font-bold tabular-nums text-white">{video.views} views</span>
+          </span>
         </div>
 
-        <div className="absolute bottom-2.5 right-2.5 flex flex-col items-center gap-1.5">
-          {video.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={video.avatarUrl}
-              alt=""
-              referrerPolicy="no-referrer"
-              className="h-7 w-7 shrink-0 rounded-full border-2 border-white object-cover"
-            />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white">
-              {initialsFor(video.author)}
-            </div>
-          )}
+        <div className="absolute bottom-2.5 right-2.5">
           <Link
             href="/app/bend"
             aria-label="Bend this script"
             title="Bend this script"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary shadow-card transition-colors hover:bg-accent"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary shadow-card transition-all hover:scale-110 hover:bg-accent"
           >
             <Wand2 className="h-3.5 w-3.5" />
           </Link>
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
+      <div className="flex flex-col gap-2 p-2.5 sm:p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
             {niche}
@@ -314,47 +236,28 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
           </span>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {video.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={video.avatarUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-5 w-5 shrink-0 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-white">
-                {initialsFor(video.author)}
-              </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] font-medium tabular-nums text-body">
+          {timeAgo && <span className="shrink-0">{timeAgo}</span>}
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-1">
+            {video.followerCount > 0 && (
+              <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Followers">
+                <Users className="h-3 w-3" />
+                {formatCompactNumber(video.followerCount)}
+              </span>
             )}
-            <span className="truncate text-[11px] font-semibold text-heading">{video.author}</span>
-          </div>
-          {video.followerCount > 0 && (
-            <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-body" title="Followers">
-              <Users className="h-3 w-3" />
-              {formatCompactNumber(video.followerCount)}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-hairline pt-2 text-[11px] text-body">
-          {timeAgo && <span className="shrink-0 font-medium">{timeAgo}</span>}
-          <div className="flex flex-1 items-center justify-end gap-2.5">
-            <span className="flex items-center gap-0.5" title="Views">
+            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Views">
               <Eye className="h-3 w-3" />
               {video.views}
             </span>
-            <span className="flex items-center gap-0.5" title="Likes">
+            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Likes">
               <Heart className="h-3 w-3" />
               {formatCompactNumber(video.likeCount)}
             </span>
-            <span className="flex items-center gap-0.5" title="Comments">
+            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Comments">
               <MessageCircle className="h-3 w-3" />
               {formatCompactNumber(video.commentCount)}
             </span>
-            <span className="flex items-center gap-0.5" title="Shares">
+            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Shares">
               <Share2 className="h-3 w-3" />
               {formatCompactNumber(video.shareCount)}
             </span>
@@ -387,6 +290,12 @@ export function NicheFinder({
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
+  const [videoSort, setVideoSort] = useState<VideoSort>("views");
+  // The input box updates this on every keystroke; videoQuery (the value
+  // that actually drives the fetch below) only picks it up on submit, so
+  // typing doesn't fire a request per character.
+  const [queryDraft, setQueryDraft] = useState("");
+  const [videoQuery, setVideoQuery] = useState("");
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
 
@@ -404,7 +313,7 @@ export function NicheFinder({
   // Reset to page 1 whenever a filter (not the page itself) changes.
   // Adjusting state during render — rather than in an effect — avoids an
   // extra commit/fetch round-trip.
-  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${JSON.stringify(videoRangeFilters)}`;
+  const filtersKey = `${activeNiche ?? "all"}:${videoPlatform}:${videoTimeWindow}:${videoSort}:${videoQuery}:${JSON.stringify(videoRangeFilters)}`;
   const [lastFiltersKey, setLastFiltersKey] = useState(filtersKey);
   if (filtersKey !== lastFiltersKey) {
     setLastFiltersKey(filtersKey);
@@ -452,7 +361,9 @@ export function NicheFinder({
           limit: String(VIDEOS_PER_PAGE),
           platform: videoPlatform,
           timeWindow: videoTimeWindow,
+          sort: videoSort,
         });
+        if (videoQuery) qs.set("q", videoQuery);
         if (videoRangeFilters.viewsMin) qs.set("viewsMin", videoRangeFilters.viewsMin);
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
@@ -491,34 +402,29 @@ export function NicheFinder({
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [activeNiche, videoPlatform, videoTimeWindow, videoRangeFilters, effectiveVideoPage, filtersKey]);
+  }, [activeNiche, videoPlatform, videoTimeWindow, videoSort, videoQuery, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
   return (
     <section>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-heading">Top Trending Videos</h2>
-          <p className="mt-1 text-sm text-body">Live from TikTok&apos;s trending feed</p>
-        </div>
-        <VideoFilterBar
-          platform={videoPlatform}
-          onPlatformChange={setVideoPlatform}
-          timeWindow={videoTimeWindow}
-          onTimeWindowChange={setVideoTimeWindow}
-          filters={videoRangeFilters}
-          onApply={setVideoRangeFilters}
-          onClear={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
-        />
-      </div>
+      <NicheTopBar
+        query={queryDraft}
+        onQueryChange={setQueryDraft}
+        onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
+        platform={videoPlatform}
+        onPlatformChange={setVideoPlatform}
+        timeWindow={videoTimeWindow}
+        onTimeWindowChange={setVideoTimeWindow}
+        rangeFilters={videoRangeFilters}
+        onApplyRangeFilters={setVideoRangeFilters}
+        onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
+        sort={videoSort}
+        onSortChange={setVideoSort}
+        page={effectiveVideoPage}
+        hasMore={hasMore}
+        onPageChange={setVideoPage}
+      />
 
       <div className="mt-4">
-        {videos.length > 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-body">
-            Page {effectiveVideoPage}
-            {videosLoading && <Loader2 className="h-3 w-3 animate-spin" />}
-          </p>
-        )}
-
         {/* Priority order: a real error always wins (even if stale videos
             are still in state), then videos, then the loading spinner —
             which is now guaranteed to resolve to one of the other three
@@ -529,19 +435,16 @@ export function NicheFinder({
             {videosError}
           </div>
         ) : videos.length > 0 ? (
-          <>
-            <div
-              className={cn(
-                "mt-3 grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-3 sm:gap-4 xl:grid-cols-4",
-                videosLoading && "opacity-50"
-              )}
-            >
-              {videos.map((video) => (
-                <TrendingVideoCard key={video.id} video={video} />
-              ))}
-            </div>
-            <Pagination page={effectiveVideoPage} hasMore={hasMore} onChange={setVideoPage} />
-          </>
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-3 sm:gap-4 xl:grid-cols-4",
+              videosLoading && "opacity-50"
+            )}
+          >
+            {videos.map((video) => (
+              <TrendingVideoCard key={video.id} video={video} />
+            ))}
+          </div>
         ) : videosLoading ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
             <Loader2 className="h-4 w-4 animate-spin" />

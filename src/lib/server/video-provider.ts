@@ -85,7 +85,7 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// --- Scrape Creators — transcript extraction (TikTok, Instagram Reels, YouTube Shorts)
+// --- Scrape Creators — transcript extraction (TikTok, Instagram Reels, YouTube)
 // Each platform needs two calls: one for the transcript text/cues, one for
 // video metadata (title/cover/duration/playable URL). See
 // https://docs.scrapecreators.com if calls start failing with unexpected shapes.
@@ -261,7 +261,12 @@ function extractYoutubeVideoId(rawUrl: string): string | null {
   return watch ? watch[1] : null;
 }
 
-async function scrapeCreatorsFetchYoutubeShortsTranscript(url: string): Promise<TranscriptResult> {
+// Despite the function name history ("Shorts"), the underlying ScrapeCreators
+// endpoints (/v1/youtube/video, /v1/youtube/video/transcript) work identically
+// for any youtube.com/watch?v=... video, long-form included — extractYoutubeVideoId
+// below already parses both URL shapes. The old restriction to Shorts-only
+// lived entirely in detectTranscriptPlatform()'s URL matching, not here.
+async function scrapeCreatorsFetchYoutubeTranscript(url: string): Promise<TranscriptResult> {
   // Fetch video metadata first so we can pin the transcript request to the
   // "asr" (auto-generated from speech) caption track's language — otherwise
   // the transcript endpoint's default can hand back an auto-translated
@@ -551,7 +556,10 @@ export function detectTranscriptPlatform(rawUrl: string): TranscriptPlatform | n
   if (!trimmed) return null;
   if (/tiktok\.com/i.test(trimmed)) return "tiktok";
   if (/instagram\.com\/(reel|p)\//i.test(trimmed)) return "reels";
-  if (/youtube\.com\/shorts|youtu\.be/i.test(trimmed)) return "shorts";
+  // "shorts" is a legacy label (kept as-is since it's a Postgres check-
+  // constraint value on the transcripts table) — it now covers every
+  // youtube.com/watch?v=... and youtu.be link too, not just /shorts/.
+  if (/youtube\.com\/(shorts\/|watch)|youtu\.be/i.test(trimmed)) return "shorts";
   return null;
 }
 
@@ -570,7 +578,7 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
     case "tiktok":
       return scrapeCreatorsFetchTikTokTranscript(url);
     case "shorts":
-      return scrapeCreatorsFetchYoutubeShortsTranscript(url);
+      return scrapeCreatorsFetchYoutubeTranscript(url);
     case "reels":
       return scrapeCreatorsFetchInstagramTranscript(url);
     default:

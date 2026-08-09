@@ -1,6 +1,12 @@
 import { generateObject, type ModelMessage } from "ai";
 import { z } from "zod";
-import { ApifyScraperError, scrapeChannelVideos } from "./apify-client";
+import {
+  ApifyScraperError,
+  fetchTranscriptsBounded,
+  scrapeChannelVideos,
+  scrapeChannelVideosWithUrls,
+  type ScrapedChannelVideo,
+} from "./apify-client";
 import { OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "./openrouter-client";
 import type {
   NicheBendCandidate,
@@ -253,13 +259,86 @@ async function extractAnalysisAndCandidates(
   };
 }
 
+const TRANSCRIPT_VIDEO_COUNT = 5;
+// Matches TRANSCRIPT_VIDEO_COUNT so all 5 fetch in parallel instead of
+// queueing in waves of 2 -- each fetch can itself take up to ~120s (two
+// chained ScrapeCreators calls), so serializing them made it easy for the
+// wall-clock budget below to expire before any transcript landed.
+const TRANSCRIPT_CONCURRENCY = 5;
+// The analyze route's maxDuration is 300s; this leaves headroom for the
+// primary title/views scrape plus the LLM extraction call that follows.
+const TRANSCRIPT_FETCH_BUDGET_MS = 180_000;
+// Bounds prompt/token size for long-form videos, which can run many minutes
+// of spoken transcript -- a few thousand words is plenty of real script
+// skeleton for the LLM to pattern-match hooks/beats/phrasing from.
+const MAX_TRANSCRIPT_CHARS = 6000;
+
+// Best-effort: pulls real spoken-script transcripts for the channel's
+// highest-viewed videos so the SOP can be grounded in what creators actually
+// say, not just inferred from titles. Runs as a second, independent scrape
+// (ScrapeCreators-only, URL-preserving) alongside the primary Apify/
+// ScrapeCreators title+views scrape in researchChannel -- if this fails
+// entirely (ScrapeCreators not configured, rate limited, no captions on any
+// of the top videos), the pipeline falls back to the pre-existing title-only
+// flow rather than failing the whole job over a nice-to-have.
+async function fetchTopVideoTranscripts(
+  url: string,
+  platform: NicheBendPlatform,
+  videoType: NicheBendVideoType
+): Promise<{ video: ScrapedChannelVideo; text: string }[]> {
+  try {
+    const channel = await scrapeChannelVideosWithUrls(url, platform, videoType, TRANSCRIPT_VIDEO_COUNT);
+    const transcribed = await fetchTranscriptsBounded(
+      channel.videos,
+      TRANSCRIPT_CONCURRENCY,
+      TRANSCRIPT_FETCH_BUDGET_MS
+    );
+    return transcribed.map(({ video, text }) => ({
+      video,
+      text: text.length > MAX_TRANSCRIPT_CHARS ? `${text.slice(0, MAX_TRANSCRIPT_CHARS)}… [truncated]` : text,
+    }));
+  } catch (error) {
+    console.error("[niche-bend] Transcript fetch failed, continuing with title-only research:", error);
+    return [];
+  }
+}
+
+// Shared with niche-bend-job-store's conversationHasTranscripts() below so a
+// cached research conversation can be checked for real transcript grounding
+// without a dedicated DB column.
+const TRANSCRIPT_BLOCK_MARKER = "We also pulled the real spoken-word transcripts";
+
+function buildTranscriptBlock(transcripts: { video: ScrapedChannelVideo; text: string }[]): string {
+  if (transcripts.length === 0) return "";
+  const sections = transcripts
+    .map(({ video, text }) => `--- Transcript: "${video.title}" (${video.views} views) ---\n${text}`)
+    .join("\n\n");
+  return `\n\n${TRANSCRIPT_BLOCK_MARKER} for the ${transcripts.length} highest-viewed of these videos. Use these to extract the ACTUAL hook wording, beat structure, and signature phrases — pull them verbatim where exact wording matters, rather than inferring from titles alone:\n\n${sections}`;
+}
+
+// Lets job-store decide whether a cached research conversation is worth
+// reusing cheaply (regenerateCandidates) or should be treated as a miss and
+// re-researched from scratch -- self-heals any channel whose cache entry was
+// written before real transcripts landed (e.g. a slow/rate-limited
+// ScrapeCreators moment on that channel's first-ever research run).
+export function conversationHasTranscripts(conversation: ModelMessage[]): boolean {
+  return conversation.some(
+    (message) => typeof message.content === "string" && message.content.includes(TRANSCRIPT_BLOCK_MARKER)
+  );
+}
+
 export async function researchChannel(
   url: string,
   platform: NicheBendPlatform,
   videoType: NicheBendVideoType
-): Promise<ResearchOutcome> {
+): Promise<ResearchOutcome & { transcriptCount: number }> {
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
   const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
+
+  // Run concurrently: the transcript fetch is best-effort and independent of
+  // the primary scrape, so it shouldn't add to this function's latency in
+  // the common case.
+  const transcriptsPromise = fetchTopVideoTranscripts(url, platform, videoType);
 
   let scraped;
   try {
@@ -276,19 +355,22 @@ export async function researchChannel(
     throw new NicheBendAiError(`Could not scrape that channel: ${message}`);
   }
 
+  const transcripts = await transcriptsPromise;
   const videoList = scraped.videos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
 
   const extractionPrompt = `We scraped the real top ${formatLabel} from the ${platformLabel} channel "${scraped.channelName}" (${url}), sorted by view count:
 
 ${videoList}
+${buildTranscriptBlock(transcripts)}
 
 From this real data, produce:
-1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
+1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles${transcripts.length > 0 ? " and transcripts" : ""}), and topVideos (echo the videos given, exactly).
 2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself. Each candidate needs: a bold niche name (max 3 words), an angle tag — exactly one of Ranking, Timeline, or Conflict — describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
 
 Respond only in the required structured format.`;
 
-  return extractAnalysisAndCandidates([], platform, extractionPrompt, scraped.avatarUrl);
+  const outcome = await extractAnalysisAndCandidates([], platform, extractionPrompt, scraped.avatarUrl);
+  return { ...outcome, transcriptCount: transcripts.length };
 }
 
 export async function researchFromManualVideos(
@@ -319,7 +401,7 @@ export async function generateSopContent(
   analysis: NicheBendChannelAnalysis,
   chosenBend: NicheBendCandidate
 ): Promise<NicheBendSopContent> {
-  const groundingRule = `Ground everything in the real videos you found or were given earlier — cite specific source videos by their actual titles wherever you make a claim (in every "usedInVideos" field, reference real titles, not placeholders like "Video 1"). Do not invent details unrelated to the real channel.`;
+  const groundingRule = `Ground everything in the real videos you found or were given earlier — cite specific source videos by their actual titles wherever you make a claim (in every "usedInVideos" field, reference real titles, not placeholders like "Video 1"). Do not invent details unrelated to the real channel. If real video transcripts were provided earlier in this conversation, extract hook wording, beat timing, and signature/rehook phrases directly from that transcript text — verbatim where exact wording matters — instead of inferring them from titles alone.`;
 
   const baseConversation: ModelMessage[] =
     conversation.length > 0

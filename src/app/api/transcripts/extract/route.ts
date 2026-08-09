@@ -59,7 +59,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const platform = detectTranscriptPlatform(url);
   if (!platform) {
     return NextResponse.json(
-      { error: "Only TikTok, Instagram Reels, and YouTube Shorts links are supported" },
+      { error: "Only TikTok, Instagram Reels, and YouTube links are supported" },
       { status: 400 }
     );
   }

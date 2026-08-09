@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type {
   ActivityLogEntry,
+  AdminNicheChannel,
   AdminTeamMember,
   AdminToolKey,
   AdminUser,
@@ -486,6 +487,55 @@ export async function getPromoCodes(): Promise<PromoCode[]> {
   const { data } = await admin.from("promo_codes").select(PROMO_CODE_SELECT).order("created_at", { ascending: false });
 
   return (data ?? []).map(mapPromoCodeRow);
+}
+
+const NICHE_CHANNEL_ADMIN_SELECT =
+  "id, platform, channel_url, channel_title, avatar_url, subscriber_count, total_views, niche, is_faceless, faceless_confidence, faceless_category, complexity, viral_velocity_score, verified_at, created_at";
+
+interface NicheChannelAdminRow {
+  id: string;
+  platform: AdminNicheChannel["platform"];
+  channel_url: string;
+  channel_title: string;
+  avatar_url: string | null;
+  subscriber_count: number;
+  total_views: number;
+  niche: string | null;
+  is_faceless: boolean | null;
+  faceless_confidence: number | null;
+  faceless_category: AdminNicheChannel["facelessCategory"];
+  complexity: AdminNicheChannel["complexity"];
+  viral_velocity_score: number | null;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export async function getNicheChannelsForAdmin(): Promise<AdminNicheChannel[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("niche_channels")
+    .select(NICHE_CHANNEL_ADMIN_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(100)
+    .returns<NicheChannelAdminRow[]>();
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    platform: row.platform,
+    channelUrl: row.channel_url,
+    channelTitle: row.channel_title,
+    avatarUrl: row.avatar_url,
+    subscriberCount: row.subscriber_count,
+    totalViews: row.total_views,
+    niche: row.niche,
+    isFaceless: row.is_faceless,
+    facelessConfidence: row.faceless_confidence,
+    facelessCategory: row.faceless_category,
+    complexity: row.complexity,
+    viralVelocityScore: row.viral_velocity_score,
+    verifiedAt: row.verified_at,
+    createdAt: row.created_at,
+  }));
 }
 
 export async function getAdminTeam(): Promise<AdminTeamMember[]> {

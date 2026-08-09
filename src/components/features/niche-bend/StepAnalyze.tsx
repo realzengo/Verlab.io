@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { LinkInput } from "@/components/ui/LinkInput";
 import { Tabs } from "@/components/ui/Tabs";
+import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { detectPlatform } from "@/lib/niche-bend/platform";
 import { useFakeStepProgress } from "@/lib/niche-bend/useFakeStepProgress";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
@@ -89,7 +90,14 @@ export function StepAnalyze({
 
           {detected && (
             <div className="flex items-center gap-3">
-              <Badge>{detected === "youtube" ? "YouTube" : "TikTok"}</Badge>
+              <Badge>
+                {detected === "youtube" ? (
+                  <YouTubeIcon className="h-3 w-3" />
+                ) : (
+                  <TikTokIcon className="h-3 w-3" />
+                )}
+                {detected === "youtube" ? "YouTube" : "TikTok"}
+              </Badge>
               {detected === "youtube" && (
                 <Tabs
                   items={[

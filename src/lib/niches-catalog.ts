@@ -28,6 +28,16 @@ export const NICHE_ORDER = [
   "Stats",
   "Gaming",
   "Games",
+  "3D Animation",
+  "Movie Commentary",
+  "Whiteboard",
+  "Cars",
+  "Quizzes & Trivia",
+  "Brainrot",
+  "Geography",
+  "Media",
+  "Celebrity",
+  "Bodycam",
 ] as const;
 
 export type NicheName = (typeof NICHE_ORDER)[number];
@@ -54,6 +64,16 @@ export const NICHE_HASHTAGS: Record<NicheName, string[]> = {
   Stats: ["statsfacts"],
   Gaming: ["gamingfacts"],
   Games: ["videogamefacts"],
+  "3D Animation": ["3danimation", "3dart", "blender3d"],
+  "Movie Commentary": ["moviecommentary", "movierecap", "filmtok", "commentarytiktok"],
+  Whiteboard: ["whiteboardanimation", "whiteboardvideo"],
+  Cars: ["carfacts", "carsoftiktok", "cartok"],
+  "Quizzes & Trivia": ["quiztime", "triviafacts", "guessthemovie"],
+  Brainrot: ["brainrot", "brainrotcontent"],
+  Geography: ["geographyfacts", "mapfacts"],
+  Media: ["movietok", "tvfacts"],
+  Celebrity: ["celebrityfacts", "celebritytea"],
+  Bodycam: ["bodycam", "bodycamfootage"],
 };
 
 const HASHTAG_TO_NICHE: Record<string, NicheName> = Object.fromEntries(
@@ -66,6 +86,15 @@ export const DEFAULT_VIDEO_NICHE: NicheName = "Entertainment";
 
 export function nicheForHashtag(hashtag: string): NicheName {
   return HASHTAG_TO_NICHE[hashtag.toLowerCase()] ?? DEFAULT_VIDEO_NICHE;
+}
+
+/** True only for hashtags actually in our catalog (unlike nicheForHashtag,
+ * which always resolves to *some* niche via DEFAULT_VIDEO_NICHE) -- lets a
+ * caller distinguish "this video genuinely matched one of our niches" from
+ * "nothing matched, we're guessing" for content not sourced from a
+ * per-niche hashtag search (e.g. a global trending feed). */
+export function isKnownHashtag(hashtag: string): boolean {
+  return hashtag.toLowerCase() in HASHTAG_TO_NICHE;
 }
 
 export function isNicheName(value: string): value is NicheName {

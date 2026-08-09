@@ -28,6 +28,13 @@ export interface NicheVideoQueryParams {
   followersMax: string | null;
   postedAfter: string | null;
   postedBefore: string | null;
+  /** Free-text match against title/author/hashtag -- the search box in the
+   * niche finder's top bar. Empty/omitted means no text filter. */
+  q: string | null;
+  /** "views" (default) ranks by real view_count; "newest" ranks by real
+   * posted_at -- both are genuine columns already on trending_videos, no
+   * separate "trending score" concept exists to sort by. */
+  sort: "views" | "newest";
 }
 
 export interface NicheVideoPage {
@@ -50,9 +57,15 @@ export async function getNicheVideosPage(
   params: NicheVideoQueryParams
 ): Promise<NicheVideoPage> {
   const admin = createAdminClient() as SupabaseClient;
-  const { page, limit, style, platform, timeWindow, country } = params;
+  const { page, limit, style, platform, timeWindow, country, q, sort } = params;
   const { viewsMin, viewsMax, followersMin, followersMax, postedAfter, postedBefore } = params;
   const offset = (page - 1) * limit;
+
+  // PostgREST's .or() splits on "," and treats "(" / ")" as grouping, so
+  // strip them from the raw search term rather than trying to escape them --
+  // a search for "foo,bar" just becomes "foobar" instead of corrupting the
+  // filter expression or throwing.
+  const sanitizedQuery = (q ?? "").trim().replace(/[,()]/g, "");
 
   function buildPageQuery() {
     let query = admin.from("trending_videos").select(TRENDING_VIDEO_COLUMNS);
@@ -89,7 +102,18 @@ export async function getNicheVideosPage(
       query = query.gte("posted_at", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
     }
 
-    return query.order("view_count", { ascending: false }).range(offset, offset + limit);
+    if (sanitizedQuery) {
+      query = query.or(
+        `title.ilike.%${sanitizedQuery}%,author.ilike.%${sanitizedQuery}%,hashtag.ilike.%${sanitizedQuery}%`
+      );
+    }
+
+    query =
+      sort === "newest"
+        ? query.order("posted_at", { ascending: false, nullsFirst: false })
+        : query.order("view_count", { ascending: false });
+
+    return query.range(offset, offset + limit);
   }
 
   let { data, error } = await buildPageQuery();

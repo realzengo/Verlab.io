@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listJobs } from "@/lib/server/niche-bend-job-store";
+import { backfillMissingAvatars, listJobs } from "@/lib/server/niche-bend-job-store";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
 import type { NicheBendHistoryItem } from "@/lib/types";
@@ -17,7 +17,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   const limitParam = Number(request.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 50;
 
-  const rows = await listJobs(supabase, limit, { savedOnly: true });
+  const rows = await backfillMissingAvatars(supabase, await listJobs(supabase, limit, { savedOnly: true }));
 
   const items: NicheBendHistoryItem[] = rows.map((row) => ({
     jobId: row.id,

@@ -1,4 +1,5 @@
 import { humanizeViewCount } from "@/lib/server/apify-client";
+import { filterEnglishOnly } from "@/lib/server/language-filter";
 
 export type YoutubeErrorCode = "not_configured" | "quota_exceeded" | "provider_error";
 
@@ -169,36 +170,48 @@ async function fetchVideoDetails(ids: string[]): Promise<YoutubeVideoItem[]> {
 interface YoutubeChannelItem {
   id?: string;
   statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean };
+  snippet?: { thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } } };
 }
 
 interface YoutubeChannelsResponse {
   items?: YoutubeChannelItem[];
 }
 
-// channels.list is 1 quota unit for up to 50 ids, same batching model as
-// fetchVideoDetails — chunked here since a niche's videos can span more than
-// 50 distinct channels.
-async function fetchChannelSubscribers(channelIds: string[]): Promise<Map<string, number>> {
+export interface YoutubeChannelDetails {
+  subscriberCount: number;
+  avatarUrl: string;
+}
+
+// channels.list is 1 quota unit for up to 50 ids regardless of which `part`s
+// are requested, same batching model as fetchVideoDetails — chunked here
+// since a niche's videos can span more than 50 distinct channels. Requesting
+// snippet alongside statistics is free real channel-avatar data in the same
+// call, not an extra request.
+async function fetchChannelDetails(channelIds: string[]): Promise<Map<string, YoutubeChannelDetails>> {
   const unique = [...new Set(channelIds)];
-  const subscribers = new Map<string, number>();
+  const details = new Map<string, YoutubeChannelDetails>();
 
   for (let i = 0; i < unique.length; i += 50) {
     const batch = unique.slice(i, i + 50);
     const data = await youtubeGet<YoutubeChannelsResponse>("/channels", {
-      part: "statistics",
+      part: "statistics,snippet",
       id: batch.join(","),
     });
     for (const item of data.items ?? []) {
-      if (!item.id || item.statistics?.hiddenSubscriberCount) continue;
-      subscribers.set(item.id, Number(item.statistics?.subscriberCount) || 0);
+      if (!item.id) continue;
+      details.set(item.id, {
+        subscriberCount: item.statistics?.hiddenSubscriberCount ? 0 : Number(item.statistics?.subscriberCount) || 0,
+        avatarUrl: item.snippet?.thumbnails?.high?.url ?? item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? "",
+      });
     }
   }
 
-  return subscribers;
+  return details;
 }
 
 export interface TrendingYoutubeVideo {
   id: string;
+  channelId: string;
   title: string;
   views: string;
   viewCount: number;
@@ -217,18 +230,20 @@ export interface TrendingYoutubeVideo {
 function mapVideoItem(
   item: YoutubeVideoItem,
   query: string,
-  subscribers: Map<string, number>
+  channelDetails: Map<string, YoutubeChannelDetails>
 ): TrendingYoutubeVideo | null {
-  if (!item.id) return null;
+  if (!item.id || !item.snippet?.channelId) return null;
   const viewCount = Number(item.statistics?.viewCount) || 0;
   const thumb =
     item.snippet?.thumbnails?.high?.url ?? item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url;
+  const details = channelDetails.get(item.snippet.channelId);
 
   return {
     // Namespaced so a YouTube video id can never collide with a TikTok aweme
     // id in the shared trending_videos table (same reasoning as the
     // `platform` column, belt-and-suspenders on the primary key itself).
     id: `yt_${item.id}`,
+    channelId: item.snippet.channelId,
     title: item.snippet?.title?.trim() || "Untitled video",
     views: humanizeViewCount(viewCount),
     viewCount,
@@ -236,11 +251,11 @@ function mapVideoItem(
     commentCount: Number(item.statistics?.commentCount) || 0,
     // YouTube's public API doesn't expose a share count.
     shareCount: 0,
-    followerCount: item.snippet?.channelId ? subscribers.get(item.snippet.channelId) ?? 0 : 0,
+    followerCount: details?.subscriberCount ?? 0,
     coverUrl: thumb ?? "",
     videoUrl: `https://www.youtube.com/watch?v=${item.id}`,
     author: item.snippet?.channelTitle?.trim() || "Unknown channel",
-    avatarUrl: "",
+    avatarUrl: details?.avatarUrl ?? "",
     hashtag: query,
     postedAt: item.snippet?.publishedAt ?? null,
   };
@@ -272,18 +287,20 @@ export async function fetchNicheYoutubeVideos(
     .flatMap(({ details }) => details)
     .map((item) => item.snippet?.channelId)
     .filter((id): id is string => Boolean(id));
-  const subscribers = await fetchChannelSubscribers(channelIds);
+  const channelDetails = await fetchChannelDetails(channelIds);
 
   const seen = new Set<string>();
   const videos: TrendingYoutubeVideo[] = [];
   for (const { keyword, details } of perKeywordDetails) {
     for (const item of details) {
-      const video = mapVideoItem(item, keyword, subscribers);
+      const video = mapVideoItem(item, keyword, channelDetails);
       if (!video || seen.has(video.id)) continue;
       seen.add(video.id);
       videos.push(video);
     }
   }
 
-  return videos.sort((a, b) => b.viewCount - a.viewCount).slice(0, limit);
+  return filterEnglishOnly(videos)
+    .sort((a, b) => b.viewCount - a.viewCount)
+    .slice(0, limit);
 }

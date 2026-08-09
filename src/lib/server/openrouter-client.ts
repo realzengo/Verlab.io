@@ -30,3 +30,16 @@ export const OPENROUTER_INSTRUCT_MODEL = "deepseek/deepseek-v3.2";
 export const openrouterInstructModel = openrouter(OPENROUTER_INSTRUCT_MODEL);
 
 export const OPENROUTER_MAX_OUTPUT_TOKENS = 16000;
+
+// Google Gemini Flash via OpenRouter -- fast, cheap structured-output
+// classification pass for the faceless-channel classifier (see
+// lib/server/faceless-classifier.ts). Kept distinct from
+// OPENROUTER_INSTRUCT_MODEL because this call is high-volume/low-latency
+// (one per ingested channel) rather than a creative-writing pass.
+// Originally gemini-flash-1.5, which OpenRouter has since retired --
+// google/gemini-2.5-flash is the current pinned equivalent (checked against
+// GET https://openrouter.ai/api/v1/models on 2026-08-08; the catalog now
+// goes up to gemini-3.6-flash, but 2.5 is the long-stable, well-established
+// tier rather than the newest/least-proven one).
+export const FACELESS_CLASSIFIER_MODEL = "google/gemini-2.5-flash";
+export const facelessClassifierModel = openrouter(FACELESS_CLASSIFIER_MODEL);

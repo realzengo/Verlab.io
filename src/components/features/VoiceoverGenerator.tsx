@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Check,
   ChevronLeft,
@@ -28,7 +29,7 @@ import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
-import { HistoryPanel, type VoiceoverHistoryItem } from "@/components/features/voiceover-generator/HistoryPanel";
+import { HistoryPanel } from "@/components/features/voiceover-generator/HistoryPanel";
 import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
 import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
@@ -556,6 +557,8 @@ export function VoiceoverGenerator() {
     }
   }, []);
 
+  const deepLinkId = useSearchParams().get("id");
+
   const selectedVoice = getVoiceOption(voiceId) ?? VOICE_OPTIONS[0];
 
   const filteredVoices = useMemo(() => {
@@ -911,12 +914,12 @@ export function VoiceoverGenerator() {
     }
   }
 
-  async function handleSelectHistoryItem(item: VoiceoverHistoryItem) {
+  async function loadGeneration(id: string) {
     if (selectingHistoryId) return;
-    setSelectingHistoryId(item.id);
+    setSelectingHistoryId(id);
     setGenerationError(null);
     try {
-      const response = await fetch(`/api/generate-voiceover?id=${item.id}`);
+      const response = await fetch(`/api/generate-voiceover?id=${id}`);
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "Could not load that generation");
       const row = data?.generations?.[0];
@@ -944,6 +947,15 @@ export function VoiceoverGenerator() {
       setSelectingHistoryId(null);
     }
   }
+
+  // Deep-link from the Library ("Open" on a voiceover asset) -- preloads
+  // that generation straight into the editor instead of landing on the
+  // blank input screen.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from the URL's ?id=, not a derived/external sync
+    if (deepLinkId) void loadGeneration(deepLinkId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the id present at mount; loadGeneration is stable enough for this one-shot deep link
+  }, [deepLinkId]);
 
   const charCount = script.length;
 
@@ -1364,7 +1376,7 @@ export function VoiceoverGenerator() {
                 </div>
 
                 {sidebarTab === "history" ? (
-                  <HistoryPanel onSelect={handleSelectHistoryItem} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
+                  <HistoryPanel onSelect={(item) => void loadGeneration(item.id)} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
                 ) : (
                   <div className="rounded-2xl border border-hairline bg-surface shadow-card dark:bg-[#0D0D10]">
                     <div className="group p-5">

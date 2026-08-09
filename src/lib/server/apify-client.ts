@@ -1,4 +1,5 @@
-import { scrapeCreatorsGet } from "./video-provider";
+import convertHeic from "heic-convert";
+import { fetchTranscript, scrapeCreatorsGet } from "./video-provider";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
@@ -146,6 +147,17 @@ interface TiktokScraperItem {
   authorMeta?: { name?: string; nickName?: string; avatar?: string };
 }
 
+// Mirrors fetchYoutubeAvatarViaScrapeCreators below: the TikTok actor
+// sometimes omits authorMeta.avatar (empty string or missing field
+// entirely) even though the profile has one, so it's worth one cheap
+// ScrapeCreators lookup rather than falling straight to an initials avatar.
+async function fetchTiktokAvatarViaScrapeCreators(handle: string): Promise<string | undefined> {
+  const data = await scrapeCreatorsGet<ScrapeCreatorsTikTokProfileVideosResponse>("/v3/tiktok/profile/videos", {
+    handle,
+  });
+  return data.aweme_list?.[0]?.author?.avatar_medium?.url_list?.[0];
+}
+
 export interface ScrapedChannel {
   channelName: string;
   avatarUrl?: string;
@@ -175,8 +187,18 @@ async function mirrorAvatar(sourceUrl: string, platform: NicheBendPlatform, requ
   try {
     const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(15_000) });
     if (!response.ok) return sourceUrl;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    const contentType = response.headers.get("content-type") || "image/jpeg";
+    let bytes = new Uint8Array(await response.arrayBuffer());
+    let contentType = response.headers.get("content-type") || "image/jpeg";
+
+    // TikTok's avatar CDN always serves HEIC (live-confirmed: even with a
+    // browser-like Accept header) -- undecodable by every non-Safari
+    // browser in an <img> tag, and rejected outright by the bucket's mime
+    // allowlist below. Re-encode to JPEG here so it never reaches either.
+    if (/hei[cf]/i.test(contentType)) {
+      const jpeg = await convertHeic({ buffer: Buffer.from(bytes), format: "JPEG", quality: 0.9 });
+      bytes = new Uint8Array(jpeg);
+      contentType = "image/jpeg";
+    }
 
     const admin = createAdminClient();
     await ensureBucket(admin, AVATAR_BUCKET, {
@@ -277,9 +299,12 @@ async function scrapeChannelVideosViaApify(
   const channelName =
     items[0].authorMeta?.nickName?.trim() || items[0].authorMeta?.name?.trim() || `@${handle}`;
 
+  const avatarUrl =
+    items[0].authorMeta?.avatar || (await fetchTiktokAvatarViaScrapeCreators(handle).catch(() => undefined));
+
   return {
     channelName,
-    avatarUrl: items[0].authorMeta?.avatar,
+    avatarUrl,
     videos: items.slice(0, limit).map((item) => ({
       title: (item.text ?? "").trim() || "Untitled",
       views: humanizeViewCount(Number(item.playCount) || 0),
@@ -398,19 +423,40 @@ async function scrapeChannelVideosViaScrapeCreators(
     : scrapeCreatorsTikTokChannel(url, limit);
 }
 
-// --- Channel-video listing WITH per-video URLs, for analyze_creator ---
+// One-off repair for history rows that were scraped before the TikTok/
+// YouTube avatar-fallback lookups above existed (or before either actor
+// started omitting the field) -- those rows have channelName/videos but no
+// avatarUrl, and would otherwise show the initials placeholder forever
+// since re-scraping only happens on a fresh bend. Cheap: a single profile
+// lookup, no video list. Best-effort by design (callers already swallow
+// failures) -- a lookup miss just leaves the row as-is for next time.
+export async function backfillAvatarUrl(sourceUrl: string, platform: NicheBendPlatform): Promise<string | undefined> {
+  const rawAvatarUrl =
+    platform === "youtube"
+      ? (
+          await scrapeCreatorsGet<ScrapeCreatorsChannelInfoResponse>(
+            "/v1/youtube/channel",
+            extractYoutubeChannelParams(sourceUrl)
+          )
+        ).avatar?.image?.sources?.[0]?.url
+      : await fetchTiktokAvatarViaScrapeCreators(extractTikTokHandle(sourceUrl));
+
+  if (!rawAvatarUrl) return undefined;
+  return mirrorAvatar(rawAvatarUrl, platform, sourceUrl);
+}
+
+// --- Channel-video listing WITH per-video URLs, for analyze_creator and
+// niche-bend's transcript-grounded research ---
 //
 // Niche Bend's ScrapedChannel above never keeps a per-video URL -- it only
-// needs title+views for its LLM-facing prompts. analyze_creator needs the
-// URL too (to feed each video into fetchTranscript). ScrapeCreators-only
-// (no Apify fallback): its responses are confirmed (via public docs) to
-// carry a real, working video URL per item, and it's the same provider
-// transcript extraction already depends on, so this introduces no new
-// failure mode. YouTube is restricted to the Shorts listing endpoint ONLY
-// (never /v1/youtube/channel-videos) because detectTranscriptPlatform() in
-// video-provider.ts doesn't recognize long-form youtube.com/watch URLs --
-// a long-form video's transcript could never be extracted downstream even
-// if it were scraped here.
+// needs title+views for its LLM-facing prompts. Callers that need to feed
+// videos into fetchTranscript need the URL too. ScrapeCreators-only (no
+// Apify fallback): its responses are confirmed (via public docs) to carry a
+// real, working video URL per item, and it's the same provider transcript
+// extraction already depends on, so this introduces no new failure mode.
+// Long-form YouTube is fully supported here too (via /v1/youtube/channel-videos)
+// now that detectTranscriptPlatform() in video-provider.ts recognizes
+// youtube.com/watch URLs, not just /shorts/.
 
 export type CreatorPlatform = "tiktok" | "youtube";
 
@@ -461,20 +507,36 @@ async function scrapeCreatorsTikTokChannelWithUrls(url: string, limit: number): 
   };
 }
 
-async function scrapeCreatorsYoutubeShortsWithUrls(url: string, limit: number): Promise<ScrapedChannelWithUrls> {
+async function scrapeCreatorsYoutubeChannelWithUrls(
+  url: string,
+  videoType: NicheBendVideoType,
+  limit: number
+): Promise<ScrapedChannelWithUrls> {
   const channelParams = extractYoutubeChannelParams(url);
+  const listPath = videoType === "shorts" ? "/v1/youtube/channel/shorts" : "/v1/youtube/channel-videos";
+
   const [infoRes, listRes] = await Promise.all([
     scrapeCreatorsGet<ScrapeCreatorsChannelInfoResponse>("/v1/youtube/channel", channelParams),
-    scrapeCreatorsGet<{ shorts?: (ScrapeCreatorsChannelVideoItem & { id?: string; url?: string })[] }>(
-      "/v1/youtube/channel/shorts",
-      { ...channelParams, sort: "popular" }
-    ),
+    scrapeCreatorsGet<{
+      shorts?: (ScrapeCreatorsChannelVideoItem & { id?: string; url?: string })[];
+      videos?: (ScrapeCreatorsChannelVideoItem & { id?: string; url?: string })[];
+    }>(listPath, { ...channelParams, sort: "popular" }),
   ]);
 
-  const items = listRes.shorts ?? [];
+  const items = listRes.shorts ?? listRes.videos ?? [];
   if (items.length === 0) {
-    throw new ApifyScraperError("not_found", "No Shorts found for that YouTube channel.");
+    throw new ApifyScraperError(
+      "not_found",
+      videoType === "shorts" ? "No Shorts found for that YouTube channel." : "No videos found for that YouTube channel."
+    );
   }
+
+  // ScrapeCreators' listing `url` field is unreliable across these endpoints
+  // (confirmed live: the shorts listing returns a plain watch?v=... link
+  // instead of a /shorts/ path) -- rebuilding from the video `id` is the
+  // one thing both endpoints are trusted to always provide correctly.
+  const buildUrl = (id: string) =>
+    videoType === "shorts" ? `https://www.youtube.com/shorts/${id}` : `https://www.youtube.com/watch?v=${id}`;
 
   return {
     channelName: infoRes.name?.trim() || url,
@@ -484,12 +546,7 @@ async function scrapeCreatorsYoutubeShortsWithUrls(url: string, limit: number): 
       .map((item) => ({
         title: item.title?.trim() || "Untitled",
         views: humanizeViewCount(Number(item.viewCountInt) || 0),
-        // ScrapeCreators' shorts-listing `url` field is a plain
-        // watch?v=... link (confirmed live) even though the video came from
-        // the Shorts-only endpoint -- detectTranscriptPlatform() in
-        // video-provider.ts only recognizes /shorts/ paths, so the URL is
-        // rebuilt from the video `id` rather than trusted as-is.
-        url: item.id ? `https://www.youtube.com/shorts/${item.id}` : "",
+        url: item.id ? buildUrl(item.id) : "",
       }))
       .filter((video) => video.url),
   };
@@ -498,10 +555,46 @@ async function scrapeCreatorsYoutubeShortsWithUrls(url: string, limit: number): 
 export async function scrapeChannelVideosWithUrls(
   url: string,
   platform: CreatorPlatform,
+  videoType: NicheBendVideoType,
   limit = 5
 ): Promise<ScrapedChannelWithUrls> {
   return platform === "youtube"
-    ? scrapeCreatorsYoutubeShortsWithUrls(url, limit)
+    ? scrapeCreatorsYoutubeChannelWithUrls(url, videoType, limit)
     : scrapeCreatorsTikTokChannelWithUrls(url, limit);
+}
+
+// Bounded-concurrency transcript fetching, shared by analyze_creator and
+// niche-bend's transcript-grounded research. fetchTranscript() takes up to
+// ~120s per call (two chained ScrapeCreators requests, each with its own
+// 60s timeout) -- fully sequential over 5 videos could take 600s, well past
+// any caller's route-level maxDuration. A small worker pool caps concurrency,
+// and the wall-clock budget below guarantees this function returns whatever
+// transcripts are ready by then rather than blocking on the slowest one:
+// `results` is captured by reference, so a still-running worker keeps
+// pushing into it harmlessly after the race resolves, but nobody's waiting
+// on it anymore.
+export async function fetchTranscriptsBounded(
+  videos: ScrapedChannelVideo[],
+  concurrency: number,
+  wallClockBudgetMs = 110_000
+): Promise<{ video: ScrapedChannelVideo; text: string }[]> {
+  const queue = [...videos];
+  const results: { video: ScrapedChannelVideo; text: string }[] = [];
+
+  async function worker() {
+    for (let video = queue.shift(); video; video = queue.shift()) {
+      try {
+        const result = await fetchTranscript(video.url);
+        results.push({ video, text: result.lines.map((line) => line.text).join(" ") });
+      } catch (error) {
+        console.error(`[transcripts] fetch failed for ${video.url}:`, error);
+      }
+    }
+  }
+
+  const workDone = Promise.all(Array.from({ length: concurrency }, worker));
+  const budgetElapsed = new Promise<void>((resolve) => setTimeout(resolve, wallClockBudgetMs));
+  await Promise.race([workDone, budgetElapsed]);
+  return results;
 }
 

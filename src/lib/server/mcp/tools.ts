@@ -18,7 +18,11 @@ import { isNicheName } from "@/lib/niches-catalog";
 import { researchViralNiches, type NicheFinderAnswers, type NicheReportEntry } from "@/lib/server/niche-report-ai";
 import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat, type NicheBendChannelAnalysis } from "@/lib/types";
 import { signThumbUrl } from "@/lib/server/mcp/thumb-proxy";
-import { scrapeChannelVideosWithUrls, detectCreatorPlatform, type ScrapedChannelVideo } from "@/lib/server/apify-client";
+import {
+  scrapeChannelVideosWithUrls,
+  detectCreatorPlatform,
+  fetchTranscriptsBounded,
+} from "@/lib/server/apify-client";
 import { analyzeCreatorTranscripts, buildCreatorAnalysisDocx, type CreatorAnalysis } from "@/lib/server/creator-analysis";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
@@ -193,6 +197,8 @@ const browseNicheVideosTool: McpToolDefinition = {
       followersMax: null,
       postedAfter: null,
       postedBefore: null,
+      q: null,
+      sort: "views",
     });
 
     return jsonResult({
@@ -254,6 +260,8 @@ async function enrichNicheWithRealVideos(
     followersMax: null,
     postedAfter: null,
     postedBefore: null,
+    q: null,
+    sort: "views",
   });
 
   if (page.videos.length === 0) return { ...publicFields, sampleVideos: textOnly };
@@ -534,14 +542,14 @@ const extractTranscriptTool: McpToolDefinition = {
   name: "extract_transcript",
   title: "Extract a video transcript",
   description:
-    "Extracts the transcript (with timestamps) from a TikTok, Instagram Reels, or YouTube Shorts URL. Charges credits (see get_credit_balance).",
-  inputSchema: { url: z.string().describe("A TikTok, Instagram Reels, or YouTube Shorts URL.") },
+    "Extracts the transcript (with timestamps) from a TikTok, Instagram Reels, or YouTube URL (Shorts or long-form). Charges credits (see get_credit_balance).",
+  inputSchema: { url: z.string().describe("A TikTok, Instagram Reels, or YouTube URL.") },
   handler: async (userId, args) => {
     const url = String(args.url ?? "").trim();
     if (!url) return errorResult("url is required");
 
     const platform = detectTranscriptPlatform(url);
-    if (!platform) return errorResult("Only TikTok, Instagram Reels, and YouTube Shorts links are supported");
+    if (!platform) return errorResult("Only TikTok, Instagram Reels, and YouTube links are supported");
 
     const cost = TOOL_CREDIT_COSTS.transcripts.extract;
     try {
@@ -722,35 +730,6 @@ const checkDownloadStatusTool: McpToolDefinition = {
   },
 };
 
-// Bounded-concurrency transcript fetching: fetchTranscript() takes up to
-// ~120s per call, and this tool fetches for up to 5 videos. Fully sequential
-// (5x120s = 600s) can exceed the MCP route's own maxDuration=300s, which
-// would kill the invocation mid-flight and leave the job stuck at
-// "processing" forever (its .catch() never runs). A small worker pool caps
-// concurrency instead of firing all 5 (or all 1) at once against
-// ScrapeCreators.
-async function fetchTranscriptsBounded(
-  videos: ScrapedChannelVideo[],
-  concurrency: number
-): Promise<{ video: ScrapedChannelVideo; text: string }[]> {
-  const queue = [...videos];
-  const results: { video: ScrapedChannelVideo; text: string }[] = [];
-
-  async function worker() {
-    for (let video = queue.shift(); video; video = queue.shift()) {
-      try {
-        const result = await fetchTranscript(video.url);
-        results.push({ video, text: result.lines.map((line) => line.text).join(" ") });
-      } catch (error) {
-        console.error(`[analyze_creator] transcript failed for ${video.url}:`, error);
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  return results;
-}
-
 const CREATOR_ANALYSIS_VIDEO_COUNT = 5;
 const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -839,7 +818,9 @@ const analyzeCreatorTool: McpToolDefinition = {
     }
 
     const work = (async () => {
-      const channel = await scrapeChannelVideosWithUrls(url, platform, CREATOR_ANALYSIS_VIDEO_COUNT);
+      // Pinned to "shorts" to preserve this tool's existing behavior exactly
+      // (it predates long-form support in scrapeChannelVideosWithUrls).
+      const channel = await scrapeChannelVideosWithUrls(url, platform, "shorts", CREATOR_ANALYSIS_VIDEO_COUNT);
       const transcribed = await fetchTranscriptsBounded(channel.videos, 2);
       if (transcribed.length === 0) {
         throw new Error("Could not extract a transcript from any of this creator's top videos.");
