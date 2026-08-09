@@ -206,64 +206,84 @@ export function VideoDetailModal({
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-y-auto rounded-card-lg border border-hairline bg-surface shadow-card-hover"
+        className="relative flex max-h-[92dvh] w-full max-w-7xl flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="sticky right-4 top-4 z-10 ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-subtle shadow-card transition-colors hover:bg-app hover:text-heading"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="-mt-8 grid grid-cols-1 gap-6 p-5 sm:p-7 lg:grid-cols-[300px_1fr]">
-          {/* Left: creator + performance + outlier score */}
-          <div className="flex flex-col gap-4">
-            <div>
-              <SectionLabel>Platform</SectionLabel>
-              <div className="mt-1.5 flex items-center gap-1.5">
-                <PlatformIcon className="h-4 w-4" />
-                <span className="text-sm font-bold text-heading">{platformLabel}</span>
-              </div>
-            </div>
-
-            {timeAgo && (
-              <div className="border-t border-hairline pt-4">
-                <SectionLabel>Posted</SectionLabel>
-                <p className="mt-1.5 text-sm font-bold text-heading">{formatFullDate(video.postedAt)}</p>
+        {/* Header: creator identity on the left, close action on the right —
+            a fixed bar rather than the scroll content, so it's always in
+            reach regardless of how far the body below is scrolled. */}
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-hairline px-6 py-4 sm:px-8">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {video.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={video.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-hairline" />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                {video.author.slice(0, 2).toUpperCase()}
               </div>
             )}
+            <span className="truncate text-sm font-bold text-heading">{video.author}</span>
+            <span className="hidden text-hairline sm:inline">•</span>
+            <span className="hidden items-center gap-1.5 text-xs font-semibold text-subtle sm:flex">
+              <PlatformIcon className="h-3.5 w-3.5" />
+              {platformLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:bg-app hover:text-heading"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-            <div className="border-t border-hairline pt-4">
-              <SectionLabel>Creator</SectionLabel>
-              <div className="mt-1.5 flex items-center gap-2">
+        <div className="overflow-y-auto">
+          <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 lg:grid-cols-[320px_1fr] lg:gap-10">
+          {/* Left: creator + performance + outlier score, grouped as a
+              single identity panel rather than a flat stack of dividers */}
+          <div className="flex flex-col gap-5 rounded-2xl border border-hairline bg-app p-5 lg:sticky lg:top-0 lg:self-start">
+            <div>
+              <div className="flex items-center gap-3">
                 {video.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={video.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                  <img src={video.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-hairline" />
                 ) : (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
                     {video.author.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-                <span className="truncate text-sm font-bold text-heading">{video.author}</span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-heading">{video.author}</p>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-subtle">
+                    <PlatformIcon className="h-3.5 w-3.5" />
+                    {platformLabel}
+                  </div>
+                </div>
               </div>
               {profileUrl && (
-                <Button href={profileUrl} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" className="mt-2.5 w-full">
+                <Button href={profileUrl} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm" className="mt-3.5 w-full">
                   View Profile
                 </Button>
               )}
             </div>
 
+            {timeAgo && (
+              <div className="flex items-center justify-between border-t border-hairline pt-4 text-xs">
+                <span className="font-bold uppercase tracking-wide text-subtle">Posted</span>
+                <span className="font-bold text-heading">{formatFullDate(video.postedAt)}</span>
+              </div>
+            )}
+
             <div className="border-t border-hairline pt-4">
               <SectionLabel>Performance</SectionLabel>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-app p-2.5">
+              <div className="mt-2 grid grid-cols-2 gap-2.5">
+                <div className="rounded-xl bg-surface p-3 shadow-card">
                   <p className="text-[11px] text-subtle">Views</p>
                   <p className="text-base font-bold tabular-nums text-heading">{video.viewCount.toLocaleString()}</p>
                 </div>
-                <div className="rounded-xl bg-app p-2.5">
+                <div className="rounded-xl bg-surface p-3 shadow-card">
                   <p className="text-[11px] text-subtle">Likes</p>
                   <p className="text-base font-bold tabular-nums text-heading">{video.likeCount.toLocaleString()}</p>
                 </div>
@@ -273,7 +293,7 @@ export function VideoDetailModal({
             {hashtags.length > 0 && (
               <div className="border-t border-hairline pt-4">
                 <SectionLabel>Hashtags</SectionLabel>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {hashtags.map((tag) => (
                     <span key={tag} className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-primary">
                       #{tag}
@@ -290,7 +310,7 @@ export function VideoDetailModal({
               ) : !insights ? (
                 <div className="mt-2 flex flex-col gap-4">
                   {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="h-8 animate-pulse rounded-lg bg-app" />
+                    <div key={i} className="h-8 animate-pulse rounded-lg bg-surface" />
                   ))}
                 </div>
               ) : (
@@ -333,9 +353,9 @@ export function VideoDetailModal({
           </div>
 
           {/* Right: video + overview + key insights + related */}
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-5 sm:flex-row">
-              <div className="relative aspect-[9/16] w-full shrink-0 overflow-hidden rounded-2xl bg-ink sm:w-[220px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex flex-col gap-6 sm:flex-row">
+              <div className="relative aspect-[9/16] w-full shrink-0 overflow-hidden rounded-2xl bg-ink sm:w-[240px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={video.coverUrl} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/40" />
@@ -369,8 +389,8 @@ export function VideoDetailModal({
 
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">Key Insights</p>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-app p-2.5">
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-app p-3">
                       <p className="text-[11px] text-subtle">{video.niche} rank</p>
                       {insights ? (
                         <>
@@ -385,7 +405,7 @@ export function VideoDetailModal({
                         <div className="mt-1 h-6 w-16 animate-pulse rounded bg-hairline" />
                       )}
                     </div>
-                    <div className="rounded-xl bg-app p-2.5">
+                    <div className="rounded-xl bg-app p-3">
                       <p className="text-[11px] text-subtle">Engagement rate</p>
                       {insights ? (
                         <p className="text-base font-bold tabular-nums text-heading">{(insights.engagementRate * 100).toFixed(1)}%</p>
@@ -400,11 +420,11 @@ export function VideoDetailModal({
               </div>
             </div>
 
-            <p className="rounded-xl bg-success-tint px-3.5 py-2.5 text-xs text-success">
+            <p className="rounded-xl bg-success-tint px-4 py-3 text-xs text-success">
               This video detail links out to the original source. Always review the live video for the latest metrics.
             </p>
 
-            <div className="flex flex-col gap-4 rounded-xl border border-hairline bg-app p-4">
+            <div className="flex flex-col gap-4 rounded-2xl border border-hairline bg-app p-5">
               <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-bold text-heading">Generate ideas with AI</p>
@@ -516,14 +536,15 @@ export function VideoDetailModal({
 
             {related.length > 0 && (
               <div>
-                <p className="mb-3 text-sm font-bold text-heading">Videos in the same niche</p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <p className="mb-3.5 text-sm font-bold text-heading">Videos in the same niche</p>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {related.map((v) => (
                     <TrendingVideoCard key={v.id} video={v} onOpen={onSelectVideo} />
                   ))}
                 </div>
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>

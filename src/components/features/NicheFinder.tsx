@@ -154,6 +154,7 @@ export function formatTimeAgo(isoDate: string | null): string | null {
 export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onOpen: (video: TrendingVideo) => void }) {
   const [saved, setSaved] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
   const niche = video.niche;
   const style = videoStyle(video);
@@ -171,7 +172,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         }
       }}
       aria-label={`View details for "${video.title}"`}
-      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-hover"
+      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover"
     >
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
@@ -188,10 +189,8 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/50" />
 
         <div className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1.5">
-          <span className="flex items-center gap-1 rounded-full bg-black/45 py-1 pl-1 pr-2 ring-1 ring-inset ring-white/15 backdrop-blur-md">
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white">
-              <PlatformIcon className="h-2.5 w-2.5" />
-            </span>
+          <span className="flex items-center gap-1 rounded-full bg-black/45 py-1 pl-2 pr-2 ring-1 ring-inset ring-white/15 backdrop-blur-md">
+            <PlatformIcon className="h-3 w-3 shrink-0" />
             <span className="text-[9px] font-bold uppercase tracking-wide text-white">
               {PLATFORM_BADGE[video.platform].label}
             </span>
@@ -237,7 +236,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 p-2.5 sm:p-3">
+      <div className="flex flex-col gap-3 p-3.5 sm:p-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
             {niche}
@@ -247,15 +246,34 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] font-medium tabular-nums text-body">
-          {timeAgo && <span className="shrink-0">{timeAgo}</span>}
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-1">
-            {video.followerCount > 0 && (
-              <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Followers">
-                <Users className="h-3 w-3" />
-                {formatCompactNumber(video.followerCount)}
-              </span>
-            )}
+        <div className="flex items-center gap-2">
+          {video.avatarUrl && !avatarFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={video.avatarUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={() => setAvatarFailed(true)}
+              className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-hairline"
+            />
+          ) : (
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+              {video.author.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-heading">{video.author}</span>
+          {video.followerCount > 0 && (
+            <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-subtle" title="Followers">
+              <Users className="h-3 w-3" />
+              {formatCompactNumber(video.followerCount)}
+            </span>
+          )}
+        </div>
+
+        <div className="h-px bg-hairline" />
+
+        <div className="flex items-center justify-between gap-2 text-[11px] font-medium tabular-nums text-body">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Views">
               <Eye className="h-3 w-3" />
               {video.views}
@@ -273,6 +291,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
               {formatCompactNumber(video.shareCount)}
             </span>
           </div>
+          {timeAgo && <span className="shrink-0 text-subtle">{timeAgo}</span>}
         </div>
       </div>
     </div>
@@ -452,7 +471,7 @@ export function NicheFinder({
         ) : videos.length > 0 ? (
           <div
             className={cn(
-              "grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-3 sm:gap-4 xl:grid-cols-4",
+              "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
               videosLoading && "opacity-50"
             )}
           >
