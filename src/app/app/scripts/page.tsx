@@ -149,8 +149,8 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
             <Icon className="h-4 w-4" />
           </div>
-          <div className="flex flex-col items-center gap-0.5 px-2">
-            <span className="max-w-full truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+          <div className="flex w-full min-w-0 flex-col items-center gap-0.5 px-2">
+            <span className="block w-full truncate text-center text-xs font-medium text-slate-700 dark:text-slate-200">
               {file.name}
             </span>
             <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">

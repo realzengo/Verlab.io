@@ -12,6 +12,10 @@ export async function GET(request: Request) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error("Google OAuth exchangeCodeForSession failed:", error.message);
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(`Could not authenticate with Google: ${error.message}`)}`
+    );
   }
 
   return NextResponse.redirect(`${origin}/login?error=Could not authenticate with Google`);
