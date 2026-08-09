@@ -1368,6 +1368,13 @@ html[data-scrolling="true"] *::after {
   border: 2px solid var(--color-primary);
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.2), 0 0 0 4px rgba(51, 92, 255, 0.14);
   cursor: pointer;
+  /* Dual-handle sliders (see RangeSlider) stack two of these inputs with the
+     input itself set pointer-events-none so track clicks don't jump the
+     wrong handle -- this re-enables dragging on the thumb alone. Must be
+     "all", not "auto" -- Tailwind v4's Lightning CSS minifier silently
+     drops an explicit "auto" as redundant with the property's spec default,
+     which left every thumb undraggable; "all" isn't elided. */
+  pointer-events: all;
 }
 .premium-slider::-moz-range-thumb {
   width: 16px;
@@ -1377,6 +1384,7 @@ html[data-scrolling="true"] *::after {
   border: 2px solid var(--color-primary);
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.2), 0 0 0 4px rgba(51, 92, 255, 0.14);
   cursor: pointer;
+  pointer-events: all;
 }
 .premium-slider:focus-visible {
   outline: none;

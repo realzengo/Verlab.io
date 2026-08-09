@@ -13,6 +13,7 @@ import {
   type VideoTimeWindow,
 } from "@/components/features/NicheTopBar";
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
+import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { cn } from "@/lib/utils";
 import type { TrendingVideo } from "@/lib/types";
 
@@ -117,7 +118,7 @@ function gradientForId(id: string): string {
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length];
 }
 
-const PLATFORM_BADGE: Record<
+export const PLATFORM_BADGE: Record<
   TrendingVideo["platform"],
   { label: string; icon: typeof YouTubeIcon }
 > = {
@@ -125,13 +126,13 @@ const PLATFORM_BADGE: Record<
   youtube: { label: "YouTube", icon: YouTubeIcon },
 };
 
-function formatCompactNumber(count: number): string {
+export function formatCompactNumber(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (count >= 1_000) return `${(count / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return String(count);
 }
 
-function formatTimeAgo(isoDate: string | null): string | null {
+export function formatTimeAgo(isoDate: string | null): string | null {
   if (!isoDate) return null;
   const posted = new Date(isoDate).getTime();
   if (Number.isNaN(posted)) return null;
@@ -150,7 +151,7 @@ function formatTimeAgo(isoDate: string | null): string | null {
 }
 
 
-function TrendingVideoCard({ video }: { video: TrendingVideo }) {
+export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onOpen: (video: TrendingVideo) => void }) {
   const [saved, setSaved] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
@@ -159,7 +160,19 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
 
   return (
-    <div className="group/card flex flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-hover">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(video)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(video);
+        }
+      }}
+      aria-label={`View details for "${video.title}"`}
+      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-card-hover"
+    >
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
         {video.coverUrl && !coverFailed && (
@@ -174,7 +187,7 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/50" />
 
-        <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
+        <div className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1.5">
           <span className="flex items-center gap-1 rounded-full bg-black/45 py-1 pl-1 pr-2 ring-1 ring-inset ring-white/15 backdrop-blur-md">
             <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white">
               <PlatformIcon className="h-2.5 w-2.5" />
@@ -187,25 +200,22 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
 
         <button
           type="button"
-          onClick={() => setSaved((prev) => !prev)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSaved((prev) => !prev);
+          }}
           aria-label="Save video"
           aria-pressed={saved}
-          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-inset ring-white/15 backdrop-blur-md transition-all hover:bg-black/55 active:scale-90"
+          className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-inset ring-white/15 backdrop-blur-md transition-all hover:bg-black/55 active:scale-90"
         >
           <Heart className={cn("h-3.5 w-3.5 transition-colors", saved && "fill-red-500 text-red-500")} />
         </button>
 
-        <a
-          href={video.videoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Watch "${video.title}" on ${PLATFORM_BADGE[video.platform].label}`}
-          className="absolute inset-0 flex items-center justify-center opacity-90 transition-opacity group-hover:opacity-100"
-        >
+        <div className="absolute inset-0 flex items-center justify-center opacity-90 transition-opacity group-hover:opacity-100">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-card-hover ring-1 ring-inset ring-black/5 transition-transform duration-200 group-hover:scale-110">
             <Play className="h-4.5 w-4.5 translate-x-0.5 fill-ink text-ink" />
           </div>
-        </a>
+        </div>
 
         <div className="absolute bottom-2.5 left-2.5 right-11">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 ring-1 ring-inset ring-white/10 backdrop-blur-md">
@@ -214,9 +224,10 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
           </span>
         </div>
 
-        <div className="absolute bottom-2.5 right-2.5">
+        <div className="absolute bottom-2.5 right-2.5 z-10">
           <Link
             href="/app/bend"
+            onClick={(e) => e.stopPropagation()}
             aria-label="Bend this script"
             title="Bend this script"
             className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary shadow-card transition-all hover:scale-110 hover:bg-accent"
@@ -298,6 +309,7 @@ export function NicheFinder({
   const [videoQuery, setVideoQuery] = useState("");
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
+  const [detailVideo, setDetailVideo] = useState<TrendingVideo | null>(null);
 
   useNicheSidebarSync(availableNiches, nicheCounts);
 
@@ -368,8 +380,11 @@ export function NicheFinder({
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
         if (videoRangeFilters.followersMax) qs.set("followersMax", videoRangeFilters.followersMax);
-        if (videoRangeFilters.postedAfter) qs.set("postedAfter", videoRangeFilters.postedAfter);
-        if (videoRangeFilters.postedBefore) qs.set("postedBefore", videoRangeFilters.postedBefore);
+        if (videoRangeFilters.outlierMin) qs.set("outlierMin", videoRangeFilters.outlierMin);
+        if (videoRangeFilters.outlierMax) qs.set("outlierMax", videoRangeFilters.outlierMax);
+        if (videoRangeFilters.viewsPerHourMin) qs.set("viewsPerHourMin", videoRangeFilters.viewsPerHourMin);
+        if (videoRangeFilters.viewsPerHourMax) qs.set("viewsPerHourMax", videoRangeFilters.viewsPerHourMax);
+        if (videoRangeFilters.countries.length > 0) qs.set("country", videoRangeFilters.countries.join(","));
 
         const res = await fetch(`/api/niches/${encodeURIComponent(activeNiche ?? "all")}/videos?${qs.toString()}`, {
           signal: controller.signal,
@@ -442,7 +457,7 @@ export function NicheFinder({
             )}
           >
             {videos.map((video) => (
-              <TrendingVideoCard key={video.id} video={video} />
+              <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
             ))}
           </div>
         ) : videosLoading ? (
@@ -458,6 +473,16 @@ export function NicheFinder({
           </div>
         )}
       </div>
+
+      {detailVideo && (
+        <VideoDetailModal
+          key={detailVideo.id}
+          video={detailVideo}
+          relatedVideos={videos}
+          onClose={() => setDetailVideo(null)}
+          onSelectVideo={setDetailVideo}
+        />
+      )}
     </section>
   );
 }

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
-  Calendar as CalendarIcon,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -14,11 +13,12 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { RangeSlider } from "@/components/ui/RangeSlider";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 export type VideoPlatformFilter = "all" | "tiktok" | "youtube";
-export type VideoTimeWindow = "all" | "7d" | "30d";
+export type VideoTimeWindow = "all" | "24h" | "7d" | "30d" | "90d" | "365d";
 export type VideoSort = "views" | "newest";
 
 export interface VideoRangeFilters {
@@ -26,8 +26,12 @@ export interface VideoRangeFilters {
   viewsMax: string;
   followersMin: string;
   followersMax: string;
-  postedAfter: string;
-  postedBefore: string;
+  outlierMin: string;
+  outlierMax: string;
+  viewsPerHourMin: string;
+  viewsPerHourMax: string;
+  /** 2-letter YouTube region codes; empty means worldwide. */
+  countries: string[];
 }
 
 export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
@@ -35,12 +39,16 @@ export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
   viewsMax: "",
   followersMin: "",
   followersMax: "",
-  postedAfter: "",
-  postedBefore: "",
+  outlierMin: "",
+  outlierMax: "",
+  viewsPerHourMin: "",
+  viewsPerHourMax: "",
+  countries: [],
 };
 
 export function countActiveRangeFilters(filters: VideoRangeFilters): number {
-  return Object.values(filters).filter(Boolean).length;
+  const { countries, ...ranges } = filters;
+  return Object.values(ranges).filter(Boolean).length + (countries.length > 0 ? 1 : 0);
 }
 
 const PLATFORM_PILLS: { id: VideoPlatformFilter; label: string }[] = [
@@ -121,306 +129,568 @@ function SegmentedControl<T extends string>({
   );
 }
 
-function RangeInput({
+/** Card shell shared by every field in the filters panel -- label + a
+ * per-field Reset (disabled when that field has no active value) up top,
+ * an optional "Range (x-y)" subtitle, then the control itself. */
+function FilterCard({
   label,
-  placeholder,
-  value,
-  onChange,
+  subtitle,
+  active,
+  onReset,
+  children,
 }: {
   label: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
+  subtitle?: string;
+  active: boolean;
+  onReset: () => void;
+  children: ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-body">{label}</span>
-      <input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-hairline bg-app px-2.5 py-2 text-sm text-heading placeholder:text-body/60 focus:outline-none focus:ring-2 focus:ring-heading/15"
-      />
-    </label>
-  );
-}
-
-function toISODate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function parseISODate(value: string): Date | null {
-  if (!value) return null;
-  const [y, m, d] = value.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
-
-function formatDisplayDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
-
-function getMonthGrid(year: number, month: number): Date[] {
-  const firstOfMonth = new Date(year, month, 1);
-  const firstWeekday = (firstOfMonth.getDay() + 6) % 7; // Monday-first index
-  const gridStart = new Date(year, month, 1 - firstWeekday);
-  return Array.from({ length: 42 }, (_, i) => {
-    const day = new Date(gridStart);
-    day.setDate(gridStart.getDate() + i);
-    return day;
-  });
-}
-
-function Calendar({ value, onSelect, onClear }: { value: string; onSelect: (iso: string) => void; onClear: () => void }) {
-  const selected = parseISODate(value);
-  const [viewDate, setViewDate] = useState(selected ?? new Date());
-  const todayISO = toISODate(new Date());
-
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const days = getMonthGrid(year, month);
-  const monthLabel = viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-  return (
-    <div className="w-[248px]">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-heading">{monthLabel}</p>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            aria-label="Previous month"
-            onClick={() => setViewDate(new Date(year, month - 1, 1))}
-            className="rounded-md p-1 text-body transition-colors hover:bg-app hover:text-heading"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next month"
-            onClick={() => setViewDate(new Date(year, month + 1, 1))}
-            className="rounded-md p-1 text-body transition-colors hover:bg-app hover:text-heading"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-3 grid grid-cols-7 gap-y-1 text-center">
-        {WEEKDAY_LABELS.map((label, i) => (
-          <span key={i} className="text-[10px] font-semibold uppercase tracking-wide text-body/60">
-            {label}
-          </span>
-        ))}
-        {days.map((day) => {
-          const iso = toISODate(day);
-          const inMonth = day.getMonth() === month;
-          const isSelected = iso === value;
-          const isToday = iso === todayISO;
-          return (
-            <button
-              key={iso}
-              type="button"
-              onClick={() => onSelect(iso)}
-              className={cn(
-                "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors",
-                isSelected
-                  ? "bg-ink text-white"
-                  : inMonth
-                    ? "text-heading hover:bg-app"
-                    : "text-body/40 hover:bg-app/60",
-                isToday && !isSelected && "ring-1 ring-inset ring-heading/40"
-              )}
-            >
-              {day.getDate()}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex items-center justify-between border-t border-hairline pt-2.5">
-        <button type="button" onClick={onClear} className="text-xs font-semibold text-body hover:text-heading">
-          Clear
-        </button>
-        <button type="button" onClick={() => onSelect(todayISO)} className="text-xs font-semibold text-heading hover:text-body">
-          Today
+    <div className="rounded-2xl border border-hairline bg-app p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-heading">{label}</p>
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!active}
+          className="text-xs font-semibold text-body transition-colors hover:text-heading disabled:pointer-events-none disabled:opacity-40"
+        >
+          Reset
         </button>
       </div>
+      {subtitle && <p className="mt-0.5 text-[11px] font-medium text-body/70">{subtitle}</p>}
+      <div className="mt-4">{children}</div>
     </div>
   );
 }
 
-function DateField({
+/** A FilterCard wrapping a dual-handle RangeSlider -- shared by Outlier
+ * Score, Views, Subscribers, and Views Per Hour. The handle at either bound
+ * (boundMin/boundMax) is treated as "unbounded" and clears to "" rather than
+ * sending the literal edge number, matching the "10M+" style open-ended
+ * labels shown under the track. */
+// Fixed "nice" values wide-magnitude sliders snap between instead of a
+// continuous range -- every reachable value is a round, human-friendly
+// number (10, 50, 100, 200...) rather than an arbitrary one off a smooth
+// curve. `customLow` seeds the exact low-end progression (fine control over
+// the numbers a user cares about most); above that, every 1/2/3/5/7 x 10^n
+// "nice" value up to `cap` is added too, so the rest of the track has close
+// to a dozen steps per decade instead of two or three -- dense enough that
+// dragging reads as continuous instead of visibly hopping between values.
+function buildNiceBreakpoints(customLow: number[], startExp: number, endExp: number, cap: number): number[] {
+  const points = new Set<number>(customLow);
+  for (let exp = startExp; exp <= endExp; exp++) {
+    const magnitude = 10 ** exp;
+    for (const m of [1, 2, 3, 5, 7]) points.add(m * magnitude);
+  }
+  points.add(cap);
+  return Array.from(points).sort((a, b) => a - b);
+}
+
+// Views/Subscribers deliberately aren't built from buildNiceBreakpoints --
+// the first half of the track (0%-50%) covers 0 up to just under 1M with
+// increasingly large "nice" steps (most of a real video's view count lives
+// here, so it gets the fine control), then the second half is a plain
+// linear ramp in flat 500K steps: 1M, 1.5M, 2M, ... up to 10M, matching how
+// someone actually thinks about the top tier. Both halves have exactly 18
+// points so 1,000,000 lands precisely on the midpoint index.
+const VIEWS_LOW_HALF = [
+  0, 10, 50, 100, 200, 400, 600, 800, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000,
+];
+const VIEWS_HIGH_HALF = Array.from({ length: 18 }, (_, i) => 1_500_000 + i * 500_000);
+const VIEWS_BREAKPOINTS = [...VIEWS_LOW_HALF, 1_000_000, ...VIEWS_HIGH_HALF];
+
+const VIEWS_PER_HOUR_BREAKPOINTS = buildNiceBreakpoints([0, 5], 1, 2, 1_000);
+
+function closestBreakpointIndex(value: number, breakpoints: number[]): number {
+  let bestIndex = 0;
+  let bestDiff = Infinity;
+  for (let i = 0; i < breakpoints.length; i++) {
+    const diff = Math.abs(breakpoints[i] - value);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
+// A breakpoint list only has a few dozen entries -- if the native input's
+// own step domain were just [0, breakpoints.length-1], each drag step would
+// be a big, visible jump (the "cutting" feel). Instead the input drags
+// across this much finer position range, and BREAKPOINT_POSITION_MAX steps
+// (rounded to whichever breakpoint index that position is closest to) so
+// the handle glides continuously under the cursor while the reported value
+// still only ever lands on a clean number.
+const BREAKPOINT_POSITION_MAX = 1000;
+
+function breakpointIndexToPosition(index: number, count: number): number {
+  return Math.round((index / (count - 1)) * BREAKPOINT_POSITION_MAX);
+}
+
+function positionToBreakpointIndex(position: number, count: number): number {
+  return Math.round((position / BREAKPOINT_POSITION_MAX) * (count - 1));
+}
+
+function RangeFilterCard({
   label,
-  value,
+  rangeLabel,
+  formatValue,
+  minBoundLabel,
+  maxBoundLabel,
+  boundMin,
+  boundMax,
+  step,
+  breakpoints,
+  minValue,
+  maxValue,
   onChange,
-  align = "start",
+  onReset,
 }: {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
-  align?: "start" | "end";
+  rangeLabel: string;
+  /** Renders a handle's live value once it's been dragged off its bound. */
+  formatValue: (value: number) => string;
+  /** Shown in place of a live value while that handle still sits at its
+   * unbounded extreme (i.e. no filter on that side yet). */
+  minBoundLabel: string;
+  maxBoundLabel: string;
+  boundMin: number;
+  boundMax: number;
+  step: number;
+  /** When given, the slider snaps between these fixed values (see
+   * VIEWS_BREAKPOINTS) instead of dragging continuously through every
+   * integer in [boundMin, boundMax]. */
+  breakpoints?: number[];
+  minValue: string;
+  maxValue: string;
+  onChange: (min: string, max: string) => void;
+  onReset: () => void;
+}) {
+  const sliderMin = minValue ? Number(minValue) : boundMin;
+  const sliderMax = maxValue ? Number(maxValue) : boundMax;
+  // Clamped so the label text never spills past the card edge when a handle
+  // sits right at 0% or 100% of the track.
+  const clampPct = (pct: number) => Math.min(Math.max(pct, 4), 96);
+
+  function positionFor(value: number): number {
+    return breakpoints ? breakpointIndexToPosition(closestBreakpointIndex(value, breakpoints), breakpoints.length) : value;
+  }
+
+  // For breakpoint cards, the native <input>'s controlled value has to be
+  // this raw drag position -- NOT re-derived from the snapped breakpoint on
+  // every render. Feeding the snapped value straight back in would fight
+  // the browser's own smooth thumb tracking (it'd get reset to the nearest
+  // breakpoint's position on every re-render, mid-drag), which is exactly
+  // what produced the "cutting" feel. Re-synced from props (via the
+  // lastMinValue/lastMaxValue comparison below) only when minValue/maxValue
+  // changed for a reason other than this card's own onChange -- e.g. Reset
+  // All, or the panel reopening with different already-applied filters.
+  const [dragPosMin, setDragPosMin] = useState(() => positionFor(sliderMin));
+  const [dragPosMax, setDragPosMax] = useState(() => positionFor(sliderMax));
+  const [lastMinValue, setLastMinValue] = useState(minValue);
+  const [lastMaxValue, setLastMaxValue] = useState(maxValue);
+  if (minValue !== lastMinValue) {
+    setLastMinValue(minValue);
+    setDragPosMin(positionFor(sliderMin));
+  }
+  if (maxValue !== lastMaxValue) {
+    setLastMaxValue(maxValue);
+    setDragPosMax(positionFor(sliderMax));
+  }
+
+  const trackMin = breakpoints ? 0 : boundMin;
+  const trackMax = breakpoints ? BREAKPOINT_POSITION_MAX : boundMax;
+  const trackValueMin = breakpoints ? dragPosMin : sliderMin;
+  const trackValueMax = breakpoints ? dragPosMax : sliderMax;
+  const pctMin = clampPct(((trackValueMin - trackMin) / (trackMax - trackMin || 1)) * 100);
+  const pctMax = clampPct(((trackValueMax - trackMin) / (trackMax - trackMin || 1)) * 100);
+  // Once the handles are close enough that their labels would smear into
+  // each other, the min label pops up into a floating pill above the track
+  // instead -- vertical separation instead of a horizontal collision, so it
+  // stays legible no matter how close the two values get.
+  const isColliding = pctMax - pctMin < 16;
+
+  function handleTrackChange(nextTrackMin: number, nextTrackMax: number) {
+    if (breakpoints) {
+      setDragPosMin(nextTrackMin);
+      setDragPosMax(nextTrackMax);
+    }
+    const nextMin = breakpoints ? breakpoints[positionToBreakpointIndex(nextTrackMin, breakpoints.length)] : nextTrackMin;
+    const nextMax = breakpoints ? breakpoints[positionToBreakpointIndex(nextTrackMax, breakpoints.length)] : nextTrackMax;
+    onChange(nextMin <= boundMin ? "" : String(nextMin), nextMax >= boundMax ? "" : String(nextMax));
+  }
+
+  return (
+    <FilterCard label={label} subtitle={rangeLabel} active={Boolean(minValue || maxValue)} onReset={onReset}>
+      <div className="relative">
+        <AnimatePresence>
+          {isColliding && (
+            <motion.span
+              key="min-tooltip"
+              initial={{ opacity: 0, y: 6, scale: 0.85 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.85 }}
+              transition={{ type: "spring", stiffness: 520, damping: 28 }}
+              className="absolute -top-6 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-heading px-2 py-0.5 text-[10px] font-bold text-app shadow-card"
+              style={{ left: `${pctMin}%` }}
+            >
+              {minValue ? formatValue(sliderMin) : minBoundLabel}
+            </motion.span>
+          )}
+        </AnimatePresence>
+
+        <RangeSlider
+          min={trackMin}
+          max={trackMax}
+          step={breakpoints ? 1 : step}
+          valueMin={trackValueMin}
+          valueMax={trackValueMax}
+          onChange={handleTrackChange}
+        />
+
+        {/* Live labels tracking each handle's position -- once a handle
+            moves off its bound they swap from the static "0"/"10M+" bound
+            text to the actual dragged-to value, following that handle
+            horizontally. The min label fades out here while its floating
+            twin above is showing, so there's only ever one of it visible. */}
+        <div className="relative mt-2 h-4 text-[11px] font-semibold text-body/70">
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap transition-opacity duration-200"
+            style={{ left: `${pctMin}%`, opacity: isColliding ? 0 : 1 }}
+          >
+            {minValue ? formatValue(sliderMin) : minBoundLabel}
+          </span>
+          <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${pctMax}%` }}>
+            {maxValue ? formatValue(sliderMax) : maxBoundLabel}
+          </span>
+        </div>
+      </div>
+    </FilterCard>
+  );
+}
+
+/** Shared dropdown-trigger pill used by the Country and Publishing Date
+ * cards -- a rounded field with a chevron, opening a floating list. */
+function DropdownTrigger({ open, onClick, children }: { open: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 rounded-full border bg-surface px-3.5 py-2 text-left text-sm font-semibold text-heading transition-colors",
+        open ? "border-primary" : "border-hairline"
+      )}
+    >
+      {children}
+      <ChevronDown className={cn("h-4 w-4 shrink-0 text-body/50 transition-transform", open && "rotate-180")} />
+    </button>
+  );
+}
+
+const COUNTRY_OPTIONS: { code: string; label: string }[] = [
+  { code: "US", label: "United States" },
+  { code: "GB", label: "United Kingdom" },
+  { code: "CA", label: "Canada" },
+  { code: "AU", label: "Australia" },
+  { code: "DE", label: "Germany" },
+  { code: "FR", label: "France" },
+  { code: "IN", label: "India" },
+  { code: "BR", label: "Brazil" },
+  { code: "MX", label: "Mexico" },
+  { code: "NL", label: "Netherlands" },
+  { code: "SE", label: "Sweden" },
+  { code: "PH", label: "Philippines" },
+  { code: "JP", label: "Japan" },
+  { code: "KR", label: "South Korea" },
+  { code: "ES", label: "Spain" },
+  { code: "IT", label: "Italy" },
+];
+
+function CountryFilterCard({
+  selected,
+  onChange,
+  onReset,
+}: {
+  selected: string[];
+  onChange: (codes: string[]) => void;
+  onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const fieldRef = useClickOutside(open, () => setOpen(false));
-  const selected = parseISODate(value);
+  const containerRef = useClickOutside(open, () => setOpen(false));
+  const label =
+    selected.length === 0
+      ? "Any country"
+      : selected.length === 1
+        ? (COUNTRY_OPTIONS.find((c) => c.code === selected[0])?.label ?? selected[0])
+        : `${selected.length} selected`;
+
+  function toggle(code: string) {
+    onChange(selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code]);
+  }
 
   return (
-    <div ref={fieldRef} className="relative flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-body">{label}</span>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex items-center gap-1.5 rounded-lg border bg-app px-2.5 py-2 text-left text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-heading/15",
-          open ? "border-heading/30" : "border-hairline",
-          selected ? "text-heading" : "text-body/60"
-        )}
-      >
-        <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-body/70" />
-        <span className="truncate">{selected ? formatDisplayDate(selected) : "Select date"}</span>
-      </button>
+    <FilterCard label="Country" active={selected.length > 0} onReset={onReset}>
+      <div ref={containerRef} className="relative">
+        <DropdownTrigger open={open} onClick={() => setOpen((prev) => !prev)}>
+          <span className="truncate">{label}</span>
+        </DropdownTrigger>
 
-      {open && (
-        <div
-          className={cn(
-            "absolute top-full z-30 mt-2 rounded-xl border border-hairline bg-surface p-3 shadow-card-hover",
-            align === "end" ? "right-0" : "left-0"
-          )}
-        >
-          <Calendar
-            value={value}
-            onSelect={(iso) => {
-              onChange(iso);
-              setOpen(false);
-            }}
-            onClear={() => {
-              onChange("");
-              setOpen(false);
-            }}
-          />
-        </div>
-      )}
-    </div>
+        {open && (
+          <div className="absolute left-0 top-[calc(100%+6px)] z-30 max-h-56 w-full overflow-y-auto rounded-xl border border-hairline bg-surface p-1 shadow-card-hover">
+            {COUNTRY_OPTIONS.map((c) => {
+              const isActive = selected.includes(c.code);
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => toggle(c.code)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium transition-colors",
+                    isActive ? "bg-app text-heading" : "text-body hover:bg-app hover:text-heading"
+                  )}
+                >
+                  <span className="truncate">{c.label}</span>
+                  {isActive && <span className="text-xs font-bold text-primary">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </FilterCard>
   );
 }
 
-function FiltersPopover({
+const PUBLISHING_DATE_OPTIONS: { id: VideoTimeWindow; label: string }[] = [
+  { id: "all", label: "Any time" },
+  { id: "24h", label: "Last 24 hours" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "90d", label: "Last 90 days" },
+  { id: "365d", label: "Last year" },
+];
+
+function PublishingDateCard({
+  value,
+  onChange,
+  onReset,
+}: {
+  value: VideoTimeWindow;
+  onChange: (window: VideoTimeWindow) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useClickOutside(open, () => setOpen(false));
+  const activeLabel = PUBLISHING_DATE_OPTIONS.find((o) => o.id === value)?.label ?? "Any time";
+
+  return (
+    <FilterCard label="Publishing date" active={value !== "all"} onReset={onReset}>
+      <div ref={containerRef} className="relative">
+        <DropdownTrigger open={open} onClick={() => setOpen((prev) => !prev)}>
+          <span className="truncate">{activeLabel}</span>
+        </DropdownTrigger>
+
+        {open && (
+          <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-full overflow-hidden rounded-xl border border-hairline bg-surface p-1 shadow-card-hover">
+            {PUBLISHING_DATE_OPTIONS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => {
+                  onChange(o.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors",
+                  o.id === value ? "bg-app text-heading" : "text-body hover:bg-app hover:text-heading"
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </FilterCard>
+  );
+}
+
+/** Toggle for the inline filters panel below -- a plain button (not a
+ * popover trigger) since the panel it controls renders full-width as a
+ * sibling block, not anchored under this button. */
+function FiltersToggleButton({
+  open,
+  activeCount,
+  onClick,
+}: {
+  open: boolean;
+  activeCount: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(TOOLBAR_BUTTON, open && "border-primary text-primary")}
+    >
+      <SlidersHorizontal className={cn(TOOLBAR_BUTTON_ICON, open && "text-primary")} />
+      Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+    </button>
+  );
+}
+
+/** Full-width panel that expands directly below the toolbar (pushing the
+ * video grid down) instead of floating over it as a popover -- an inline
+ * "space", animated open/shut with a height+opacity transition. */
+function FiltersPanel({
+  open,
   timeWindow,
   onTimeWindowChange,
   filters,
   onApply,
   onClear,
 }: {
+  open: boolean;
   timeWindow: VideoTimeWindow;
   onTimeWindowChange: (window: VideoTimeWindow) => void;
   filters: VideoRangeFilters;
   onApply: (filters: VideoRangeFilters) => void;
   onClear: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<VideoRangeFilters>(filters);
   const [pendingWindow, setPendingWindow] = useState<VideoTimeWindow>(timeWindow);
-  const containerRef = useClickOutside(open, () => setOpen(false));
-  const activeCount = countActiveRangeFilters(filters) + (timeWindow !== "all" ? 1 : 0);
 
-  function openPopover() {
-    setPending(filters);
-    setPendingWindow(timeWindow);
-    setOpen(true);
-  }
-
-  function updatePending(key: keyof VideoRangeFilters, value: string) {
-    setPending((prev) => ({ ...prev, [key]: value }));
+  // Re-sync the working draft to the last-applied filters every time the
+  // panel opens, so closing it without hitting Apply never leaks a
+  // half-edited draft into the next time it's opened. Adjusted during
+  // render (React's sanctioned way to derive state from a prop transition)
+  // rather than in an effect, so it happens in the same commit instead of
+  // flashing the stale draft for one frame.
+  const [wasOpen, setWasOpen] = useState(open);
+  // While the height animation is running, the panel needs overflow-hidden
+  // so the grid doesn't visibly poke out of its still-growing/shrinking
+  // box. But that same overflow-hidden clips the Country/Publishing Date
+  // dropdowns once they're open -- so it's dropped the instant the panel
+  // finishes expanding (and reinstated the instant a close is requested,
+  // ahead of the collapse animation) rather than staying on permanently.
+  const [settled, setSettled] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setPending(filters);
+      setPendingWindow(timeWindow);
+    } else {
+      setSettled(false);
+    }
   }
 
   function handleApply() {
     onApply(pending);
     onTimeWindowChange(pendingWindow);
-    setOpen(false);
   }
 
-  function handleClear() {
+  function handleResetAll() {
     setPending(EMPTY_VIDEO_RANGE_FILTERS);
     setPendingWindow("all");
     onClear();
     onTimeWindowChange("all");
-    setOpen(false);
   }
 
   return (
-    <div ref={containerRef} className="relative">
-      <button type="button" onClick={() => (open ? setOpen(false) : openPopover())} className={TOOLBAR_BUTTON}>
-        <SlidersHorizontal className={TOOLBAR_BUTTON_ICON} />
-        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
-      </button>
-
+    <AnimatePresence initial={false}>
       {open && (
-        <>
-          <div aria-hidden="true" onClick={() => setOpen(false)} className="fixed inset-0 z-20 bg-black/40 sm:hidden" />
-          <div className="fixed inset-x-4 top-1/2 z-30 max-h-[85vh] -translate-y-1/2 overflow-y-auto rounded-2xl border border-hairline bg-surface p-5 shadow-card-hover sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:z-20 sm:w-[360px] sm:max-h-none sm:translate-y-0 sm:overflow-visible">
-            <p className="text-base font-bold text-heading">Refine results</p>
-            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-body">Narrow the trending feed</p>
-
-            <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Posting window</p>
-              <div className="mt-1.5">
-                <SegmentedControl
-                  ariaLabel="Posting window"
-                  items={[
-                    { id: "all", label: "All time" },
-                    { id: "7d", label: "7d" },
-                    { id: "30d", label: "30d" },
-                  ]}
-                  value={pendingWindow}
-                  onChange={setPendingWindow}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Views</p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <RangeInput label="Minimum" placeholder="e.g. 100000" value={pending.viewsMin} onChange={(v) => updatePending("viewsMin", v)} />
-                <RangeInput label="Maximum" placeholder="e.g. 1000000" value={pending.viewsMax} onChange={(v) => updatePending("viewsMax", v)} />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Followers</p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <RangeInput label="Minimum" placeholder="e.g. 1000" value={pending.followersMin} onChange={(v) => updatePending("followersMin", v)} />
-                <RangeInput label="Maximum" placeholder="e.g. 1000000" value={pending.followersMax} onChange={(v) => updatePending("followersMax", v)} />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Posted between</p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <DateField label="After" value={pending.postedAfter} onChange={(v) => updatePending("postedAfter", v)} align="start" />
-                <DateField label="Before" value={pending.postedBefore} onChange={(v) => updatePending("postedBefore", v)} align="end" />
-              </div>
+        <motion.div
+          key="filters-panel"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+          onAnimationComplete={() => open && setSettled(true)}
+          className={settled ? "overflow-visible" : "overflow-hidden"}
+        >
+          <div className="border-t border-hairline pb-5 pt-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <RangeFilterCard
+                label="Outlier score"
+                rangeLabel="Range (1-100x)"
+                formatValue={(v) => `${v}x`}
+                minBoundLabel="1+"
+                maxBoundLabel="100+"
+                boundMin={1}
+                boundMax={100}
+                step={1}
+                minValue={pending.outlierMin}
+                maxValue={pending.outlierMax}
+                onChange={(min, max) => setPending((prev) => ({ ...prev, outlierMin: min, outlierMax: max }))}
+                onReset={() => setPending((prev) => ({ ...prev, outlierMin: "", outlierMax: "" }))}
+              />
+              <RangeFilterCard
+                label="Views"
+                rangeLabel="Range (0-10M+)"
+                formatValue={formatNumber}
+                minBoundLabel="0"
+                maxBoundLabel="10M+"
+                boundMin={0}
+                boundMax={10_000_000}
+                step={10_000}
+                breakpoints={VIEWS_BREAKPOINTS}
+                minValue={pending.viewsMin}
+                maxValue={pending.viewsMax}
+                onChange={(min, max) => setPending((prev) => ({ ...prev, viewsMin: min, viewsMax: max }))}
+                onReset={() => setPending((prev) => ({ ...prev, viewsMin: "", viewsMax: "" }))}
+              />
+              <RangeFilterCard
+                label="Subscribers"
+                rangeLabel="Range (0-10M+)"
+                formatValue={formatNumber}
+                minBoundLabel="0"
+                maxBoundLabel="10M+"
+                boundMin={0}
+                boundMax={10_000_000}
+                step={10_000}
+                breakpoints={VIEWS_BREAKPOINTS}
+                minValue={pending.followersMin}
+                maxValue={pending.followersMax}
+                onChange={(min, max) => setPending((prev) => ({ ...prev, followersMin: min, followersMax: max }))}
+                onReset={() => setPending((prev) => ({ ...prev, followersMin: "", followersMax: "" }))}
+              />
+              <RangeFilterCard
+                label="Views per hour"
+                rangeLabel="Range (0-1000+)"
+                formatValue={formatNumber}
+                minBoundLabel="0"
+                maxBoundLabel="1K+"
+                boundMin={0}
+                boundMax={1000}
+                step={5}
+                breakpoints={VIEWS_PER_HOUR_BREAKPOINTS}
+                minValue={pending.viewsPerHourMin}
+                maxValue={pending.viewsPerHourMax}
+                onChange={(min, max) => setPending((prev) => ({ ...prev, viewsPerHourMin: min, viewsPerHourMax: max }))}
+                onReset={() => setPending((prev) => ({ ...prev, viewsPerHourMin: "", viewsPerHourMax: "" }))}
+              />
+              <CountryFilterCard
+                selected={pending.countries}
+                onChange={(countries) => setPending((prev) => ({ ...prev, countries }))}
+                onReset={() => setPending((prev) => ({ ...prev, countries: [] }))}
+              />
+              <PublishingDateCard value={pendingWindow} onChange={setPendingWindow} onReset={() => setPendingWindow("all")} />
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4">
-              <button type="button" onClick={handleClear} className="text-xs font-semibold text-body hover:text-heading">
-                Clear
+              <button type="button" onClick={handleResetAll} className="text-xs font-semibold text-body hover:text-heading">
+                Reset all
               </button>
               <Button type="button" size="sm" onClick={handleApply}>
                 Apply
               </Button>
             </div>
           </div>
-        </>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -563,6 +833,9 @@ export function NicheTopBar({
   hasMore: boolean;
   onPageChange: (page: number) => void;
 }) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = countActiveRangeFilters(rangeFilters) + (timeWindow !== "all" ? 1 : 0);
+
   return (
     <div className="sticky top-0 z-20 -mx-4 border-b border-hairline bg-surface px-4 shadow-card sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
@@ -600,12 +873,10 @@ export function NicheTopBar({
           Search
         </button>
 
-        <FiltersPopover
-          timeWindow={timeWindow}
-          onTimeWindowChange={onTimeWindowChange}
-          filters={rangeFilters}
-          onApply={onApplyRangeFilters}
-          onClear={onClearRangeFilters}
+        <FiltersToggleButton
+          open={filtersOpen}
+          activeCount={activeFilterCount}
+          onClick={() => setFiltersOpen((prev) => !prev)}
         />
 
         <PresetsDropdown />
@@ -644,6 +915,18 @@ export function NicheTopBar({
           </div>
         )}
       </div>
+
+      <FiltersPanel
+        open={filtersOpen}
+        timeWindow={timeWindow}
+        onTimeWindowChange={onTimeWindowChange}
+        filters={rangeFilters}
+        onApply={(filters) => {
+          onApplyRangeFilters(filters);
+          setFiltersOpen(false);
+        }}
+        onClear={onClearRangeFilters}
+      />
     </div>
   );
 }

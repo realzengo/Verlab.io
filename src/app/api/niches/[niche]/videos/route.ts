@@ -57,14 +57,25 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   // results (see the `region` filter in buildPageQuery below). Validated as
   // exactly 2 letters (not just trusted from the query string) since it gets
   // interpolated into a PostgREST `.or()` filter expression below.
+  // A comma-separated list of 2-letter YouTube region codes (e.g.
+  // "US,CA,DE"); each entry is validated independently and invalid ones are
+  // dropped rather than rejecting the whole request.
   const rawCountry = (searchParams.get("country") ?? "").trim().toUpperCase();
-  const country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : "";
+  const country = rawCountry
+    .split(",")
+    .map((c) => c.trim())
+    .filter((c) => /^[A-Z]{2}$/.test(c))
+    .join(",");
   const viewsMin = searchParams.get("viewsMin");
   const viewsMax = searchParams.get("viewsMax");
   const followersMin = searchParams.get("followersMin");
   const followersMax = searchParams.get("followersMax");
   const postedAfter = searchParams.get("postedAfter");
   const postedBefore = searchParams.get("postedBefore");
+  const outlierMin = searchParams.get("outlierMin");
+  const outlierMax = searchParams.get("outlierMax");
+  const viewsPerHourMin = searchParams.get("viewsPerHourMin");
+  const viewsPerHourMax = searchParams.get("viewsPerHourMax");
   const q = searchParams.get("q");
   const sortParam = searchParams.get("sort");
   const sort: "views" | "newest" = sortParam === "newest" ? "newest" : "views";
@@ -82,6 +93,10 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
     followersMax,
     postedAfter,
     postedBefore,
+    outlierMin,
+    outlierMax,
+    viewsPerHourMin,
+    viewsPerHourMax,
     q,
     sort,
   });

@@ -9,56 +9,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
-import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn } from "@/lib/utils";
-
-function NicheNavSection() {
-  const { data, selected, toggle, clear } = useNicheSidebar();
-
-  if (data.availableNiches.length === 0) return null;
-
-  return (
-    <div className="mt-3 flex flex-col gap-2 border-t border-hairline pt-4">
-      <div className="flex items-center justify-between px-2">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-subtle">Niches</p>
-          <p className="text-[10px] font-medium text-subtle">TikTok &amp; YouTube</p>
-        </div>
-        {selected.size > 0 && (
-          <button
-            type="button"
-            onClick={clear}
-            className="text-[11px] font-medium text-body hover:text-heading"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        {data.availableNiches.map((niche) => {
-          const isActive = selected.has(niche);
-          return (
-            <button
-              key={niche}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => toggle(niche)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left text-sm font-medium transition-all",
-                isActive
-                  ? "border-accent-line bg-accent text-heading"
-                  : "text-body hover:bg-app hover:text-heading"
-              )}
-            >
-              <span className="truncate">{niche}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function Sidebar({
   mobileOpen,
@@ -75,7 +26,6 @@ export function Sidebar({
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
-  const showNicheSection = pathname === "/app/niches" && !collapsed;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -450,8 +400,6 @@ export function Sidebar({
             </div>
           );
         })}
-
-        {showNicheSection && <NicheNavSection />}
       </nav>
 
       <SidebarFooter
