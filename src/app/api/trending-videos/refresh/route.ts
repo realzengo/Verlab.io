@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
-import { backfillTikTokVideoFollowerCounts } from "@/lib/server/tiktok-follower-cache";
 import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 
@@ -30,7 +29,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       throw new Error("No trending videos returned");
     }
 
-    await backfillTikTokVideoFollowerCounts(admin, videos);
+    // Follower counts are intentionally left at their scraped value (0 for
+    // TikTok's list endpoints) rather than backfilled here -- this cron runs
+    // every 30 minutes across the full ~50-hashtag catalog, and backfilling
+    // every author on every run was burning 1 SociaVault credit per
+    // never-before-seen author, 48 times a day, regardless of whether anyone
+    // was even browsing. Real follower counts are now resolved lazily and
+    // bounded to whatever page a user actually views -- see
+    // backfillPageFollowerCounts in niche-video-query.ts.
 
     // The trending set changes entirely between refreshes, so replace rather
     // than upsert — otherwise videos that fall out of trending would linger.

@@ -35,6 +35,7 @@ interface SociaVaultAwemeItem {
   };
   video?: {
     cover?: { url_list?: string[] };
+    dynamic_cover?: { url_list?: string[] };
   };
 }
 
@@ -109,6 +110,17 @@ async function searchHashtag(hashtag: string, targetCount: number): Promise<Soci
   }
 
   return items;
+}
+
+/**
+ * Live lookup of a single arbitrary hashtag, on demand -- backs the
+ * "#tag" mode of the niche finder's search box. Unlike settleHashtagSearches
+ * (which fans out across our fixed FACELESS_HASHTAGS catalog), this searches
+ * exactly the one hashtag the user typed, whether or not it's in that list.
+ */
+export async function searchTikTokHashtag(hashtag: string, targetCount: number): Promise<TrendingTikTokVideo[]> {
+  const items = await searchHashtag(hashtag, targetCount);
+  return filterEnglishOnly(mapAwemeItems(items, hashtag));
 }
 
 // Plain .slice(0, n) truncates by UTF-16 code unit, which can split a
@@ -365,12 +377,13 @@ function captionHashtags(desc: string | undefined): string[] {
 }
 
 // Unlike mapAwemeItems (called once per hashtag search, so every item shares
-// that search's hashtag), a global trending feed item isn't tied to any one
-// hashtag -- resolve each video's niche from whichever hashtag in its own
-// caption actually matches our catalog, and leave it unmatched (rather than
-// guessing via DEFAULT_VIDEO_NICHE) when none do, since most of this feed is
+// that search's hashtag), items from the global trending feed, a keyword
+// search, or a single creator's own videos aren't tied to any one hashtag --
+// resolve each video's niche from whichever hashtag in its own caption
+// actually matches our catalog, and leave it unmatched (rather than guessing
+// via DEFAULT_VIDEO_NICHE) when none do, since most of this content is
 // generic viral content outside our faceless niches entirely.
-function mapTrendingFeedItems(items: SociaVaultAwemeItem[]): TrendingTikTokVideo[] {
+function mapUnscopedAwemeItems(items: SociaVaultAwemeItem[]): TrendingTikTokVideo[] {
   const seen = new Set<string>();
   const videos: TrendingTikTokVideo[] = [];
 
@@ -394,7 +407,7 @@ function mapTrendingFeedItems(items: SociaVaultAwemeItem[]): TrendingTikTokVideo
       commentCount: Number(item.statistics?.comment_count) || 0,
       shareCount: Number(item.statistics?.share_count) || 0,
       followerCount: Number(item.author?.follower_count) || 0,
-      coverUrl: item.video?.cover?.url_list?.[0] ?? "",
+      coverUrl: item.video?.cover?.url_list?.[0] ?? item.video?.dynamic_cover?.url_list?.[0] ?? "",
       videoUrl: `https://www.tiktok.com/@${handle}/video/${item.aweme_id}`,
       author: item.author?.nickname?.trim() || handle,
       avatarUrl: item.author?.avatar_medium?.url_list?.[0] ?? item.author?.avatar_thumb?.url_list?.[0] ?? "",
@@ -445,5 +458,149 @@ export async function fetchTikTokTrendingFeed(region = "US"): Promise<TrendingTi
   }
 
   const json = (await response.json()) as SociaVaultTrendingFeedResponse;
-  return filterEnglishOnly(mapTrendingFeedItems(toAwemeArray(json.data?.aweme_list)));
+  return filterEnglishOnly(mapUnscopedAwemeItems(toAwemeArray(json.data?.aweme_list)));
+}
+
+interface SociaVaultKeywordSearchResponse {
+  success?: boolean;
+  data?: {
+    // Wrapped in an `aweme_info` envelope per item (unlike the hashtag/
+    // trending/profile-video endpoints above, which put the same fields
+    // directly on the list item) -- unwrapped in toAwemeInfoArray below.
+    search_item_list?: { aweme_info?: SociaVaultAwemeItem }[] | Record<string, { aweme_info?: SociaVaultAwemeItem }>;
+    cursor?: number;
+    has_more?: number;
+  };
+}
+
+async function searchKeywordPage(query: string, cursor: number): Promise<SociaVaultKeywordSearchResponse["data"]> {
+  const apiKey = process.env.SOCIAVAULT_API_KEY;
+  if (!apiKey) {
+    throw new SociaVaultError("not_configured", "SociaVault is not configured (missing SOCIAVAULT_API_KEY).");
+  }
+
+  const endpoint = new URL("/v1/scrape/tiktok/search/keyword", SOCIAVAULT_BASE_URL);
+  endpoint.searchParams.set("query", query);
+  if (cursor > 0) endpoint.searchParams.set("cursor", String(cursor));
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      headers: { "x-api-key": apiKey },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new SociaVaultError("provider_error", `Could not reach SociaVault: ${message}`);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new SociaVaultError(
+      "provider_error",
+      `SociaVault request failed (${response.status}): ${body.slice(0, 300)}`
+    );
+  }
+
+  const json = (await response.json()) as SociaVaultKeywordSearchResponse;
+  return json.data ?? {};
+}
+
+function toAwemeInfoArray(
+  list: { aweme_info?: SociaVaultAwemeItem }[] | Record<string, { aweme_info?: SociaVaultAwemeItem }> | undefined
+): SociaVaultAwemeItem[] {
+  if (!list) return [];
+  const entries = Array.isArray(list) ? list : Object.values(list);
+  return entries.map((entry) => entry.aweme_info).filter((item): item is SociaVaultAwemeItem => Boolean(item));
+}
+
+// Shared page cap for both live-search modes below (keyword and per-creator)
+// -- same reasoning as MAX_PAGES_PER_HASHTAG: bounds worst-case credit spend
+// per search box submission rather than walking cursors indefinitely.
+const MAX_PAGES_PER_SEARCH = 8;
+
+/**
+ * Live TikTok search across all of TikTok, not scoped to our faceless
+ * hashtag catalog -- backs the plain-text ("keyword") mode of the niche
+ * finder's search box. This is the same universal search TikTok's own app
+ * search bar runs, so it already surfaces videos matching a creator's name
+ * or an untagged hashtag word, not just literal caption text.
+ */
+export async function searchTikTokKeyword(query: string, targetCount: number): Promise<TrendingTikTokVideo[]> {
+  const items: SociaVaultAwemeItem[] = [];
+  let cursor = 0;
+
+  for (let page = 0; page < MAX_PAGES_PER_SEARCH && items.length < targetCount; page++) {
+    const data = await searchKeywordPage(query, cursor);
+    items.push(...toAwemeInfoArray(data?.search_item_list));
+    if (!data?.has_more) break;
+    cursor = data.cursor ?? cursor;
+  }
+
+  return filterEnglishOnly(mapUnscopedAwemeItems(items));
+}
+
+interface SociaVaultProfileVideosResponse {
+  success?: boolean;
+  data?: {
+    aweme_list?: SociaVaultAwemeItem[] | Record<string, SociaVaultAwemeItem>;
+    max_cursor?: string | number;
+    has_more?: number;
+  };
+}
+
+async function fetchProfileVideosPage(
+  handle: string,
+  cursor: string | number
+): Promise<SociaVaultProfileVideosResponse["data"]> {
+  const apiKey = process.env.SOCIAVAULT_API_KEY;
+  if (!apiKey) {
+    throw new SociaVaultError("not_configured", "SociaVault is not configured (missing SOCIAVAULT_API_KEY).");
+  }
+
+  const endpoint = new URL("/v1/scrape/tiktok/videos", SOCIAVAULT_BASE_URL);
+  endpoint.searchParams.set("handle", handle);
+  endpoint.searchParams.set("sort_by", "popular");
+  if (cursor) endpoint.searchParams.set("max_cursor", String(cursor));
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      headers: { "x-api-key": apiKey },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new SociaVaultError("provider_error", `Could not reach SociaVault: ${message}`);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new SociaVaultError(
+      "provider_error",
+      `SociaVault request failed (${response.status}): ${body.slice(0, 300)}`
+    );
+  }
+
+  const json = (await response.json()) as SociaVaultProfileVideosResponse;
+  return json.data ?? {};
+}
+
+/**
+ * Live lookup of a single creator's own videos, by exact handle -- backs the
+ * "@handle" mode of the niche finder's search box (the creator's own videos,
+ * as opposed to keyword search's "videos that merely mention them").
+ */
+export async function searchTikTokUserVideos(handle: string, targetCount: number): Promise<TrendingTikTokVideo[]> {
+  const items: SociaVaultAwemeItem[] = [];
+  let cursor: string | number = 0;
+
+  for (let page = 0; page < MAX_PAGES_PER_SEARCH && items.length < targetCount; page++) {
+    const data = await fetchProfileVideosPage(handle, cursor);
+    items.push(...toAwemeArray(data?.aweme_list));
+    if (!data?.has_more || !data.max_cursor) break;
+    cursor = data.max_cursor;
+  }
+
+  return filterEnglishOnly(mapUnscopedAwemeItems(items));
 }

@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { fetchNicheYoutubeVideos } from "@/lib/server/youtube-client";
-import { backfillTikTokVideoFollowerCounts } from "@/lib/server/tiktok-follower-cache";
 import { NICHE_HASHTAGS, type NicheName } from "@/lib/niches-catalog";
 
 export type VideoPlatform = "tiktok" | "youtube";
@@ -112,8 +111,14 @@ export async function refreshNicheVideoCache(
   try {
     let scraped;
     if (platform === "tiktok") {
-      const tiktokVideos = await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER);
-      scraped = await backfillTikTokVideoFollowerCounts(admin, tiktokVideos);
+      // Follower counts are intentionally NOT backfilled here -- this scrape
+      // can pull in a large buffered batch (targetCount + BACKFILL_BUFFER),
+      // most of which is only cached ahead for future pagination and never
+      // actually shown. Backfilling here meant paying 1 SociaVault credit
+      // per author for videos nobody had viewed yet. Follower counts are
+      // resolved lazily instead, bounded to exactly the page a user actually
+      // requests -- see backfillPageFollowerCounts in niche-video-query.ts.
+      scraped = await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER);
     } else {
       scraped = await fetchNicheYoutubeVideos(
         NICHE_HASHTAGS[niche],

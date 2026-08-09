@@ -2,10 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchTikTokProfileFollowerCount } from "@/lib/server/sociavault-client";
 
 // Real follower counts cost 1 SociaVault credit per handle (see
-// fetchTikTokProfileFollowerCount) -- cache them for a week so an author
-// showing up across many niches/refreshes only gets looked up once, not on
-// every refresh cycle (trending_videos itself only caches for 24h).
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// fetchTikTokProfileFollowerCount) -- cache them for a month so an author
+// showing up across many niches/page views only gets looked up once every
+// few weeks, not every time they resurface (trending_videos itself only
+// caches for 24h, and a creator's follower count barely moves week to week
+// relative to what this display is for).
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // Bounds concurrent profile lookups within one backfill call -- a niche
 // refresh can surface 50-100+ distinct authors at once, and firing that many
 // requests at SociaVault simultaneously isn't worth the marginal latency win.
