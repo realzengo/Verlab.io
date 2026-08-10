@@ -179,10 +179,10 @@ export function VideoDownloader() {
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-8 -z-10 flex justify-center">
           <div className="h-24 w-72 rounded-full bg-primary/25 blur-[70px] dark:bg-primary/35" />
         </div>
-        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-[2.25rem] font-extrabold leading-tight tracking-tight text-transparent sm:text-6xl">
+        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-[2.75rem]">
           Video Downloader
         </h1>
-        <p className="mx-auto mt-2 max-w-[15rem] text-[0.7rem] font-medium leading-relaxed tracking-wide text-body/60 sm:mt-3 sm:max-w-sm sm:text-xs">
+        <p className="mt-2.5 text-sm font-medium text-body/60 sm:text-base">
           Download videos from YouTube, TikTok, and Facebook
         </p>
       </div>
@@ -193,17 +193,17 @@ export function VideoDownloader() {
           <div className="absolute left-1/2 top-0 h-56 w-80 -translate-x-1/2 rounded-full bg-blue-500/20 blur-[100px] dark:bg-blue-500/30" />
         </div>
 
-        <div className="relative rounded-2xl border border-slate-200 shadow-[0_12px_32px_-16px_rgba(37,99,235,0.15)] dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_24px_60px_-20px_rgba(37,99,235,0.5)]">
+        <div className="relative rounded-3xl border border-slate-200/80 shadow-[0_20px_48px_-20px_rgba(37,99,235,0.18)] dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_32px_72px_-24px_rgba(37,99,235,0.5)]">
           <BorderTrail
             size={130}
             className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-60 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
             transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
           />
 
-          <div className="relative overflow-hidden rounded-[calc(1rem-1px)] bg-white/70 p-4 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
-            <div className="flex items-stretch gap-2 sm:gap-3">
+          <div className="relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white/70 p-5 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
+            <div className="flex items-stretch gap-2.5 sm:gap-3">
               <div className="relative min-w-0 flex-1">
-                <Link2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500 sm:left-4" />
+                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500 sm:left-4.5" />
                 <input
                   type="url"
                   inputMode="url"
@@ -215,7 +215,7 @@ export function VideoDownloader() {
                     setUrl(event.target.value);
                   }}
                   placeholder="Paste video URL"
-                  className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-3.5 pl-10 pr-3 text-base text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-shadow duration-200 placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4 sm:pl-11 sm:pr-4"
+                  className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-3 text-base font-medium text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all duration-200 placeholder:font-normal placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4 sm:pl-12 sm:pr-4"
                 />
               </div>
 
@@ -226,7 +226,7 @@ export function VideoDownloader() {
                 aria-label={
                   state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
                 }
-                className="relative flex w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
+                className="relative flex w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
                 style={{
                   background:
                     state === "ready"
@@ -277,22 +277,20 @@ export function VideoDownloader() {
               <p className="mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:mt-8">
-              <span className="text-xs font-medium text-slate-400 dark:text-zinc-500">Supports</span>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:mt-9">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Supports
+              </span>
               {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
                 <span
                   key={id}
-                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 p-2 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 sm:px-3 sm:py-1"
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 p-2 text-xs font-semibold text-slate-600 shadow-sm transition-colors duration-200 hover:border-primary/30 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:border-primary/30 dark:hover:bg-white/10 sm:px-3.5 sm:py-1.5"
                 >
                   <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
                   <span className="hidden sm:inline">{label}</span>
                 </span>
               ))}
             </div>
-
-            <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-400 dark:text-zinc-500">
-              Only download content you own or have permission to reuse.
-            </p>
           </div>
         </div>
       </div>
