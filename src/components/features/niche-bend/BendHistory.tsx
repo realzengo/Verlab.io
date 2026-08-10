@@ -84,20 +84,16 @@ function HistorySkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-card-lg border border-hairline bg-surface p-6 shadow-card">
-            <div className="flex items-center justify-between">
-              <span className="h-4 w-14 animate-pulse rounded-full bg-accent" />
-              <span className="h-5 w-5 animate-pulse rounded-full bg-accent" />
-            </div>
-            <div className="mt-4 flex items-center gap-3">
-              <span className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-accent" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <span className="block h-3 w-2/3 animate-pulse rounded-full bg-accent" />
+          <div key={i} className="rounded-card-lg border border-hairline bg-surface p-5 shadow-card">
+            <div className="flex items-start gap-3.5">
+              <span className="h-[52px] w-[52px] shrink-0 animate-pulse rounded-full bg-accent" />
+              <div className="min-w-0 flex-1 space-y-2 pt-1.5">
+                <span className="block h-3.5 w-2/3 animate-pulse rounded-full bg-accent" />
                 <span className="block h-2.5 w-1/2 animate-pulse rounded-full bg-accent" />
               </div>
             </div>
-            <div className="mt-5 flex items-center justify-between">
-              <span className="h-2.5 w-16 animate-pulse rounded-full bg-accent" />
+            <div className="mt-4 flex items-center justify-between border-t border-hairline pt-4">
+              <span className="h-4 w-20 animate-pulse rounded-full bg-accent" />
               <span className="h-7 w-16 animate-pulse rounded-full bg-accent" />
             </div>
           </div>
@@ -167,52 +163,53 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
           return (
             <li
               key={item.jobId}
-              className="group relative flex flex-col gap-4 overflow-hidden rounded-card-lg border border-hairline bg-surface p-6 shadow-card ring-1 ring-inset ring-white/[0.03] transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-card-hover"
+              className="group relative flex flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card ring-1 ring-inset ring-white/[0.03] transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-card-hover"
             >
               <div
                 className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
                 aria-hidden="true"
               />
 
-              <div className="relative flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
-                  {item.platform}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPendingDeleteId(item.jobId)}
-                  aria-label="Delete this bend"
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-subtle opacity-0 transition-colors hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {/* Corner action -- revealed on hover so the identity block below
+                  is the only thing competing for attention at rest, instead of
+                  a permanent row of chrome above it. */}
+              <button
+                type="button"
+                onClick={() => setPendingDeleteId(item.jobId)}
+                aria-label="Delete this bend"
+                className="absolute right-3 top-3 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/80 text-subtle opacity-0 backdrop-blur-sm transition-colors hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
 
-              <div className="relative flex min-w-0 items-center gap-3">
+              {/* Identity block leads the card -- the avatar's own platform
+                  badge (see ChannelAvatar) already says TikTok/YouTube, so a
+                  second "TIKTOK" label up top would just repeat it. */}
+              <div className="relative flex min-w-0 items-start gap-3.5 pr-7">
                 <div className="shrink-0 rounded-full ring-2 ring-app transition-transform duration-300 group-hover:scale-105">
                   <ChannelAvatar
                     name={item.channelName ?? item.sourceUrl ?? "?"}
                     avatarUrl={item.avatarUrl ?? undefined}
                     platform={item.platform}
-                    size={46}
+                    size={52}
                   />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold tracking-tight text-heading">
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="truncate text-base font-semibold tracking-tight text-heading">
                     {item.channelName ?? item.sourceUrl ?? "Untitled channel"}
                   </p>
-                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-subtle">
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-subtle">
                     {finalNiche && <Sparkles className="h-3 w-3 shrink-0 text-primary/70" />}
                     <span className="truncate">{nicheLabel}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-hairline pt-4">
-                <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="relative flex items-center justify-between gap-3 border-t border-hairline pt-4">
+                <div className="flex min-w-0 items-center gap-2">
                   <StatusBadge status={item.status} />
-                  <span className="text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
+                  <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-subtle/40" aria-hidden="true" />
+                  <span className="shrink-0 text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
                 </div>
                 <button
                   type="button"
@@ -222,7 +219,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                       ? `View SOP for ${item.channelName ?? item.sourceUrl ?? "channel"}`
                       : `Resume bend for ${item.channelName ?? item.sourceUrl ?? "channel"}`
                   }
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-hover"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-primary/25 transition-colors hover:bg-primary-hover"
                 >
                   View
                   <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />

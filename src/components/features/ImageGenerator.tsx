@@ -154,7 +154,12 @@ interface GenerationHistoryItem {
   created_at: string;
 }
 
-type MosaicCell = { kind: "pending" } | { kind: "item"; item: GenerationHistoryItem };
+type MosaicCell = { kind: "pending"; aspectRatio: string } | { kind: "item"; item: GenerationHistoryItem };
+
+// One entry per in-flight generation -- generations no longer block each
+// other, so several can be pending at once (each with its own count/aspect
+// ratio) rather than a single global "is generating" flag.
+type PendingBatch = { id: string; count: number; aspectRatio: string };
 
 interface PreviewItem {
   id: string;
@@ -645,7 +650,6 @@ export function ImageGenerator() {
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [refImage, setRefImage] = useState<File | null>(null);
   const [refImagePreviewUrl, setRefImagePreviewUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
@@ -671,8 +675,8 @@ export function ImageGenerator() {
   const [isDeletingPreview, setIsDeletingPreview] = useState(false);
   const [previewActionError, setPreviewActionError] = useState<string | null>(null);
 
-  const [pendingCount, setPendingCount] = useState(0);
-  const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
+  const [pendingBatches, setPendingBatches] = useState<PendingBatch[]>([]);
+  const pendingCount = useMemo(() => pendingBatches.reduce((sum, batch) => sum + batch.count, 0), [pendingBatches]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [galleryLayout, setGalleryLayout] = useState<"Grid" | "Mosaic">("Mosaic");
@@ -682,9 +686,12 @@ export function ImageGenerator() {
   const [filterUploads, setFilterUploads] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
-  const pollCancelRef = useRef<(() => void) | null>(null);
+  // Keyed by generation id so multiple concurrent generations each get their
+  // own poll loop -- starting a new one must not cancel an older still-running
+  // generation's poll.
+  const pollCancelsRef = useRef<Map<string, () => void>>(new Map());
 
-  const canSubmit = prompt.trim().length > 0 && !isGenerating;
+  const canSubmit = prompt.trim().length > 0;
 
   const estimatedCost = getImageGenerationCost({
     model: resolveModelForCost(selectedModel, quality),
@@ -704,7 +711,9 @@ export function ImageGenerator() {
   // keeps newest-first reading order left-to-right, then top-to-bottom.
   const mosaicColumns = useMemo(() => {
     const cells: MosaicCell[] = [
-      ...Array.from({ length: pendingCount }, (): MosaicCell => ({ kind: "pending" })),
+      ...pendingBatches.flatMap((batch) =>
+        Array.from({ length: batch.count }, (): MosaicCell => ({ kind: "pending", aspectRatio: batch.aspectRatio }))
+      ),
       ...(visibleHistory ?? []).map((item): MosaicCell => ({ kind: "item", item })),
     ];
     // Cap column count to the number of cells so a handful of items fill the
@@ -715,11 +724,12 @@ export function ImageGenerator() {
       columns[index % columnCount].push(cell);
     });
     return columns;
-  }, [pendingCount, visibleHistory, galleryColumns]);
+  }, [pendingBatches, visibleHistory, galleryColumns]);
 
   useEffect(() => {
     loadHistory();
-    return () => pollCancelRef.current?.();
+    const pollCancels = pollCancelsRef.current;
+    return () => pollCancels.forEach((cancel) => cancel());
   }, []);
 
   // Mirrors every history update into localStorage so the next mount (tab
@@ -797,16 +807,15 @@ export function ImageGenerator() {
         const items: GenerationHistoryItem[] = data.generations ?? [];
         setHistory(items);
 
-        // A generation that's still running (e.g. the page was reloaded, or
-        // the previous poll loop was interrupted) has no client-side poller
-        // watching it -- resume one so it doesn't get stuck looking finished.
-        const stillGenerating = items.find((item) => item.status === "generating");
-        if (stillGenerating && !pollCancelRef.current) {
-          setIsGenerating(true);
-          setPendingAspectRatio(stillGenerating.aspect_ratio);
-          setPendingCount(stillGenerating.outputs);
-          pollGenerationStatus(stillGenerating.id);
-        }
+        // Generations still running (e.g. the page was reloaded, or a poll
+        // loop was interrupted) have no client-side poller watching them --
+        // resume one per row so none gets stuck looking finished.
+        items
+          .filter((item) => item.status === "generating" && !pollCancelsRef.current.has(item.id))
+          .forEach((item) => {
+            setPendingBatches((prev) => [...prev, { id: item.id, count: item.outputs, aspectRatio: item.aspect_ratio }]);
+            pollGenerationStatus(item.id, item.id);
+          });
       })
       .catch((err) => setHistoryError(err instanceof Error && err.message ? err.message : "Couldn't load your generation history."))
       .finally(() => setHistoryLoading(false));
@@ -820,56 +829,64 @@ export function ImageGenerator() {
   // the same history endpoint until that row's status leaves "generating",
   // so the UI stays correct even if the tab is backgrounded or reloaded
   // mid-generation.
-  function pollGenerationStatus(id: string) {
-    pollCancelRef.current?.();
-    pollCancelRef.current = pollUntilSettled<GenerationHistoryItem[]>(
-      async () => {
-        // Targeted lookup (not the plain list) -- this is the one place that
-        // genuinely needs the full `images` array for a row it already
-        // knows the id of, to show right after generation finishes.
-        const response = await fetch(`/api/generate-image?id=${id}`);
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        return data.generations ?? [];
-      },
-      (items) => {
-        const match = items.find((item) => item.id === id);
-        return !!match && match.status !== "generating";
-      },
-      (items) => {
-        const match = items.find((item) => item.id === id);
-        if (!match) return;
-        setHistory((prev) => mergeHistoryRow(prev, match));
-        if (match.status === "generating") return;
-
-        if (match.status === "failed") {
-          setError(match.error_message ?? "Something went wrong. Try again.");
-        } else {
-          setGeneratedImages(match.images ?? []);
-          setGeneratedRow(match);
-          // The charge for this generation lands right before the row flips
-          // to "completed" (see generate-image/route.ts's after() block) --
-          // safe to signal now rather than waiting for the header's next poll.
-          notifyCreditsChanged();
-        }
-        setIsGenerating(false);
-        setPendingCount(0);
-      },
-      {
-        intervalMs: 3000,
-        // Backstop for the client: the server already sweeps rows stuck in
-        // "generating" past 6 minutes to "failed" (see the GET handler in
-        // generate-image/route.ts), so this poll should always see that by
-        // the next tick. This timeout exists so the UI itself can never spin
-        // forever even if that sweep is somehow missed -- the user always
-        // lands on an actionable error instead of a silent infinite spinner.
-        timeoutMs: 6.5 * 60 * 1000,
-        onTimeout: () => {
-          setError("This is taking longer than expected. Please try again.");
-          setIsGenerating(false);
-          setPendingCount(0);
+  // `pendingId` identifies the pendingBatches entry to clear once this
+  // generation settles -- usually the same as `id`, except when handleGenerate
+  // starts polling before the server id is known (see there).
+  function pollGenerationStatus(id: string, pendingId: string) {
+    pollCancelsRef.current.get(id)?.();
+    const settle = () => {
+      pollCancelsRef.current.delete(id);
+      setPendingBatches((prev) => prev.filter((batch) => batch.id !== pendingId));
+    };
+    pollCancelsRef.current.set(
+      id,
+      pollUntilSettled<GenerationHistoryItem[]>(
+        async () => {
+          // Targeted lookup (not the plain list) -- this is the one place that
+          // genuinely needs the full `images` array for a row it already
+          // knows the id of, to show right after generation finishes.
+          const response = await fetch(`/api/generate-image?id=${id}`);
+          if (!response.ok) throw new Error();
+          const data = await response.json();
+          return data.generations ?? [];
         },
-      }
+        (items) => {
+          const match = items.find((item) => item.id === id);
+          return !!match && match.status !== "generating";
+        },
+        (items) => {
+          const match = items.find((item) => item.id === id);
+          if (!match) return;
+          setHistory((prev) => mergeHistoryRow(prev, match));
+          if (match.status === "generating") return;
+
+          if (match.status === "failed") {
+            setError(match.error_message ?? "Something went wrong. Try again.");
+          } else {
+            setGeneratedImages(match.images ?? []);
+            setGeneratedRow(match);
+            // The charge for this generation lands right before the row flips
+            // to "completed" (see generate-image/route.ts's after() block) --
+            // safe to signal now rather than waiting for the header's next poll.
+            notifyCreditsChanged();
+          }
+          settle();
+        },
+        {
+          intervalMs: 3000,
+          // Backstop for the client: the server already sweeps rows stuck in
+          // "generating" past 6 minutes to "failed" (see the GET handler in
+          // generate-image/route.ts), so this poll should always see that by
+          // the next tick. This timeout exists so the UI itself can never spin
+          // forever even if that sweep is somehow missed -- the user always
+          // lands on an actionable error instead of a silent infinite spinner.
+          timeoutMs: 6.5 * 60 * 1000,
+          onTimeout: () => {
+            setError("This is taking longer than expected. Please try again.");
+            settle();
+          },
+        }
+      )
     );
   }
 
@@ -1039,11 +1056,16 @@ export function ImageGenerator() {
   async function handleGenerate() {
     if (!canSubmit) return;
 
-    setIsGenerating(true);
     setError(null);
     setGeneratedImages([]);
-    setPendingAspectRatio(aspectRatio);
-    setPendingCount(outputs);
+
+    // A generation no longer blocks the next one, so this run's placeholder
+    // is tracked by a local id rather than a single global pending flag --
+    // it's added right away (before the request even lands) so the button
+    // stays responsive, and removed by that id whether this run fails fast
+    // or eventually settles via pollGenerationStatus.
+    const pendingId = crypto.randomUUID();
+    setPendingBatches((prev) => [...prev, { id: pendingId, count: outputs, aspectRatio }]);
 
     try {
       const referenceImage = refImage ? await readFileAsDataUrl(refImage) : undefined;
@@ -1064,19 +1086,17 @@ export function ImageGenerator() {
 
       if (response.status === 402) {
         setShowTopUp(true);
-        setIsGenerating(false);
-        setPendingCount(0);
+        setPendingBatches((prev) => prev.filter((batch) => batch.id !== pendingId));
         return;
       }
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "Failed to generate images.");
 
-      pollGenerationStatus(data.id);
+      pollGenerationStatus(data.id, pendingId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
-      setIsGenerating(false);
-      setPendingCount(0);
+      setPendingBatches((prev) => prev.filter((batch) => batch.id !== pendingId));
     }
   }
 
@@ -1105,7 +1125,7 @@ export function ImageGenerator() {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+            "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
             "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
             "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
             "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
@@ -1176,7 +1196,7 @@ export function ImageGenerator() {
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                   placeholder="Describe the image you want to generate..."
-                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 text-slate-900 outline-none placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
+                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-bold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
                 />
               </section>
 
@@ -1473,7 +1493,6 @@ export function ImageGenerator() {
               <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <PlasticButton
                   text="Generate"
-                  loading={isGenerating}
                   disabled={!canSubmit}
                   onClick={handleGenerate}
                   className="w-full py-3.5 shadow-lg"
@@ -1499,17 +1518,23 @@ export function ImageGenerator() {
             <div
               className={cn(
                 "relative rounded-[28px] border-2 border-transparent shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
+                // Focus ring: a soft blue glow that appears the moment the
+                // textarea is focused, so it's obvious where typing lands.
+                "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_16px_40px_-16px_rgba(37,99,235,0.4)]",
                 // Crisp hairline ring + dark ambient shadow for definition
                 // against the black page -- no colored glow bloom.
-                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
+                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.65)]",
+                "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.28),0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
               )}
             >
               {/* Gradient stroke, masked to the border ring only so it never
-                  bleeds into the semi-transparent white panel beneath it. */}
+                  bleeds into the semi-transparent white panel beneath it.
+                  Dimmed until the textarea is focused, then brightens to a
+                  crisp premium edge so the active box is unmistakable. */}
               <div
                 aria-hidden="true"
                 className={cn(
-                  "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300",
+                  "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300 opacity-60 transition-opacity duration-300 group-focus-within:opacity-100",
                   "[mask-clip:padding-box,border-box] [mask-composite:exclude] [mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
                   "[-webkit-mask-clip:padding-box,border-box] [-webkit-mask-composite:xor] [-webkit-mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
                   "dark:from-blue-500 dark:to-cyan-400"
@@ -1558,7 +1583,7 @@ export function ImageGenerator() {
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     aria-expanded={isSettingsOpen}
                     className={cn(
-                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+                      "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
                       "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
                       "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
                       "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
@@ -1635,7 +1660,6 @@ export function ImageGenerator() {
 
               <PlasticButton
                 text="Generate"
-                loading={isGenerating}
                 disabled={!canSubmit}
                 onClick={handleGenerate}
                 trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
@@ -1790,7 +1814,7 @@ export function ImageGenerator() {
                           return (
                             <PendingGenerationTile
                               key={`pending-${columnIndex}-${cellIndex}`}
-                              aspectRatio={pendingAspectRatio}
+                              aspectRatio={cell.aspectRatio}
                             />
                           );
                         }
@@ -1853,12 +1877,10 @@ export function ImageGenerator() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : (
-            !isGenerating && (
-              <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
-                <ImageIcon className="h-8 w-8" />
-                <p className="text-sm font-medium">Nothing Here!</p>
-              </div>
-            )
+            <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
+              <ImageIcon className="h-8 w-8" />
+              <p className="text-sm font-medium">Nothing Here!</p>
+            </div>
           )}
         </div>
       </div>

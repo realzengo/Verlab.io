@@ -65,7 +65,7 @@ export function CreditDropdown({ onUpgradeClick }: { onUpgradeClick: () => void 
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Credits"
-        className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-2.5 text-sm font-medium text-heading transition-colors hover:bg-accent"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-surface pl-3 pr-2.5 text-sm font-medium text-heading transition-colors hover:bg-accent"
       >
         <Database className="h-4 w-4 text-primary" />
         <span className="hidden sm:inline-block">Credit</span>

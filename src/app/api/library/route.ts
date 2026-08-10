@@ -152,6 +152,13 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     category === "all" ? assets : assets.filter((asset) => asset.category?.toLowerCase() === category.toLowerCase());
 
   filtered.sort((a, b) => {
+    // Voiceovers have no visual thumbnail, so mixed in with images/videos/SOPs
+    // they break the grid's visual rhythm -- pin them to the end of the "all"
+    // view regardless of sort direction. Within the voiceover-only tab (and
+    // within the trailing voiceover group here) the chosen sort still applies.
+    if (type === "all" && a.type !== b.type && (a.type === "voiceover" || b.type === "voiceover")) {
+      return a.type === "voiceover" ? 1 : -1;
+    }
     const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     return sort === "oldest" ? -diff : diff;
   });

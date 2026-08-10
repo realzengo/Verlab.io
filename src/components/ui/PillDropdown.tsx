@@ -101,7 +101,7 @@ export function PillDropdown({
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "group flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
+          "group flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
           "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
           "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
           "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",

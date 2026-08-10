@@ -272,14 +272,22 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
 
 function mapJobStatus(status: string): SystemJobStatus {
   if (status === "failed") return "failed";
-  if (status === "ready" || status === "sop_ready" || status === "complete") return "success";
+  if (status === "ready" || status === "sop_ready" || status === "complete" || status === "completed") return "success";
   if (status === "queued" || status === "opening_channel") return "queued";
   return "running";
 }
 
 export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
   const admin = createAdminClient();
-  const [{ data: bendJobs }, { data: transcriptJobs }, { data: downloadJobs }, authUsers] = await Promise.all([
+  const [
+    { data: bendJobs },
+    { data: transcriptJobs },
+    { data: downloadJobs },
+    { data: videoJobs },
+    { data: imageJobs },
+    { data: voiceoverJobs },
+    authUsers,
+  ] = await Promise.all([
     admin
       .from("niche_bend_jobs")
       .select("id, status, user_id, created_at, updated_at")
@@ -295,13 +303,28 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       .select("id, status, user_id, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(limit),
+    admin
+      .from("video_generations")
+      .select("id, status, user_id, created_at, updated_at, raw_error_message")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    admin
+      .from("image_generations")
+      .select("id, status, user_id, created_at, raw_error_message")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    admin
+      .from("voiceover_generations")
+      .select("id, status, user_id, created_at, updated_at, raw_error_message")
+      .order("created_at", { ascending: false })
+      .limit(limit),
     listAllUsers(),
   ]);
 
   const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "—"]));
 
   function toDuration(status: string, createdAt: string, updatedAt: string): number | undefined {
-    const settled = status === "failed" || status === "success" || status === "ready" || status === "sop_ready" || status === "complete";
+    const settled = status === "failed" || status === "success" || status === "ready" || status === "sop_ready" || status === "complete" || status === "completed";
     return settled ? new Date(updatedAt).getTime() - new Date(createdAt).getTime() : undefined;
   }
 
@@ -329,6 +352,32 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       userEmail: emailById.get(j.user_id) ?? "—",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
+    })),
+    ...(videoJobs ?? []).map((j) => ({
+      id: j.id,
+      type: "video-generation" as SystemJobType,
+      status: mapJobStatus(j.status),
+      userEmail: emailById.get(j.user_id) ?? "—",
+      startedAt: j.created_at,
+      durationMs: toDuration(j.status, j.created_at, j.updated_at),
+      errorMessage: j.raw_error_message,
+    })),
+    ...(imageJobs ?? []).map((j) => ({
+      id: j.id,
+      type: "image-generation" as SystemJobType,
+      status: mapJobStatus(j.status),
+      userEmail: emailById.get(j.user_id) ?? "—",
+      startedAt: j.created_at,
+      errorMessage: j.raw_error_message,
+    })),
+    ...(voiceoverJobs ?? []).map((j) => ({
+      id: j.id,
+      type: "voiceover-generation" as SystemJobType,
+      status: mapJobStatus(j.status),
+      userEmail: emailById.get(j.user_id) ?? "—",
+      startedAt: j.created_at,
+      durationMs: toDuration(j.status, j.created_at, j.updated_at),
+      errorMessage: j.raw_error_message,
     })),
   ];
 

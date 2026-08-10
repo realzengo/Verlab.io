@@ -18,6 +18,9 @@ const TYPE_LABEL: Record<SystemJob["type"], string> = {
   "sop-generation": "SOP Generation",
   transcript: "Transcript",
   download: "Download",
+  "video-generation": "Video Generation",
+  "image-generation": "Image Generation",
+  "voiceover-generation": "Voiceover Generation",
 };
 
 const FILTERS = [
@@ -42,6 +45,7 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
             <TableHeaderCell>Type</TableHeaderCell>
             <TableHeaderCell>User</TableHeaderCell>
             <TableHeaderCell>Status</TableHeaderCell>
+            <TableHeaderCell>Error</TableHeaderCell>
             <TableHeaderCell className="text-right">Duration</TableHeaderCell>
           </TableRow>
         </TableHead>
@@ -53,6 +57,11 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
               <TableCell className="text-body">{job.userEmail}</TableCell>
               <TableCell>
                 <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
+              </TableCell>
+              <TableCell className="max-w-[280px] text-xs text-body">
+                <span className="block truncate" title={job.errorMessage ?? undefined}>
+                  {job.status === "failed" ? job.errorMessage || "—" : "—"}
+                </span>
               </TableCell>
               <TableCell className="text-right tabular-nums text-body">
                 {job.durationMs ? `${(job.durationMs / 1000).toFixed(1)}s` : "—"}

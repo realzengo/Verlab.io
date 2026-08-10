@@ -1019,7 +1019,7 @@ export function VoiceoverGenerator() {
                         onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
                         placeholder="Type your script here..."
                         maxLength={MAX_SCRIPT_CHARS}
-                        className="mt-2 min-h-[300px] flex-1 resize-none bg-transparent px-4 pb-3 text-sm leading-relaxed text-body outline-none placeholder:text-subtle"
+                        className="mt-2 min-h-[300px] flex-1 resize-none bg-transparent px-4 pb-3 text-sm font-bold leading-relaxed text-body outline-none placeholder:font-normal placeholder:text-subtle"
                       />
                       <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
                         <span className="text-xs font-medium text-subtle">
@@ -1092,7 +1092,7 @@ export function VoiceoverGenerator() {
                         onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
                         placeholder="Type your script here..."
                         maxLength={MAX_SCRIPT_CHARS}
-                        className="min-h-[300px] flex-1 resize-none bg-transparent p-4 text-sm leading-relaxed text-body outline-none placeholder:text-subtle"
+                        className="min-h-[300px] flex-1 resize-none bg-transparent p-4 text-sm font-bold leading-relaxed text-body outline-none placeholder:font-normal placeholder:text-subtle"
                       />
                       <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
                         <span className="text-xs font-medium text-subtle">
@@ -1452,7 +1452,7 @@ export function VoiceoverGenerator() {
                       onChange={(event) => setStylePrompt(event.target.value.slice(0, MAX_STYLE_PROMPT_CHARS))}
                       placeholder="Describe how it should sound, e.g. &quot;Speak with excitement and energy.&quot;"
                       rows={2}
-                      className="w-full resize-none rounded-xl border border-hairline bg-app/60 p-3 pb-5 text-sm text-heading outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
+                      className="w-full resize-none rounded-xl border border-hairline bg-app/60 p-3 pb-5 text-sm font-bold text-heading outline-none placeholder:font-normal placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
                     />
                     <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium tabular-nums text-subtle/60">
                       {stylePrompt.length}/{MAX_STYLE_PROMPT_CHARS}

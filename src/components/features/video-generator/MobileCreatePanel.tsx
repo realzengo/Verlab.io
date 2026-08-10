@@ -208,7 +208,7 @@ export function MobileCreatePanel({
             onChange={(event) => onPromptChange(event.target.value)}
             placeholder="Describe a new video"
             rows={expanded ? 12 : 5}
-            className="w-full resize-none bg-transparent pr-6 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+            className="w-full resize-none bg-transparent pr-6 text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
           />
           <button
             type="button"

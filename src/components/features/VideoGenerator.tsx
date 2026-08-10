@@ -1061,7 +1061,7 @@ export function VideoGenerator() {
                             value={editPrompt}
                             onChange={(event) => setEditPrompt(event.target.value)}
                             placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
-                            className="h-28 w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                            className="h-28 w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                           />
                         </div>
                       </div>

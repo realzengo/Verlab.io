@@ -32,9 +32,19 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // A transient network blip talking to Supabase (DNS hiccup, brief outage)
+  // must not take the whole app down -- this runs on every /app/admin/
+  // checkout/oauth/login/signup request, so an uncaught throw here hangs
+  // every navigation until it clears. Treat a failed lookup as "no user";
+  // the existing !user branches below already redirect to /login, which is
+  // the same safe outcome a real logged-out visitor gets.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    user = null;
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -83,11 +93,24 @@ export async function proxy(request: NextRequest) {
     // (see billing/portal route) or view Credit History. None of the actual
     // paid tools live under /app/settings.
     if (!userIsAdmin && !pathname.startsWith("/app/settings")) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("subscription_status, subscription_current_period_end, credits")
-        .eq("id", user.id)
-        .single();
+      // Same reasoning as the getUser() call above: a transient Supabase
+      // hiccup here must not take the whole dashboard down. Falling back to
+      // "no profile data" skips the paywall header below rather than
+      // crashing the request -- worst case a lapsed subscriber briefly sees
+      // the dashboard instead of the paywall, which is the safe direction
+      // to fail in (never lock out someone who's actually paying).
+      let profile: { subscription_status: string | null; subscription_current_period_end: string | null; credits: number | null } | null =
+        null;
+      try {
+        const result = await supabase
+          .from("profiles")
+          .select("subscription_status, subscription_current_period_end, credits")
+          .eq("id", user.id)
+          .single();
+        profile = result.data;
+      } catch {
+        profile = null;
+      }
 
       const periodEndMs = profile?.subscription_current_period_end
         ? new Date(profile.subscription_current_period_end).getTime()

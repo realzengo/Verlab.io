@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Eye, FileText, Heart, Loader2, Sparkles, X } from "lucide-react";
+import { Check, Copy, Eye, FileText, Heart, Loader2, Sparkles, Users, X } from "lucide-react";
 import {
   PLATFORM_BADGE,
   TrendingVideoCard,
   formatCompactNumber,
   formatTimeAgo,
 } from "@/components/features/NicheFinder";
+import { useSavedVideos } from "@/components/features/SavedVideosContext";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { TrendingVideo } from "@/lib/types";
@@ -133,7 +134,8 @@ export function VideoDetailModal({
   onClose: () => void;
   onSelectVideo: (video: TrendingVideo) => void;
 }) {
-  const [saved, setSaved] = useState(false);
+  const { isSaved, toggleSave } = useSavedVideos();
+  const saved = isSaved(video.id);
   const [insights, setInsights] = useState<VideoInsights | null>(null);
   const [insightsError, setInsightsError] = useState(false);
   const [ideasResult, setIdeasResult] = useState<VideoIdeasResponse | null>(null);
@@ -287,6 +289,15 @@ export function VideoDetailModal({
                   <p className="text-[11px] text-subtle">Likes</p>
                   <p className="text-base font-bold tabular-nums text-heading">{video.likeCount.toLocaleString()}</p>
                 </div>
+                {video.followerCount > 0 && (
+                  <div className="col-span-2 rounded-xl bg-surface p-3 shadow-card">
+                    <p className="flex items-center gap-1 text-[11px] text-subtle">
+                      <Users className="h-3 w-3" />
+                      {video.platform === "youtube" ? "Subscribers" : "Followers"}
+                    </p>
+                    <p className="text-base font-bold tabular-nums text-heading">{video.followerCount.toLocaleString()}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -378,7 +389,7 @@ export function VideoDetailModal({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setSaved((prev) => !prev)}>
+                  <Button variant="secondary" size="sm" onClick={() => toggleSave(video)}>
                     <Heart className={cn("h-3.5 w-3.5", saved && "fill-red-500 text-red-500")} />
                     {saved ? "Saved" : "Save video"}
                   </Button>

@@ -26,10 +26,6 @@ export interface VideoRangeFilters {
   viewsMax: string;
   followersMin: string;
   followersMax: string;
-  outlierMin: string;
-  outlierMax: string;
-  viewsPerHourMin: string;
-  viewsPerHourMax: string;
   /** 2-letter YouTube region codes; empty means worldwide. */
   countries: string[];
 }
@@ -39,10 +35,6 @@ export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
   viewsMax: "",
   followersMin: "",
   followersMax: "",
-  outlierMin: "",
-  outlierMax: "",
-  viewsPerHourMin: "",
-  viewsPerHourMax: "",
   countries: [],
 };
 
@@ -165,29 +157,11 @@ function FilterCard({
 }
 
 /** A FilterCard wrapping a dual-handle RangeSlider -- shared by Outlier
- * Score, Views, Subscribers, and Views Per Hour. The handle at either bound
- * (boundMin/boundMax) is treated as "unbounded" and clears to "" rather than
- * sending the literal edge number, matching the "10M+" style open-ended
- * labels shown under the track. */
-// Fixed "nice" values wide-magnitude sliders snap between instead of a
-// continuous range -- every reachable value is a round, human-friendly
-// number (10, 50, 100, 200...) rather than an arbitrary one off a smooth
-// curve. `customLow` seeds the exact low-end progression (fine control over
-// the numbers a user cares about most); above that, every 1/2/3/5/7 x 10^n
-// "nice" value up to `cap` is added too, so the rest of the track has close
-// to a dozen steps per decade instead of two or three -- dense enough that
-// dragging reads as continuous instead of visibly hopping between values.
-function buildNiceBreakpoints(customLow: number[], startExp: number, endExp: number, cap: number): number[] {
-  const points = new Set<number>(customLow);
-  for (let exp = startExp; exp <= endExp; exp++) {
-    const magnitude = 10 ** exp;
-    for (const m of [1, 2, 3, 5, 7]) points.add(m * magnitude);
-  }
-  points.add(cap);
-  return Array.from(points).sort((a, b) => a - b);
-}
-
-// Views/Subscribers deliberately aren't built from buildNiceBreakpoints --
+ * Score, Views, and Subscribers. The handle at either bound (boundMin/
+ * boundMax) is treated as "unbounded" and clears to "" rather than sending
+ * the literal edge number, matching the "10M+" style open-ended labels
+ * shown under the track. */
+// Views/Subscribers deliberately aren't built from a formula --
 // the first half of the track (0%-50%) covers 0 up to just under 1M with
 // increasingly large "nice" steps (most of a real video's view count lives
 // here, so it gets the fine control), then the second half is a plain
@@ -199,8 +173,6 @@ const VIEWS_LOW_HALF = [
 ];
 const VIEWS_HIGH_HALF = Array.from({ length: 18 }, (_, i) => 1_500_000 + i * 500_000);
 const VIEWS_BREAKPOINTS = [...VIEWS_LOW_HALF, 1_000_000, ...VIEWS_HIGH_HALF];
-
-const VIEWS_PER_HOUR_BREAKPOINTS = buildNiceBreakpoints([0, 5], 1, 2, 1_000);
 
 function closestBreakpointIndex(value: number, breakpoints: number[]): number {
   let bestIndex = 0;
@@ -546,6 +518,7 @@ function FiltersToggleButton({
  * "space", animated open/shut with a height+opacity transition. */
 function FiltersPanel({
   open,
+  platform,
   timeWindow,
   onTimeWindowChange,
   filters,
@@ -553,6 +526,7 @@ function FiltersPanel({
   onClear,
 }: {
   open: boolean;
+  platform: VideoPlatformFilter;
   timeWindow: VideoTimeWindow;
   onTimeWindowChange: (window: VideoTimeWindow) => void;
   filters: VideoRangeFilters;
@@ -561,6 +535,19 @@ function FiltersPanel({
 }) {
   const [pending, setPending] = useState<VideoRangeFilters>(filters);
   const [pendingWindow, setPendingWindow] = useState<VideoTimeWindow>(timeWindow);
+
+  // TikTok has no region concept -- a selected country only ever narrows
+  // the YouTube slice of results (see the /api/niches/[niche]/videos OR
+  // clause). Once the platform pill switches away from YouTube, any
+  // in-progress country selection is dropped rather than left silently
+  // inert and hidden.
+  const [lastPlatform, setLastPlatform] = useState(platform);
+  if (platform !== lastPlatform) {
+    setLastPlatform(platform);
+    if (platform !== "youtube" && pending.countries.length > 0) {
+      setPending((prev) => ({ ...prev, countries: [] }));
+    }
+  }
 
   // Re-sync the working draft to the last-applied filters every time the
   // panel opens, so closing it without hitting Apply never leaks a
@@ -611,21 +598,7 @@ function FiltersPanel({
           className={settled ? "overflow-visible" : "overflow-hidden"}
         >
           <div className="border-t border-hairline pb-5 pt-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <RangeFilterCard
-                label="Outlier score"
-                rangeLabel="Range (1-100x)"
-                formatValue={(v) => `${v}x`}
-                minBoundLabel="1+"
-                maxBoundLabel="100+"
-                boundMin={1}
-                boundMax={100}
-                step={1}
-                minValue={pending.outlierMin}
-                maxValue={pending.outlierMax}
-                onChange={(min, max) => setPending((prev) => ({ ...prev, outlierMin: min, outlierMax: max }))}
-                onReset={() => setPending((prev) => ({ ...prev, outlierMin: "", outlierMax: "" }))}
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <RangeFilterCard
                 label="Views"
                 rangeLabel="Range (0-10M+)"
@@ -656,26 +629,14 @@ function FiltersPanel({
                 onChange={(min, max) => setPending((prev) => ({ ...prev, followersMin: min, followersMax: max }))}
                 onReset={() => setPending((prev) => ({ ...prev, followersMin: "", followersMax: "" }))}
               />
-              <RangeFilterCard
-                label="Views per hour"
-                rangeLabel="Range (0-1000+)"
-                formatValue={formatNumber}
-                minBoundLabel="0"
-                maxBoundLabel="1K+"
-                boundMin={0}
-                boundMax={1000}
-                step={5}
-                breakpoints={VIEWS_PER_HOUR_BREAKPOINTS}
-                minValue={pending.viewsPerHourMin}
-                maxValue={pending.viewsPerHourMax}
-                onChange={(min, max) => setPending((prev) => ({ ...prev, viewsPerHourMin: min, viewsPerHourMax: max }))}
-                onReset={() => setPending((prev) => ({ ...prev, viewsPerHourMin: "", viewsPerHourMax: "" }))}
-              />
-              <CountryFilterCard
-                selected={pending.countries}
-                onChange={(countries) => setPending((prev) => ({ ...prev, countries }))}
-                onReset={() => setPending((prev) => ({ ...prev, countries: [] }))}
-              />
+              {/* YouTube-only -- see the lastPlatform effect above. */}
+              {platform === "youtube" && (
+                <CountryFilterCard
+                  selected={pending.countries}
+                  onChange={(countries) => setPending((prev) => ({ ...prev, countries }))}
+                  onReset={() => setPending((prev) => ({ ...prev, countries: [] }))}
+                />
+              )}
               <PublishingDateCard value={pendingWindow} onChange={setPendingWindow} onReset={() => setPendingWindow("all")} />
             </div>
 
@@ -836,6 +797,17 @@ export function NicheTopBar({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilterCount = countActiveRangeFilters(rangeFilters) + (timeWindow !== "all" ? 1 : 0);
 
+  // Country only ever narrows YouTube results (TikTok has no region
+  // concept) -- once the pill switches away from YouTube, drop any applied
+  // country filter too, so "Filters (1)" can never point at a field that's
+  // no longer shown anywhere in the panel.
+  function handlePlatformChange(next: VideoPlatformFilter) {
+    onPlatformChange(next);
+    if (next !== "youtube" && rangeFilters.countries.length > 0) {
+      onApplyRangeFilters({ ...rangeFilters, countries: [] });
+    }
+  }
+
   return (
     <div className="sticky top-0 z-20 -mx-4 bg-app px-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
@@ -881,7 +853,7 @@ export function NicheTopBar({
 
         <PresetsDropdown />
 
-        <SegmentedControl ariaLabel="Platform" items={PLATFORM_PILLS} value={platform} onChange={onPlatformChange} />
+        <SegmentedControl ariaLabel="Platform" items={PLATFORM_PILLS} value={platform} onChange={handlePlatformChange} />
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-hairline/70 py-2 text-xs text-subtle">
@@ -918,6 +890,7 @@ export function NicheTopBar({
 
       <FiltersPanel
         open={filtersOpen}
+        platform={platform}
         timeWindow={timeWindow}
         onTimeWindowChange={onTimeWindowChange}
         filters={rangeFilters}

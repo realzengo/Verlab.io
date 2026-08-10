@@ -76,9 +76,9 @@ export function ProfileDropdown() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Account menu"
-        className="flex items-center rounded-full border border-hairline bg-surface p-1"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-surface p-1"
       >
-        <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-6 w-6 sm:h-7 sm:w-7" />
+        <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-7 w-7" />
       </button>
 
       {isOpen && (

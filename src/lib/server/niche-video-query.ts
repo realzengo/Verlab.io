@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapTrendingVideoRow, TRENDING_VIDEO_COLUMNS, type TrendingVideoRow } from "@/lib/server/trending-videos";
 import {
@@ -74,6 +75,10 @@ export interface NicheVideoPage {
   page: number;
   limit: number;
   hasMore: boolean;
+  /** True when no video actually cleared the requested view-count floor and
+   * the view filter was dropped (keeping niche/platform/date/style/country
+   * intact) so the closest matches could be shown instead of a blank page. */
+  relaxedFilters?: boolean;
 }
 
 type LiveSearchMode = "hashtag" | "user" | "keyword";
@@ -146,55 +151,29 @@ async function backfillPageFollowerCounts(admin: SupabaseClient, videos: Trendin
  * box is the user overriding "browse this niche" with "find this specific
  * thing", the same way it would on TikTok's or YouTube's own search.
  */
-async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams): Promise<NicheVideoPage> {
-  const { page, limit, style, platform, timeWindow, country, sort } = params;
+// Runs the style/view/follower/date/derived-filter pipeline and sorts the
+// result, same as the inline logic below used to do -- pulled out so
+// searchLiveVideos can run it twice: once with the view-count floor applied,
+// and (only if that comes back empty) once without it, to power the "relax
+// the view filter and show the closest matches" fallback.
+function filterAndSortLiveResults(
+  raw: TrendingVideo[],
+  params: NicheVideoQueryParams,
+  applyViewFilter: boolean
+): TrendingVideo[] {
+  const { style, timeWindow, sort } = params;
   const { viewsMin, viewsMax, followersMin, followersMax, postedAfter, postedBefore } = params;
   const outlierMin = params.outlierMin ?? null;
   const outlierMax = params.outlierMax ?? null;
   const viewsPerHourMin = params.viewsPerHourMin ?? null;
   const viewsPerHourMax = params.viewsPerHourMax ?? null;
-  const offset = (page - 1) * limit;
-  const countries = country ? country.split(",").filter(Boolean) : [];
-  const { mode, term } = parseLiveSearchQuery(rawQuery);
 
-  if (!term) return { videos: [], page, limit, hasMore: false };
-
-  // How deep to fetch from the live provider before filtering/paginating in
-  // JS -- has to cover at least this page's offset, with a buffer since
-  // filters below only ever shrink the pool. Capped at the same ceiling as
-  // the cached-DB derived-filter path (DERIVED_FILTER_BATCH_CAP) to bound
-  // worst-case credit spend per search box submission.
-  const targetCount = Math.min(DERIVED_FILTER_BATCH_CAP, Math.max(offset + limit + 40, 100));
-  const wantsTikTok = platform !== "youtube";
-  const wantsYoutube = platform !== "tiktok";
-  const youtubeRegion = countries.length === 1 ? countries[0] : null;
-
-  const [tiktokOutcome, youtubeOutcome] = await Promise.allSettled([
-    wantsTikTok
-      ? mode === "hashtag"
-        ? searchTikTokHashtag(term, targetCount)
-        : mode === "user"
-          ? searchTikTokUserVideos(term, targetCount)
-          : searchTikTokKeyword(term, targetCount)
-      : Promise.resolve([]),
-    wantsYoutube ? fetchNicheYoutubeVideos([term], targetCount, youtubeRegion) : Promise.resolve([]),
-  ]);
-
-  if (tiktokOutcome.status === "rejected") {
-    console.warn(`[niche-video-query] live TikTok search ("${mode}: ${term}") failed:`, tiktokOutcome.reason);
-  }
-  if (youtubeOutcome.status === "rejected") {
-    console.warn(`[niche-video-query] live YouTube search ("${term}") failed:`, youtubeOutcome.reason);
-  }
-
-  let results: TrendingVideo[] = [
-    ...(tiktokOutcome.status === "fulfilled" ? tiktokOutcome.value.map((v) => mapSearchResult(v, "tiktok")) : []),
-    ...(youtubeOutcome.status === "fulfilled" ? youtubeOutcome.value.map((v) => mapSearchResult(v, "youtube")) : []),
-  ];
-
+  let results = raw;
   if (style !== "all") results = results.filter((v) => matchesStyle(v.hashtag, style));
-  if (viewsMin) results = results.filter((v) => v.viewCount >= Number(viewsMin));
-  if (viewsMax) results = results.filter((v) => v.viewCount <= Number(viewsMax));
+  if (applyViewFilter) {
+    if (viewsMin) results = results.filter((v) => v.viewCount >= Number(viewsMin));
+    if (viewsMax) results = results.filter((v) => v.viewCount <= Number(viewsMax));
+  }
   if (followersMin) results = results.filter((v) => v.followerCount >= Number(followersMin));
   if (followersMax) results = results.filter((v) => v.followerCount <= Number(followersMax));
 
@@ -230,10 +209,64 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
     });
   }
 
-  results =
-    sort === "newest"
-      ? results.sort((a, b) => new Date(b.postedAt ?? 0).getTime() - new Date(a.postedAt ?? 0).getTime())
-      : results.sort((a, b) => b.viewCount - a.viewCount);
+  return sort === "newest"
+    ? results.sort((a, b) => new Date(b.postedAt ?? 0).getTime() - new Date(a.postedAt ?? 0).getTime())
+    : results.sort((a, b) => b.viewCount - a.viewCount);
+}
+
+async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams): Promise<NicheVideoPage> {
+  const { page, limit, platform, country } = params;
+  const { viewsMin, viewsMax } = params;
+  const offset = (page - 1) * limit;
+  const countries = country ? country.split(",").filter(Boolean) : [];
+  const { mode, term } = parseLiveSearchQuery(rawQuery);
+
+  if (!term) return { videos: [], page, limit, hasMore: false };
+
+  // How deep to fetch from the live provider before filtering/paginating in
+  // JS -- has to cover at least this page's offset, with a buffer since
+  // filters below only ever shrink the pool. Capped at the same ceiling as
+  // the cached-DB derived-filter path (DERIVED_FILTER_BATCH_CAP) to bound
+  // worst-case credit spend per search box submission.
+  const targetCount = Math.min(DERIVED_FILTER_BATCH_CAP, Math.max(offset + limit + 40, 100));
+  const wantsTikTok = platform !== "youtube";
+  const wantsYoutube = platform !== "tiktok";
+
+  const [tiktokOutcome, youtubeOutcome] = await Promise.allSettled([
+    wantsTikTok
+      ? mode === "hashtag"
+        ? searchTikTokHashtag(term, targetCount)
+        : mode === "user"
+          ? searchTikTokUserVideos(term, targetCount)
+          : searchTikTokKeyword(term, targetCount)
+      : Promise.resolve([]),
+    wantsYoutube
+      ? fetchNicheYoutubeVideos([term], targetCount, countries.length > 0 ? countries : null)
+      : Promise.resolve([]),
+  ]);
+
+  if (tiktokOutcome.status === "rejected") {
+    console.warn(`[niche-video-query] live TikTok search ("${mode}: ${term}") failed:`, tiktokOutcome.reason);
+  }
+  if (youtubeOutcome.status === "rejected") {
+    console.warn(`[niche-video-query] live YouTube search ("${term}") failed:`, youtubeOutcome.reason);
+  }
+
+  const raw: TrendingVideo[] = [
+    ...(tiktokOutcome.status === "fulfilled" ? tiktokOutcome.value.map((v) => mapSearchResult(v, "tiktok")) : []),
+    ...(youtubeOutcome.status === "fulfilled" ? youtubeOutcome.value.map((v) => mapSearchResult(v, "youtube")) : []),
+  ];
+
+  let results = filterAndSortLiveResults(raw, params, true);
+
+  // The view floor found nothing even after scanning the full live search
+  // depth -- rather than show a blank page, drop just the view-count floor
+  // (every other filter stays intact) and surface the closest matches.
+  let relaxedFilters = false;
+  if (results.length === 0 && (viewsMin || viewsMax)) {
+    results = filterAndSortLiveResults(raw, params, false);
+    relaxedFilters = results.length > 0;
+  }
 
   const pageVideos = results.slice(offset, offset + limit);
   const admin = createAdminClient() as SupabaseClient;
@@ -244,6 +277,7 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
     page,
     limit,
     hasMore: results.length > offset + limit,
+    relaxedFilters,
   };
 }
 
@@ -273,7 +307,7 @@ export async function getNicheVideosPage(
   const countries = country ? country.split(",").filter(Boolean) : [];
   const hasDerivedFilters = Boolean(outlierMin || outlierMax || viewsPerHourMin || viewsPerHourMax);
 
-  function buildBaseQuery() {
+  function buildBaseQuery(applyViewFilter = true) {
     let query = admin.from("trending_videos").select(TRENDING_VIDEO_COLUMNS);
 
     if (!isAllNiches) query = query.eq("niche_category", niche);
@@ -295,8 +329,10 @@ export async function getNicheVideosPage(
         .not("hashtag", "ilike", "%animat%");
     }
 
-    if (viewsMin) query = query.gte("view_count", Number(viewsMin));
-    if (viewsMax) query = query.lte("view_count", Number(viewsMax));
+    if (applyViewFilter) {
+      if (viewsMin) query = query.gte("view_count", Number(viewsMin));
+      if (viewsMax) query = query.lte("view_count", Number(viewsMax));
+    }
     if (followersMin) query = query.gte("follower_count", Number(followersMin));
     if (followersMax) query = query.lte("follower_count", Number(followersMax));
 
@@ -345,9 +381,9 @@ export async function getNicheVideosPage(
   // active: the common case paginates in SQL via .range() (cheap, exact);
   // the derived-filter case has to pull a capped batch and paginate in JS
   // instead, since those two fields can't be expressed as column filters.
-  async function runQuery(): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
+  async function runQuery(applyViewFilter = true): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
     if (hasDerivedFilters) {
-      const { data, error } = await buildBaseQuery().limit(DERIVED_FILTER_BATCH_CAP);
+      const { data, error } = await buildBaseQuery(applyViewFilter).limit(DERIVED_FILTER_BATCH_CAP);
       if (error) throw new Error(error.message);
       const filtered = applyDerivedFilters((data ?? []) as TrendingVideoRow[]);
       return {
@@ -356,7 +392,7 @@ export async function getNicheVideosPage(
       };
     }
 
-    const { data, error } = await buildBaseQuery().range(offset, offset + limit);
+    const { data, error } = await buildBaseQuery(applyViewFilter).range(offset, offset + limit);
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as TrendingVideoRow[];
     return {
@@ -372,14 +408,40 @@ export async function getNicheVideosPage(
   // already cached, since there's no single provider to refresh against a
   // blended view. Only a single selected country gets a targeted regional
   // warm-up; multi-select (or none) falls back to the global cache.
+  let relaxedFilters = false;
   if (!isAllNiches && platform !== "all") {
     const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
     const ranOutOfCache = pageRows.length < limit;
     const staleFirstPage = page === 1 && (await isNicheCacheStale(admin, niche, platform, region));
+    const minViews = viewsMin ? Number(viewsMin) : 0;
 
-    if (ranOutOfCache || staleFirstPage) {
-      const wrote = await refreshNicheVideoCache(admin, niche as NicheName, platform, offset + limit, region);
+    if (ranOutOfCache) {
+      // Nothing usable cached for this page -- there's no stale-but-good-
+      // enough data to fall back on, so this request has to wait on a real
+      // scrape (can take up to ~a minute, see refreshNicheVideoCache).
+      const wrote = await refreshNicheVideoCache(admin, niche as NicheName, platform, offset + limit, region, minViews);
       if (wrote) ({ pageRows, hasMore } = await runQuery());
+    } else if (staleFirstPage) {
+      // Enough cached rows to answer this request right now -- the cache is
+      // just past its 24h TTL, not empty. Blocking on a fresh scrape here
+      // was the actual cause of "sometimes it just hangs": every 24h, the
+      // first visitor to a given niche/platform/country combo paid the full
+      // scrape latency even though stale-but-fine data was sitting right
+      // there. Serve what's cached immediately and refresh in the
+      // background instead -- after() keeps this running past the response
+      // (Vercel's waitUntil under the hood) so the *next* request benefits
+      // without this one waiting on it.
+      after(() => refreshNicheVideoCache(admin, niche as NicheName, platform, offset + limit, region, minViews));
+    }
+
+    // Even a full-depth scrape can legitimately find nothing above the
+    // requested view-count floor for a narrow niche keyword within the
+    // selected date range -- rather than leave the page blank, drop just the
+    // view-count floor (niche/platform/date/style/country stay intact) and
+    // surface the closest matches instead.
+    if (pageRows.length === 0 && page === 1 && (viewsMin || viewsMax)) {
+      ({ pageRows, hasMore } = await runQuery(false));
+      relaxedFilters = pageRows.length > 0;
     }
   } else if (isAllNiches && platform !== "all" && page === 1 && pageRows.length === 0) {
     // Blended "All niches" feed never scrapes on its own — warm a handful of
@@ -401,5 +463,6 @@ export async function getNicheVideosPage(
     page,
     limit,
     hasMore,
+    relaxedFilters,
   };
 }

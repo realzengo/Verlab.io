@@ -93,6 +93,17 @@ async function releaseNicheRefresh(
     .eq("country", country);
 }
 
+// A high view-count floor needs a much deeper raw candidate pool than plain
+// pagination does -- targetCount (offset+limit) is sized for "how many rows
+// does this page need", not "how selective is the view filter". A narrow
+// niche keyword combined with e.g. a 750K+ views floor was starving
+// searchVideoIdsOnce down to a single, shallow search.list page (well under
+// its own 250-result/5-page ceiling) that never got far enough into results
+// to surface a qualifying video even when one genuinely existed. When a
+// floor is set (minViews below), request enough to reliably push multi-page
+// pagination.
+const HIGH_VIEW_FLOOR_SCRAPE_TARGET = 250;
+
 // Returns whether new rows were actually written, so the caller knows
 // whether re-querying Supabase afterward is worth doing. `country` is a
 // YouTube regionCode (e.g. "US"); ignored for TikTok, defaults to
@@ -102,7 +113,8 @@ export async function refreshNicheVideoCache(
   niche: NicheName,
   platform: VideoPlatform,
   targetCount: number,
-  country: string = GLOBAL_REGION
+  country: string = GLOBAL_REGION,
+  minViews: number = 0
 ): Promise<boolean> {
   const region = platform === "youtube" ? country : GLOBAL_REGION;
   const claimed = await claimNicheRefresh(admin, niche, platform, region);
@@ -120,10 +132,14 @@ export async function refreshNicheVideoCache(
       // requests -- see backfillPageFollowerCounts in niche-video-query.ts.
       scraped = await fetchNicheTrendingVideos(NICHE_HASHTAGS[niche], targetCount + BACKFILL_BUFFER);
     } else {
+      const scrapeTarget =
+        minViews > 0
+          ? Math.max(targetCount + BACKFILL_BUFFER, HIGH_VIEW_FLOOR_SCRAPE_TARGET)
+          : targetCount + BACKFILL_BUFFER;
       scraped = await fetchNicheYoutubeVideos(
         NICHE_HASHTAGS[niche],
-        targetCount + BACKFILL_BUFFER,
-        region === GLOBAL_REGION ? null : region
+        scrapeTarget,
+        region === GLOBAL_REGION ? null : [region]
       );
     }
     if (scraped.length === 0) return false;

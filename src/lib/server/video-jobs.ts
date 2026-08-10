@@ -16,6 +16,7 @@ import { getVideoJobResult, downloadVideoAsset } from "./replicate-video";
 import { chargeUser } from "./credits";
 import { recordUsageEvent } from "./usage";
 import { slugifyModelName } from "@/lib/config/pricing";
+import { describeGenerationFailure } from "./generation-error";
 
 const STORAGE_BUCKET = "videos";
 
@@ -50,7 +51,10 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
     if (result.status !== "succeeded") {
       const isTerminalFailure = result.status === "failed" || result.status === "canceled" || result.status === "aborted";
       if (isTerminalFailure) {
-        await admin.from("video_generations").update({ status: "failed", error_message: result.errorMessage }).eq("id", row.id);
+        await admin
+          .from("video_generations")
+          .update({ status: "failed", ...describeGenerationFailure("video-jobs", result.errorMessage) })
+          .eq("id", row.id);
         return;
       }
       if (row.status === "queued") {
@@ -104,7 +108,9 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
 
     void recordUsageEvent("video", row.user_id, { generationId: row.id, mode: row.mode, model: row.model });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Video generation failed";
-    await admin.from("video_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
+    await admin
+      .from("video_generations")
+      .update({ status: "failed", ...describeGenerationFailure("video-jobs", error) })
+      .eq("id", row.id);
   }
 }

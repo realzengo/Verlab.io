@@ -579,7 +579,7 @@ export function FrameImageGenerateModal({ frameLabel, defaultAspectRatio, onClos
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to generate..."
-              className="min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-3 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-zinc-500"
+              className="min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-3 text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-zinc-500"
             />
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">

@@ -77,7 +77,7 @@ export function TopBar({
             <button
               type="button"
               onClick={() => setIsUpgradeOpen(true)}
-              className="flex items-center gap-1.5 rounded-full bg-btn-primary py-1.5 pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
+              className="flex h-9 items-center gap-1.5 rounded-full bg-btn-primary pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
             >
               <Rocket className="h-3.5 w-3.5" fill="currentColor" />
               <span className="hidden sm:inline-block">Upgrade</span>

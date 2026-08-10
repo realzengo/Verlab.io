@@ -177,11 +177,11 @@ export function UpgradeModal({
   // modal below sibling elements like the sidebar.
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:px-4 sm:py-8 sm:backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card-hover"
+        className="relative flex h-full max-h-none w-full flex-col overflow-hidden rounded-none border-0 bg-surface sm:h-auto sm:max-h-[94vh] sm:w-full sm:max-w-7xl sm:rounded-card-lg sm:border sm:border-hairline sm:shadow-card-hover"
         onClick={(event) => event.stopPropagation()}
       >
         <button

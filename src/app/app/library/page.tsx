@@ -60,25 +60,81 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   link.click();
 }
 
-function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }) {
-  // Videos never get a server-extracted thumbnail_path (no ffmpeg
-  // frame-extraction step exists), so thumbnailUrl is always null for them --
-  // rendering the real <video> here (same approach as the preview modal and
-  // VideoGenerator's own gallery) lets the browser paint its own first frame
-  // instead of falling through to the plain icon placeholder below.
-  if (asset.type === "video" && asset.fileUrl) {
-    return (
-      <video
-        src={asset.fileUrl}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onMouseEnter={(event) => void event.currentTarget.play().catch(() => {})}
-        onMouseLeave={(event) => event.currentTarget.pause()}
-        className="absolute inset-0 h-full w-full object-cover"
+function AssetPlaceholder({ type }: { type: LibraryAssetType }) {
+  const badge = TYPE_BADGE[type];
+  const Icon = badge.icon;
+  return (
+    <div className={cn("absolute inset-0 flex items-center justify-center overflow-hidden", badge.chip)}>
+      <div
+        className="absolute inset-0 opacity-[0.06]"
+        style={{
+          backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+        }}
       />
+      <div className={cn("absolute -right-6 -bottom-8 h-28 w-28 rounded-full opacity-[0.08]", badge.text, "bg-current")} />
+      <span
+        className={cn(
+          "relative flex h-11 w-11 items-center justify-center rounded-xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]",
+          badge.text
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+    </div>
+  );
+}
+
+function VideoThumbnail({ src }: { src: string }) {
+  // Every card in the grid used to mount its <video> (and start fetching)
+  // the moment it rendered, so a page full of videos fired that many
+  // concurrent requests through the proxied /api/library/video/[id] route
+  // (auth check + DB read + Supabase signed-URL mint + stream) all at once --
+  // that pile-up is what made the grid feel slow to paint. Deferring the
+  // `src` until the card is actually near the viewport spreads those
+  // requests out instead of firing them all on mount.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" }
     );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0">
+      {shouldLoad ? (
+        <video
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onMouseEnter={(event) => void event.currentTarget.play().catch(() => {})}
+          onMouseLeave={(event) => event.currentTarget.pause()}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <AssetPlaceholder type="video" />
+      )}
+    </div>
+  );
+}
+
+function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }) {
+  if (asset.type === "video" && asset.fileUrl) {
+    return <VideoThumbnail src={asset.fileUrl} />;
   }
 
   if (asset.thumbnailUrl) {
@@ -118,13 +174,7 @@ function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }
     );
   }
 
-  const Icon =
-    asset.type === "video" ? Film : asset.type === "sop" ? Sparkles : asset.type === "voiceover" ? Mic2 : ImageIcon;
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <Icon className="h-8 w-8 text-slate-300 dark:text-zinc-700" />
-    </div>
-  );
+  return <AssetPlaceholder type={asset.type} />;
 }
 
 function VideoPlayIndicator() {

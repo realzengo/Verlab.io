@@ -468,7 +468,14 @@ export interface ActivityLogEntry {
 }
 
 export type SystemJobStatus = "queued" | "running" | "success" | "failed";
-export type SystemJobType = "niche-bend" | "sop-generation" | "transcript" | "download";
+export type SystemJobType =
+  | "niche-bend"
+  | "sop-generation"
+  | "transcript"
+  | "download"
+  | "video-generation"
+  | "image-generation"
+  | "voiceover-generation";
 
 export interface SystemJob {
   id: string;
@@ -477,6 +484,8 @@ export interface SystemJob {
   userEmail: string;
   startedAt: string;
   durationMs?: number;
+  /** Raw provider/error detail for failed jobs -- admin-only, never shown to the end user who saw a generic message instead. */
+  errorMessage?: string | null;
 }
 
 export interface ApiEndpointHealth {

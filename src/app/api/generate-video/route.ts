@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getVideoGenerationCost } from "@/lib/config/pricing";
 import { DEFAULT_VIDEO_MODEL, getVideoModel, type VideoModelConfig } from "@/lib/config/video-models";
 import { getUserCredits } from "@/lib/server/credits";
-import { submitVideoJob, ReplicateVideoError } from "@/lib/server/replicate-video";
+import { submitVideoJob } from "@/lib/server/replicate-video";
 import { advanceVideoJob, type VideoJobRow } from "@/lib/server/video-jobs";
 import { validateReferenceImage } from "@/lib/server/video-validation";
+import { describeGenerationFailure, GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
@@ -277,10 +278,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       await supabase.from("video_generations").update({ replicate_prediction_id: predictionId }).eq("id", row.id);
       rowIds.push(row.id);
     } catch (submitError) {
-      console.error("[generate-video] submitVideoJob failed:", submitError);
-      const message = submitError instanceof ReplicateVideoError ? submitError.message : "Could not start generation";
-      await supabase.from("video_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
-      failures.push(message);
+      await supabase
+        .from("video_generations")
+        .update({ status: "failed", ...describeGenerationFailure("generate-video", submitError) })
+        .eq("id", row.id);
+      failures.push(GENERIC_GENERATION_ERROR);
     }
   }
 

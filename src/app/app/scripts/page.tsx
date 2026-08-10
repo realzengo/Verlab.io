@@ -432,7 +432,7 @@ function ScriptWriterPageInner() {
                 onKeyDown={handleKeyDown}
                 placeholder={PLACEHOLDER}
                 disabled={isGenerating}
-                className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
+                className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
               />
             </div>
 

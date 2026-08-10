@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal, preload } from "react-dom";
 import Link from "next/link";
-import { Eye, Heart, Loader2, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
+import { Eye, Heart, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
+import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   NicheTopBar,
@@ -14,6 +16,7 @@ import {
 } from "@/components/features/NicheTopBar";
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
 import { VideoDetailModal } from "@/components/features/VideoDetailModal";
+import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
 import { cn } from "@/lib/utils";
 import type { TrendingVideo } from "@/lib/types";
 
@@ -152,13 +155,33 @@ export function formatTimeAgo(isoDate: string | null): string | null {
 
 
 export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onOpen: (video: TrendingVideo) => void }) {
-  const [saved, setSaved] = useState(false);
+  const { isSaved, toggleSave } = useSavedVideos();
+  const saved = isSaved(video.id);
+  // TikTok's stored coverUrl is a signed CDN link that can expire long
+  // before a user actually views the card, or be missing outright if the
+  // scrape response omitted it (see /api/media/tiktok-thumb) -- one retry
+  // through that proxy (which mints a brand-new URL on demand) before
+  // falling back to the plain gradient+play-icon card.
+  const tiktokThumbFallbackUrl = `/api/media/tiktok-thumb?url=${encodeURIComponent(video.videoUrl)}`;
+  const [coverSrc, setCoverSrc] = useState(
+    video.coverUrl || (video.platform === "tiktok" ? tiktokThumbFallbackUrl : "")
+  );
+  const triedThumbFallback = useRef(!video.coverUrl);
   const [coverFailed, setCoverFailed] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
   const niche = video.niche;
   const style = videoStyle(video);
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
+
+  function handleCoverError() {
+    if (!triedThumbFallback.current && video.platform === "tiktok") {
+      triedThumbFallback.current = true;
+      setCoverSrc(tiktokThumbFallbackUrl);
+      return;
+    }
+    setCoverFailed(true);
+  }
 
   return (
     <div
@@ -176,13 +199,13 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
     >
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
-        {video.coverUrl && !coverFailed && (
+        {coverSrc && !coverFailed && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={video.coverUrl}
+            src={coverSrc}
             alt=""
             referrerPolicy="no-referrer"
-            onError={() => setCoverFailed(true)}
+            onError={handleCoverError}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           />
         )}
@@ -201,7 +224,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setSaved((prev) => !prev);
+            toggleSave(video);
           }}
           aria-label="Save video"
           aria-pressed={saved}
@@ -317,6 +340,11 @@ export function NicheFinder({
   nicheCounts: Record<string, number>;
   availableNiches: string[];
 }) {
+  // Warms the browser cache for the loading logo the moment this page
+  // mounts, so by the time a search actually triggers the loading overlay
+  // the image paints instantly instead of racing a fresh network request.
+  preload("/logo-circle.png", { as: "image" });
+
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
@@ -340,6 +368,9 @@ export function NicheFinder({
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState<string | null>(null);
   const [videoPage, setVideoPage] = useState(1);
+  // True when nothing cleared the requested view-count floor and the server
+  // dropped it to show the closest matches instead of an empty page.
+  const [videosRelaxedFilters, setVideosRelaxedFilters] = useState(false);
 
   // Reset to page 1 whenever a filter (not the page itself) changes.
   // Adjusting state during render — rather than in an effect — avoids an
@@ -399,10 +430,6 @@ export function NicheFinder({
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
         if (videoRangeFilters.followersMax) qs.set("followersMax", videoRangeFilters.followersMax);
-        if (videoRangeFilters.outlierMin) qs.set("outlierMin", videoRangeFilters.outlierMin);
-        if (videoRangeFilters.outlierMax) qs.set("outlierMax", videoRangeFilters.outlierMax);
-        if (videoRangeFilters.viewsPerHourMin) qs.set("viewsPerHourMin", videoRangeFilters.viewsPerHourMin);
-        if (videoRangeFilters.viewsPerHourMax) qs.set("viewsPerHourMax", videoRangeFilters.viewsPerHourMax);
         if (videoRangeFilters.countries.length > 0) qs.set("country", videoRangeFilters.countries.join(","));
 
         const res = await fetch(`/api/niches/${encodeURIComponent(activeNiche ?? "all")}/videos?${qs.toString()}`, {
@@ -415,6 +442,7 @@ export function NicheFinder({
         if (latestRequestIdRef.current !== requestId) return;
         setVideos(json.videos);
         setHasMore(Boolean(json.hasMore));
+        setVideosRelaxedFilters(Boolean(json.relaxedFilters));
       } catch (err) {
         if (latestRequestIdRef.current !== requestId) return;
         // A superseded request (filters/page changed again before this one
@@ -422,6 +450,7 @@ export function NicheFinder({
         // request's own loadVideos() call owns the loading/error state.
         if (err instanceof DOMException && err.name === "AbortError" && !timedOut) return;
         setVideos([]);
+        setVideosRelaxedFilters(false);
         setVideosError(
           timedOut ? "Taking too long to load — try again." : "Couldn't load videos. Try again."
         );
@@ -439,69 +468,90 @@ export function NicheFinder({
   }, [activeNiche, videoPlatform, videoTimeWindow, videoSort, videoQuery, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
   return (
-    <section>
-      <NicheTopBar
-        query={queryDraft}
-        onQueryChange={setQueryDraft}
-        onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
-        platform={videoPlatform}
-        onPlatformChange={setVideoPlatform}
-        timeWindow={videoTimeWindow}
-        onTimeWindowChange={setVideoTimeWindow}
-        rangeFilters={videoRangeFilters}
-        onApplyRangeFilters={setVideoRangeFilters}
-        onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
-        sort={videoSort}
-        onSortChange={setVideoSort}
-        page={effectiveVideoPage}
-        hasMore={hasMore}
-        onPageChange={setVideoPage}
-      />
-
-      <div className="mt-4">
-        {/* Priority order: a real error always wins (even if stale videos
-            are still in state), then videos, then the loading spinner —
-            which is now guaranteed to resolve to one of the other three
-            branches within FETCH_TIMEOUT_MS — then the platform-specific
-            and generic empty fallbacks. Nothing here can spin forever. */}
-        {videosError ? (
-          <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
-            {videosError}
-          </div>
-        ) : videos.length > 0 ? (
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
-              videosLoading && "opacity-50"
-            )}
-          >
-            {videos.map((video) => (
-              <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
-            ))}
-          </div>
-        ) : videosLoading ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {activeNiche
-              ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
-              : "Loading videos…"}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-            No live videos match the current filters.
-          </div>
-        )}
-      </div>
-
-      {detailVideo && (
-        <VideoDetailModal
-          key={detailVideo.id}
-          video={detailVideo}
-          relatedVideos={videos}
-          onClose={() => setDetailVideo(null)}
-          onSelectVideo={setDetailVideo}
+    <SavedVideosProvider>
+      <section>
+        <NicheTopBar
+          query={queryDraft}
+          onQueryChange={setQueryDraft}
+          onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
+          platform={videoPlatform}
+          onPlatformChange={setVideoPlatform}
+          timeWindow={videoTimeWindow}
+          onTimeWindowChange={setVideoTimeWindow}
+          rangeFilters={videoRangeFilters}
+          onApplyRangeFilters={setVideoRangeFilters}
+          onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
+          sort={videoSort}
+          onSortChange={setVideoSort}
+          page={effectiveVideoPage}
+          hasMore={hasMore}
+          onPageChange={setVideoPage}
         />
-      )}
-    </section>
+
+        <div className="mt-4">
+          {/* Priority order: a real error always wins (even if stale videos
+              are still in state), then videos, then the loading spinner —
+              which is now guaranteed to resolve to one of the other three
+              branches within FETCH_TIMEOUT_MS — then the platform-specific
+              and generic empty fallbacks. Nothing here can spin forever. */}
+          {videosError ? (
+            <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
+              {videosError}
+            </div>
+          ) : videos.length > 0 ? (
+            <div className="relative">
+              {videosRelaxedFilters && (
+                <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
+                  No videos matched your view-count filter — showing the closest matches instead.
+                </div>
+              )}
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
+                  videosLoading && "opacity-40"
+                )}
+              >
+                {videos.map((video) => (
+                  <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
+                ))}
+              </div>
+              {videosLoading &&
+                // Portalled to <body> and fixed to the true viewport (not the
+                // grid's own box, which is usually much taller than the
+                // screen) -- centering this on the grid's own bounding box
+                // would place it below the fold on any page with more than a
+                // row or two of results.
+                createPortal(
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-app/50 backdrop-blur-sm">
+                    <SearchLoadingLogo size={140} />
+                  </div>,
+                  document.body
+                )}
+            </div>
+          ) : videosLoading ? (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
+              <SearchLoadingLogo size={140} />
+              {activeNiche
+                ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
+                : "Loading videos…"}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+              No live videos match the current filters.
+            </div>
+          )}
+        </div>
+
+        {detailVideo && (
+          <VideoDetailModal
+            key={detailVideo.id}
+            video={detailVideo}
+            relatedVideos={videos}
+            onClose={() => setDetailVideo(null)}
+            onSelectVideo={setDetailVideo}
+          />
+        )}
+      </section>
+    </SavedVideosProvider>
   );
 }

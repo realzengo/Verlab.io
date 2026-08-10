@@ -24,6 +24,7 @@ import {
   fetchTranscriptsBounded,
 } from "@/lib/server/apify-client";
 import { analyzeCreatorTranscripts, buildCreatorAnalysisDocx, type CreatorAnalysis } from "@/lib/server/creator-analysis";
+import { describeGenerationFailure } from "@/lib/server/generation-error";
 
 // Every tool below is scoped to a single Verlab user (`userId`, resolved
 // from the MCP connector token by verifyMcpToken — see mcp-auth.ts). There
@@ -511,8 +512,10 @@ const generateImageTool: McpToolDefinition = {
     }
 
     work.catch(async (error) => {
-      const message = error instanceof Error ? error.message : "Could not generate images";
-      await admin.from("image_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
+      await admin
+        .from("image_generations")
+        .update({ status: "failed", ...describeGenerationFailure("mcp/generate_image", error) })
+        .eq("id", row.id);
     });
 
     return jsonResult({ id: row.id, status: "completed", images: outcome });

@@ -4,13 +4,14 @@ import { getVoiceOption, VOICE_OPTIONS } from "@/lib/config/voices";
 import { getLanguageOption } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { generateSpeech, estimateDurationSeconds, ReplicateTtsError } from "@/lib/server/replicate-tts";
+import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-tts";
 import { splitScript } from "@/lib/server/voiceover-segmentation";
 import { mapWithConcurrency } from "@/lib/server/concurrency";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
+import { describeGenerationFailure } from "@/lib/server/generation-error";
 
 export const maxDuration = 300;
 
@@ -341,8 +342,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       await admin.from("voiceover_generations").update({ segments, status: "completed" }).eq("id", row.id);
       void recordUsageEvent("voiceover", user.id, { voiceId: voice.id, generationMode, segments: segments.length });
     } catch (error) {
-      const message = error instanceof ReplicateTtsError || error instanceof Error ? error.message : "Could not generate voiceover";
-      await admin.from("voiceover_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
+      await admin
+        .from("voiceover_generations")
+        .update({ status: "failed", ...describeGenerationFailure("generate-voiceover", error) })
+        .eq("id", row.id);
     }
   });
 

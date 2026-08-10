@@ -6,6 +6,7 @@ import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
+import { describeGenerationFailure } from "@/lib/server/generation-error";
 
 export const maxDuration = 300;
 
@@ -257,8 +258,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
       await supabase.from("image_generations").update({ images, status: "completed" }).eq("id", row.id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not generate images";
-      await supabase.from("image_generations").update({ status: "failed", error_message: message }).eq("id", row.id);
+      await supabase
+        .from("image_generations")
+        .update({ status: "failed", ...describeGenerationFailure("generate-image", error) })
+        .eq("id", row.id);
     }
   });
 
