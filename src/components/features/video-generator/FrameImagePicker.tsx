@@ -22,7 +22,46 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export const MAX_FRAME_IMAGE_BYTES = 8 * 1024 * 1024;
+// Guards against pathologically large source uploads before we even try to
+// decode them -- everything under this gets normalized down to a small JPEG
+// below, so this is not a "your photo is too big" limit users should hit.
+export const MAX_FRAME_IMAGE_BYTES = 40 * 1024 * 1024;
+
+const FRAME_IMAGE_MAX_DIMENSION = 2048;
+const FRAME_IMAGE_JPEG_QUALITY = 0.88;
+
+function bitmapToJpegDataUrl(bitmap: ImageBitmap): string {
+  const scale = Math.min(1, FRAME_IMAGE_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is not supported");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", FRAME_IMAGE_JPEG_QUALITY);
+}
+
+/**
+ * Normalizes an uploaded start/end frame image so it reliably renders and
+ * uploads: decodes via `createImageBitmap` (handles camera/phone photos --
+ * large dimensions, EXIF-rotated, sometimes formats a raw `<img src>` chokes
+ * on -- more robustly than FileReader alone) then re-encodes as a downscaled
+ * JPEG data URL. Falls back to a plain FileReader data URL if decoding
+ * fails outright, so genuinely unsupported files (e.g. HEIC in browsers
+ * without a decoder) still get a chance before the caller reports an error.
+ */
+export async function processFrameImageFile(file: File): Promise<string> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return bitmapToJpegDataUrl(bitmap);
+    } catch {
+      // Unsupported/undecodable by createImageBitmap -- try a raw read below.
+    }
+  }
+  return readFileAsDataUrl(file);
+}
 
 /**
  * A single docked drop-zone tile -- mirrors the competitor's "Start frame" /
@@ -46,6 +85,7 @@ function FrameBox({
 }) {
   const [open, setOpen] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,11 +111,22 @@ function FrameBox({
       {slot.dataUrl ? (
         <div className="group/frame relative h-28 w-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-          <img src={slot.dataUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={slot.dataUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => {
+              onChange({ ...slot, dataUrl: null });
+              setError("Couldn't preview that image. Try a JPG or PNG.");
+            }}
+          />
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover/frame:bg-black/40 group-hover/frame:opacity-100">
             <button
               type="button"
-              onClick={() => onChange({ ...slot, dataUrl: null })}
+              onClick={() => {
+                onChange({ ...slot, dataUrl: null });
+                setError(null);
+              }}
               aria-label={`Remove ${label.toLowerCase()}`}
               className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100"
             >
@@ -146,14 +197,39 @@ function FrameBox({
               className="hidden"
               onChange={async (event) => {
                 const file = event.target.files?.[0];
+                event.target.value = "";
                 if (!file) return;
-                if (file.size > MAX_FRAME_IMAGE_BYTES) return;
-                onChange({ dataUrl: await readFileAsDataUrl(file), mode: "upload" });
+
+                if (!file.type.startsWith("image/")) {
+                  setError("That file isn't an image.");
+                  return;
+                }
+                if (file.size > MAX_FRAME_IMAGE_BYTES) {
+                  setError(`Image is too large. Max size is ${MAX_FRAME_IMAGE_BYTES / (1024 * 1024)}MB.`);
+                  return;
+                }
+
+                try {
+                  const dataUrl = await processFrameImageFile(file);
+                  setError(null);
+                  onChange({ dataUrl, mode: "upload" });
+                } catch {
+                  setError("Couldn't read that file. Try a different image.");
+                }
               }}
             />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {error && (
+        <p
+          role="alert"
+          className="absolute left-0 top-full z-10 mt-1 w-32 text-[10px] font-medium leading-tight text-red-500"
+        >
+          {error}
+        </p>
+      )}
 
       {showGenerateModal && (
         <FrameImageGenerateModal
@@ -161,6 +237,7 @@ function FrameBox({
           defaultAspectRatio={aspectRatio}
           onClose={() => setShowGenerateModal(false)}
           onSelect={(dataUrl) => {
+            setError(null);
             onChange({ dataUrl, mode: "ai" });
             setShowGenerateModal(false);
           }}

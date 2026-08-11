@@ -7,7 +7,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import type { VideoModelConfig } from "@/lib/config/video-models";
 import { cn } from "@/lib/utils";
 import { ModelIcon } from "./VideoModelPicker";
-import { EMPTY_FRAME_SLOT, MAX_FRAME_IMAGE_BYTES, readFileAsDataUrl, type FrameSlotState } from "./FrameImagePicker";
+import { EMPTY_FRAME_SLOT, MAX_FRAME_IMAGE_BYTES, processFrameImageFile, type FrameSlotState } from "./FrameImagePicker";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 
 function MobileCard({ label, badge, children }: { label: string; badge?: React.ReactNode; children: React.ReactNode }) {
@@ -44,6 +44,7 @@ function MobileFrameSection({
   disabledHint?: string;
 }) {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -60,10 +61,21 @@ function MobileFrameSection({
       {slot.dataUrl ? (
         <div className="relative h-32 w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-          <img src={slot.dataUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={slot.dataUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => {
+              onChange({ ...slot, dataUrl: null });
+              setError("Couldn't preview that image. Try a JPG or PNG.");
+            }}
+          />
           <button
             type="button"
-            onClick={() => onChange({ ...slot, dataUrl: null })}
+            onClick={() => {
+              onChange({ ...slot, dataUrl: null });
+              setError(null);
+            }}
             aria-label={`Remove ${title.toLowerCase()}`}
             className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"
           >
@@ -98,11 +110,33 @@ function MobileFrameSection({
         className="hidden"
         onChange={async (event) => {
           const file = event.target.files?.[0];
+          event.target.value = "";
           if (!file) return;
-          if (file.size > MAX_FRAME_IMAGE_BYTES) return;
-          onChange({ ...slot, dataUrl: await readFileAsDataUrl(file) });
+
+          if (!file.type.startsWith("image/")) {
+            setError("That file isn't an image.");
+            return;
+          }
+          if (file.size > MAX_FRAME_IMAGE_BYTES) {
+            setError(`Image is too large. Max size is ${MAX_FRAME_IMAGE_BYTES / (1024 * 1024)}MB.`);
+            return;
+          }
+
+          try {
+            const dataUrl = await processFrameImageFile(file);
+            setError(null);
+            onChange({ ...slot, dataUrl });
+          } catch {
+            setError("Couldn't read that file. Try a different image.");
+          }
         }}
       />
+
+      {error && (
+        <p role="alert" className="mt-1.5 text-[11px] font-medium leading-tight text-red-500">
+          {error}
+        </p>
+      )}
 
       {showGenerateModal && (
         <FrameImageGenerateModal
@@ -110,6 +144,7 @@ function MobileFrameSection({
           defaultAspectRatio={aspectRatio}
           onClose={() => setShowGenerateModal(false)}
           onSelect={(dataUrl) => {
+            setError(null);
             onChange({ dataUrl, mode: "ai" });
             setShowGenerateModal(false);
           }}
