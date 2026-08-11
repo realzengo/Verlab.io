@@ -63,6 +63,26 @@ export async function processFrameImageFile(file: File): Promise<string> {
   return readFileAsDataUrl(file);
 }
 
+/** Shared validate-then-normalize path for both the file picker and drag-and-drop. */
+export async function loadFrameFile(file: File, onChange: (next: FrameSlotState) => void, setError: (message: string | null) => void) {
+  if (!file.type.startsWith("image/")) {
+    setError("That file isn't an image.");
+    return;
+  }
+  if (file.size > MAX_FRAME_IMAGE_BYTES) {
+    setError(`Image is too large. Max size is ${MAX_FRAME_IMAGE_BYTES / (1024 * 1024)}MB.`);
+    return;
+  }
+
+  try {
+    const dataUrl = await processFrameImageFile(file);
+    setError(null);
+    onChange({ dataUrl, mode: "upload" });
+  } catch {
+    setError("Couldn't read that file. Try a different image.");
+  }
+}
+
 /**
  * A single docked drop-zone tile -- mirrors the competitor's "Start frame" /
  * "End frame" squares that sit beside the prompt textarea, instead of
@@ -86,8 +106,33 @@ function FrameBox({
   const [open, setOpen] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDragOver(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+  }
+  function handleDragEnter(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+  }
+  function handleDragLeave(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) loadFrameFile(file, onChange, setError);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +152,14 @@ function FrameBox({
   }, [open]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {slot.dataUrl ? (
         <div className="group/frame relative h-28 w-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
@@ -146,11 +198,11 @@ function FrameBox({
             "flex h-28 w-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-1.5 text-center text-xs font-medium transition-colors duration-150",
             "border-slate-300 text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500",
             "dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06] dark:hover:text-blue-400",
-            open && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
+            (open || isDragOver) && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
           )}
         >
           <ImagePlus className="h-5 w-5" />
-          <span className="leading-tight">{label}</span>
+          <span className="leading-tight">{isDragOver ? "Drop image" : label}</span>
         </button>
       )}
 
@@ -195,27 +247,10 @@ function FrameBox({
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={async (event) => {
+              onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
-                if (!file) return;
-
-                if (!file.type.startsWith("image/")) {
-                  setError("That file isn't an image.");
-                  return;
-                }
-                if (file.size > MAX_FRAME_IMAGE_BYTES) {
-                  setError(`Image is too large. Max size is ${MAX_FRAME_IMAGE_BYTES / (1024 * 1024)}MB.`);
-                  return;
-                }
-
-                try {
-                  const dataUrl = await processFrameImageFile(file);
-                  setError(null);
-                  onChange({ dataUrl, mode: "upload" });
-                } catch {
-                  setError("Couldn't read that file. Try a different image.");
-                }
+                if (file) loadFrameFile(file, onChange, setError);
               }}
             />
           </motion.div>

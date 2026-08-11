@@ -7,7 +7,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import type { VideoModelConfig } from "@/lib/config/video-models";
 import { cn } from "@/lib/utils";
 import { ModelIcon } from "./VideoModelPicker";
-import { EMPTY_FRAME_SLOT, MAX_FRAME_IMAGE_BYTES, processFrameImageFile, type FrameSlotState } from "./FrameImagePicker";
+import { EMPTY_FRAME_SLOT, loadFrameFile, type FrameSlotState } from "./FrameImagePicker";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 
 function MobileCard({ label, badge, children }: { label: string; badge?: React.ReactNode; children: React.ReactNode }) {
@@ -45,10 +45,36 @@ function MobileFrameSection({
 }) {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  function handleDragOver(event: React.DragEvent) {
+    if (disabled || !event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+  }
+  function handleDragEnter(event: React.DragEvent) {
+    if (disabled || !event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+  }
+  function handleDragLeave(event: React.DragEvent) {
+    if (disabled || !event.dataTransfer.types.includes("Files")) return;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }
+  function handleDrop(event: React.DragEvent) {
+    if (disabled) return;
+    event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) loadFrameFile(file, onChange, setError);
+  }
+
   return (
-    <div>
+    <div onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{title}</span>
         {disabled && disabledHint && (
@@ -83,7 +109,12 @@ function MobileFrameSection({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-2 rounded-2xl transition-colors",
+            isDragOver && "outline outline-2 outline-offset-2 outline-blue-400"
+          )}
+        >
           <button
             type="button"
             disabled={disabled}
@@ -98,7 +129,7 @@ function MobileFrameSection({
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-300 py-3.5 text-sm font-semibold text-slate-500 transition-colors disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-slate-400"
           >
-            <Upload className="h-4 w-4" /> Upload
+            <Upload className="h-4 w-4" /> {isDragOver ? "Drop image" : "Upload"}
           </button>
         </div>
       )}
@@ -108,27 +139,10 @@ function MobileFrameSection({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={async (event) => {
+        onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (!file) return;
-
-          if (!file.type.startsWith("image/")) {
-            setError("That file isn't an image.");
-            return;
-          }
-          if (file.size > MAX_FRAME_IMAGE_BYTES) {
-            setError(`Image is too large. Max size is ${MAX_FRAME_IMAGE_BYTES / (1024 * 1024)}MB.`);
-            return;
-          }
-
-          try {
-            const dataUrl = await processFrameImageFile(file);
-            setError(null);
-            onChange({ ...slot, dataUrl });
-          } catch {
-            setError("Couldn't read that file. Try a different image.");
-          }
+          if (file) loadFrameFile(file, onChange, setError);
         }}
       />
 
