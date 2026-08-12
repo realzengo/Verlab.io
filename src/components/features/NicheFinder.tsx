@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal, preload } from "react-dom";
 import Link from "next/link";
-import { Eye, Heart, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
+import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   NicheTopBar,
+  SegmentedControl,
   type VideoPlatformFilter,
   type VideoRangeFilters,
   type VideoSort,
@@ -321,6 +322,76 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
   );
 }
 
+/** Placeholder tile shown in place of a card while saved videos are still
+ * loading -- mirrors TrendingVideoCard's proportions so the grid doesn't
+ * visibly reflow once the real cards swap in. */
+function LikedVideoCardSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface">
+      <div className="aspect-[9/16] w-full bg-app" />
+      <div className="flex flex-col gap-3 p-3.5 sm:p-4">
+        <div className="h-4 w-16 rounded-full bg-app" />
+        <div className="h-3 w-2/3 rounded-full bg-app" />
+        <div className="h-px bg-hairline" />
+        <div className="h-3 w-full rounded-full bg-app" />
+      </div>
+    </div>
+  );
+}
+
+function LikedVideosSection({
+  videos,
+  loading,
+  onOpen,
+}: {
+  videos: TrendingVideo[];
+  loading: boolean;
+  onOpen: (video: TrendingVideo) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-base font-bold text-heading sm:text-lg">Liked videos</h2>
+          <p className="mt-0.5 text-xs font-medium text-body sm:text-sm">
+            {loading
+              ? "Loading your saved videos…"
+              : videos.length > 0
+                ? `${videos.length} video${videos.length === 1 ? "" : "s"} saved for later`
+                : "Videos you save from Discover land here"}
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <LikedVideoCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : videos.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          {videos.map((video) => (
+            <TrendingVideoCard key={video.id} video={video} onOpen={onOpen} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-hairline bg-surface p-10 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
+            <Heart className="h-6 w-6 text-danger" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-heading">No liked videos yet</p>
+            <p className="mx-auto max-w-sm text-sm text-body">
+              Tap the heart on any video in Discover to save it here for quick reference later.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Hard ceiling on how long a page fetch is allowed to hang before the UI
 // gives up and shows an error instead of spinning forever. Kept comfortably
 // above the API route's own maxDuration (60s) so the server's own timeout
@@ -329,7 +400,25 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
 // a response ever coming back.
 const FETCH_TIMEOUT_MS = 70_000;
 
-export function NicheFinder({
+type NicheFinderView = "discover" | "liked";
+
+export function NicheFinder(props: {
+  initialVideos: TrendingVideo[];
+  initialHasMore: boolean;
+  nicheCounts: Record<string, number>;
+  availableNiches: string[];
+}) {
+  // SavedVideosProvider has to sit above NicheFinderInner (not inside it) so
+  // its own useSavedVideos() call — driving the "Liked" tab's grid — has a
+  // provider to read from.
+  return (
+    <SavedVideosProvider>
+      <NicheFinderInner {...props} />
+    </SavedVideosProvider>
+  );
+}
+
+function NicheFinderInner({
   initialVideos,
   initialHasMore,
   nicheCounts,
@@ -344,6 +433,9 @@ export function NicheFinder({
   // mounts, so by the time a search actually triggers the loading overlay
   // the image paints instantly instead of racing a fresh network request.
   preload("/logo-circle.png", { as: "image" });
+
+  const [activeView, setActiveView] = useState<NicheFinderView>("discover");
+  const { savedVideos, savedVideosLoading } = useSavedVideos();
 
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
   const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
@@ -467,91 +559,104 @@ export function NicheFinder({
     };
   }, [activeNiche, videoPlatform, videoTimeWindow, videoSort, videoQuery, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
+  const viewTabs: { id: NicheFinderView; label: string; icon: typeof Compass }[] = [
+    { id: "discover", label: "Discover", icon: Compass },
+    { id: "liked", label: savedVideos.length > 0 ? `Liked · ${savedVideos.length}` : "Liked", icon: Heart },
+  ];
+
   return (
-    <SavedVideosProvider>
-      <section>
-        <NicheTopBar
-          query={queryDraft}
-          onQueryChange={setQueryDraft}
-          onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
-          platform={videoPlatform}
-          onPlatformChange={setVideoPlatform}
-          timeWindow={videoTimeWindow}
-          onTimeWindowChange={setVideoTimeWindow}
-          rangeFilters={videoRangeFilters}
-          onApplyRangeFilters={setVideoRangeFilters}
-          onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
-          sort={videoSort}
-          onSortChange={setVideoSort}
-          page={effectiveVideoPage}
-          hasMore={hasMore}
-          onPageChange={setVideoPage}
-        />
+    <section>
+      <div className="mb-4">
+        <SegmentedControl ariaLabel="Niche Finder view" items={viewTabs} value={activeView} onChange={setActiveView} />
+      </div>
 
-        <div className="mt-4">
-          {/* Priority order: a real error always wins (even if stale videos
-              are still in state), then videos, then the loading spinner —
-              which is now guaranteed to resolve to one of the other three
-              branches within FETCH_TIMEOUT_MS — then the platform-specific
-              and generic empty fallbacks. Nothing here can spin forever. */}
-          {videosError ? (
-            <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
-              {videosError}
-            </div>
-          ) : videos.length > 0 ? (
-            <div className="relative">
-              {videosRelaxedFilters && (
-                <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
-                  No videos matched your view-count filter — showing the closest matches instead.
-                </div>
-              )}
-              <div
-                className={cn(
-                  "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
-                  videosLoading && "opacity-40"
-                )}
-              >
-                {videos.map((video) => (
-                  <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
-                ))}
-              </div>
-              {videosLoading &&
-                // Portalled to <body> and fixed to the true viewport (not the
-                // grid's own box, which is usually much taller than the
-                // screen) -- centering this on the grid's own bounding box
-                // would place it below the fold on any page with more than a
-                // row or two of results.
-                createPortal(
-                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-app/50 backdrop-blur-sm">
-                    <SearchLoadingLogo size={140} />
-                  </div>,
-                  document.body
-                )}
-            </div>
-          ) : videosLoading ? (
-            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
-              <SearchLoadingLogo size={140} />
-              {activeNiche
-                ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
-                : "Loading videos…"}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
-              No live videos match the current filters.
-            </div>
-          )}
-        </div>
-
-        {detailVideo && (
-          <VideoDetailModal
-            key={detailVideo.id}
-            video={detailVideo}
-            relatedVideos={videos}
-            onClose={() => setDetailVideo(null)}
-            onSelectVideo={setDetailVideo}
+      {activeView === "liked" ? (
+        <LikedVideosSection videos={savedVideos} loading={savedVideosLoading} onOpen={setDetailVideo} />
+      ) : (
+        <>
+          <NicheTopBar
+            query={queryDraft}
+            onQueryChange={setQueryDraft}
+            onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
+            platform={videoPlatform}
+            onPlatformChange={setVideoPlatform}
+            timeWindow={videoTimeWindow}
+            onTimeWindowChange={setVideoTimeWindow}
+            rangeFilters={videoRangeFilters}
+            onApplyRangeFilters={setVideoRangeFilters}
+            onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
+            sort={videoSort}
+            onSortChange={setVideoSort}
+            page={effectiveVideoPage}
+            hasMore={hasMore}
+            onPageChange={setVideoPage}
           />
-        )}
-      </section>
-    </SavedVideosProvider>
+
+          <div className="mt-4">
+            {/* Priority order: a real error always wins (even if stale videos
+                are still in state), then videos, then the loading spinner —
+                which is now guaranteed to resolve to one of the other three
+                branches within FETCH_TIMEOUT_MS — then the platform-specific
+                and generic empty fallbacks. Nothing here can spin forever. */}
+            {videosError ? (
+              <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
+                {videosError}
+              </div>
+            ) : videos.length > 0 ? (
+              <div className="relative">
+                {videosRelaxedFilters && (
+                  <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
+                    No videos matched your view-count filter — showing the closest matches instead.
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
+                    videosLoading && "opacity-40"
+                  )}
+                >
+                  {videos.map((video) => (
+                    <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
+                  ))}
+                </div>
+                {videosLoading &&
+                  // Portalled to <body> and fixed to the true viewport (not the
+                  // grid's own box, which is usually much taller than the
+                  // screen) -- centering this on the grid's own bounding box
+                  // would place it below the fold on any page with more than a
+                  // row or two of results.
+                  createPortal(
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-app/50 backdrop-blur-sm">
+                      <SearchLoadingLogo size={140} />
+                    </div>,
+                    document.body
+                  )}
+              </div>
+            ) : videosLoading ? (
+              <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
+                <SearchLoadingLogo size={140} />
+                {activeNiche
+                  ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
+                  : "Loading videos…"}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+                No live videos match the current filters.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {detailVideo && (
+        <VideoDetailModal
+          key={detailVideo.id}
+          video={detailVideo}
+          relatedVideos={activeView === "liked" ? savedVideos : videos}
+          onClose={() => setDetailVideo(null)}
+          onSelectVideo={setDetailVideo}
+        />
+      )}
+    </section>
   );
 }

@@ -7,6 +7,37 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+/** Shared glassy pill styling so the toolbar buttons that live outside this
+ * component (ref-image upload, settings) read as one continuous, premium
+ * control bar rather than a mix of flat and glass surfaces. */
+export const GLASS_PILL_BASE =
+  "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-1 text-xs font-medium tracking-[-0.01em] outline-none transition-all duration-200 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50";
+
+// Opaque-leaning (not translucent) on purpose: these pills sit on top of an
+// already-frosted parent panel, so a genuinely translucent fill just
+// disappears into it. The "glass" read instead comes from the crisp edge
+// (visible border + inset top highlight) and a real contact shadow that
+// lifts each pill off the surface -- the macOS Control Center / Raycast
+// look, not a see-through one.
+export const GLASS_PILL_IDLE = cn(
+  "border-slate-200 bg-white text-slate-800 backdrop-saturate-150",
+  "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_-6px_rgba(15,23,42,0.14),inset_0_1px_0_rgba(255,255,255,1)]",
+  "hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_12px_22px_-6px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,1)] hover:-translate-y-px",
+  "dark:border-white/[0.14] dark:bg-white/[0.09] dark:text-slate-100 dark:backdrop-blur-md",
+  "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_8px_18px_-8px_rgba(0,0,0,0.7)]",
+  "dark:hover:border-white/[0.22] dark:hover:bg-white/[0.13] dark:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_22px_-8px_rgba(0,0,0,0.75)]",
+);
+
+export const GLASS_PILL_FOCUS =
+  "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950";
+
+export const GLASS_PILL_ACTIVE =
+  "border-blue-300 bg-blue-50 shadow-[0_1px_2px_rgba(37,99,235,0.08),0_8px_16px_-6px_rgba(37,99,235,0.18),inset_0_1px_0_rgba(255,255,255,1)] dark:border-blue-400/50 dark:bg-blue-500/15 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_8px_18px_-8px_rgba(0,0,0,0.7)]";
+
+export const GLASS_PANEL =
+  "border border-slate-200/80 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,1)] backdrop-blur-2xl backdrop-saturate-150 " +
+  "dark:border-white/[0.10] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)] dark:backdrop-blur-2xl";
+
 interface PillDropdownOption {
   value: string;
   label: string;
@@ -101,16 +132,15 @@ export function PillDropdown({
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "group flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-          "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-          "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
-          open &&
-            "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10",
+          "group",
+          GLASS_PILL_BASE,
+          GLASS_PILL_IDLE,
+          GLASS_PILL_FOCUS,
+          open && GLASS_PILL_ACTIVE,
         )}
       >
         {Icon && (
-          <Icon className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" />
+          <Icon className="h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
         )}
         {current?.icon && (
           <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
@@ -149,7 +179,7 @@ export function PillDropdown({
         </span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
+            "h-3 w-3 shrink-0 text-slate-500 transition-transform duration-200 dark:text-slate-400",
             open && "rotate-180 text-blue-500 dark:text-blue-400",
           )}
         />
@@ -168,8 +198,7 @@ export function PillDropdown({
               openUp
                 ? "bottom-full mb-2 origin-bottom-left"
                 : "top-full mt-2 origin-top-left",
-              "border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]",
+              GLASS_PANEL,
             )}
           >
             {options.map((option) => {

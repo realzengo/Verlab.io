@@ -28,7 +28,14 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { PillDropdown } from "@/components/ui/PillDropdown";
+import {
+  PillDropdown,
+  GLASS_PILL_BASE,
+  GLASS_PILL_IDLE,
+  GLASS_PILL_FOCUS,
+  GLASS_PILL_ACTIVE,
+  GLASS_PANEL,
+} from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
@@ -202,6 +209,8 @@ function getDataUrlSize(dataUrl: string): string {
 }
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
+// Matches MAX_REFERENCE_IMAGES in api/generate-image/route.ts.
+const MAX_REF_IMAGES = 4;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -510,11 +519,11 @@ function HistoryTile({
 const REF_PREVIEW_MAX_DIM = 280; // px -- the floating hover preview's longer side is capped here
 const REF_PREVIEW_MARGIN = 16; // keep the floating preview clear of viewport edges
 
-// The small reference-image chip that sits in the toolbar once a file is
-// attached. Hovering it raises a large floating preview that tracks the
-// cursor (spring-smoothed, not 1:1) -- clicking the thumbnail re-opens the
-// file picker to swap the image, while the corner "x" removes it.
-function RefPreviewThumbnail({ src, onRemove, onReplace }: { src: string; onRemove: () => void; onReplace: () => void }) {
+// One tile in the reference-image strip above the prompt box. Hovering it
+// raises a large floating preview that tracks the cursor (spring-smoothed,
+// not 1:1) so a user juggling several references can tell them apart at a
+// glance; the corner "x" removes it from the set.
+function RefPreviewThumbnail({ src, onRemove, size = "h-16 w-16" }: { src: string; onRemove: () => void; size?: string }) {
   const [hovering, setHovering] = useState(false);
   const [portalTarget, setPortalTarget] = useState<Element | null>(null);
   // The floating preview should show the reference image at its own aspect
@@ -571,15 +580,10 @@ function RefPreviewThumbnail({ src, onRemove, onReplace }: { src: string; onRemo
       onMouseLeave={() => setHovering(false)}
       onMouseMove={handleMouseMove}
     >
-      <button
-        type="button"
-        onClick={onReplace}
-        aria-label="Replace reference image"
-        className="block h-9 w-9 overflow-hidden rounded-xl border border-slate-200 shadow-sm outline-none transition-colors duration-150 hover:border-slate-300 dark:border-white/[0.1] dark:hover:border-white/[0.2]"
-      >
+      <div className={cn("overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.1]", size)}>
         {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not a static asset */}
         <img src={src} alt="Reference" className="h-full w-full object-cover" />
-      </button>
+      </div>
       <button
         type="button"
         onClick={(event) => {
@@ -648,8 +652,8 @@ export function ImageGenerator() {
   const [webSearchEnabled] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
-  const [refImage, setRefImage] = useState<File | null>(null);
-  const [refImagePreviewUrl, setRefImagePreviewUrl] = useState<string | null>(null);
+  const [refImages, setRefImages] = useState<File[]>([]);
+  const [refImagePreviewUrls, setRefImagePreviewUrls] = useState<string[]>([]);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
@@ -698,7 +702,7 @@ export function ImageGenerator() {
     resolution: resolution as ImageResolution,
     quality: quality as ImageQuality,
     outputs,
-    hasReferenceImage: Boolean(refImage),
+    hasReferenceImage: refImages.length > 0,
   });
 
   const galleryColumns = Math.max(2, Math.min(6, Math.round(6 - (galleryZoom / 100) * 4)));
@@ -744,14 +748,10 @@ export function ImageGenerator() {
   }, [previewItem]);
 
   useEffect(() => {
-    if (!refImage) {
-      setRefImagePreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(refImage);
-    setRefImagePreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [refImage]);
+    const urls = refImages.map((file) => URL.createObjectURL(file));
+    setRefImagePreviewUrls(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [refImages]);
 
   useEffect(() => {
     if (!previewItem) {
@@ -983,7 +983,7 @@ export function ImageGenerator() {
     const item = previewItem;
     const extension = getMimeType(item.src).split("/")[1] ?? "png";
     setActiveTab("generate");
-    setRefImage(dataUrlToFile(item.src, `remix-source.${extension}`));
+    setRefImages([dataUrlToFile(item.src, `remix-source.${extension}`)]);
     setPrompt(item.prompt);
     setPreviewItem(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1011,7 +1011,7 @@ export function ImageGenerator() {
   async function remixFromHistoryItem(item: GenerationHistoryItem) {
     const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
     const extension = getMimeType(src).split("/")[1] ?? "png";
-    setRefImage(dataUrlToFile(src, `remix-source.${extension}`));
+    setRefImages([dataUrlToFile(src, `remix-source.${extension}`)]);
     setPrompt(item.prompt);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1022,12 +1022,12 @@ export function ImageGenerator() {
     router.push("/app/video-generator");
   }
 
-  // Unlike Remix, this only attaches the image as a reference -- it leaves
-  // whatever prompt the user has already typed alone.
+  // Unlike Remix, this adds onto whatever reference images are already
+  // attached (rather than replacing them) and leaves the typed prompt alone.
   async function addAsReferenceFromHistoryItem(item: GenerationHistoryItem) {
     const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
     const extension = getMimeType(src).split("/")[1] ?? "png";
-    setRefImage(dataUrlToFile(src, `reference.${extension}`));
+    setRefImages((prev) => [...prev, dataUrlToFile(src, `reference.${extension}`)].slice(0, MAX_REF_IMAGES));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1068,7 +1068,7 @@ export function ImageGenerator() {
     setPendingBatches((prev) => [...prev, { id: pendingId, count: outputs, aspectRatio }]);
 
     try {
-      const referenceImage = refImage ? await readFileAsDataUrl(refImage) : undefined;
+      const referenceImages = refImages.length ? await Promise.all(refImages.map(readFileAsDataUrl)) : undefined;
 
       const response = await fetch("/api/generate-image", {
         method: "POST",
@@ -1080,7 +1080,7 @@ export function ImageGenerator() {
           outputs,
           quality: QUALITY_LADDER_MODELS.has(selectedModel) ? quality : "auto",
           resolution: RESOLUTION_MODELS.has(selectedModel) ? resolution : "1K",
-          referenceImages: referenceImage ? [referenceImage] : undefined,
+          referenceImages,
         }),
       });
 
@@ -1100,53 +1100,87 @@ export function ImageGenerator() {
     }
   }
 
-  function handleRefImageChange(file: File | null) {
-    if (file && file.size > MAX_REFERENCE_IMAGE_BYTES) {
-      setError("Reference image is too large (max 8MB).");
+  // Appends newly picked files to the existing set (rather than replacing
+  // it), so selecting from the file dialog a second time adds on top of
+  // what's already there -- silently capped at MAX_REF_IMAGES since the
+  // "+" tile and the toolbar trigger are both already hidden/disabled once
+  // that many are attached, this only guards the raw <input multiple> path.
+  function handleRefImagesChange(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+    const oversized = incoming.some((file) => file.size > MAX_REFERENCE_IMAGE_BYTES);
+    if (oversized) {
+      setError("One of those reference images is too large (max 8MB each).");
       return;
     }
     setError(null);
-    setRefImage(file);
+    setRefImages((prev) => [...prev, ...incoming].slice(0, MAX_REF_IMAGES));
   }
 
-  const refImageButton = (
-    <>
-      {refImage && refImagePreviewUrl ? (
+  function removeRefImage(index: number) {
+    setRefImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Single hidden input shared by every "add reference image" trigger
+  // (desktop strip, desktop toolbar pill, mobile section) so there's exactly
+  // one element for fileInputRef.current to ever point at.
+  const refImageInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      multiple
+      className="hidden"
+      onChange={(event) => {
+        handleRefImagesChange(event.target.files);
+        event.target.value = "";
+      }}
+    />
+  );
+
+  const refImageToolbarButton = (
+    <button
+      type="button"
+      onClick={() => fileInputRef.current?.click()}
+      disabled={refImages.length >= MAX_REF_IMAGES}
+      className={cn(
+        GLASS_PILL_BASE,
+        refImages.length > 0
+          ? cn(GLASS_PILL_ACTIVE, "text-blue-600 dark:text-blue-400")
+          : GLASS_PILL_IDLE,
+        GLASS_PILL_FOCUS,
+      )}
+    >
+      <Upload className="h-3.5 w-3.5 shrink-0" />
+      {refImages.length > 0 ? `${refImages.length} Ref` : "Ref Image"}
+    </button>
+  );
+
+  const referenceImageStrip = refImages.length > 0 && (
+    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200/70 pb-4 dark:border-white/[0.08]">
+      {refImages.map((file, index) => (
         <RefPreviewThumbnail
-          src={refImagePreviewUrl}
-          onReplace={() => fileInputRef.current?.click()}
-          onRemove={() => {
-            setRefImage(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-          }}
+          key={`${file.name}-${file.lastModified}-${index}`}
+          src={refImagePreviewUrls[index]}
+          onRemove={() => removeRefImage(index)}
         />
-      ) : (
+      ))}
+      {refImages.length < MAX_REF_IMAGES && (
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-            "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-            "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-            "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950"
-          )}
+          aria-label="Add reference image"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 transition-colors duration-150 hover:border-blue-400 hover:text-blue-500 dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:text-blue-400"
         >
-          <Upload className="h-3.5 w-3.5 shrink-0" />
-          Ref Image
+          <Plus className="h-5 w-5" />
         </button>
       )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(event) => handleRefImageChange(event.target.files?.[0] ?? null)}
-      />
-    </>
+    </div>
   );
 
   return (
     <div className="relative">
+      {refImageInput}
       {/* isolate scopes these -z-10 glows to this subtree only -- it must not
           wrap the fixed-position modals below, or their z-50 gets trapped
           inside this stacking context and can no longer paint (and blur)
@@ -1201,47 +1235,50 @@ export function ImageGenerator() {
               </section>
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <h2 className="text-xs font-semibold tracking-wide text-slate-500">REFERENCE IMAGE</h2>
-                <p className="mt-1 text-sm text-slate-400">{refImage ? "1 of 1" : "0 of 1"} reference image added.</p>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
-                      <Upload className="h-4 w-4 text-slate-500" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">
-                        {refImage ? refImage.name : "Upload reference image"}
+                <h2 className="text-xs font-semibold tracking-wide text-slate-500">REFERENCE IMAGES</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  {refImages.length} of {MAX_REF_IMAGES} reference images added.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {refImages.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-zinc-800"
+                    >
+                      <span className="h-10 w-10 shrink-0 overflow-hidden rounded-xl">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not a static asset */}
+                        <img src={refImagePreviewUrls[index]} alt="" className="h-full w-full object-cover" />
                       </span>
-                      <span className="block truncate text-xs text-slate-400">
-                        {refImage ? formatBytes(refImage.size) : "PNG, JPG, WebP, or GIF"}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{file.name}</span>
+                        <span className="block truncate text-xs text-slate-400">{formatBytes(file.size)}</span>
                       </span>
-                    </span>
-                  </button>
-                  {refImage && (
+                      <button
+                        type="button"
+                        onClick={() => removeRefImage(index)}
+                        aria-label="Remove reference image"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {refImages.length < MAX_REF_IMAGES && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setRefImage(null);
-                        if (fileInputRef.current) fileInputRef.current.value = "";
-                      }}
-                      aria-label="Remove reference image"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
                     >
-                      <X className="h-4 w-4" />
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
+                        <Upload className="h-4 w-4 text-slate-500" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-900 dark:text-white">Add reference image</span>
+                        <span className="block text-xs text-slate-400">PNG, JPG, WebP, or GIF</span>
+                      </span>
                     </button>
                   )}
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => handleRefImageChange(event.target.files?.[0] ?? null)}
-                />
               </section>
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
@@ -1555,6 +1592,7 @@ export function ImageGenerator() {
                   "dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
                 )}
               >
+            {referenceImageStrip}
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
@@ -1562,7 +1600,7 @@ export function ImageGenerator() {
               className="min-h-[96px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
-            <div className="mt-3 flex flex-nowrap items-center gap-2">
+            <div className="-ml-3 mt-3 flex flex-nowrap items-center gap-2">
               <div className="flex flex-nowrap items-center gap-1.5">
                 <PillDropdown value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
                 <PillDropdown value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />
@@ -1574,7 +1612,7 @@ export function ImageGenerator() {
                   options={OUTPUT_OPTIONS}
                   onChange={(value) => setOutputs(Number(value))}
                 />
-                {refImageButton}
+                {refImageToolbarButton}
 
                 {RESOLUTION_MODELS.has(selectedModel) && (
                 <div ref={settingsMenuRef} className="relative">
@@ -1583,11 +1621,9 @@ export function ImageGenerator() {
                     onClick={() => setIsSettingsOpen((prev) => !prev)}
                     aria-expanded={isSettingsOpen}
                     className={cn(
-                      "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-sm font-medium tracking-[-0.01em] shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-                      "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                      "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-                      "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
-                      isSettingsOpen && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
+                      GLASS_PILL_BASE,
+                      isSettingsOpen ? GLASS_PILL_ACTIVE : GLASS_PILL_IDLE,
+                      GLASS_PILL_FOCUS,
                     )}
                   >
                     <SlidersHorizontal className={cn("h-3.5 w-3.5 transition-colors", isSettingsOpen && "text-blue-500 dark:text-blue-400")} />
@@ -1602,9 +1638,8 @@ export function ImageGenerator() {
                         exit={{ opacity: 0, y: -4, scale: 0.98 }}
                         transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
-                          "absolute top-full right-0 z-50 mt-2 flex w-64 origin-top-right flex-col gap-4 rounded-2xl border p-4",
-                          "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-                          "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
+                          "absolute top-full right-0 z-50 mt-2 flex w-64 origin-top-right flex-col gap-4 rounded-2xl p-4",
+                          GLASS_PANEL,
                         )}
                       >
                         <div>
@@ -1663,7 +1698,7 @@ export function ImageGenerator() {
                 disabled={!canSubmit}
                 onClick={handleGenerate}
                 trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                className="ml-8 shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                className="ml-12 shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
               />
             </div>
               </div>

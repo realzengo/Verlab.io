@@ -108,6 +108,10 @@ const TOOLS: {
     href: "/app/voiceover-generator",
     icon: Mic2,
     tone: "cat-2",
+    video: "/videos/voiceover-generator.mp4",
+    videoPoster: "/videos/voiceover-generator-poster.jpg",
+    videoDark: "/videos/voiceover-generator-dark.mp4",
+    videoPosterDark: "/videos/voiceover-generator-dark-poster.jpg",
   },
 ];
 

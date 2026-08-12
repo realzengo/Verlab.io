@@ -11,6 +11,7 @@ import {
   Search,
   SlidersHorizontal,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { RangeSlider } from "@/components/ui/RangeSlider";
@@ -74,14 +75,14 @@ function useClickOutside(open: boolean, onClose: () => void) {
   return ref;
 }
 
-function SegmentedControl<T extends string>({
+export function SegmentedControl<T extends string>({
   ariaLabel,
   items,
   value,
   onChange,
 }: {
   ariaLabel: string;
-  items: { id: T; label: string }[];
+  items: { id: T; label: string; icon?: LucideIcon }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -95,6 +96,7 @@ function SegmentedControl<T extends string>({
     >
       {items.map((item) => {
         const isActive = item.id === value;
+        const Icon = item.icon;
         return (
           <button
             key={item.id}
@@ -111,7 +113,13 @@ function SegmentedControl<T extends string>({
                 className="absolute inset-0 rounded-lg bg-surface shadow-card"
               />
             )}
-            <span className={cn("relative z-10 transition-colors", isActive ? "text-heading" : "text-body hover:text-heading")}>
+            <span
+              className={cn(
+                "relative z-10 flex items-center gap-1.5 transition-colors",
+                isActive ? "text-heading" : "text-body hover:text-heading"
+              )}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
               {item.label}
             </span>
           </button>
