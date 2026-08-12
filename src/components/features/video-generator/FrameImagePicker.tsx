@@ -42,14 +42,26 @@ function bitmapToJpegDataUrl(bitmap: ImageBitmap): string {
   return canvas.toDataURL("image/jpeg", FRAME_IMAGE_JPEG_QUALITY);
 }
 
+/** Resolves once `src` actually paints, rejects if the browser can't render it (e.g. HEIC in Chrome/Firefox). */
+function canRenderAsImage(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+}
+
 /**
  * Normalizes an uploaded start/end frame image so it reliably renders and
  * uploads: decodes via `createImageBitmap` (handles camera/phone photos --
  * large dimensions, EXIF-rotated, sometimes formats a raw `<img src>` chokes
  * on -- more robustly than FileReader alone) then re-encodes as a downscaled
- * JPEG data URL. Falls back to a plain FileReader data URL if decoding
- * fails outright, so genuinely unsupported files (e.g. HEIC in browsers
- * without a decoder) still get a chance before the caller reports an error.
+ * JPEG data URL. Falls back to a plain FileReader data URL if decoding fails
+ * outright, but only once that fallback is confirmed to actually paint in an
+ * `<img>` -- otherwise a genuinely unsupported format (e.g. HEIC in browsers
+ * without a decoder) would sit in the slot for a frame, then have the
+ * thumbnail's own onError silently clear it right back out.
  */
 export async function processFrameImageFile(file: File): Promise<string> {
   if (typeof createImageBitmap === "function") {
@@ -60,7 +72,11 @@ export async function processFrameImageFile(file: File): Promise<string> {
       // Unsupported/undecodable by createImageBitmap -- try a raw read below.
     }
   }
-  return readFileAsDataUrl(file);
+  const dataUrl = await readFileAsDataUrl(file);
+  if (!(await canRenderAsImage(dataUrl))) {
+    throw new Error(`This browser can't display ${file.type || "that image format"}. Try converting it to JPG or PNG first.`);
+  }
+  return dataUrl;
 }
 
 /** Shared validate-then-normalize path for both the file picker and drag-and-drop. */
@@ -78,8 +94,8 @@ export async function loadFrameFile(file: File, onChange: (next: FrameSlotState)
     const dataUrl = await processFrameImageFile(file);
     setError(null);
     onChange({ dataUrl, mode: "upload" });
-  } catch {
-    setError("Couldn't read that file. Try a different image.");
+  } catch (err) {
+    setError(err instanceof Error && err.message ? err.message : "Couldn't read that file. Try a different image.");
   }
 }
 
@@ -241,21 +257,30 @@ function FrameBox({
               <Upload className="h-4 w-4 shrink-0 text-slate-400" />
               Upload
             </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) loadFrameFile(file, onChange, setError);
-              }}
-            />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/*
+        Deliberately rendered outside the AnimatePresence popover above: the
+        Upload button calls setOpen(false) in the same click that opens this
+        input's native file dialog, which unmounts the popover (and, if the
+        input lived inside it) well before a real person finishes picking a
+        file in Finder -- the dialog would still open, but the resulting
+        change event has nowhere to land since its element is already gone
+        from the DOM. Keeping the input always-mounted avoids that race.
+      */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) loadFrameFile(file, onChange, setError);
+        }}
+      />
 
       {error && (
         <p
