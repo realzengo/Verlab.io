@@ -307,9 +307,11 @@ export function NicheBendWizard() {
     cancelPollRef.current = null;
   };
 
-  // Resume an in-flight or completed job after a refresh — but not when the
-  // wizard is simply being revisited after navigating to another page in the
-  // same session, where we want to start fresh at the "paste link" step.
+  // Resume an in-flight job after a refresh — but not a job that had already
+  // finished (ready/sop_ready), where a refresh should land back on the
+  // "paste link" step rather than reopening the last result. Also skip
+  // hydration entirely when the wizard is simply being revisited after
+  // navigating to another page in the same session.
   useEffect(() => {
     if (hasHydratedThisPageLoad) return;
     hasHydratedThisPageLoad = true;
@@ -322,13 +324,15 @@ export function NicheBendWizard() {
     pollStatus(ref.jobId)
       .then((status) => {
         if (cancelled) return;
-        dispatch({ type: "HYDRATE", status, selectedCandidateId: ref.selectedCandidateId });
-        if (IN_PROGRESS_STATUSES.includes(status.status)) {
-          stopPolling();
-          cancelPollRef.current = pollStatusUntilSettled(ref.jobId, (update) => {
-            dispatch({ type: "STATUS_UPDATE", status: update });
-          });
+        if (!IN_PROGRESS_STATUSES.includes(status.status)) {
+          clearPersistedWizardRef();
+          return;
         }
+        dispatch({ type: "HYDRATE", status, selectedCandidateId: ref.selectedCandidateId });
+        stopPolling();
+        cancelPollRef.current = pollStatusUntilSettled(ref.jobId, (update) => {
+          dispatch({ type: "STATUS_UPDATE", status: update });
+        });
       })
       .catch(() => {
         clearPersistedWizardRef();

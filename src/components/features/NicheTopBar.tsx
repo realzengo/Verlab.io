@@ -769,6 +769,46 @@ function SortDropdown({ sort, onSortChange }: { sort: VideoSort; onSortChange: (
   );
 }
 
+/** Shared by the sticky top bar and the bottom-of-grid rail so paging works
+ * the same way (and looks the same) whichever one the user reaches for. */
+export function PaginationControls({
+  page,
+  hasMore,
+  onPageChange,
+}: {
+  page: number;
+  hasMore: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page === 1}
+        aria-label="Previous page"
+        className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+      >
+        <ChevronLeft className="h-3.5 w-3.5" />
+        Prev
+      </button>
+      <span className="flex h-7 min-w-7 items-center justify-center rounded-lg border border-hairline bg-surface px-2 text-xs font-semibold text-heading shadow-card">
+        {page}
+      </span>
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={!hasMore}
+        aria-label="Next page"
+        className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+      >
+        Next
+        <ChevronRight className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function NicheTopBar({
   query,
   onQueryChange,
@@ -782,9 +822,6 @@ export function NicheTopBar({
   onClearRangeFilters,
   sort,
   onSortChange,
-  page,
-  hasMore,
-  onPageChange,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
@@ -798,9 +835,6 @@ export function NicheTopBar({
   onClearRangeFilters: () => void;
   sort: VideoSort;
   onSortChange: (sort: VideoSort) => void;
-  page: number;
-  hasMore: boolean;
-  onPageChange: (page: number) => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilterCount = countActiveRangeFilters(rangeFilters) + (timeWindow !== "all" ? 1 : 0);
@@ -864,36 +898,8 @@ export function NicheTopBar({
         <SegmentedControl ariaLabel="Platform" items={PLATFORM_PILLS} value={platform} onChange={handlePlatformChange} />
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-hairline/70 py-2 text-xs text-subtle">
+      <div className="flex items-center gap-2 border-t border-hairline/70 py-2 text-xs text-subtle">
         <SortDropdown sort={sort} onSortChange={onSortChange} />
-
-        {(page > 1 || hasMore) && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 1}
-              aria-label="Previous page"
-              className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Prev
-            </button>
-            <span className="flex h-7 min-w-7 items-center justify-center rounded-lg border border-hairline bg-surface px-2 text-xs font-semibold text-heading shadow-card">
-              {page}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={!hasMore}
-              aria-label="Next page"
-              className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
       </div>
 
       <FiltersPanel

@@ -57,7 +57,7 @@ interface VideoModelPickerProps<T extends ModelPickerOption> {
   value: string;
   onChange: (id: string) => void;
   models: T[];
-  /** IDs shown under a "Popular" section above the rest, under "More" -- omit (or leave empty) for a small catalog that doesn't need grouping (e.g. Edit tab's 2 models). */
+  /** IDs shown under a "Popular" section above the rest, under "More" -- omit (or leave empty) for a small catalog that doesn't need grouping (e.g. Edit tab's models). */
   popularIds?: string[];
   className?: string;
 }

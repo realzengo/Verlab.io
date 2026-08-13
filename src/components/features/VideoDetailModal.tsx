@@ -193,6 +193,29 @@ export function VideoDetailModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // The caller only ever hands us whatever page of (often niche-mixed)
+  // results it already had loaded in the background grid, so filtering that
+  // down to this video's niche client-side regularly turns up just one or
+  // two matches. Fetch this niche's own top videos directly instead, so the
+  // "same niche" rail is actually populated regardless of what the parent
+  // grid happened to have on hand.
+  const [fetchedRelated, setFetchedRelated] = useState<TrendingVideo[] | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch(`/api/niches/${encodeURIComponent(video.niche)}/videos?limit=24&sort=views`, {
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data: { videos: TrendingVideo[] }) => setFetchedRelated(data.videos))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setFetchedRelated([]);
+      });
+
+    return () => controller.abort();
+  }, [video.niche]);
+
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
   const platformLabel = PLATFORM_BADGE[video.platform].label;
   const hashtags = parseHashtags(video.title);
@@ -200,7 +223,10 @@ export function VideoDetailModal({
   const profileUrl = handle ? `https://www.tiktok.com/@${handle}` : null;
   const timeAgo = formatTimeAgo(video.postedAt);
 
-  const related = relatedVideos.filter((v) => v.niche === video.niche && v.id !== video.id).slice(0, 8);
+  // Fall back to the client-side filter while the fetch above is in flight
+  // (or if it failed) so the rail isn't just empty in the meantime.
+  const relatedPool = fetchedRelated ?? relatedVideos;
+  const related = relatedPool.filter((v) => v.niche === video.niche && v.id !== video.id).slice(0, 12);
 
   return (
     <div
@@ -216,15 +242,7 @@ export function VideoDetailModal({
             reach regardless of how far the body below is scrolled. */}
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-hairline px-6 py-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-2.5">
-            {video.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={video.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-hairline" />
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                {video.author.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="truncate text-sm font-bold text-heading">{video.author}</span>
+            <span className="truncate text-sm font-bold text-heading">@{video.author}</span>
             <span className="hidden text-hairline sm:inline">•</span>
             <span className="hidden items-center gap-1.5 text-xs font-semibold text-subtle sm:flex">
               <PlatformIcon className="h-3.5 w-3.5" />
@@ -248,16 +266,8 @@ export function VideoDetailModal({
           <div className="flex flex-col gap-5 rounded-2xl border border-hairline bg-app p-5 lg:sticky lg:top-0 lg:self-start">
             <div>
               <div className="flex items-center gap-3">
-                {video.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={video.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-hairline" />
-                ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-                    {video.author.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-heading">{video.author}</p>
+                  <p className="truncate text-sm font-bold text-heading">@{video.author}</p>
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-subtle">
                     <PlatformIcon className="h-3.5 w-3.5" />
                     {platformLabel}
@@ -548,7 +558,13 @@ export function VideoDetailModal({
             {related.length > 0 && (
               <div>
                 <p className="mb-3.5 text-sm font-bold text-heading">Videos in the same niche</p>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {/* A fixed max card width (not 1fr) keeps cards a normal,
+                    consistent size regardless of how many results come
+                    back -- with auto-fit + minmax(_, 1fr) a niche with only
+                    one or two matches would stretch those cards to fill
+                    the whole row; with minmax(_, 220px) they just stay
+                    card-sized and leave the leftover space empty. */}
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,220px))] gap-4">
                   {related.map((v) => (
                     <TrendingVideoCard key={v.id} video={v} onOpen={onSelectVideo} />
                   ))}

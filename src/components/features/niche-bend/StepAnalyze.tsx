@@ -56,18 +56,25 @@ export function StepAnalyze({
   const phaseIndex = useFakeStepProgress(analyzeState === "polling", LOADING_PHASES.length);
 
   return (
-    <div className="animate-bend-in mx-auto flex max-w-2xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
+    <div className="animate-bend-in relative mx-auto flex max-w-3xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
       <div>
-        <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-hairline bg-surface shadow-card">
-          <Wand2 className="h-5 w-5 text-primary" />
+        <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface py-1 pl-1 pr-3.5 shadow-card">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#6d93ff] to-primary text-white">
+            <Wand2 className="h-2.5 w-2.5" strokeWidth={2.5} />
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Format Intelligence</span>
         </span>
 
-        <h1 className="bg-gradient-to-b from-heading to-heading/75 bg-clip-text text-4xl font-semibold tracking-tighter text-transparent sm:text-5xl">
-          Niche bend it.
+        <h1 className="text-balance bg-gradient-to-b from-heading to-heading/70 bg-clip-text pb-1 text-4xl font-semibold leading-[1.15] tracking-tighter text-transparent sm:text-5xl lg:text-[3.25rem]">
+          Reverse-engineer any{" "}
+          <span className="bg-gradient-to-br from-[#6d93ff] to-primary bg-clip-text text-transparent">
+            viral format
+          </span>
+          .
         </h1>
         <p className="mx-auto mt-3.5 max-w-lg text-sm font-semibold leading-relaxed text-body/60">
-          Paste a YouTube or TikTok link — we&apos;ll reverse-engineer the format and hand you three ways to make it
-          yours.
+          Paste a channel link and we&apos;ll break down exactly what&apos;s working, then hand you three fresh ways
+          to make it yours.
         </p>
       </div>
 

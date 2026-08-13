@@ -144,7 +144,11 @@ function mapAwemeItems(items: SociaVaultAwemeItem[], hashtag: string): TrendingT
 
   for (const item of items) {
     const handle = item.author?.unique_id;
-    if (!item.aweme_id || !handle || seen.has(item.aweme_id)) continue;
+    // A truthy-but-non-string author.unique_id (seen from the global
+    // trending feed, see mapUnscopedAwemeItems below) would otherwise sail
+    // through a plain truthiness check and get template-literal-coerced
+    // into a broken "@[object Object]" video URL that can never resolve.
+    if (!item.aweme_id || typeof handle !== "string" || !handle || seen.has(item.aweme_id)) continue;
     seen.add(item.aweme_id);
     const viewCount = Number(item.statistics?.play_count) || 0;
     videos.push({
@@ -156,7 +160,7 @@ function mapAwemeItems(items: SociaVaultAwemeItem[], hashtag: string): TrendingT
       commentCount: Number(item.statistics?.comment_count) || 0,
       shareCount: Number(item.statistics?.share_count) || 0,
       followerCount: Number(item.author?.follower_count) || 0,
-      coverUrl: item.video?.cover?.url_list?.[0] ?? "",
+      coverUrl: item.video?.cover?.url_list?.[0] ?? item.video?.dynamic_cover?.url_list?.[0] ?? "",
       videoUrl: `https://www.tiktok.com/@${handle}/video/${item.aweme_id}`,
       author: item.author?.nickname?.trim() || handle,
       avatarUrl: item.author?.avatar_medium?.url_list?.[0] ?? item.author?.avatar_thumb?.url_list?.[0] ?? "",

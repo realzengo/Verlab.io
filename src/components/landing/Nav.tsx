@@ -88,7 +88,6 @@ export function Nav() {
                 width={887}
                 height={237}
                 sizes="160px"
-                priority
                 className="hidden h-9 w-auto dark:block sm:h-11"
               />
             </Link>

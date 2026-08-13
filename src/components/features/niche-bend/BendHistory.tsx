@@ -163,13 +163,8 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
           return (
             <li
               key={item.jobId}
-              className="group relative flex flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card ring-1 ring-inset ring-white/[0.03] transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-card-hover"
+              className="group relative flex flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 hover:border-primary/20 hover:shadow-card-hover"
             >
-              <div
-                className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
-                aria-hidden="true"
-              />
-
               {/* Corner action -- revealed on hover so the identity block below
                   is the only thing competing for attention at rest, instead of
                   a permanent row of chrome above it. */}
@@ -177,7 +172,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                 type="button"
                 onClick={() => setPendingDeleteId(item.jobId)}
                 aria-label="Delete this bend"
-                className="absolute right-3 top-3 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/80 text-subtle opacity-0 backdrop-blur-sm transition-colors hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                className="absolute right-3 top-3 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/80 text-subtle opacity-0 backdrop-blur-sm transition-colors duration-200 ease-out hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -186,7 +181,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                   badge (see ChannelAvatar) already says TikTok/YouTube, so a
                   second "TIKTOK" label up top would just repeat it. */}
               <div className="relative flex min-w-0 items-start gap-3.5 pr-7">
-                <div className="shrink-0 rounded-full ring-2 ring-app transition-transform duration-300 group-hover:scale-105">
+                <div className="shrink-0 rounded-full ring-2 ring-app transition-colors duration-300 ease-out group-hover:ring-primary/15">
                   <ChannelAvatar
                     name={item.channelName ?? item.sourceUrl ?? "?"}
                     avatarUrl={item.avatarUrl ?? undefined}
@@ -219,10 +214,10 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                       ? `View SOP for ${item.channelName ?? item.sourceUrl ?? "channel"}`
                       : `Resume bend for ${item.channelName ?? item.sourceUrl ?? "channel"}`
                   }
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-primary/25 transition-colors hover:bg-primary-hover"
+                  className="group/btn inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-primary/25 transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary-hover hover:shadow-md hover:shadow-primary/30 active:scale-[0.96] active:duration-100"
                 >
                   View
-                  <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight className="h-3 w-3 transition-transform duration-200 ease-out group-hover/btn:translate-x-0.5" />
                 </button>
               </div>
             </li>
@@ -234,10 +229,10 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card-lg border border-hairline bg-surface px-4 py-2.5 text-xs font-semibold text-subtle shadow-card transition-colors hover:bg-app hover:text-heading sm:px-5"
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card-lg border border-hairline bg-surface px-4 py-2.5 text-xs font-semibold text-subtle shadow-card transition-[transform,border-color,box-shadow,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-primary/20 hover:text-heading hover:shadow-card-hover sm:px-5"
         >
           {expanded ? "Show less" : `Show ${items.length - COLLAPSED_COUNT} more`}
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", expanded && "rotate-180")} />
         </button>
       )}
 

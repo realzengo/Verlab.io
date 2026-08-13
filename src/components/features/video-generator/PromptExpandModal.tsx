@@ -16,6 +16,8 @@ interface PromptExpandModalProps {
   onImagesChange: (next: string[]) => void;
   placeholder?: string;
   onClose: () => void;
+  /** Selected model's hard prompt-length cap, if it has one (see maxPromptLength in video-models.ts) -- shown as a live counter that turns red past the limit. */
+  maxLength?: number;
 }
 
 /**
@@ -27,7 +29,8 @@ interface PromptExpandModalProps {
  * from inside VideoGenerator's `relative isolate` glow wrapper, which would
  * otherwise trap a nested `fixed` element under the app shell's header.
  */
-export function PromptExpandModal({ value, onChange, images, onImagesChange, placeholder, onClose }: PromptExpandModalProps) {
+export function PromptExpandModal({ value, onChange, images, onImagesChange, placeholder, onClose, maxLength }: PromptExpandModalProps) {
+  const overLimit = Boolean(maxLength) && value.length > maxLength!;
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -78,6 +81,11 @@ export function PromptExpandModal({ value, onChange, images, onImagesChange, pla
             placeholder={placeholder}
             className="h-full w-full resize-none bg-transparent text-base font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
           />
+          {maxLength !== undefined && (
+            <p className={cn("mt-2 shrink-0 self-end text-xs font-medium", overLimit ? "text-red-500" : "text-slate-400 dark:text-slate-500")}>
+              {value.length} / {maxLength}
+            </p>
+          )}
         </div>
       </motion.div>
     </motion.div>,

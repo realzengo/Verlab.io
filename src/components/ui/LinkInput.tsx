@@ -32,8 +32,8 @@ export function LinkInput({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "group flex w-full flex-col gap-2 rounded-2xl border border-hairline bg-surface p-2 shadow-card transition-colors duration-300",
-        "focus-within:border-primary/40",
+        "group flex w-full flex-col gap-2 rounded-2xl border border-hairline bg-surface p-2 shadow-card transition-[border-color,box-shadow] duration-300 ease-out hover:shadow-card-hover",
+        "focus-within:border-primary/40 focus-within:shadow-card-hover focus-within:ring-4 focus-within:ring-primary/10",
         "sm:flex-row sm:items-center sm:gap-1.5 sm:rounded-full sm:p-1.5",
         className
       )}
@@ -52,7 +52,7 @@ export function LinkInput({
       <button
         type="submit"
         disabled={loading}
-        className="group flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold tracking-[-0.01em] text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60 sm:w-auto"
+        className="group flex w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold tracking-[-0.01em] text-white transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60 disabled:hover:bg-primary sm:w-auto active:scale-[0.97] active:duration-100"
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

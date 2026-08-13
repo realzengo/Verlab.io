@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal, preload } from "react-dom";
+import { preload } from "react-dom";
 import Link from "next/link";
 import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
@@ -9,6 +9,7 @@ import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   NicheTopBar,
+  PaginationControls,
   SegmentedControl,
   type VideoPlatformFilter,
   type VideoRangeFilters,
@@ -16,6 +17,7 @@ import {
   type VideoTimeWindow,
 } from "@/components/features/NicheTopBar";
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
+import { ToolFrame } from "@/components/dashboard/ToolFrame";
 import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
 import { cn } from "@/lib/utils";
@@ -169,7 +171,6 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
   );
   const triedThumbFallback = useRef(!video.coverUrl);
   const [coverFailed, setCoverFailed] = useState(false);
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
   const niche = video.niche;
   const style = videoStyle(video);
@@ -271,21 +272,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         </div>
 
         <div className="flex items-center gap-2">
-          {video.avatarUrl && !avatarFailed ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={video.avatarUrl}
-              alt=""
-              referrerPolicy="no-referrer"
-              onError={() => setAvatarFailed(true)}
-              className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-hairline"
-            />
-          ) : (
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
-              {video.author.slice(0, 2).toUpperCase()}
-            </div>
-          )}
-          <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-heading">{video.author}</span>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-heading">@{video.author}</span>
           {video.followerCount > 0 && (
             <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-subtle" title="Followers">
               <Users className="h-3 w-3" />
@@ -464,6 +451,16 @@ function NicheFinderInner({
   // dropped it to show the closest matches instead of an empty page.
   const [videosRelaxedFilters, setVideosRelaxedFilters] = useState(false);
 
+  // Paging also happens from the rail at the bottom of the grid (after
+  // scrolling through a full page of results), so changing page always
+  // jumps back to the top -- otherwise the new page loads in off-screen,
+  // below whatever the user had scrolled down to see.
+  const sectionRef = useRef<HTMLElement>(null);
+  function handleVideoPageChange(nextPage: number) {
+    setVideoPage(nextPage);
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   // Reset to page 1 whenever a filter (not the page itself) changes.
   // Adjusting state during render — rather than in an effect — avoids an
   // extra commit/fetch round-trip.
@@ -565,7 +562,7 @@ function NicheFinderInner({
   ];
 
   return (
-    <section>
+    <section ref={sectionRef}>
       <div className="mb-4">
         <SegmentedControl ariaLabel="Niche Finder view" items={viewTabs} value={activeView} onChange={setActiveView} />
       </div>
@@ -587,12 +584,13 @@ function NicheFinderInner({
             onClearRangeFilters={() => setVideoRangeFilters(EMPTY_VIDEO_RANGE_FILTERS)}
             sort={videoSort}
             onSortChange={setVideoSort}
-            page={effectiveVideoPage}
-            hasMore={hasMore}
-            onPageChange={setVideoPage}
           />
 
-          <div className="mt-4">
+          <ToolFrame
+            className="mt-4"
+            title="Niche Finder"
+            description="Non-competitive faceless niches, backed by real transcripts — not vague metadata guesses."
+          >
             {/* Priority order: a real error always wins (even if stale videos
                 are still in state), then videos, then the loading spinner —
                 which is now guaranteed to resolve to one of the other three
@@ -619,18 +617,25 @@ function NicheFinderInner({
                     <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
                   ))}
                 </div>
-                {videosLoading &&
-                  // Portalled to <body> and fixed to the true viewport (not the
-                  // grid's own box, which is usually much taller than the
-                  // screen) -- centering this on the grid's own bounding box
-                  // would place it below the fold on any page with more than a
-                  // row or two of results.
-                  createPortal(
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-app/50 backdrop-blur-sm">
+                {videosLoading && (
+                  // Scoped to the grid's own box (not the full page) so the
+                  // header and filters stay sharp -- z-10 keeps it strictly
+                  // below the top bar's own z-20, so it can never paint over
+                  // it even mid-scroll. Bleeds out on all four sides by the
+                  // same -4/6/8 amount as ToolFrame's own p-4/6/8 padding,
+                  // so the overlay reaches the card's true edge on every
+                  // side instead of just left/right -- an inset-y-0 top
+                  // edge would stop short of that padding and leave a
+                  // visible sharp margin above a hard-cut blur line.
+                  // `sticky` keeps the spinner centered on whatever part of
+                  // the grid is in view, even when the grid itself is
+                  // taller than the viewport.
+                  <div className="absolute -inset-4 z-10 overflow-hidden bg-app/60 backdrop-blur-md sm:-inset-6 md:-inset-8">
+                    <div className="sticky top-1/2 flex -translate-y-1/2 items-center justify-center">
                       <SearchLoadingLogo size={140} />
-                    </div>,
-                    document.body
-                  )}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : videosLoading ? (
               <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
@@ -644,7 +649,17 @@ function NicheFinderInner({
                 No live videos match the current filters.
               </div>
             )}
-          </div>
+
+            {/* Mirrors the pager in NicheTopBar -- after scrolling through a
+                full page of results, reaching all the way back up to the
+                sticky bar just to turn the page is annoying, so it's
+                repeated here too. */}
+            {!videosError && videos.length > 0 && (effectiveVideoPage > 1 || hasMore) && (
+              <div className="mt-6 flex justify-center">
+                <PaginationControls page={effectiveVideoPage} hasMore={hasMore} onPageChange={handleVideoPageChange} />
+              </div>
+            )}
+          </ToolFrame>
         </>
       )}
 

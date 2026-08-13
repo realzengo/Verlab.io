@@ -12,6 +12,30 @@ const PAST_DUE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 // for -- only lapsed once subscription_current_period_end has passed.
 const CANCELED_STATUSES = new Set(["canceled", "canceling"]);
 
+// Every /app /admin /checkout /oauth /login /signup request blocks on this
+// file's Supabase calls before anything can render. Without a cap, a slow
+// or hung Supabase response (not just an outage -- those already reject
+// fast) turns into a navigation that "just stays loading" with no upper
+// bound. Timing out and falling back to "no user"/"no profile" bounds the
+// worst case instead of leaving the visitor staring at a blank tab.
+const SUPABASE_CALL_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   let pendingCookies: { name: string; value: string; options?: CookieOptions }[] = [];
@@ -32,21 +56,42 @@ export async function proxy(request: NextRequest) {
     }
   );
 
+  const { pathname } = request.nextUrl;
+  const mayNeedProfile = pathname.startsWith("/app") && !pathname.startsWith("/app/settings");
+
+  // getSession() decodes the session cookie locally -- no network round trip
+  // -- so it can hand us the user id in time to kick the profile lookup off
+  // *alongside* getUser()'s network call to the Auth server, instead of
+  // waiting for that call to land first. This used to be two sequential
+  // round trips on every single /app navigation (the RSC fetch behind every
+  // tool click included), which is what made navigating feel like it hung.
+  // The profile row is only ever trusted below once getUser() has confirmed
+  // the same id, and the query itself stays RLS-scoped to the caller, so a
+  // stale/forged cookie can't leak someone else's profile by racing ahead.
+  const sessionUserId = mayNeedProfile ? (await supabase.auth.getSession()).data.session?.user.id ?? null : null;
+
   // A transient network blip talking to Supabase (DNS hiccup, brief outage)
   // must not take the whole app down -- this runs on every /app/admin/
   // checkout/oauth/login/signup request, so an uncaught throw here hangs
   // every navigation until it clears. Treat a failed lookup as "no user";
   // the existing !user branches below already redirect to /login, which is
   // the same safe outcome a real logged-out visitor gets.
-  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
-  try {
-    const result = await supabase.auth.getUser();
-    user = result.data.user;
-  } catch {
-    user = null;
-  }
+  const [userSettled, profileSettled] = await Promise.allSettled([
+    withTimeout(supabase.auth.getUser(), SUPABASE_CALL_TIMEOUT_MS),
+    sessionUserId
+      ? withTimeout(
+          supabase
+            .from("profiles")
+            .select("subscription_status, subscription_current_period_end, credits")
+            .eq("id", sessionUserId)
+            .single(),
+          SUPABASE_CALL_TIMEOUT_MS
+        )
+      : Promise.resolve(null),
+  ]);
 
-  const { pathname } = request.nextUrl;
+  const user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] =
+    userSettled.status === "fulfilled" ? userSettled.value.data.user : null;
 
   // Single place responses get built, so a refreshed session's cookies (set
   // via the Supabase client above) always ride along -- including on
@@ -93,24 +138,18 @@ export async function proxy(request: NextRequest) {
     // (see billing/portal route) or view Credit History. None of the actual
     // paid tools live under /app/settings.
     if (!userIsAdmin && !pathname.startsWith("/app/settings")) {
-      // Same reasoning as the getUser() call above: a transient Supabase
-      // hiccup here must not take the whole dashboard down. Falling back to
-      // "no profile data" skips the paywall header below rather than
-      // crashing the request -- worst case a lapsed subscriber briefly sees
+      // The profile row was already fetched above, in parallel with
+      // getUser(), keyed off the session cookie's (unverified) id. Only use
+      // it if that id actually matches the now-verified user -- same
+      // fallback reasoning as before: a transient Supabase hiccup, a timeout,
+      // or an id mismatch all just skip the paywall header below rather than
+      // crashing the request. Worst case a lapsed subscriber briefly sees
       // the dashboard instead of the paywall, which is the safe direction
       // to fail in (never lock out someone who's actually paying).
-      let profile: { subscription_status: string | null; subscription_current_period_end: string | null; credits: number | null } | null =
-        null;
-      try {
-        const result = await supabase
-          .from("profiles")
-          .select("subscription_status, subscription_current_period_end, credits")
-          .eq("id", user.id)
-          .single();
-        profile = result.data;
-      } catch {
-        profile = null;
-      }
+      const profile: { subscription_status: string | null; subscription_current_period_end: string | null; credits: number | null } | null =
+        sessionUserId === user.id && profileSettled.status === "fulfilled" && profileSettled.value
+          ? profileSettled.value.data
+          : null;
 
       const periodEndMs = profile?.subscription_current_period_end
         ? new Date(profile.subscription_current_period_end).getTime()

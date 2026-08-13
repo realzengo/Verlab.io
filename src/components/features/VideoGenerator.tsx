@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -167,6 +167,7 @@ function VideoTile({
   const [w, h] = aspectRatio.split(":").map(Number);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const ringGradientId = useId();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -178,21 +179,59 @@ function VideoTile({
   }, [menuOpen]);
 
   if (item.status === "queued" || item.status === "processing") {
+    const isRendering = item.status === "processing";
     return (
       <div
-        className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900"
+        className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 dark:border-zinc-800 dark:from-zinc-900 dark:to-zinc-950"
         style={{ aspectRatio: `${w} / ${h}` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800" />
-        <div className="absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/70 to-transparent blur-sm dark:via-white/10 animate-shimmer-sweep" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-slate-500">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-[11px] font-medium">{item.status === "queued" ? "Queued" : "Rendering..."}</span>
-          {item.status === "processing" && (
-            <span className="text-[10px] tabular-nums text-slate-400/70 dark:text-slate-500/70">
-              {formatElapsed(elapsedSeconds)} · usually takes 2–4 min
+        <div className="absolute -left-1/4 -top-1/4 h-3/4 w-3/4 rounded-full bg-indigo-300/25 blur-3xl animate-render-drift dark:bg-indigo-500/10" />
+        <div className="absolute -bottom-1/4 -right-1/4 h-3/4 w-3/4 rounded-full bg-sky-300/20 blur-3xl animate-render-drift-alt dark:bg-sky-500/10" />
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div className="relative flex h-11 w-11 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-indigo-400/25 blur-lg animate-craft-glow" />
+            <svg
+              className="h-9 w-9 [animation:spin_1.3s_cubic-bezier(0.65,0,0.35,1)_infinite]"
+              viewBox="0 0 40 40"
+              fill="none"
+            >
+              <circle cx="20" cy="20" r="17" strokeWidth="2.5" className="stroke-slate-300/70 dark:stroke-zinc-700/70" />
+              <circle
+                cx="20"
+                cy="20"
+                r="17"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="46 100"
+                stroke={`url(#${ringGradientId})`}
+              />
+              <defs>
+                <linearGradient id={ringGradientId} x1="0" y1="0" x2="40" y2="40">
+                  <stop offset="0%" stopColor="#818cf8" />
+                  <stop offset="100%" stopColor="#38bdf8" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <div className="flex flex-col items-center gap-1">
+            <span className="flex items-center gap-1 text-[12px] font-semibold tracking-tight text-slate-600 dark:text-slate-300">
+              {item.status === "queued" ? "Queued" : "Rendering"}
+              {isRendering && (
+                <span className="ml-0.5 flex items-center gap-0.5" aria-hidden>
+                  <span className="h-1 w-1 rounded-full bg-current opacity-30 animate-dot-pulse [animation-delay:0ms]" />
+                  <span className="h-1 w-1 rounded-full bg-current opacity-30 animate-dot-pulse [animation-delay:200ms]" />
+                  <span className="h-1 w-1 rounded-full bg-current opacity-30 animate-dot-pulse [animation-delay:400ms]" />
+                </span>
+              )}
             </span>
-          )}
+            {isRendering && (
+              <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
+                {formatElapsed(elapsedSeconds)} · usually takes 2–4 min
+              </span>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -425,7 +464,9 @@ export function VideoGenerator() {
   const pollCancelRef = useRef<(() => void) | null>(null);
   const pendingIdsRef = useRef<Set<string>>(new Set());
 
-  const canSubmit = (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating;
+  const promptTooLong = Boolean(model.maxPromptLength) && prompt.length > model.maxPromptLength!;
+  const canSubmit =
+    (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating && !promptTooLong;
   const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs, resolution: model.resolutions ? resolution : undefined }) || 0;
 
   function loadHistory() {
@@ -1172,6 +1213,7 @@ export function VideoGenerator() {
                             onImagesChange={setReferenceImages}
                             placeholder="Describe a new video..."
                             onClose={() => setShowPromptModal(false)}
+                            maxLength={model.maxPromptLength}
                           />
                         )}
                       </AnimatePresence>
@@ -1203,6 +1245,11 @@ export function VideoGenerator() {
                               className="h-full w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                             />
                           </div>
+                          {promptTooLong && (
+                            <p className="mt-1 text-xs font-medium text-red-500">
+                              {prompt.length} / {model.maxPromptLength} -- tap the expand icon above to trim it
+                            </p>
+                          )}
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">

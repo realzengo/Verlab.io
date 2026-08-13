@@ -115,7 +115,6 @@ export function VideoMarqueeSection() {
           height={384}
           sizes="(min-width: 640px) 250px, 180px"
           className="h-auto w-[180px] sm:w-[250px]"
-          priority
         />
       </div>
 

@@ -210,6 +210,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!prompt?.trim() && !startFrameImage && !endFrameImage) {
     return NextResponse.json({ error: "prompt is required unless a start or end frame image is provided" }, { status: 400 });
   }
+  // Checked before ever calling Replicate -- an over-length prompt on a
+  // model with a confirmed cap (see maxPromptLength's own comment in
+  // video-models.ts) otherwise 422s at submitVideoJob with no useful detail
+  // surfaced to the UI beyond the generic "Something went wrong" message.
+  if (prompt && model.maxPromptLength && prompt.length > model.maxPromptLength) {
+    return NextResponse.json(
+      { error: `${model.id}'s prompt must be ${model.maxPromptLength} characters or fewer (this one is ${prompt.length}).` },
+      { status: 400 }
+    );
+  }
   if (startFrameImage && !model.supportsImageToVideo) {
     return NextResponse.json({ error: `${model.id} doesn't support image-to-video` }, { status: 400 });
   }

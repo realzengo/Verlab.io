@@ -93,6 +93,15 @@ export interface VideoModelConfig {
   resolutions?: string[];
   /** ESTIMATED -- see pricing.ts's own disclosure convention. Correct against real Replicate invoices once live. */
   pricePerSecondUsd: number;
+  /**
+   * Hard cap on `prompt`'s length, when the model's own schema enforces one
+   * -- generate-video/route.ts rejects an over-length prompt with a clear
+   * 400 before ever calling Replicate. Omit when no limit is confirmed
+   * rather than guessing one; sending an unconfirmed-but-too-long prompt
+   * still fails, just via Replicate's own 422 (see submitVideoJob's error
+   * surfacing) instead of this earlier, friendlier check.
+   */
+  maxPromptLength?: number;
 }
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
@@ -203,6 +212,63 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     pricePerSecondUsd: 0.15,
   },
   {
+    id: "Seedance 2.5",
+    replicateModel: "bytedance/seedance-2.5",
+    // Partially confirmed (Replicate's own model page + README, fetched
+    // live -- the page's actual OpenAPI schema is client-rendered and
+    // couldn't be scraped, same limitation this file's module header
+    // already discloses for every other model here): prompt, duration
+    // (4-30s, or -1 for "intelligent duration" -- not wired below, this
+    // app's duration control is a fixed dropdown of concrete values, not a
+    // free-form/-1 sentinel), aspect_ratio (supports "adaptive", also not
+    // exposed -- this app's aspect-ratio control assumes literal W:H
+    // ratios), resolution 480p/720p, native audio track. image/
+    // last_frame_image field names are INFERRED (not independently
+    // confirmed for 2.5 specifically) by continuity with Seedance 2's own
+    // confirmed fields just above -- same ByteDance model family/schema
+    // conventions. Reference images are real (up to 30 per the README) but
+    // documented as referenced inline in the prompt via "[Image1]" etc.,
+    // not necessarily as a plain array field -- referenceImagesField below
+    // ("images") is a best-effort guess, not confirmed; the [Image#]
+    // inline-mention convention itself isn't wired (Create's reference-image
+    // control has no prompt-mention UI, unlike the Edit tab's
+    // MentionTextarea). Verify all of the above live before the first real
+    // deploy, per this file's usual discipline.
+    imageField: "image",
+    endFrameField: "last_frame_image",
+    referenceImagesField: "images",
+    resolutionMode: "direct",
+    tier: "flagship",
+    description: "ByteDance's flagship — native audio, up to 30s, huge reference sets",
+    logo: SEEDANCE_ICON,
+    supportsImageToVideo: true,
+    supportsReferenceImages: true,
+    maxReferenceImages: 30,
+    supportsEndFrame: true,
+    supportsAudio: true,
+    durations: [5, 10, 15, 20, 30],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    resolutions: ["720p", "480p"],
+    // CONFIRMED via live search against Replicate's own published per-second
+    // rates for this model (not directly scrapable from its pricing page in
+    // this environment, but corroborated by an aggregator citing Replicate
+    // specifically): $0.1028/s at 480p, $0.2312/s at 720p (both with no
+    // video-clip reference input -- this app doesn't expose that input, see
+    // above, so those are the two tiers that actually apply here). This
+    // file's shared VIDEO_RESOLUTION_MULTIPLIER (pricing.ts) treats
+    // pricePerSecondUsd as the 720p baseline for every model and derives
+    // 480p/1080p off a single shared ratio -- 0.2312 here matches that
+    // convention exactly; the multiplier's derived 480p figure (0.2312*0.6
+    // = ~$0.139/s) is somewhat above Seedance 2.5's real 480p rate, i.e.
+    // this slightly OVER-charges at 480p rather than under-charging.
+    pricePerSecondUsd: 0.2312,
+    // CONFIRMED live -- not a guess: a real submit with a long @-mention +
+    // reference-instructions prompt 422ed with Replicate's own message
+    // ("input.prompt: String length must be less than or equal to 2000"),
+    // which is what exposed this cap existing at all.
+    maxPromptLength: 2000,
+  },
+  {
     id: "Grok Imagine",
     replicateModel: "xai/grok-imagine-video",
     // Partially confirmed (Replicate's own model page): prompt (required),
@@ -281,28 +347,110 @@ export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
 // placeholders -- verify live before the first real deploy.
 export interface PromptEditModelConfig {
   id: string;
+  /**
+   * "replicate" (default when omitted) submits replicateModel as a
+   * Replicate prediction via submitVideoJob, same as every Create-tab model
+   * -- async, webhook-completed. "gemini" instead calls Google's Gemini API
+   * directly (see gemini-video.ts) -- that API is synchronous (no
+   * webhook/polling shape), so those rows are driven by an after() callback
+   * in generate-video/edit/route.ts instead of the Replicate webhook path.
+   */
+  provider?: "replicate" | "gemini";
+  /**
+   * Replicate model slug for provider "replicate". For provider "gemini"
+   * this instead holds the Gemini model id (e.g. "gemini-omni-flash-preview")
+   * -- stored the same way in video_generations.replicate_model either way,
+   * it's just a label there, not literally a Replicate slug for every row.
+   */
   replicateModel: string;
   description: string;
+  logo?: string;
+  logoFullBleed?: boolean;
   /** Source video duration bounds this editing flow accepts -- carried over from the fal version, unverified against Replicate's schema. */
   minSourceDurationSeconds: number;
   maxSourceDurationSeconds: number;
   maxReferenceImages: number;
+  /**
+   * Field name the source video URL is sent under. Defaults to "video_url"
+   * in generate-video/edit/route.ts when omitted -- that default was WRONG
+   * for Kling (see Kling Edit's own entry below for how this was found),
+   * which is exactly why this is now a per-model override instead of one
+   * hardcoded literal shared by every model: different providers really do
+   * use different field names here, confirmed live is the only way to know.
+   */
+  videoField?: string;
+  /** Field name the reference-images array is sent under. Defaults to "image_urls" when omitted -- same per-model caveat as videoField. */
+  referenceImagesField?: string;
   pricePerSecondUsd: number;
 }
 
 export const EDIT_VIDEO_MODELS: PromptEditModelConfig[] = [
   {
-    id: "Kling O1 Edit",
+    id: "Gemini Omni Flash",
+    provider: "gemini",
+    replicateModel: "gemini-omni-flash-preview",
+    // CONFIRMED (ai.google.dev/gemini-api/docs/omni): a real public REST API
+    // (POST .../v1beta/interactions, model "gemini-omni-flash-preview"),
+    // synchronous -- the edit is sent as one request (source video + prompt,
+    // both inline as base64) and the response contains the finished video
+    // inline, no job id to poll. See gemini-video.ts for the actual call.
+    description: "Follows edit instructions closely. Clips up to 10s.",
+    logo: GEMINI_ICON,
+    minSourceDurationSeconds: 1,
+    maxSourceDurationSeconds: 10,
+    // Docs' own video-edit example sends exactly one source video + one text
+    // instruction per request -- no confirmed multi-reference-image input
+    // for this flow, so left at 0 rather than guessed.
+    maxReferenceImages: 0,
+    // ESTIMATED -- Google hasn't published a per-second rate for this API as
+    // of this writing; correct against real usage once live.
+    pricePerSecondUsd: 0.2,
+  },
+  {
+    id: "Grok Imagine",
+    replicateModel: "xai/grok-imagine-video",
+    // Same Replicate slug Create's Grok Imagine tile uses (video-models.ts's
+    // VIDEO_MODELS above) -- Replicate's own video-editing collection lists
+    // this model as including "video editing mode alongside generation
+    // capabilities for text-based modifications", so no separate slug for
+    // edit. Field names left at the route's video_url/image_urls defaults
+    // -- STILL UNVERIFIED (unlike Kling below, live lookups against
+    // Replicate's own page and its README came back with no schema/code
+    // sample for this specific model's edit-mode fields). If this model's
+    // edits turn out to also ignore the source video (same symptom Kling's
+    // video_url bug had), this is the first thing to re-check live.
+    description: "Quick, affordable edits. Clips up to 8s.",
+    logo: GROK_ICON,
+    minSourceDurationSeconds: 1,
+    maxSourceDurationSeconds: 8,
+    maxReferenceImages: 4,
+    pricePerSecondUsd: 0.12,
+  },
+  {
+    id: "Kling Edit",
     replicateModel: "kwaivgi/kling-o1",
-    description: "Best quality — swap subjects, restyle scenes, keep the original motion",
+    description: "Best quality video edits.",
+    logo: KLING_ICON,
     minSourceDurationSeconds: 3,
     maxSourceDurationSeconds: 10.05,
     maxReferenceImages: 4,
+    // CONFIRMED live against two independent sources (Replicate's own model
+    // page and a third-party mirror serving the same model) after a report
+    // that Kling Edit was generating a brand-new video with no relation to
+    // the uploaded source: the route was sending the source video under
+    // "video_url", but this model's real field is "video" -- Replicate
+    // silently ignored the unrecognized field instead of rejecting the
+    // request, so it fell back to text-only generation from the prompt
+    // alone. "reference_image_urls" is likewise the confirmed field for
+    // reference images (the route's old "image_urls" default was wrong
+    // here too, just not yet reported since reference images are optional).
+    videoField: "video",
+    referenceImagesField: "reference_image_urls",
     pricePerSecondUsd: 0.168,
   },
 ];
 
-export const DEFAULT_EDIT_VIDEO_MODEL = "Kling O1 Edit";
+export const DEFAULT_EDIT_VIDEO_MODEL = "Kling Edit";
 
 export function getEditVideoModel(id: string): PromptEditModelConfig | undefined {
   return EDIT_VIDEO_MODELS.find((model) => model.id === id);

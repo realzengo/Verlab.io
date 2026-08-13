@@ -188,12 +188,7 @@ export function VideoDownloader() {
       </div>
 
       <div className="relative mt-6 sm:mt-12">
-        {/* Ambient glow behind the card, matching the app's premium panel style */}
-        <div aria-hidden="true" className="pointer-events-none absolute -inset-16 -z-10 overflow-hidden">
-          <div className="absolute left-1/2 top-0 h-56 w-80 -translate-x-1/2 rounded-full bg-blue-500/20 blur-[100px] dark:bg-blue-500/30" />
-        </div>
-
-        <div className="relative rounded-3xl border border-slate-200/80 shadow-[0_20px_48px_-20px_rgba(37,99,235,0.18)] dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_32px_72px_-24px_rgba(37,99,235,0.5)]">
+        <div className="relative rounded-3xl border border-slate-200/80 shadow-sm dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04)]">
           <BorderTrail
             size={130}
             className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-60 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
@@ -392,7 +387,13 @@ export function VideoDownloader() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => readyId && triggerBrowserDownload(`/api/downloads/file/${readyId}`)}
+                      onClick={() => {
+                        if (!readyId) return;
+                        triggerBrowserDownload(`/api/downloads/file/${readyId}`);
+                        setUrl("");
+                        setPopupDismissed(true);
+                        resetJob();
+                      }}
                       className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-2 py-3 text-sm font-semibold text-white hover:bg-btn-primary-hover"
                     >
                       <Download className="h-4 w-4 shrink-0" />
