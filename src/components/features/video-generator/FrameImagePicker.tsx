@@ -322,9 +322,12 @@ interface FrameImagePickerProps {
 /**
  * Docked "Start frame" / "End frame" tiles -- mirrors the competitor's
  * layout of pinning first/last-frame conditioning next to the prompt box
- * instead of a row pill, since it's the primary input for image-to-video
- * rather than a secondary option. Each slot can be uploaded directly or
- * generated via the full-screen AI Generate modal (FrameImageGenerateModal).
+ * instead of burying it inside a generic "Images" popover. Each slot can be
+ * uploaded directly or generated via the full-screen AI Generate modal
+ * (FrameImageGenerateModal). Deliberately separate from ReferencesPicker's
+ * "+ References" attachments (style/subject references, not frame
+ * conditioning) -- the two are independent inputs sent as different fields
+ * to the model, see buildReplicateCreateInput in generate-video/route.ts.
  */
 export function FrameImagePicker({
   startFrame,

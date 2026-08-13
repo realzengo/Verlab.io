@@ -5,6 +5,7 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { GLASS_PANEL, GLASS_PILL_ACTIVE, GLASS_PILL_BASE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE } from "@/components/ui/PillDropdown";
 
 export interface ModelPickerOption {
   id: string;
@@ -159,13 +160,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
           if (!open) setQuery("");
           setOpen((prev) => !prev);
         }}
-        className={cn(
-          "group flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-          "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-          "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950",
-          open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
-        )}
+        className={cn("group", GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, open && GLASS_PILL_ACTIVE)}
       >
         {current && <ModelIcon model={current} small />}
         <span className="tracking-[-0.01em]">{current?.id ?? value}</span>
@@ -185,11 +180,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(
-              "absolute left-0 top-full z-50 mt-2 flex max-h-96 w-72 origin-top-left flex-col overflow-hidden rounded-2xl",
-              "border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
-            )}
+            className={cn("absolute left-0 top-full z-50 mt-2 flex max-h-96 w-72 origin-top-left flex-col overflow-hidden rounded-2xl", GLASS_PANEL)}
           >
             <div className="flex items-center gap-2 border-b border-slate-200/70 px-3 py-2.5 dark:border-white/[0.08]">
               <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />

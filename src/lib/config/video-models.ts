@@ -60,6 +60,19 @@ export interface VideoModelConfig {
   supportsImageToVideo: boolean;
   /** First+last frame conditioning -- a subset of image-to-video models support this, not just a start frame. */
   supportsEndFrame: boolean;
+  /**
+   * Style/subject reference images (the "+ References" control) -- a
+   * separate input from start/end frame conditioning above: these guide
+   * likeness/style rather than pin down the first or last rendered frame.
+   * Field name is BEST-EFFORT/unverified per the module header's usual
+   * caveat -- a wrong name 422s loudly with Replicate's accepted-field list
+   * rather than silently misbehaving.
+   */
+  supportsReferenceImages?: boolean;
+  /** Field name for the reference-images array. Defaults to "reference_images" if omitted. */
+  referenceImagesField?: string;
+  /** Max attachable reference images. Defaults to 4 (matches EDIT_VIDEO_MODELS' maxReferenceImages convention) if omitted. */
+  maxReferenceImages?: number;
   /** Model has a genuine native-audio track, not just silent video. */
   supportsAudio: boolean;
   durations: number[];
@@ -96,6 +109,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "Google Veo, native audio — faster & cheaper tier",
     logo: GEMINI_ICON,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: true, // Veo 3.1's own description advertises "reference image and last frame support" -- field name unconfirmed, assumed "last_frame_image"
     supportsAudio: true,
     durations: [4, 6, 8],
@@ -111,6 +125,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "Best for realism — native audio, premium quality",
     logo: GEMINI_ICON,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: true,
     supportsAudio: true,
     durations: [4, 6, 8],
@@ -132,6 +147,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     logo: SORA_ICON,
     logoFullBleed: true,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: false,
     supportsAudio: true,
     durations: [4, 8, 12],
@@ -156,6 +172,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "Best for cinematic, animated shots",
     logo: KLING_ICON,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: false, // no confirmed end-frame field for this model -- left off rather than guessed
     supportsAudio: true,
     durations: [5, 10],
@@ -177,6 +194,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "Fast reference and asset generation",
     logo: SEEDANCE_ICON,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: true,
     supportsAudio: true,
     durations: [5, 10],
@@ -198,6 +216,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "xAI's video model — fast, expressive motion",
     logo: GROK_ICON,
     supportsImageToVideo: true,
+    supportsReferenceImages: true,
     supportsEndFrame: false,
     supportsAudio: false,
     durations: [6],

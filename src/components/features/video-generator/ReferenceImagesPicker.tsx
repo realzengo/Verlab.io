@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ImagePlus, Images, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { GLASS_PANEL, GLASS_PILL_ACTIVE, GLASS_PILL_BASE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE } from "@/components/ui/PillDropdown";
 import { readFileAsDataUrl } from "./FrameImagePicker";
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -52,12 +53,7 @@ export function ReferenceImagesPicker({ images, onChange, max, className }: Refe
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "group flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-xs font-medium shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-          "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-          "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:shadow-none dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-          open && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
-        )}
+        className={cn("group", GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, open && GLASS_PILL_ACTIVE)}
       >
         <Images className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
         <span className="tracking-[-0.01em]">Images{images.length > 0 ? ` (${images.length})` : ""}</span>
@@ -71,11 +67,7 @@ export function ReferenceImagesPicker({ images, onChange, max, className }: Refe
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(
-              "absolute left-0 top-full z-50 mt-2 w-64 origin-top-left rounded-2xl border p-3",
-              "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
-            )}
+            className={cn("absolute left-0 top-full z-50 mt-2 w-64 origin-top-left rounded-2xl p-3", GLASS_PANEL)}
           >
             <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Reference images (up to {max})</p>
             <div className="flex flex-wrap gap-2">

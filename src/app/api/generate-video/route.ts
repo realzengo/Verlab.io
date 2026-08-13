@@ -4,7 +4,7 @@ import { DEFAULT_VIDEO_MODEL, getVideoModel, type VideoModelConfig } from "@/lib
 import { getUserCredits } from "@/lib/server/credits";
 import { submitVideoJob } from "@/lib/server/replicate-video";
 import { advanceVideoJob, type VideoJobRow } from "@/lib/server/video-jobs";
-import { validateReferenceImage } from "@/lib/server/video-validation";
+import { validateReferenceImage, validateReferenceImages } from "@/lib/server/video-validation";
 import { describeGenerationFailure, GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
@@ -29,6 +29,7 @@ interface GenerateVideoRequestBody {
   soundEnabled?: boolean;
   startFrameImage?: string;
   endFrameImage?: string;
+  referenceImages?: string[];
 }
 
 // Maps this app's generic Create-tab params onto the body each Replicate
@@ -44,6 +45,7 @@ function buildReplicateCreateInput(
     soundEnabled: boolean;
     startFrameImage?: string | null;
     endFrameImage?: string | null;
+    referenceImages?: string[];
   }
 ): Record<string, unknown> {
   const input: Record<string, unknown> = {
@@ -65,6 +67,9 @@ function buildReplicateCreateInput(
   // integration relied on for image_urls).
   if (params.startFrameImage) input[model.imageField ?? "image"] = params.startFrameImage;
   if (params.endFrameImage && model.supportsEndFrame) input[model.endFrameField ?? "last_frame_image"] = params.endFrameImage;
+  if (params.referenceImages?.length && model.supportsReferenceImages) {
+    input[model.referenceImagesField ?? "reference_images"] = params.referenceImages;
+  }
   return input;
 }
 
@@ -190,9 +195,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   let startFrameImage: string | null;
   let endFrameImage: string | null;
+  let referenceImages: string[];
   try {
     startFrameImage = validateReferenceImage(body.startFrameImage, "startFrameImage");
     endFrameImage = validateReferenceImage(body.endFrameImage, "endFrameImage");
+    referenceImages = validateReferenceImages(body.referenceImages, "referenceImages", model.maxReferenceImages ?? 4);
   } catch (validationError) {
     return NextResponse.json({ error: (validationError as Error).message }, { status: 400 });
   }
@@ -205,6 +212,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
   if (startFrameImage && !model.supportsImageToVideo) {
     return NextResponse.json({ error: `${model.id} doesn't support image-to-video` }, { status: 400 });
+  }
+  if (referenceImages.length > 0 && !model.supportsReferenceImages) {
+    return NextResponse.json({ error: `${model.id} doesn't support reference images` }, { status: 400 });
   }
 
   const perOutputCost = getVideoGenerationCost({ model: model.id, durationSeconds, outputs: 1, resolution: model.resolutions ? resolution : undefined });
@@ -235,6 +245,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     soundEnabled,
     startFrameImage,
     endFrameImage,
+    referenceImages,
   });
 
   const rowIds: string[] = [];

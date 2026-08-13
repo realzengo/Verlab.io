@@ -24,3 +24,27 @@ export function validateReferenceImage(value: unknown, field: string): string | 
   }
   return value;
 }
+
+/**
+ * Array counterpart of validateReferenceImage -- backs the Create tab's
+ * "+ References" attachments (style/subject references, distinct from the
+ * single start/end frame fields above). Returns an empty array if the field
+ * was omitted so callers can treat "no references" and "validated list"
+ * uniformly rather than branching on null.
+ */
+export function validateReferenceImages(value: unknown, field: string, max: number): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`${field} must be an array of base64 image data URLs`);
+  }
+  if (value.length > max) {
+    throw new Error(`${field} accepts at most ${max} images`);
+  }
+  return value.map((item, index) => {
+    const validated = validateReferenceImage(item, `${field}[${index}]`);
+    if (validated === null) {
+      throw new Error(`${field}[${index}] must be a base64 image data URL`);
+    }
+    return validated;
+  });
+}

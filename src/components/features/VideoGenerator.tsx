@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PillDropdown } from "@/components/ui/PillDropdown";
+import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -43,6 +43,9 @@ import { cn, formatDate } from "@/lib/utils";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { VideoModelPicker, ModelIcon } from "./video-generator/VideoModelPicker";
 import { FrameImagePicker, EMPTY_FRAME_SLOT, type FrameSlotState } from "./video-generator/FrameImagePicker";
+import { ReferencesPicker, ReferenceImageChips } from "./video-generator/ReferencesPicker";
+import { MentionTextarea } from "./video-generator/MentionTextarea";
+import { PromptExpandModal } from "./video-generator/PromptExpandModal";
 import { ReferenceImagesPicker } from "./video-generator/ReferenceImagesPicker";
 import { SourceVideoPicker } from "./video-generator/SourceVideoPicker";
 import { MobileCreatePanel } from "./video-generator/MobileCreatePanel";
@@ -388,6 +391,11 @@ export function VideoGenerator() {
 
   const [startFrame, setStartFrame] = useState<FrameSlotState>(EMPTY_FRAME_SLOT);
   const [endFrame, setEndFrame] = useState<FrameSlotState>(EMPTY_FRAME_SLOT);
+  // Style/subject reference images -- separate input from startFrame/endFrame
+  // above (see ReferencesPicker's module comment): guides likeness/style
+  // rather than pinning a specific frame, sent as its own field to the model.
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const createElapsedSeconds = useElapsedSeconds(isGenerating);
@@ -763,6 +771,7 @@ export function VideoGenerator() {
           soundEnabled: model.supportsAudio ? soundEnabled : undefined,
           startFrameImage: startFrame.dataUrl ?? undefined,
           endFrameImage: endFrame.dataUrl ?? undefined,
+          referenceImages: model.supportsReferenceImages && referenceImages.length > 0 ? referenceImages : undefined,
         }),
       });
 
@@ -1056,14 +1065,13 @@ export function VideoGenerator() {
                             }))}
                         />
 
-                        <div className="relative min-h-28 flex-1">
-                          <textarea
-                            value={editPrompt}
-                            onChange={(event) => setEditPrompt(event.target.value)}
-                            placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
-                            className="h-28 w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
-                          />
-                        </div>
+                        <MentionTextarea
+                          value={editPrompt}
+                          onChange={setEditPrompt}
+                          images={editReferenceImages}
+                          placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
+                          className="h-28 w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                        />
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
@@ -1155,15 +1163,46 @@ export function VideoGenerator() {
                         "dark:border-white/[0.08] dark:bg-[#131318]"
                       )}
                     >
+                      <AnimatePresence>
+                        {showPromptModal && (
+                          <PromptExpandModal
+                            value={prompt}
+                            onChange={setPrompt}
+                            images={referenceImages}
+                            onImagesChange={setReferenceImages}
+                            placeholder="Describe a new video..."
+                            onClose={() => setShowPromptModal(false)}
+                          />
+                        )}
+                      </AnimatePresence>
+
                       {/* Left column: prompt textarea + config pills, locked to the bottom */}
                       <div className="flex min-w-0 flex-grow flex-col justify-between">
-                        <div className="relative min-h-0 flex-1">
-                          <textarea
-                            value={prompt}
-                            onChange={(event) => setPrompt(event.target.value)}
-                            placeholder="Describe a new video..."
-                            className="h-full w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
-                          />
+                        <div className="relative flex flex-col">
+                          <button
+                            type="button"
+                            onClick={() => setShowPromptModal(true)}
+                            aria-label="Expand prompt"
+                            className="absolute right-0 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
+                          >
+                            <Maximize2 className="h-3.5 w-3.5" />
+                          </button>
+                          <div className="pr-8">
+                            <ReferenceImageChips images={referenceImages} onChange={setReferenceImages} />
+                          </div>
+                          {/* Fixed height regardless of prompt length -- a contenteditable div has no
+                              intrinsic "hug ~2 rows" sizing the way a plain <textarea> did, so without this
+                              cap a long prompt would balloon the whole docked card instead of scrolling
+                              inside it. Full content is still one click away via the expand button above. */}
+                          <div className="h-24">
+                            <MentionTextarea
+                              value={prompt}
+                              onChange={setPrompt}
+                              images={referenceImages}
+                              placeholder={referenceImages.length > 0 ? "Describe a new video... Type @ to insert a reference" : "Describe a new video..."}
+                              className="h-full w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                            />
+                          </div>
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1185,14 +1224,17 @@ export function VideoGenerator() {
                               aria-pressed={soundEnabled}
                               aria-label="Toggle sound"
                               className={cn(
-                                "flex shrink-0 items-center justify-center rounded-xl border p-1.5 shadow-sm outline-none transition-colors duration-150 active:scale-[0.97]",
-                                "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                                "dark:border-white/[0.07] dark:bg-white/[0.06] dark:text-slate-200 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.1]",
-                                soundEnabled && "border-blue-400 bg-blue-50/60 text-blue-600 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border outline-none transition-all duration-200 active:scale-[0.96]",
+                                GLASS_PILL_IDLE,
+                                GLASS_PILL_FOCUS,
+                                soundEnabled && GLASS_PILL_ACTIVE
                               )}
                             >
-                              {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+                              {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
                             </button>
+                          )}
+                          {model.supportsReferenceImages && (
+                            <ReferencesPicker images={referenceImages} onChange={setReferenceImages} max={model.maxReferenceImages ?? 4} />
                           )}
                           <PillDropdown
                             value={String(outputs)}
