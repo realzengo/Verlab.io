@@ -46,7 +46,7 @@ function UpdatePasswordForm() {
         <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <CheckCircle2 className="h-6 w-6" />
         </div>
-        <h1 className="text-[28px] font-bold tracking-[-0.5px] text-heading">
+        <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">
           Password updated
         </h1>
         <p className="mt-1.5 text-sm text-body">Taking you to your dashboard&hellip;</p>
@@ -56,7 +56,7 @@ function UpdatePasswordForm() {
 
   return (
     <div>
-      <h1 className="text-center text-[28px] font-bold tracking-[-0.5px] text-heading">
+      <h1 className="text-center text-[30px] font-extrabold tracking-[-0.6px] text-heading">
         Set a new password
       </h1>
       <p className="mt-1.5 text-center text-sm text-body">

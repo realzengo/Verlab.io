@@ -97,7 +97,7 @@ export function AuthShowcasePanel() {
   const feature = FEATURES[index];
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#08080c]">
+    <div className="relative h-full w-full overflow-hidden rounded-2xl bg-[#08080c]">
       <AnimatePresence mode="sync">
         <motion.div
           key={feature.tab}
@@ -145,41 +145,42 @@ export function AuthShowcasePanel() {
             </motion.div>
           </AnimatePresence>
 
-          <div className="mt-10">
-            <div className="flex gap-2">
-              {FEATURES.map((f, i) => (
-                <div
-                  key={f.tab}
-                  className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/15"
-                >
-                  {i < index && <div className="h-full w-full bg-white" />}
+          <div className="mt-9 inline-flex flex-wrap items-stretch gap-0.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
+            {FEATURES.map((f, i) => (
+              <motion.button
+                key={f.tab}
+                type="button"
+                onClick={() => setIndex(i)}
+                whileHover={{ scale: i === index ? 1 : 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className={`relative flex flex-col items-center gap-2 rounded-xl px-3.5 pb-2 pt-2.5 outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+                  i === index ? "text-white" : "text-white/40 hover:text-white/70"
+                }`}
+              >
+                {i === index && (
+                  <motion.span
+                    layoutId="auth-showcase-tab-pill"
+                    className="absolute inset-0 rounded-xl bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="relative z-10 text-[10.5px] font-bold uppercase tracking-wider">
+                  {f.tab}
+                </span>
+                <span className="relative z-10 h-[2.5px] w-8 overflow-hidden rounded-full bg-white/10">
+                  {i < index && <span className="block h-full w-full bg-white" />}
                   {i === index && (
-                    <motion.div
+                    <motion.span
                       key={index}
-                      className="h-full bg-white"
+                      className="block h-full bg-gradient-to-r from-white/70 to-white shadow-[0_0_6px_1px_rgba(255,255,255,0.5)]"
                       initial={{ width: "0%" }}
                       animate={{ width: "100%" }}
                       transition={{ duration: ROTATE_MS / 1000, ease: "linear" }}
                     />
                   )}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 flex gap-6">
-              {FEATURES.map((f, i) => (
-                <button
-                  key={f.tab}
-                  type="button"
-                  onClick={() => setIndex(i)}
-                  className={`text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                    i === index ? "text-white" : "text-white/35 hover:text-white/60"
-                  }`}
-                >
-                  {f.tab}
-                </button>
-              ))}
-            </div>
+                </span>
+              </motion.button>
+            ))}
           </div>
         </div>
       </div>
