@@ -111,7 +111,7 @@ function LoginForm() {
         <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <CheckCircle2 className="h-6 w-6" />
         </div>
-        <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">
+        <h1 className="text-[28px] font-bold tracking-[-0.5px] text-heading">
           Check your inbox
         </h1>
         <p className="mt-1.5 text-sm text-body">
@@ -148,10 +148,10 @@ function LoginForm() {
           Back
         </button>
 
-        <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">
+        <h1 className="text-center text-[28px] font-bold tracking-[-0.5px] text-heading">
           Reset your password
         </h1>
-        <p className="mt-1.5 text-sm text-body">
+        <p className="mt-1.5 text-center text-sm text-body">
           Enter your email and we&apos;ll send you a reset link.
         </p>
 
@@ -192,10 +192,10 @@ function LoginForm() {
         exit={{ opacity: 0, y: -6 }}
         transition={FADE_TRANSITION}
       >
-        <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">
+        <h1 className="text-center text-[28px] font-bold tracking-[-0.5px] text-heading">
           Sign in to Verlab
         </h1>
-        <p className="mt-1.5 text-sm text-body">
+        <p className="mt-1.5 text-center text-sm text-body">
           Welcome back! Sign in to your account below.
         </p>
 
@@ -210,9 +210,9 @@ function LoginForm() {
         </button>
 
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-hairline" />
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-hairline" />
           <span className="text-xs font-medium text-subtle">or sign in with email</span>
-          <div className="h-px flex-1 bg-hairline" />
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-hairline" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">

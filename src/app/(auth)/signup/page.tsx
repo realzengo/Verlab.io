@@ -95,7 +95,7 @@ function SignupForm() {
       <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
         <CheckCircle2 className="h-6 w-6" />
       </div>
-      <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">
+      <h1 className="text-[28px] font-bold tracking-[-0.5px] text-heading">
         Check your inbox
       </h1>
       <p className="mt-1.5 text-sm text-body">
@@ -118,10 +118,10 @@ function SignupForm() {
       exit={{ opacity: 0, y: -6 }}
       transition={FADE_TRANSITION}
     >
-      <h1 className="text-[26px] font-bold tracking-[-0.5px] text-heading">
+      <h1 className="text-center text-[28px] font-bold tracking-[-0.5px] text-heading">
         Create your Verlab account
       </h1>
-      <p className="mt-1.5 text-sm text-body">
+      <p className="mt-1.5 text-center text-sm text-body">
         Start building your faceless page today.
       </p>
 
@@ -136,9 +136,9 @@ function SignupForm() {
       </button>
 
       <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-hairline" />
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-hairline" />
         <span className="text-xs font-medium text-subtle">or sign up with email</span>
-        <div className="h-px flex-1 bg-hairline" />
+        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-hairline" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
@@ -180,6 +180,7 @@ function SignupForm() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        <p className="-mt-1.5 text-xs text-subtle">Must be at least 6 characters.</p>
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
@@ -193,7 +194,19 @@ function SignupForm() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-body">
+      <p className="mt-5 text-center text-xs leading-relaxed text-subtle">
+        By signing up, you agree to our{" "}
+        <Link href="/legal/terms" className="font-medium text-body hover:text-heading hover:underline">
+          Terms of Use
+        </Link>{" "}
+        and{" "}
+        <Link href="/legal/privacy" className="font-medium text-body hover:text-heading hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
+      <p className="mt-4 text-center text-sm text-body">
         Already have an account?{" "}
         <Link href="/login" className="font-semibold text-primary hover:underline">
           Sign in here
