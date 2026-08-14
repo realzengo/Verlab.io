@@ -285,8 +285,6 @@ export default function TranscriptsPage() {
     setRetranslateTo("Original");
     setTranslateError(null);
     setPopupProgress(0);
-    setPopupOpen(true);
-    await fetchRows();
     setActiveRow({
       id: data.id,
       source_url: url,
@@ -301,8 +299,10 @@ export default function TranscriptsPage() {
       error_message: null,
       created_at: new Date().toISOString(),
     });
+    setPopupOpen(true);
     setView("result");
     startPolling(data.id, "Original");
+    fetchRows();
   };
 
   const handleCopy = async () => {
