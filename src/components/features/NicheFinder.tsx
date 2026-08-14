@@ -630,7 +630,7 @@ function NicheFinderInner({
                   // `sticky` keeps the spinner centered on whatever part of
                   // the grid is in view, even when the grid itself is
                   // taller than the viewport.
-                  <div className="absolute -inset-4 z-10 overflow-hidden bg-app/60 backdrop-blur-md sm:-inset-6 md:-inset-8">
+                  <div className="absolute -inset-4 z-10 overflow-hidden rounded-2xl bg-app/60 backdrop-blur-md sm:-inset-6 md:-inset-8">
                     <div className="sticky top-1/2 flex -translate-y-1/2 items-center justify-center">
                       <SearchLoadingLogo size={140} />
                     </div>
