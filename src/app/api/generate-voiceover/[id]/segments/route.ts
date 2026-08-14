@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import type { VoiceoverSegment } from "../../route";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { generateSpeech, estimateDurationSeconds, ReplicateTtsError } from "@/lib/server/replicate-tts";
+import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-tts";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 export const maxDuration = 60;
 
@@ -99,8 +100,8 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ segment: newSegment, position: newPosition });
   } catch (error) {
-    const message = error instanceof ReplicateTtsError || error instanceof Error ? error.message : "Could not generate segment";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[generate-voiceover/segments] Failed to add segment:", error);
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 500 });
   }
 }
 

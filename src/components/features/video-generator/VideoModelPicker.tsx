@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Lock, Search } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ export interface ModelPickerOption {
   logo?: string;
   /** Logo is already a filled square/circular app icon (own background, no transparent margin) -- render it filling the whole avatar circle instead of as a small centered glyph. */
   logoFullBleed?: boolean;
+  /** Only selectable on the Pro (or higher) plan -- see VideoModelPickerProps.isPro. */
+  requiresPro?: boolean;
 }
 
 export function ModelIcon({ model, small }: { model: ModelPickerOption; small?: boolean }) {
@@ -59,6 +61,10 @@ interface VideoModelPickerProps<T extends ModelPickerOption> {
   models: T[];
   /** IDs shown under a "Popular" section above the rest, under "More" -- omit (or leave empty) for a small catalog that doesn't need grouping (e.g. Edit tab's models). */
   popularIds?: string[];
+  /** Current user is on the Pro (or higher) plan -- unlocks rows with requiresPro. Defaults to false (locked) so callers that don't pass plan info fail closed rather than silently unlocking everything. */
+  isPro?: boolean;
+  /** Called instead of onChange when a locked (requiresPro, isPro false) row is clicked. */
+  onRequestUpgrade?: () => void;
   className?: string;
 }
 
@@ -76,6 +82,8 @@ export function VideoModelPicker<T extends ModelPickerOption>({
   onChange,
   models,
   popularIds = [],
+  isPro = false,
+  onRequestUpgrade,
   className,
 }: VideoModelPickerProps<T>) {
   const [open, setOpen] = useState(false);
@@ -118,6 +126,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
 
   function renderRow(model: T) {
     const selected = model.id === value;
+    const locked = Boolean(model.requiresPro) && !isPro;
     return (
       <button
         key={model.id}
@@ -125,27 +134,39 @@ export function VideoModelPicker<T extends ModelPickerOption>({
         role="option"
         aria-selected={selected}
         onClick={() => {
+          if (locked) {
+            onRequestUpgrade?.();
+            setOpen(false);
+            return;
+          }
           onChange(model.id);
           setOpen(false);
         }}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150",
-          selected ? "bg-blue-500/10 dark:bg-blue-500/15" : "hover:bg-slate-100/80 dark:hover:bg-white/[0.06]"
+          selected ? "bg-blue-500/10 dark:bg-blue-500/15" : "hover:bg-slate-100/80 dark:hover:bg-white/[0.06]",
+          locked && "opacity-60"
         )}
       >
         <ModelIcon model={model} />
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              "block text-sm font-semibold",
+              "flex items-center gap-1.5 text-sm font-semibold",
               selected ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white"
             )}
           >
             {model.id}
+            {locked && (
+              <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.08] dark:text-slate-400">
+                <Lock className="h-2.5 w-2.5" />
+                Pro
+              </span>
+            )}
           </span>
           <span className="block truncate text-xs text-slate-400">{model.description}</span>
         </span>
-        {selected && <Check className="h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />}
+        {selected && !locked && <Check className="h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />}
       </button>
     );
   }

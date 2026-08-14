@@ -6,6 +6,7 @@ import { generateVideoIdeas, VideoIdeasAiError } from "@/lib/server/video-ideas-
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 export const maxDuration = 60;
 
@@ -66,10 +67,11 @@ async function routePOST(request: NextRequest, { params }: { params: Promise<{ i
   } catch (error) {
     await refundUser(user.id, TOOL_CREDIT_COSTS.niches.videoIdeas, "Generate Video Ideas refund", "niches.video_ideas");
     if (error instanceof VideoIdeasAiError) {
-      return NextResponse.json({ error: error.message }, { status: 502 });
+      console.error("[niches/videos/ideas]", error);
+      return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 502 });
     }
     console.error("[niches/videos/ideas] unhandled error:", error);
-    return NextResponse.json({ error: "Something went wrong generating ideas." }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 500 });
   }
 }
 

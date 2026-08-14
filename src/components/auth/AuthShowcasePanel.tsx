@@ -7,8 +7,7 @@ import { MeshGradient } from "@paper-design/shaders-react";
 import { GradientOrb } from "@/components/auth/GradientOrb";
 import { MeshDriftShader } from "@/components/auth/MeshDriftShader";
 import { TubesBackground } from "@/components/auth/TubesBackground";
-import { WavesShader } from "@/components/auth/WavesShader";
-import { RippleLinesShader } from "@/components/auth/RippleLinesShader";
+import { ProtectedVideo } from "@/components/dashboard/ProtectedVideo";
 
 const ROTATE_MS = 7500;
 
@@ -61,13 +60,27 @@ const FEATURES = [
     tab: "Images",
     title: "AI Images",
     subtitle: "Generate scroll-stopping thumbnails and cover art in seconds.",
-    background: () => <WavesShader className="absolute inset-0" />,
+    background: () => (
+      <Image
+        src="/auth-showcase-images-v2.jpg"
+        alt=""
+        fill
+        priority
+        className="object-cover"
+      />
+    ),
   },
   {
     tab: "Video",
     title: "AI Video",
     subtitle: "Turn a script into a fully edited video in minutes.",
-    background: () => <RippleLinesShader className="absolute inset-0" />,
+    background: () => (
+      <ProtectedVideo
+        src="/videos/video-generator-showcase.mp4"
+        poster="/videos/video-generator-showcase-poster.jpg"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    ),
   },
 ];
 

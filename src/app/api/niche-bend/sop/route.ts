@@ -4,6 +4,7 @@ import { getJob, resolveStatus, startSopGeneration } from "@/lib/server/niche-be
 import { getUserCredits } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 export const maxDuration = 300;
 
@@ -61,8 +62,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (error instanceof Error && error.message === "Invalid chosenBend id") {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    const message = error instanceof Error ? error.message : "Could not generate the SOP";
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("[niche-bend/sop]", error);
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 502 });
   }
 
   // Returns as soon as generation has been kicked off (status "generating_sop"),

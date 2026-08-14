@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, Maximize2, Sparkles, Upload, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Check, Clock, Lock, Maximize2, Sparkles, Upload, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -176,6 +176,10 @@ interface MobileCreatePanelProps {
   models: VideoModelConfig[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
+  /** Current user is on the Pro (or higher) plan -- unlocks models with requiresPro. */
+  isPro?: boolean;
+  /** Called instead of onSelectModel when a locked (requiresPro, isPro false) model is tapped. */
+  onRequestUpgrade?: () => void;
 
   startFrame: FrameSlotState;
   onStartFrameChange: (next: FrameSlotState) => void;
@@ -222,6 +226,8 @@ export function MobileCreatePanel({
   models,
   selectedModel,
   onSelectModel,
+  isPro = false,
+  onRequestUpgrade,
   startFrame,
   onStartFrameChange,
   endFrame,
@@ -299,24 +305,32 @@ export function MobileCreatePanel({
         <div className="flex flex-col gap-1">
           {models.map((m) => {
             const selected = m.id === selectedModel;
+            const locked = Boolean(m.requiresPro) && !isPro;
             return (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => onSelectModel(m.id)}
+                onClick={() => (locked ? onRequestUpgrade?.() : onSelectModel(m.id))}
                 className={cn(
                   "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors",
-                  selected ? "bg-blue-50 ring-1 ring-blue-400 dark:bg-blue-500/10 dark:ring-blue-400/50" : "hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+                  selected ? "bg-blue-50 ring-1 ring-blue-400 dark:bg-blue-500/10 dark:ring-blue-400/50" : "hover:bg-slate-50 dark:hover:bg-white/[0.04]",
+                  locked && "opacity-60"
                 )}
               >
                 <ModelIcon model={m} />
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block text-sm font-semibold", selected ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white")}>
+                  <span className={cn("flex items-center gap-1.5 text-sm font-semibold", selected ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white")}>
                     {m.id}
+                    {locked && (
+                      <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.08] dark:text-slate-400">
+                        <Lock className="h-2.5 w-2.5" />
+                        Pro
+                      </span>
+                    )}
                   </span>
                   <span className="block truncate text-xs text-slate-400">{m.description}</span>
                 </span>
-                {selected && <Check className="h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />}
+                {selected && !locked && <Check className="h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />}
               </button>
             );
           })}

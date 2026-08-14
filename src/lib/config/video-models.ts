@@ -54,6 +54,8 @@ export interface VideoModelConfig {
   resolutionMode?: "direct" | "kling_mode";
   tier: VideoModelTier;
   description: string;
+  /** Only selectable on the Pro (or higher) plan -- shown to everyone in the picker, but locked with an upgrade prompt for Core users. */
+  requiresPro?: boolean;
   logo?: string;
   /** Logo is already a filled square/circular app icon (own background) -- render full-bleed rather than as a small centered glyph. */
   logoFullBleed?: boolean;
@@ -153,6 +155,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     imageField: "image",
     tier: "flagship",
     description: "OpenAI's video model — strong physics & realism, native audio",
+    requiresPro: true,
     logo: SORA_ICON,
     logoFullBleed: true,
     supportsImageToVideo: true,
@@ -240,6 +243,7 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     resolutionMode: "direct",
     tier: "flagship",
     description: "ByteDance's flagship — native audio, up to 30s, huge reference sets",
+    requiresPro: true,
     logo: SEEDANCE_ICON,
     supportsImageToVideo: true,
     supportsReferenceImages: true,

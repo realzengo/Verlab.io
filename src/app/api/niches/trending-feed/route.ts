@@ -5,6 +5,7 @@ import { humanizeViewCount } from "@/lib/server/apify-client";
 import { fetchTikTokTrendingFeed, SociaVaultError } from "@/lib/server/sociavault-client";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 import type { TrendingFeedVideo } from "@/lib/types";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -24,7 +25,8 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     items = await fetchTikTokTrendingFeed(region);
   } catch (error) {
     if (error instanceof SociaVaultError) {
-      return NextResponse.json({ error: error.message }, { status: error.code === "not_configured" ? 501 : 502 });
+      console.error("[niches/trending-feed]", error);
+      return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: error.code === "not_configured" ? 501 : 502 });
     }
     throw error;
   }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVoiceOption, VOICE_PREVIEW_TEXT } from "@/lib/config/voices";
 import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
-import { generateSpeech, ReplicateTtsError } from "@/lib/server/replicate-tts";
+import { generateSpeech } from "@/lib/server/replicate-tts";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 // Renders the fixed VOICE_PREVIEW_TEXT sample line for a catalog voice
 // exactly once, ever -- every user hears the same clip, so it's cached in
@@ -76,8 +77,8 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     const { data } = admin.storage.from(STORAGE_BUCKET).getPublicUrl(key);
     return NextResponse.json({ url: data.publicUrl });
   } catch (error) {
-    const message = error instanceof ReplicateTtsError || error instanceof Error ? error.message : "Could not generate preview";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[voices/preview]", error);
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 500 });
   }
 }
 

@@ -26,6 +26,7 @@ import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TopUpModal } from "@/components/TopUpModal";
+import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { readHistoryCache, writeHistoryCache } from "@/lib/client/history-cache";
 import { consumeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
@@ -442,6 +443,8 @@ export function VideoGenerator() {
   const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const [history, setHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("video-create"));
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
@@ -540,6 +543,23 @@ export function VideoGenerator() {
     loadHistory();
     return () => pollCancelRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Gates Pro-only models (Sora 2, Seedance 2.5) in the model pickers below.
+  useEffect(() => {
+    const supabase = createBrowserClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data.user?.id;
+      if (!userId) return;
+      supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", userId)
+        .single()
+        .then(({ data: profile }) => {
+          setIsPro(profile?.plan === "pro" || profile?.plan === "scale");
+        });
+    });
   }, []);
 
   // Mirrors every history update into localStorage so the next mount (tab
@@ -1253,7 +1273,13 @@ export function VideoGenerator() {
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <VideoModelPicker value={selectedModel} onChange={setSelectedModel} models={VIDEO_MODELS} />
+                          <VideoModelPicker
+                            value={selectedModel}
+                            onChange={setSelectedModel}
+                            models={VIDEO_MODELS}
+                            isPro={isPro}
+                            onRequestUpgrade={() => setShowUpgrade(true)}
+                          />
                           <PillDropdown
                             icon={Clock}
                             value={String(durationSeconds)}
@@ -1332,6 +1358,8 @@ export function VideoGenerator() {
                       models={VIDEO_MODELS}
                       selectedModel={selectedModel}
                       onSelectModel={setSelectedModel}
+                      isPro={isPro}
+                      onRequestUpgrade={() => setShowUpgrade(true)}
                       startFrame={startFrame}
                       onStartFrameChange={setStartFrame}
                       endFrame={endFrame}
@@ -1606,6 +1634,8 @@ export function VideoGenerator() {
       </AnimatePresence>
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
+
+      <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} initialTab="plan" />
 
       <ConfirmDialog
         isOpen={deleteTargetId !== null}

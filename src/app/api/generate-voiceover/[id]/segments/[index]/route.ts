@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import type { VoiceoverSegment } from "../../../route";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { generateSpeech, estimateDurationSeconds, ReplicateTtsError } from "@/lib/server/replicate-tts";
+import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-tts";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 // Signed-URL playback, same pattern as /api/library/video/[id]: the
 // voiceovers Storage bucket is private, so this is the only way a segment's
@@ -207,8 +208,8 @@ async function handlePATCH(
 
     return NextResponse.json({ segment: updatedSegment });
   } catch (error) {
-    const message = error instanceof ReplicateTtsError || error instanceof Error ? error.message : "Could not regenerate segment";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[generate-voiceover/segments] Failed to regenerate segment:", error);
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 500 });
   }
 }
 

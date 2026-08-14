@@ -4,6 +4,7 @@ import { getJob, regenerateOneCandidateInJob, resolveStatus } from "@/lib/server
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 export const maxDuration = 300;
 
@@ -75,8 +76,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (error instanceof Error && (error.message === "Invalid candidateId" || error.message === "Job is not ready yet")) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    const message = error instanceof Error ? error.message : "Could not regenerate this idea";
-    return NextResponse.json({ error: message }, { status: 502 });
+    console.error("[niche-bend/regenerate-candidate]", error);
+    return NextResponse.json({ error: GENERIC_GENERATION_ERROR }, { status: 502 });
   }
 
   const updatedJob = await getJob(supabase, jobId);

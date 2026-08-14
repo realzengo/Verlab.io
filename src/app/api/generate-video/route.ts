@@ -177,6 +177,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "model must be one of the supported options" }, { status: 400 });
   }
 
+  // The model picker UI already hides this behind an upgrade prompt for
+  // non-Pro users -- this is the enforcement boundary, since the UI check
+  // alone doesn't stop a direct API call.
+  if (model.requiresPro) {
+    const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+    if (profile?.plan !== "pro" && profile?.plan !== "scale") {
+      return NextResponse.json({ error: `${model.id} requires the Pro plan or higher.` }, { status: 403 });
+    }
+  }
+
   if (!durationSeconds || !model.durations.includes(durationSeconds)) {
     return NextResponse.json({ error: `duration must be one of: ${model.durations.join(", ")}` }, { status: 400 });
   }
