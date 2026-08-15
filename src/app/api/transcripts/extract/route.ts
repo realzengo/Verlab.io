@@ -8,6 +8,8 @@ import {
   humanizeVideoProviderError,
 } from "@/lib/server/video-provider";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 
 async function runExtraction(supabase: SupabaseClient, id: string, url: string): Promise<void> {
   try {
@@ -44,6 +46,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  if (!(await checkRateLimit(`transcripts-extract:${user.id}`, 10, 60))) {
+    return rateLimitedResponse();
+  }
+
   let body: { url?: string };
   try {
     body = await request.json();
@@ -71,7 +77,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Could not start extraction" }, { status: 500 });
+    return serverError("transcripts/extract", error, "Could not start extraction");
   }
 
   void runExtraction(supabase, data.id, url);

@@ -1,4 +1,5 @@
 import NumberFlow from "@number-flow/react";
+import Image from "next/image";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -126,7 +127,7 @@ export function PricingCard({
         )}
       >
         <div className="flex h-9 items-center justify-center gap-1.5 text-sm font-bold text-white">
-          <img src="/icons/fire.svg" alt="" className="h-5 w-5" />
+          <Image src="/icons/fire.svg" alt="" width={20} height={20} className="h-5 w-5" />
           Most Popular
         </div>
         <div className="flex w-full h-full flex-grow flex-col items-stretch rounded-[1.625rem] bg-surface px-6 py-8 text-left">

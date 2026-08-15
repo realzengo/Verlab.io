@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 
 export async function GET(): Promise<NextResponse> {
   const adminEmail = await getAdminEmailOrNull();
@@ -15,7 +16,7 @@ export async function GET(): Promise<NextResponse> {
     .order("id");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/feature-flags GET", error);
   }
 
   return NextResponse.json({ flags: data });
@@ -49,7 +50,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     .eq("id", body.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/feature-flags PATCH", error);
   }
 
   return NextResponse.json({ ok: true });

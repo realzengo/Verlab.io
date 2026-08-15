@@ -9,6 +9,9 @@ import { splitScript } from "@/lib/server/voiceover-segmentation";
 import { mapWithConcurrency } from "@/lib/server/concurrency";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
@@ -29,6 +32,7 @@ const MAX_STYLE_PROMPT_CHARS = 500;
 // block), so any row still "generating" well past a plausible finish time
 // gets swept to "failed" on the next GET.
 const STALE_GENERATING_MS = 6 * 60 * 1000;
+const STALE_STATUSES = ["generating"] as const;
 
 export interface VoiceoverSegment {
   index: number;
@@ -44,26 +48,6 @@ interface GenerateVoiceoverRequestBody {
   stylePrompt?: string;
   languageCode?: string;
   generationMode?: "line_by_line" | "all_at_once";
-}
-
-async function sweepStaleRows(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  rows: { id: string; status: string; error_message: string | null; created_at: string }[]
-): Promise<void> {
-  const staleIds = rows
-    .filter((row) => row.status === "generating" && Date.now() - new Date(row.created_at).getTime() > STALE_GENERATING_MS)
-    .map((row) => row.id);
-
-  if (staleIds.length === 0) return;
-
-  const timeoutMessage = "Generation timed out. Please try again.";
-  await supabase.from("voiceover_generations").update({ status: "failed", error_message: timeoutMessage }).in("id", staleIds);
-  for (const row of rows) {
-    if (staleIds.includes(row.id)) {
-      row.status = "failed";
-      row.error_message = timeoutMessage;
-    }
-  }
 }
 
 // Byte-light for the list view -- `segments` holds Storage paths, not audio
@@ -134,12 +118,11 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   if (id) {
     const { data, error } = await supabase.from("voiceover_generations").select(DETAIL_SELECT).eq("id", id).maybeSingle();
     if (error) {
-      console.error("[generate-voiceover] Failed to load generation:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("generate-voiceover GET (single)", error);
     }
     if (!data) return NextResponse.json({ generations: [] });
 
-    await sweepStaleRows(supabase, [data]);
+    await sweepStaleRows(supabase, "voiceover_generations", [data], STALE_STATUSES, STALE_GENERATING_MS);
     return NextResponse.json({ generations: [data] });
   }
 
@@ -169,11 +152,10 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   const { data, error } = await query;
 
   if (error) {
-    console.error("[generate-voiceover] Failed to load history:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("generate-voiceover GET (history)", error);
   }
 
-  await sweepStaleRows(supabase, data);
+  await sweepStaleRows(supabase, "voiceover_generations", data, STALE_STATUSES, STALE_GENERATING_MS);
   return NextResponse.json({ generations: (data as HistoryListRow[]).map(toHistoryListItem) });
 }
 
@@ -205,7 +187,7 @@ async function handleDELETE(request: NextRequest): Promise<NextResponse> {
 
   const { error: deleteError } = await supabase.from("voiceover_generations").delete().eq("id", id).eq("user_id", user.id);
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    return serverError("generate-voiceover DELETE", deleteError);
   }
 
   const segments: VoiceoverSegment[] = Array.isArray(row.segments) ? row.segments : [];
@@ -229,6 +211,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await checkRateLimit(`generate-voiceover:${user.id}`, 10, 60))) {
+    return rateLimitedResponse();
   }
 
   let body: GenerateVoiceoverRequestBody;
@@ -301,8 +287,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (insertError || !row) {
-    console.error("[generate-voiceover] Insert failed:", insertError);
-    return NextResponse.json({ error: insertError?.message ?? "Could not start generation" }, { status: 500 });
+    return serverError("generate-voiceover POST insert", insertError, "Could not start generation");
   }
 
   after(async () => {

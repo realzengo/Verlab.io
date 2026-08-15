@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -69,7 +70,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/niche-channels/[id] PATCH", error);
   }
 
   return NextResponse.json({ ok: true });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const adminEmail = await getAdminEmailOrNull();
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/api-providers POST", error);
   }
 
   return NextResponse.json({
@@ -103,7 +104,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const { error } = await admin.from("api_providers").update(update).eq("id", body.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/api-providers PATCH", error);
   }
 
   return NextResponse.json({ ok: true });
@@ -124,7 +125,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   const { error } = await admin.from("api_providers").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/api-providers DELETE", error);
   }
 
   return NextResponse.json({ ok: true });

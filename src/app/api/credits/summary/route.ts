@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { serverError } from "@/lib/server/api-error";
 
 export async function GET(): Promise<NextResponse> {
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export async function GET(): Promise<NextResponse> {
     ]);
 
   if (profileError || !profile || txError) {
-    return NextResponse.json({ error: profileError?.message ?? txError?.message ?? "Could not load credits" }, { status: 500 });
+    return serverError("credits/summary GET", profileError ?? txError, "Could not load credits");
   }
 
   const balance = profile.credits;

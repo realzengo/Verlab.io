@@ -6,6 +6,7 @@ import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 
 // Signed-URL playback, same pattern as /api/library/video/[id]: the
@@ -91,7 +92,7 @@ async function handleDELETE(
     .eq("id", id)
     .eq("user_id", user.id);
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return serverError("generate-voiceover/segments DELETE", updateError);
   }
 
   const admin = createAdminClient();

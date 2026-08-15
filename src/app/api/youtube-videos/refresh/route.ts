@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GLOBAL_REGION, refreshNicheVideoCache } from "@/lib/server/niche-video-refresh";
 import { NICHE_ORDER, type NicheName } from "@/lib/niches-catalog";
+import { serverError } from "@/lib/server/api-error";
 
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq("region", GLOBAL_REGION);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("youtube-videos/refresh", error);
   }
 
   // Niches with no YouTube rows yet have never been refreshed — they sort

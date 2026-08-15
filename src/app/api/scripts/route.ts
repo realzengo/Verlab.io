@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 
 async function handleGET(): Promise<NextResponse> {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ async function handleGET(): Promise<NextResponse> {
     .limit(100);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("scripts GET", error);
   }
 
   return NextResponse.json({ scripts: data });

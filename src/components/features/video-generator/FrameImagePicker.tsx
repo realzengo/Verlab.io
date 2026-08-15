@@ -3,8 +3,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ImagePlus, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, readFileAsDataUrl } from "@/lib/utils";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
+
+export { readFileAsDataUrl } from "@/lib/utils";
 
 export interface FrameSlotState {
   dataUrl: string | null;
@@ -12,15 +14,6 @@ export interface FrameSlotState {
 }
 
 export const EMPTY_FRAME_SLOT: FrameSlotState = { dataUrl: null, mode: "upload" };
-
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 // Guards against pathologically large source uploads before we even try to
 // decode them -- everything under this gets normalized down to a small JPEG

@@ -12,7 +12,7 @@ import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
 import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, downloadDataUrl, formatDate, readFileAsDataUrl } from "@/lib/utils";
 import {
   ASPECT_RATIO_OPTIONS,
   MODEL_OPTIONS,
@@ -27,22 +27,6 @@ import {
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 // Matches the backend's MAX_REFERENCE_IMAGES (generate-image/route.ts).
 const MAX_REFERENCE_IMAGES = 4;
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = filename;
-  link.click();
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 // "Today" / "Yesterday" / calendar date -- groups the history sidebar the
 // same way the competitor's does, instead of one flat list.

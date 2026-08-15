@@ -40,7 +40,7 @@ function applyDark(dark: boolean) {
   root.classList.toggle("dark", dark);
 
   // Force style recalculation under the blocker before removing it.
-  window.getComputedStyle(blocker).opacity;
+  void window.getComputedStyle(blocker).opacity;
   requestAnimationFrame(() => {
     document.head.removeChild(blocker);
   });

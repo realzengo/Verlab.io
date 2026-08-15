@@ -5,6 +5,9 @@ import { getImageGenerationCost, slugifyModelName, type ImageQuality, type Image
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
 
@@ -43,30 +46,7 @@ const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
 // is also the reconciliation pass -- the row can never be orphaned longer
 // than one poll interval.
 const STALE_GENERATING_MS = 6 * 60 * 1000;
-
-// Sweeps any still-"generating" rows past the stale window to "failed" in
-// place, mutating `rows` to match what was written -- shared by both the
-// list and single-row (?id=) paths below so a stuck row gets reconciled no
-// matter which one last touched it.
-async function sweepStaleRows(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  rows: { id: string; status: string; error_message: string | null; created_at: string }[]
-): Promise<void> {
-  const staleIds = rows
-    .filter((row) => row.status === "generating" && Date.now() - new Date(row.created_at).getTime() > STALE_GENERATING_MS)
-    .map((row) => row.id);
-
-  if (staleIds.length === 0) return;
-
-  const timeoutMessage = "Generation timed out. Please try again.";
-  await supabase.from("image_generations").update({ status: "failed", error_message: timeoutMessage }).in("id", staleIds);
-  for (const row of rows) {
-    if (staleIds.includes(row.id)) {
-      row.status = "failed";
-      row.error_message = timeoutMessage;
-    }
-  }
-}
+const STALE_STATUSES = ["generating"] as const;
 
 // Every row's `images` column holds full base64 data URLs (up to several MB
 // each at higher resolutions/output counts) -- selecting it for up to 50
@@ -99,14 +79,13 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     const { data, error } = await supabase.from("image_generations").select(DETAIL_SELECT).eq("id", id).maybeSingle();
 
     if (error) {
-      console.error("[generate-image] Failed to load generation:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError("generate-image GET (single)", error);
     }
     if (!data) {
       return NextResponse.json({ generations: [] });
     }
 
-    await sweepStaleRows(supabase, [data]);
+    await sweepStaleRows(supabase, "image_generations", [data], STALE_STATUSES, STALE_GENERATING_MS);
     return NextResponse.json({ generations: [data] });
   }
 
@@ -117,11 +96,10 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     .limit(50);
 
   if (error) {
-    console.error("[generate-image] Failed to load history:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("generate-image GET (history)", error);
   }
 
-  await sweepStaleRows(supabase, data);
+  await sweepStaleRows(supabase, "image_generations", data, STALE_STATUSES, STALE_GENERATING_MS);
 
   return NextResponse.json({ generations: data });
 }
@@ -134,6 +112,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await checkRateLimit(`generate-image:${user.id}`, 10, 60))) {
+    return rateLimitedResponse();
   }
 
   let body: GenerateImageRequestBody;
@@ -231,7 +213,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (insertError || !row) {
-    return NextResponse.json({ error: insertError?.message ?? "Could not start generation" }, { status: 500 });
+    return serverError("generate-image POST insert", insertError, "Could not start generation");
   }
 
   // `after()` (not a bare fire-and-forget call) keeps the serverless

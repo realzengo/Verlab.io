@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 import type { AdminRole } from "@/lib/types";
 
 const VALID_ROLES: AdminRole[] = ["owner", "admin", "support"];
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (error.code === "23505") {
       return NextResponse.json({ error: "That email is already on the admin team" }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/team POST", error);
   }
 
   return NextResponse.json({

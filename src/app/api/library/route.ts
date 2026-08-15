@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/types";
 
 // There's no dedicated `user_assets` table -- this unifies the real
@@ -77,7 +78,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
 
   for (const result of [imagesResult, videosResult, sopsResult, voiceoversResult]) {
     if (result.error) {
-      return NextResponse.json({ error: result.error.message }, { status: 500 });
+      return serverError("library GET", result.error);
     }
   }
 

@@ -164,7 +164,7 @@ function SignupForm() {
             id="signup-password"
             type={showPassword ? "text" : "password"}
             required
-            minLength={6}
+            minLength={8}
             autoComplete="new-password"
             placeholder="Password"
             value={password}
@@ -180,7 +180,7 @@ function SignupForm() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        <p className="-mt-1.5 text-xs text-subtle">Must be at least 6 characters.</p>
+        <p className="-mt-1.5 text-xs text-subtle">Must be at least 8 characters, with a letter and a number.</p>
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">

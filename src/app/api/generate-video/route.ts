@@ -8,6 +8,9 @@ import { validateReferenceImage, validateReferenceImages } from "@/lib/server/vi
 import { describeGenerationFailure, GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -18,6 +21,7 @@ export const maxDuration = 30; // this route only submits to Replicate and retur
 // generate-image's 6-minute equivalent because video renders genuinely take
 // minutes, especially on premium models like Veo 3 Quality.
 const STALE_JOB_MS = 20 * 60 * 1000;
+const STALE_STATUSES = ["queued", "processing"] as const;
 
 interface GenerateVideoRequestBody {
   prompt?: string;
@@ -96,8 +100,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await query;
   if (error) {
-    console.error("[generate-video] Failed to load history:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("generate-video GET", error);
   }
 
   // Vercel Cron (the /api/cron/video-poll backstop that normally finishes
@@ -133,22 +136,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const staleIds = data
-    .filter(
-      (row) => (row.status === "queued" || row.status === "processing") && Date.now() - new Date(row.created_at).getTime() > STALE_JOB_MS
-    )
-    .map((row) => row.id);
-
-  if (staleIds.length > 0) {
-    const timeoutMessage = "Generation timed out. Please try again.";
-    await supabase.from("video_generations").update({ status: "failed", error_message: timeoutMessage }).in("id", staleIds);
-    for (const row of data) {
-      if (staleIds.includes(row.id)) {
-        row.status = "failed";
-        row.error_message = timeoutMessage;
-      }
-    }
-  }
+  await sweepStaleRows(supabase, "video_generations", data, STALE_STATUSES, STALE_JOB_MS);
 
   return NextResponse.json({ generations: data });
 }
@@ -161,6 +149,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await checkRateLimit(`generate-video:${user.id}`, 10, 60))) {
+    return rateLimitedResponse();
   }
 
   let body: GenerateVideoRequestBody;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 
 export const maxDuration = 60;
 
@@ -57,7 +58,7 @@ async function handleGET(): Promise<NextResponse> {
     .select("kind, file_name, content, created_at");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("script-references GET", error);
   }
 
   return NextResponse.json({ referenceFiles: data });
@@ -110,7 +111,7 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
     );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("script-references PUT", error);
   }
 
   return NextResponse.json({ success: true, fileName: file.name, content });
@@ -136,7 +137,7 @@ async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { error } = await supabase.from("script_reference_files").delete().eq("kind", kind);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("script-references DELETE", error);
   }
 
   return NextResponse.json({ success: true });

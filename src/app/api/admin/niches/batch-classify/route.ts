@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
+import { serverError } from "@/lib/server/api-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyAndStoreChannel } from "@/lib/server/faceless-classifier";
 import type { FacelessChannelVideo } from "@/lib/types";
@@ -53,7 +54,7 @@ export async function POST(): Promise<Response> {
     .returns<UnclassifiedRow[]>();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/niches/batch-classify", error);
   }
 
   const channels = rows ?? [];

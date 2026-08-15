@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 
 export async function DELETE(
   request: NextRequest,
@@ -16,7 +17,7 @@ export async function DELETE(
   const { error } = await admin.from("promo_codes").delete().eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/promo-codes/[id] DELETE", error);
   }
 
   return NextResponse.json({ ok: true });

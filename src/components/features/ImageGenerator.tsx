@@ -46,7 +46,7 @@ import { writeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
-import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
+import { cn, downloadDataUrl, formatDate, formatRelativeTime, readFileAsDataUrl } from "@/lib/utils";
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
@@ -211,22 +211,6 @@ function getDataUrlSize(dataUrl: string): string {
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 // Matches MAX_REFERENCE_IMAGES in api/generate-image/route.ts.
 const MAX_REF_IMAGES = 4;
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = filename;
-  link.click();
-}
 
 // Used by the preview modal's "Remix" action to hand a generated image back
 // in as a reference image -- the reference-image slot takes a File (it's

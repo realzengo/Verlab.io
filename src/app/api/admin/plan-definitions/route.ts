@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 import type { PricingPlan } from "@/lib/types";
 
 export async function PUT(request: NextRequest): Promise<NextResponse> {
@@ -55,7 +56,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   const { error } = await admin.from("plan_definitions").upsert(rows);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/plan-definitions", error);
   }
 
   return NextResponse.json({ ok: true });

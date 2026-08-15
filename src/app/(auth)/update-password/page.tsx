@@ -72,7 +72,7 @@ function UpdatePasswordForm() {
             id="new-password"
             type={showPassword ? "text" : "password"}
             required
-            minLength={6}
+            minLength={8}
             autoComplete="new-password"
             placeholder="New password"
             value={password}

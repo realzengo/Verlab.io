@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/video-provider";
 import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 
 async function runDownload(supabase: SupabaseClient, id: string, url: string, format: DownloadFormat): Promise<void> {
   try {
@@ -79,7 +80,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Could not start download" }, { status: 500 });
+    return serverError("downloads/create", error, "Could not start download");
   }
 
   void runDownload(supabase, data.id, url, format);

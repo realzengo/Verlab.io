@@ -2,6 +2,7 @@ import sharp from "sharp";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 
 // Thumbnail requests (a `w` query param, from the Library grid/preview) get
 // resized and re-encoded here rather than served at full resolution. This
@@ -115,7 +116,7 @@ async function handleDELETE(
           .eq("user_id", user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("library/image/[id]/[index] DELETE", error);
   }
 
   return NextResponse.json({ ok: true });

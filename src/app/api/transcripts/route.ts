@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { serverError } from "@/lib/server/api-error";
 
 async function handleGET(): Promise<NextResponse> {
   const supabase = await createClient();
@@ -21,7 +22,7 @@ async function handleGET(): Promise<NextResponse> {
     .limit(100);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("transcripts GET", error);
   }
 
   return NextResponse.json({ transcripts: data });
@@ -47,7 +48,7 @@ async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { error } = await supabase.from("transcripts").delete().in("id", ids);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("transcripts DELETE", error);
   }
 
   return NextResponse.json({ success: true });

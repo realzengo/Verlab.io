@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { advanceVideoJob, type VideoJobRow } from "@/lib/server/video-jobs";
+import { serverError } from "@/lib/server/api-error";
 
 export const maxDuration = 120;
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .returns<VideoJobRow[]>();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("cron/video-poll", error);
   }
 
   await Promise.all((rows ?? []).map((row) => advanceVideoJob(row, admin)));

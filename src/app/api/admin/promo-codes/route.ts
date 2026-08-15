@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { getPromoCodes, mapPromoCodeRow } from "@/lib/server/admin-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverError } from "@/lib/server/api-error";
 import type { PromoRewardType } from "@/lib/types";
 
 const REWARD_TYPES: PromoRewardType[] = ["credits", "discount_percent"];
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (error.code === "23505") {
       return NextResponse.json({ error: "A promo code with that code already exists" }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/promo-codes POST", error);
   }
 
   return NextResponse.json({ code: mapPromoCodeRow(data) });

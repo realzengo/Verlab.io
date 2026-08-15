@@ -91,11 +91,6 @@ export async function resolveOutputUrl(output: unknown): Promise<string> {
   throw new ReplicateApiError("Replicate returned an unrecognized output shape");
 }
 
-export async function resolveAllOutputUrls(output: unknown): Promise<string[]> {
-  const candidates = Array.isArray(output) ? output : [output];
-  return Promise.all(candidates.map((candidate) => resolveOutputUrl(candidate)));
-}
-
 /** Downloads a Replicate-hosted result so it can be re-uploaded into our own Storage -- Replicate's URLs aren't guaranteed permanent. */
 export async function downloadReplicateAsset(url: string, timeoutMs = 120_000): Promise<{ bytes: Uint8Array; contentType: string }> {
   const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });

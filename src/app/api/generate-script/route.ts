@@ -4,6 +4,7 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { MODEL_CANDIDATES, buildSystemPrompt } from "@/lib/server/script-generation";
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 300;
@@ -28,6 +29,10 @@ async function handlePOST(request: NextRequest): Promise<Response> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await checkRateLimit(`generate-script:${user.id}`, 10, 60))) {
+    return rateLimitedResponse();
   }
 
   let body: GenerateScriptRequestBody;
