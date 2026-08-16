@@ -58,6 +58,7 @@ const APP_HOST_PASSTHROUGH_PREFIXES = [
   "/oauth",
   "/login",
   "/signup",
+  "/update-password",
   "/legal",
   "/pricing",
   "/affiliates",
@@ -68,7 +69,7 @@ const APP_HOST_PASSTHROUGH_PREFIXES = [
 
 // Paths that belong to "the app" and must never render on the marketing
 // root domain -- redirected across to app.verlab.io instead.
-const APP_ONLY_PREFIXES = ["/admin", "/checkout", "/oauth", "/login", "/signup", "/app"];
+const APP_ONLY_PREFIXES = ["/admin", "/checkout", "/oauth", "/login", "/signup", "/update-password", "/app"];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

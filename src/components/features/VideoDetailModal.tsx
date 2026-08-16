@@ -540,7 +540,7 @@ export function VideoDetailModal({
                           ))}
                         </div>
                         <Button
-                          href={`/app/scripts?idea=${encodeURIComponent(formatIdeaAsText(idea))}`}
+                          href={`/scripts?idea=${encodeURIComponent(formatIdeaAsText(idea))}`}
                           variant="secondary"
                           size="sm"
                           icon={FileText}
