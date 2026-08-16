@@ -42,8 +42,41 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
 // wrong one (cookies here are host-only; see src/lib/supabase).
 const ROOT_DOMAIN = "verlab.io";
 
+// Paths that must stay exactly where they are on app.<ROOT_DOMAIN> instead
+// of being treated as a dashboard page -- either real top-level routes
+// (auth, admin, checkout, the API) or marketing pages that still need to
+// render if someone hits them directly on this host. Everything else is
+// rewritten to /app/... below, so the dashboard lives at the bare
+// subdomain root (app.verlab.io/library) instead of needing an /app
+// prefix in every URL (app.verlab.io/app/library) -- matches how
+// app.<product>.com products are normally laid out.
+const APP_HOST_PASSTHROUGH_PREFIXES = [
+  "/api",
+  "/admin",
+  "/auth",
+  "/checkout",
+  "/oauth",
+  "/login",
+  "/signup",
+  "/app",
+  "/legal",
+  "/pricing",
+  "/affiliates",
+  "/script-bending",
+  "/dev-preview-script-modal",
+  "/.well-known",
+];
+
+// Paths that belong to "the app" and must never render on the marketing
+// root domain -- redirected across to app.verlab.io instead.
+const APP_ONLY_PREFIXES = ["/admin", "/checkout", "/oauth", "/login", "/signup", "/app"];
+
+function matchesPrefix(pathname: string, prefixes: string[]) {
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const rawPathname = request.nextUrl.pathname;
   const currentHost = request.nextUrl.hostname;
   const isAppHost = currentHost === `app.${ROOT_DOMAIN}`;
   const isRootDomain = currentHost === ROOT_DOMAIN || currentHost === `www.${ROOT_DOMAIN}`;
@@ -51,13 +84,39 @@ export async function proxy(request: NextRequest) {
   // Only the two real production hosts get split -- localhost and Vercel
   // preview URLs (which don't have an app.* DNS entry) fall through to the
   // pre-split behavior below, unchanged.
-  if (pathname === "/") {
-    return isAppHost ? NextResponse.redirect(new URL("/app", request.url)) : NextResponse.next();
-  }
-  if (isRootDomain) {
+  if (isRootDomain && matchesPrefix(rawPathname, APP_ONLY_PREFIXES)) {
     const url = request.nextUrl.clone();
     url.hostname = `app.${ROOT_DOMAIN}`;
     return NextResponse.redirect(url, 308);
+  }
+
+  // A dot means a static file (favicon.ico, logo.png, ...) -- never a
+  // dashboard route, so it's always left alone regardless of host.
+  const isStaticFile = rawPathname.includes(".");
+  const needsCleanRewrite = isAppHost && !isStaticFile && !matchesPrefix(rawPathname, APP_HOST_PASSTHROUGH_PREFIXES);
+  const pathname = needsCleanRewrite ? (rawPathname === "/" ? "/app" : `/app${rawPathname}`) : rawPathname;
+  const rewriteUrl = needsCleanRewrite ? (() => {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    return url;
+  })() : null;
+
+  // Everything below is the actual auth/paywall gate, and it's the only
+  // part of this file that talks to Supabase -- skip it entirely (no
+  // network round trip) for marketing pages, static assets, /api, /auth,
+  // etc., on every host, exactly like the narrower matcher this file used
+  // to have before the subdomain split needed a broader one to catch
+  // clean dashboard URLs.
+  const needsAuthCheck =
+    pathname.startsWith("/app") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/checkout") ||
+    pathname.startsWith("/oauth") ||
+    pathname === "/login" ||
+    pathname === "/signup";
+
+  if (!needsAuthCheck) {
+    return rewriteUrl ? NextResponse.rewrite(rewriteUrl) : NextResponse.next();
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -120,14 +179,18 @@ export async function proxy(request: NextRequest) {
   // redirects, which the previous per-branch NextResponse.redirect() calls
   // would otherwise drop.
   function buildResponse(redirectTo?: URL) {
-    const res = redirectTo ? NextResponse.redirect(redirectTo) : NextResponse.next({ request: { headers: requestHeaders } });
+    const res = redirectTo
+      ? NextResponse.redirect(redirectTo)
+      : rewriteUrl
+        ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
+        : NextResponse.next({ request: { headers: requestHeaders } });
     pendingCookies.forEach(({ name, value, options }) => res.cookies.set(name, value, options ?? {}));
     return res;
   }
 
   if (pathname.startsWith("/checkout") && !user) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+    loginUrl.searchParams.set("next", rawPathname + request.nextUrl.search);
     return buildResponse(loginUrl);
   }
 
@@ -135,14 +198,19 @@ export async function proxy(request: NextRequest) {
   // user -- no subscription/paywall check, same carve-out as /app/settings.
   if (pathname.startsWith("/oauth") && !user) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+    loginUrl.searchParams.set("next", rawPathname + request.nextUrl.search);
     return buildResponse(loginUrl);
   }
 
   if (pathname.startsWith("/app")) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
+      // rawPathname, not the /app-prefixed pathname used for the checks
+      // below -- next is handed straight to router.push() after login, so
+      // using the clean URL the visitor actually requested keeps the
+      // address bar clean post-login too (e.g. "/library", not
+      // "/app/library").
+      loginUrl.searchParams.set("next", rawPathname);
       return buildResponse(loginUrl);
     }
 
@@ -228,21 +296,26 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/admin")) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname);
+      loginUrl.searchParams.set("next", rawPathname);
       return buildResponse(loginUrl);
     }
     if (!isAdminEmail(user.email)) {
-      return buildResponse(new URL("/app", request.url));
+      return buildResponse(new URL("/", request.url));
     }
   }
 
   if ((pathname === "/login" || pathname === "/signup") && user) {
-    return buildResponse(new URL("/app", request.url));
+    return buildResponse(new URL("/", request.url));
   }
 
   return buildResponse();
 }
 
 export const config = {
-  matcher: ["/", "/app/:path*", "/admin/:path*", "/checkout/:path*", "/oauth/:path*", "/login", "/signup"],
+  // Broad on purpose -- app.verlab.io needs every path checked so a clean
+  // dashboard URL (e.g. /library) can be rewritten to /app/library.
+  // _next internals and favicon are the only blanket exclusions; the cheap
+  // needsAuthCheck bailout above keeps everything else (marketing pages,
+  // static files, /api, /auth) from paying for the Supabase round trip.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
