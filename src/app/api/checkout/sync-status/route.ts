@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Polled by /checkout/success while it waits for the Polar webhook to land.
+ * Polled by /checkout/success while it waits for the Whop webhook to land.
  * Reads only the caller's own profile row (RLS-scoped via the user's own
- * session, not the service-role client) -- no Polar API call, no writes, so
+ * session, not the service-role client) -- no Whop API call, no writes, so
  * there's nothing here that could double-grant credits or leak another
  * user's billing state.
  */

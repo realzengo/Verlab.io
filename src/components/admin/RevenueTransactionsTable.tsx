@@ -31,7 +31,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
         <EmptyState
           icon={Receipt}
           title="No transactions yet"
-          description="Real payments and refunds from Polar will show up here the moment the first one comes in."
+          description="Real payments and refunds from Whop will show up here the moment the first one comes in."
         />
       ) : (
         <Table>

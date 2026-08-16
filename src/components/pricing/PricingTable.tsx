@@ -21,7 +21,7 @@ export function PricingTable({
   plans: PricingPlan[];
   /** Where logged-out visitors are sent instead of straight to checkout. */
   ctaHref?: string;
-  /** When true, ignores ctaHref and starts a Polar checkout for the signed-in user instead. */
+  /** When true, ignores ctaHref and starts a Whop checkout for the signed-in user instead. */
   authenticated?: boolean;
 }) {
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");

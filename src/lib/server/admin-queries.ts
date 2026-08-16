@@ -31,9 +31,7 @@ import type {
 // (getRevenueData below) is driven by Whop's webhook event log and the
 // profiles.subscription_status columns from the 20260729120000_whop_billing
 // migration -- real numbers, honestly zero until the Whop webhook is
-// registered and the first event lands (see WHOP_WEBHOOK_SECRET). Billing
-// switched from Polar to Whop; Polar's tables/routes are left in place
-// unused (see that migration's comment) but no longer read here.
+// registered and the first event lands (see WHOP_WEBHOOK_SECRET).
 
 const TOOL_LABELS: Record<AdminToolKey, string> = {
   bend: "Niche Bending",
@@ -818,7 +816,7 @@ const BILLING_REASON_LABEL: Record<string, string> = {
 };
 
 // Whop reports amounts as decimals in the payment's currency (e.g. 10.43 for
-// $10.43), unlike Polar's cents -- no /100 conversion needed here.
+// $10.43) -- no /100 conversion needed here.
 function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction | null {
   const data = row.payload?.data;
   if (!data) return null;

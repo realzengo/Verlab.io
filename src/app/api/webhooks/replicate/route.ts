@@ -10,8 +10,8 @@ export const maxDuration = 120;
  * primary completion path; /api/cron/video-poll is the backstop for
  * missed/failed deliveries. Replaces /api/webhooks/fal.
  *
- * Not behind Supabase auth (same as /api/webhooks/polar and
- * /api/webhooks/whop) -- Replicate has no session to present. Signature
+ * Not behind Supabase auth (same as /api/webhooks/whop) -- Replicate has
+ * no session to present. Signature
  * verification (Replicate signs webhooks per
  * https://replicate.com/docs/topics/webhooks/verify-webhook, using a
  * per-account secret from replicate.webhooks.default.secret.get()) is NOT

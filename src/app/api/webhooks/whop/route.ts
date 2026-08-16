@@ -13,9 +13,9 @@ import type { UnwrapWebhookEvent, RefundCreatedWebhookEvent } from "@whop/sdk/re
 
 /**
  * Not behind Supabase auth (proxy.ts's matcher only covers /app, /admin,
- * /login, /signup) -- auth here IS the Standard Webhooks signature check
- * (same underlying spec Polar used, via the `standardwebhooks` package
- * @whop/sdk wraps in client.webhooks.unwrap()).
+ * /login, /signup) -- auth here IS the Standard Webhooks signature check,
+ * via the `standardwebhooks` package @whop/sdk wraps in
+ * client.webhooks.unwrap().
  *
  * Credit grants happen ONLY on payment.succeeded (fired once per successful
  * charge, whether a one-time credit pack or a subscription's initial/renewal

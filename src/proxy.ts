@@ -3,13 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAdminEmail } from "@/lib/server/admin";
 
 // How long a past_due subscriber keeps /app access after their billing
-// period ended, before Polar's payment retries are given up on. Matches
-// Polar's own dunning window (a handful of retry attempts over a few days).
+// period ended, before Whop's payment retries are given up on. Matches
+// Whop's own dunning window (a handful of retry attempts over a few days).
 const PAST_DUE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 
-// A subscription the user has scheduled to cancel (Polar's "canceled" /
-// Whop's "canceling") still owes access through the period already paid
-// for -- only lapsed once subscription_current_period_end has passed.
+// A subscription the user has scheduled to cancel ("canceling", Whop's
+// vocabulary; "canceled" kept for rows written before the Polar->Whop
+// migration) still owes access through the period already paid for --
+// only lapsed once subscription_current_period_end has passed.
 const CANCELED_STATUSES = new Set(["canceled", "canceling"]);
 
 // Every /app /admin /checkout /oauth /login /signup request blocks on this
@@ -272,7 +273,7 @@ export async function proxy(request: NextRequest) {
         : null;
 
       // past_due gets a grace window past the period it failed to renew --
-      // Polar retries the charge a few times before giving up, and a hard
+      // Whop retries the charge a few times before giving up, and a hard
       // cutoff on the very first failed attempt (a card that's since been
       // fixed, a bank hiccup) would lock out someone who's still paying.
       const isWithinPastDueGrace =

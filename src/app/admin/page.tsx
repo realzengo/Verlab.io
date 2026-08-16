@@ -163,7 +163,7 @@ export default async function AdminOverviewPage() {
             <p className="text-sm font-semibold text-heading">
               {CURRENT_MRR > 0 ? `${formatCurrency(CURRENT_MRR)} MRR from ${PAYING_USERS} subscribers` : "Awaiting your first payment"}
             </p>
-            <p className="text-xs text-body">Polar billing is wired up — MRR, churn, and transactions populate automatically as payments come in.</p>
+            <p className="text-xs text-body">Whop billing is wired up — MRR, churn, and transactions populate automatically as payments come in.</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

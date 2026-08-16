@@ -1,8 +1,7 @@
 // Whop product/plan-ID mapping and SDK client factory. Single source of truth
 // for "which Whop plan maps to which credit pack / plan+period" so the
 // checkout routes and the webhook handler can never drift out of sync with
-// each other. Mirrors src/lib/config/polar.ts's shape -- Polar is left wired
-// but unused after switching processors; see that file for the prior setup.
+// each other.
 //
 // Env vars are read lazily (inside functions, not at module scope) so that
 // importing this file never throws before the routes that need it are
@@ -47,9 +46,8 @@ interface SubscriptionProductConfig {
   monthlyCreditsPerPeriod: number;
 }
 
-// Each billing interval is its own Whop plan (attached to its own hidden
-// product), the same one-plan-per-offering shape as the old Polar setup --
-// keeps this table a straight product/plan-ID swap, nothing else to change.
+// Each billing interval is its own Whop plan, attached to its own hidden
+// product.
 export function getSubscriptionProducts(): Record<SubscriptionPlanId, SubscriptionProductConfig> {
   return {
     core: {
