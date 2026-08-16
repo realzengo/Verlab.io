@@ -250,7 +250,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
 
         <div className="absolute bottom-2.5 right-2.5 z-10">
           <Link
-            href="/app/bend"
+            href="/bend"
             onClick={(e) => e.stopPropagation()}
             aria-label="Bend this script"
             title="Bend this script"

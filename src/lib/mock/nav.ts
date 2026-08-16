@@ -20,12 +20,12 @@ import {
 import type { NavItem } from "@/lib/types";
 
 export const SIDEBAR_NAV: NavItem[] = [
-  { label: "Home", href: "/app", icon: Home },
-  { label: "Library", href: "/app/library", icon: Library },
-  { label: "Niche Finder", href: "/app/niches", icon: Compass },
-  { label: "Niche Bending", href: "/app/bend", icon: Wand2 },
-  { label: "Tools", href: "/app/tools", icon: Wrench },
-  { label: "MCP", href: "/app/mcp", icon: Plug },
+  { label: "Home", href: "/", icon: Home },
+  { label: "Library", href: "/library", icon: Library },
+  { label: "Niche Finder", href: "/niches", icon: Compass },
+  { label: "Niche Bending", href: "/bend", icon: Wand2 },
+  { label: "Tools", href: "/tools", icon: Wrench },
+  { label: "MCP", href: "/mcp", icon: Plug },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

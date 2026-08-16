@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { UNTHEMED_APP_HOST_PREFIXES } from "@/lib/constants";
 
 type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
@@ -22,8 +23,13 @@ function systemTheme(): ResolvedTheme {
 
 // Dark mode is only available inside the authenticated app/admin shells —
 // the marketing site, login, and signup pages must always render light.
+// Old-style /app and /admin paths are still themed directly (bookmarks,
+// local dev where there's no real subdomain split); everything else on
+// app.verlab.io is a clean-URL dashboard page and themed via hostname.
 function isThemedRoute(pathname: string) {
-  return pathname.startsWith("/app") || pathname.startsWith("/admin");
+  if (pathname.startsWith("/app") || pathname.startsWith("/admin")) return true;
+  if (typeof window === "undefined" || window.location.hostname !== "app.verlab.io") return false;
+  return !UNTHEMED_APP_HOST_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function applyDark(dark: boolean) {

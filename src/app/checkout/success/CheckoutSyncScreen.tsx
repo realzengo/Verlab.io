@@ -51,7 +51,7 @@ export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
     reconcile();
 
     const cancelPoll = pollUntilSettled(fetchStatus, hasChanged, (current) => {
-      if (hasChanged(current)) router.push("/app/settings/credits");
+      if (hasChanged(current)) router.push("/settings/credits");
     }, {
       intervalMs: POLL_INTERVAL_MS,
       timeoutMs: TIMEOUT_MS,
@@ -62,7 +62,7 @@ export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
           .then(fetchStatus)
           .then((current) => {
             if (cancelled) return;
-            if (hasChanged(current)) router.push("/app/settings/credits");
+            if (hasChanged(current)) router.push("/settings/credits");
             else setTimedOut(true);
           })
           .catch(() => {
@@ -89,7 +89,7 @@ export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
               head to your dashboard and refresh in a minute if it&apos;s not there yet.
             </p>
           </div>
-          <Button href="/app/settings/credits" variant="primary">
+          <Button href="/settings/credits" variant="primary">
             Go to dashboard
           </Button>
         </>

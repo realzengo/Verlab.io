@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { europaGrotesk } from "@/lib/fonts";
+import { APP_URL } from "@/lib/constants";
 
 type LinkGroup = { heading: string; links: { label: string; href: string }[] };
 
@@ -10,16 +11,16 @@ const LINK_GROUPS: LinkGroup[] = [
     links: [
       { label: "Niche Bending", href: "/script-bending" },
       { label: "Script Generator", href: "/script-bending" },
-      { label: "Image Generator", href: "/app/image-generator" },
-      { label: "Video Library", href: "/app/library" },
+      { label: "Image Generator", href: `${APP_URL}/image-generator` },
+      { label: "Video Library", href: `${APP_URL}/library` },
     ],
   },
   {
     heading: "AI Tools",
     links: [
-      { label: "Niche Explorer", href: "/app/niches" },
-      { label: "Transcript Extractor", href: "/app/transcripts" },
-      { label: "MCP Connect", href: "/app/mcp" },
+      { label: "Niche Explorer", href: `${APP_URL}/niches` },
+      { label: "Transcript Extractor", href: `${APP_URL}/transcripts` },
+      { label: "MCP Connect", href: `${APP_URL}/mcp` },
     ],
   },
   {
@@ -46,15 +47,15 @@ const LINK_GROUPS: LinkGroup[] = [
 // so every entry stays on one line inside a narrow 3-col grid.
 const MOBILE_FOOTER_LINKS: { label: string; href: string }[] = [
   { label: "Niche Bending", href: "/script-bending" },
-  { label: "Niches", href: "/app/niches" },
+  { label: "Niches", href: `${APP_URL}/niches` },
   { label: "Pricing", href: "/pricing" },
   { label: "Scripts", href: "/script-bending" },
-  { label: "Transcripts", href: "/app/transcripts" },
+  { label: "Transcripts", href: `${APP_URL}/transcripts` },
   { label: "How it Works", href: "/#workflow" },
-  { label: "Images", href: "/app/image-generator" },
-  { label: "MCP", href: "/app/mcp" },
+  { label: "Images", href: `${APP_URL}/image-generator` },
+  { label: "MCP", href: `${APP_URL}/mcp` },
   { label: "FAQ", href: "/#faq" },
-  { label: "Library", href: "/app/library" },
+  { label: "Library", href: `${APP_URL}/library` },
   { label: "Affiliates", href: "/affiliates" },
 ];
 

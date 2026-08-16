@@ -101,7 +101,7 @@ export default async function CreditHistorySettingsPage() {
             icon={<CreditCard className="h-4 w-4" />}
             label="Current plan"
             value={PLAN_LABELS[plan] ?? plan}
-            action={{ href: "/app/settings/subscription", text: "Manage plan" }}
+            action={{ href: "/settings/subscription", text: "Manage plan" }}
           />
         </div>
       </div>

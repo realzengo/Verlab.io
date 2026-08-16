@@ -28,7 +28,7 @@ type View = "login" | "forgot" | "forgot-sent";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/app";
+  const next = searchParams.get("next") ?? "/";
 
   const [view, setView] = useState<View>("login");
   const [email, setEmail] = useState("");

@@ -24,7 +24,7 @@ const SUPPORT_URL = "https://discord.gg/pG9uFUhJb4";
 
 const NAV_LINKS = [
   { label: "Upgrade", href: "/pricing", icon: ArrowUpCircle },
-  { label: "Settings", href: "/app/settings", icon: Settings },
+  { label: "Settings", href: "/settings", icon: Settings },
   { label: "Earn with Verlab", href: "/affiliates", icon: CircleDollarSign },
 ];
 

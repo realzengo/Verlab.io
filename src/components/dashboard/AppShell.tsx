@@ -37,9 +37,9 @@ export function AppShell({
     const timeout = setTimeout(() => setShowBackdrop(false), SIDEBAR_TRANSITION_MS);
     return () => clearTimeout(timeout);
   }, [mobileNavOpen]);
-  const isHome = pathname === "/app";
-  const isMcp = pathname === "/app/mcp";
-  const isImageGenerator = pathname === "/app/image-generator";
+  const isHome = pathname === "/";
+  const isMcp = pathname === "/mcp";
+  const isImageGenerator = pathname === "/image-generator";
 
   const topBarAndMain = (
     <>

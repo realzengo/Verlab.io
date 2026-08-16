@@ -337,7 +337,7 @@ export function VideoDownloader() {
                 <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400">
                   After completion, view in{" "}
                   <Link
-                    href="/app/library"
+                    href="/library"
                     className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
                   >
                     Library
@@ -403,7 +403,7 @@ export function VideoDownloader() {
 
                   <p className="mt-4 text-xs text-slate-500 dark:text-zinc-400">
                     View all downloads in{" "}
-                    <Link href="/app/library" className="font-medium text-primary hover:underline">
+                    <Link href="/library" className="font-medium text-primary hover:underline">
                       Library
                     </Link>
                   </p>

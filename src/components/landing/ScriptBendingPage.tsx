@@ -115,7 +115,7 @@ const IDEATION_METHODS = [
       "Take the transcript of a video that went viral for a competitor and hand it to an AI assistant with a direction, not just a topic dump.",
     detail: '"Here\'s the viral video of my competitor: {transcript}. Find me 15 similar ideas that all share the same {trigger} viral hook."',
     cta: "Run this through MCP Connect",
-    href: "/app/mcp",
+    href: `${APP_URL}/mcp`,
   },
   {
     icon: Search,
@@ -123,7 +123,7 @@ const IDEATION_METHODS = [
     description:
       "Open an incognito tab, search a keyword from your niche, filter by most popular and by last week, and watch what's blowing up across formats. On Shorts, scroll for 15 focused minutes and only engage with your niche so the algorithm stays trained.",
     cta: "Bring what you find into Transcript Extractor",
-    href: "/app/transcripts",
+    href: `${APP_URL}/transcripts`,
   },
   {
     icon: Repeat,
@@ -131,7 +131,7 @@ const IDEATION_METHODS = [
     description:
       "Your best-performing video is a proven format, not a one-off. Turn its exact structure into a template and reuse it. One creator's single 34M-view video became a repeatable format that pulled in another 76M views.",
     cta: "Find your top performer in Video Library",
-    href: "/app/library",
+    href: `${APP_URL}/library`,
   },
   {
     icon: MessagesSquare,
@@ -148,7 +148,7 @@ const BEND_STEPS = [
     description:
       "Run Niche Bending on a competitor channel. It reads their top videos and generates an SOP — a full breakdown with the hook playbook, a beat-by-beat script structure, and the named storytelling frameworks they run on.",
     cta: "Open Niche Bending",
-    href: "/app/bend",
+    href: `${APP_URL}/bend`,
   },
   {
     icon: Search,
@@ -156,7 +156,7 @@ const BEND_STEPS = [
     description:
       "Drop the specific video that went viral into Transcript Extractor for a timestamped, line-by-line transcript of exactly how they executed the framework.",
     cta: "Open Transcript Extractor",
-    href: "/app/transcripts",
+    href: `${APP_URL}/transcripts`,
   },
   {
     icon: Wand2,
@@ -164,7 +164,7 @@ const BEND_STEPS = [
     description:
       "Drop the SOP and the transcript into the Script Generator's two reference slots. It reverse-engineers the formula — hook structure, pacing, beats, tone — then maps your idea onto it for you.",
     cta: "Open Script Generator",
-    href: "/app/scripts",
+    href: `${APP_URL}/scripts`,
   },
   {
     icon: Radar,
@@ -180,28 +180,28 @@ const PIPELINE_STEPS = [
     title: "Create a Niche Bend",
     description: "Decide what your channel is about: Format + Market.",
     cta: "Niche Bending",
-    href: "/app/bend",
+    href: `${APP_URL}/bend`,
   },
   {
     icon: Radar,
     title: "Research competitors",
     description: "Find who already proved demand in your space.",
     cta: "Transcript Extractor",
-    href: "/app/transcripts",
+    href: `${APP_URL}/transcripts`,
   },
   {
     icon: Lightbulb,
     title: "Find unique ideas",
     description: "Ideas with viral proof, untouched by your framework.",
     cta: "MCP Connect",
-    href: "/app/mcp",
+    href: `${APP_URL}/mcp`,
   },
   {
     icon: FileText,
     title: "Write the scripts",
     description: "Bend each idea into a proven storytelling framework.",
     cta: "Script Generator",
-    href: "/app/scripts",
+    href: `${APP_URL}/scripts`,
   },
 ];
 
@@ -237,10 +237,10 @@ export function ScriptBendingPage() {
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button href={`${APP_URL}/app/bend`} icon={ArrowRight} iconPosition="right" size="lg">
+          <Button href={`${APP_URL}/bend`} icon={ArrowRight} iconPosition="right" size="lg">
             Try Niche Bending
           </Button>
-          <Button href={`${APP_URL}/app/scripts`} variant="secondary" size="lg">
+          <Button href={`${APP_URL}/scripts`} variant="secondary" size="lg">
             Try the Script Generator
           </Button>
         </div>
@@ -281,7 +281,7 @@ export function ScriptBendingPage() {
               is who and what it&rsquo;s about (history, fitness, true crime). Change either one and you get a
               different niche entirely.
             </p>
-            <Button href={`${APP_URL}/app/bend`} variant="text" icon={ArrowRight} iconPosition="right">
+            <Button href={`${APP_URL}/bend`} variant="text" icon={ArrowRight} iconPosition="right">
               Try Niche Bending
             </Button>
           </Card>
@@ -298,7 +298,7 @@ export function ScriptBendingPage() {
 
         <Card className="mx-auto mt-10 flex flex-col items-center gap-6 p-8 text-center sm:mt-12 sm:p-10">
           <FormulaCard result="Viral Script" operands={["Unique Idea", "Proven Storytelling Framework"]} />
-          <Button href={`${APP_URL}/app/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
+          <Button href={`${APP_URL}/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
             Try the Script Generator
           </Button>
         </Card>
@@ -365,7 +365,7 @@ export function ScriptBendingPage() {
             </div>
           </div>
           <div className="mt-6 text-center">
-            <Button href={`${APP_URL}/app/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
+            <Button href={`${APP_URL}/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
               Bend your own hook in the Script Generator
             </Button>
           </div>

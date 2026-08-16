@@ -10,9 +10,9 @@ import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 import { cn } from "@/lib/utils";
 
 function defaultHeading(pathname: string): string {
-  const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/app");
+  const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/");
   if (match) return match.label;
-  if (pathname.startsWith("/app/settings")) return "Settings";
+  if (pathname.startsWith("/settings")) return "Settings";
   return "Verlab";
 }
 
@@ -31,17 +31,17 @@ export function TopBar({
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
 
   const hideHeading =
-    pathname === "/app" ||
-    pathname.startsWith("/app/scripts") ||
-    pathname.startsWith("/app/library") ||
-    pathname.startsWith("/app/transcripts") ||
-    pathname.startsWith("/app/mcp") ||
-    pathname.startsWith("/app/image-generator") ||
-    pathname.startsWith("/app/video-generator") ||
-    pathname.startsWith("/app/voiceover-generator") ||
-    pathname.startsWith("/app/downloads") ||
-    pathname.startsWith("/app/tools") ||
-    pathname.startsWith("/app/settings");
+    pathname === "/" ||
+    pathname.startsWith("/scripts") ||
+    pathname.startsWith("/library") ||
+    pathname.startsWith("/transcripts") ||
+    pathname.startsWith("/mcp") ||
+    pathname.startsWith("/image-generator") ||
+    pathname.startsWith("/video-generator") ||
+    pathname.startsWith("/voiceover-generator") ||
+    pathname.startsWith("/downloads") ||
+    pathname.startsWith("/tools") ||
+    pathname.startsWith("/settings");
 
   return (
     <div
@@ -52,7 +52,7 @@ export function TopBar({
         // scrolled. Scoped to this one route rather than applied globally,
         // since other pages (home, MCP) rely on TopBar staying transparent
         // over their own background effects.
-        pathname.startsWith("/app/niches") && "bg-app"
+        pathname.startsWith("/niches") && "bg-app"
       )}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">

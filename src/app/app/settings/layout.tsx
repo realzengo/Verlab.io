@@ -11,11 +11,11 @@ interface NavEntry {
 }
 
 const TABS: NavEntry[] = [
-  { label: "Account", href: "/app/settings" },
-  { label: "Subscription", href: "/app/settings/subscription" },
-  { label: "Credit History", href: "/app/settings/credits" },
-  { label: "Password & Security", href: "/app/settings/security" },
-  { label: "MCP", href: "/app/settings/mcp" },
+  { label: "Account", href: "/settings" },
+  { label: "Subscription", href: "/settings/subscription" },
+  { label: "Credit History", href: "/settings/credits" },
+  { label: "Password & Security", href: "/settings/security" },
+  { label: "MCP", href: "/settings/mcp" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +24,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="bg-app text-heading">
       <div className="w-full pt-6 px-4 pb-12 sm:pt-10 sm:px-6 sm:pb-16 md:px-8">
-        <Link href="/app" className="text-xl font-medium flex items-center gap-2 mb-4 sm:text-2xl sm:mb-6">
+        <Link href="/" className="text-xl font-medium flex items-center gap-2 mb-4 sm:text-2xl sm:mb-6">
           <ArrowLeft className="h-5 w-5" />
           Settings
         </Link>

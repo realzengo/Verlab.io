@@ -24,7 +24,7 @@ const FADE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/app";
+  const next = searchParams.get("next") ?? "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

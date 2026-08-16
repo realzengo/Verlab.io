@@ -184,7 +184,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
 
   function handleGenerateVoiceover() {
     writeVoiceoverHandoff({ title, script: currentScript });
-    router.push("/app/voiceover-generator");
+    router.push("/voiceover-generator");
   }
 
   async function handleSendChatEdit() {

@@ -11,9 +11,9 @@ function displayName(user: User | null): string {
 }
 
 const QUICK_ACTIONS: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "AI Images", href: "/app/image-generator", icon: ImageIcon },
-  { label: "MCP", href: "/app/mcp", icon: Plug },
-  { label: "AI Videos", href: "/app/video-generator", icon: SquarePlay },
+  { label: "AI Images", href: "/image-generator", icon: ImageIcon },
+  { label: "MCP", href: "/mcp", icon: Plug },
+  { label: "AI Videos", href: "/video-generator", icon: SquarePlay },
 ];
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
@@ -37,7 +37,7 @@ const TOOLS: {
   {
     title: "Niche Bender",
     description: "Turn any viral niche into your own — steal the winning structure, swap the topic.",
-    href: "/app/bend",
+    href: "/bend",
     icon: Wand2,
     tone: "cat-7",
     video: "/videos/niche-bender.mp4",
@@ -48,7 +48,7 @@ const TOOLS: {
   {
     title: "Transcript Extractor",
     description: "Pull clean, timestamped transcripts from any TikTok, Reels, or Shorts video instantly.",
-    href: "/app/transcripts",
+    href: "/transcripts",
     icon: Captions,
     tone: "cat-5",
     video: "/videos/transcript-extractor.mp4",
@@ -59,7 +59,7 @@ const TOOLS: {
   {
     title: "Scriptwriter",
     description: "Create engaging scripts for your videos with AI-powered writing assistance.",
-    href: "/app/scripts",
+    href: "/scripts",
     icon: PenLine,
     tone: "cat-6",
     video: "/videos/scriptwriter.mp4",
@@ -70,7 +70,7 @@ const TOOLS: {
   {
     title: "Image Generator",
     description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",
-    href: "/app/image-generator",
+    href: "/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
     video: "/videos/image-generator.mp4",
@@ -81,7 +81,7 @@ const TOOLS: {
   {
     title: "Video Generator",
     description: "Create, edit, and animate watermark-free AI videos from a text prompt or image.",
-    href: "/app/video-generator",
+    href: "/video-generator",
     icon: Clapperboard,
     tone: "cat-4",
     video: "/videos/video-generator.mp4",
@@ -93,7 +93,7 @@ const TOOLS: {
   {
     title: "Downloader",
     description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
-    href: "/app/downloads",
+    href: "/downloads",
     icon: Download,
     tone: "cat-1",
     video: "/videos/downloader.mp4",
@@ -105,7 +105,7 @@ const TOOLS: {
   {
     title: "Voiceover",
     description: "Turn scripts into natural-sounding voiceovers with AI voices in seconds.",
-    href: "/app/voiceover-generator",
+    href: "/voiceover-generator",
     icon: Mic2,
     tone: "cat-2",
     video: "/videos/voiceover-generator.mp4",

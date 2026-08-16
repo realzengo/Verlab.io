@@ -21,21 +21,21 @@ const HERO_TOOLS: HeroTool[] = [
   {
     title: "AI Video Generator",
     description: "Generate AI videos without watermarks, ready to post.",
-    href: "/app/video-generator",
+    href: `${APP_URL}/video-generator`,
     video: "/videos/video-generator.mp4",
     poster: "/videos/video-generator-poster.jpg",
   },
   {
     title: "Downloader",
     description: "Download TikTok, Reels, and Shorts, watermark-free.",
-    href: "/app/downloads",
+    href: `${APP_URL}/downloads`,
     video: "/videos/downloader.mp4",
     poster: "/videos/downloader-poster.jpg",
   },
   {
     title: "AI Image Generator",
     description: "Create AI images from text prompts, ready to use.",
-    href: "/app/image-generator",
+    href: `${APP_URL}/image-generator`,
     video: "/videos/image-generator.mp4",
     poster: "/videos/image-generator-poster.jpg",
   },
@@ -67,28 +67,28 @@ const TOOL_LOGOS: ToolLogo[] = [
   {
     title: "Nano Banana Pro",
     description: "Generate realistic images",
-    href: "/app/image-generator",
+    href: `${APP_URL}/image-generator`,
     badge: "Image",
     logo: "/logos/ai/gemini.svg",
   },
   {
     title: "Seedance 2.5",
     description: "Create high quality videos",
-    href: "/app/video-generator",
+    href: `${APP_URL}/video-generator`,
     badge: "New",
     logo: "/logos/ai/seedance.webp",
   },
   {
     title: "Kling 3.0 Turbo",
     description: "Create stunning videos in seconds",
-    href: "/app/video-generator",
+    href: `${APP_URL}/video-generator`,
     badge: "New",
     logo: "/logos/ai/kling.svg",
   },
   {
     title: "Niche Bender MCP",
     description: "Bend any niche with Claude",
-    href: "/app/mcp",
+    href: `${APP_URL}/mcp`,
     badge: "Trending",
     icon: ClaudeIcon,
     iconClassName: "h-8 w-8",
@@ -96,14 +96,14 @@ const TOOL_LOGOS: ToolLogo[] = [
   {
     title: "Voice Studio",
     description: "Generate lifelike voiceovers",
-    href: "/app/voiceover-generator",
+    href: `${APP_URL}/voiceover-generator`,
     badge: "New",
     icon: Mic2,
   },
   {
     title: "Script Writer",
     description: "Real, hook-driven scripts",
-    href: "/app/scripts",
+    href: `${APP_URL}/scripts`,
     logo: "/logos/verlab-mark-blue.png",
   },
 ];
@@ -218,7 +218,7 @@ function VoiceoverCard() {
 
   return (
     <Link
-      href={`${APP_URL}/app/voiceover-generator`}
+      href={`${APP_URL}/voiceover-generator`}
       className="group flex h-full flex-col gap-3 rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 p-3.5"
     >
       <div className="relative flex-1 overflow-hidden rounded-xl">

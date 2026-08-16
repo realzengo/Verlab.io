@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CreditCard, RefreshCw, XCircle } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Refund Policy — Verlab AI",
@@ -42,8 +43,8 @@ const SECTIONS: LegalSection[] = [
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>
             Go to{" "}
-            <Link href="/app/settings/subscription" className="text-primary hover:underline">
-              verlab.io/app/settings/subscription
+            <Link href={`${APP_URL}/settings/subscription`} className="text-primary hover:underline">
+              app.verlab.io/settings/subscription
             </Link>
           </li>
           <li>Open the <strong className="text-heading">Subscription</strong> tab in your account settings</li>

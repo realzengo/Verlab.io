@@ -6,6 +6,7 @@ import type { ComparisonRow, PricingPlan } from "@/lib/types";
 import { TimelineContent } from "@/components/ui/timeline-animation";
 import { PricingTable } from "@/components/pricing/PricingTable";
 import { PricingComparisonTable } from "@/components/pricing/PricingComparisonTable";
+import { APP_URL } from "@/lib/constants";
 
 const revealVariants: Variants = {
   visible: (i: number) => ({
@@ -72,7 +73,7 @@ export function PricingSectionClient({
       </div>
 
       <TimelineContent as="div" animationNum={3} timelineRef={sectionRef} customVariants={revealVariants} className="mt-8 sm:mt-10">
-        <PricingTable plans={plans} ctaHref="/app" authenticated={authenticated} />
+        <PricingTable plans={plans} ctaHref={APP_URL} authenticated={authenticated} />
       </TimelineContent>
 
       <div className="mt-8 overflow-x-auto sm:mt-12">

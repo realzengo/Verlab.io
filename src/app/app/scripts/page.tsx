@@ -214,7 +214,7 @@ function ScriptWriterPageInner() {
   // back/forward navigation. Runs once on mount only.
   useEffect(() => {
     if (searchParams.get("idea")) {
-      router.replace("/app/scripts", { scroll: false });
+      router.replace("/scripts", { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

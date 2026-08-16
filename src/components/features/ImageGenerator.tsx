@@ -978,7 +978,7 @@ export function ImageGenerator() {
   function animateFromPreview() {
     if (!previewItem) return;
     writeImageToVideoHandoff({ imageDataUrl: previewItem.src });
-    router.push("/app/video-generator");
+    router.push("/video-generator");
   }
 
   // Gallery-tile equivalents of the three actions above, invoked straight
@@ -1003,7 +1003,7 @@ export function ImageGenerator() {
   async function animateFromHistoryItem(item: GenerationHistoryItem) {
     const src = item.images?.[0] ?? (await fetchImageAsDataUrl(item.id, 0));
     writeImageToVideoHandoff({ imageDataUrl: src });
-    router.push("/app/video-generator");
+    router.push("/video-generator");
   }
 
   // Unlike Remix, this adds onto whatever reference images are already

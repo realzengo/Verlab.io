@@ -35,7 +35,7 @@ function UpdatePasswordForm() {
     setDone(true);
     setIsSubmitting(false);
     setTimeout(() => {
-      router.push("/app");
+      router.push("/");
       router.refresh();
     }, 1500);
   }

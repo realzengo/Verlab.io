@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Verlab AI",
@@ -71,7 +72,7 @@ const SECTIONS: LegalSection[] = [
         <p className="font-semibold text-heading">4.2 Automatic Renewal</p>
         <p>
           Subscriptions renew automatically at the end of each billing cycle unless cancelled beforehand from your{" "}
-          <Link href="/app/settings/subscription" className="text-primary hover:underline">
+          <Link href={`${APP_URL}/settings/subscription`} className="text-primary hover:underline">
             subscription settings
           </Link>
           .

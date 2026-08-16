@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Database, Lock, ShieldCheck, UserCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Verlab AI",
@@ -108,7 +109,7 @@ const SECTIONS: LegalSection[] = [
         </ul>
         <p>
           You can update most account information directly from your{" "}
-          <Link href="/app/settings" className="text-primary hover:underline">
+          <Link href={`${APP_URL}/settings`} className="text-primary hover:underline">
             account settings
           </Link>
           , or contact us using the details below to exercise any of these rights.

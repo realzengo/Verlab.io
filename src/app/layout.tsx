@@ -12,11 +12,16 @@ import "@fontsource/roboto/900.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
+// Mirrors isThemedRoute() in ThemeProvider.tsx -- keep the two in sync.
+// Can't import UNTHEMED_APP_HOST_PREFIXES here since this runs as an
+// inline <script>, not a module, so the list is duplicated below.
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var path = window.location.pathname;
-    var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0;
+    var unthemed = ["/login","/signup","/checkout","/oauth","/auth","/api","/legal","/pricing","/affiliates","/script-bending","/dev-preview-script-modal","/.well-known"];
+    var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0 ||
+      (window.location.hostname === "app.verlab.io" && !unthemed.some(function (p) { return path === p || path.indexOf(p + "/") === 0; }));
     if (!isAppRoute) return;
     var stored = localStorage.getItem("verlab-theme");
     document.documentElement.classList.toggle("dark", stored === "dark");

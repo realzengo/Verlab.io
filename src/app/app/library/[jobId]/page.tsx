@@ -52,7 +52,7 @@ export default function LibraryItemPage() {
   return (
     <div className="flex flex-col gap-6 pt-2">
       <Link
-        href="/app/library"
+        href="/library"
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-body hover:text-heading"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -68,7 +68,7 @@ export default function LibraryItemPage() {
       {sop && (
         <StepSop
           sop={sop}
-          onReset={() => router.push("/app/bend")}
+          onReset={() => router.push("/bend")}
           saved={saved}
           savingToggle={savingToggle}
           onToggleSaved={handleToggleSaved}
