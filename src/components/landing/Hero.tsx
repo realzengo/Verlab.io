@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { TrustBadge } from "@/components/landing/TrustBadge";
 import { StarIcon } from "@/components/landing/StarIcon";
+import { APP_URL } from "@/lib/constants";
 
 export function Hero() {
   return (
@@ -29,7 +30,7 @@ export function Hero() {
       </p>
 
       <div className="mt-8 flex justify-center sm:mt-14">
-        <Button href="/app" size="lg" icon={StarIcon} bevel={false} className="px-7 py-4 text-lg font-bold! shadow-none sm:px-10 sm:py-5 sm:text-xl">
+        <Button href={APP_URL} size="lg" icon={StarIcon} bevel={false} className="px-7 py-4 text-lg font-bold! shadow-none sm:px-10 sm:py-5 sm:text-xl">
           Try Verlab Now
         </Button>
       </div>

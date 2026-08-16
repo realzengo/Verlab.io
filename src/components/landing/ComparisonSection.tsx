@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
+import { APP_URL } from "@/lib/constants";
 
 const OTHER_TOOLS_ITEMS = [
   "Staring at a blank page",
@@ -141,7 +142,7 @@ export function ComparisonSection() {
 
       <div className="mt-10 text-center sm:mt-16">
         <Link
-          href="/app"
+          href={APP_URL}
           className={cn(
             "inline-block rounded-full bg-blue-600 px-10 py-4 text-lg font-semibold text-white",
             "transition-all hover:scale-105 hover:bg-blue-700",

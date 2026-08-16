@@ -113,7 +113,7 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
       draggable={false}
       className="group flex h-[130px] w-[136px] shrink-0 flex-col rounded-2xl bg-slate-100 p-2.5 transition-colors hover:bg-slate-200 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
     >
-      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm sm:mb-3">
+      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white sm:mb-3">
         {video ? (
           <video
             ref={videoRef}

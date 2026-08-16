@@ -2,6 +2,11 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #111827;
@@ -939,31 +944,6 @@ body {
   .tunnel .plane-left,
   .tunnel .plane-right {
     animation: tunnel-flow-x 2.4s linear infinite;
-  }
-
-  /* VideoMarqueeSection track — content is duplicated 2x, so a 50% shift
-     is a seamless one-loop scroll rather than needing to track full width. */
-  @keyframes marquee {
-    0% {
-      transform: translateX(0%);
-    }
-    100% {
-      transform: translateX(-50%);
-    }
-  }
-  .animate-marquee {
-    animation: marquee 40s linear infinite;
-  }
-  /* Hover-to-pause has to live here, unlayered, alongside the animation
-     itself — a Tailwind `hover:[animation-play-state:paused]` utility sits
-     in `@layer utilities`, which always loses to this unlayered rule
-     regardless of specificity, so it would silently never apply.
-     Scoped to hover-capable pointers only — on touch devices a tap leaves
-     a "stuck" hover state that would otherwise freeze the marquee. */
-  @media (hover: hover) {
-    .animate-marquee:hover {
-      animation-play-state: paused;
-    }
   }
 
   /* Generic <Marquee> (src/components/ui/marquee.tsx) — content is

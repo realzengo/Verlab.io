@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, CircleDot } from "lucide-react";
+import { APP_URL } from "@/lib/constants";
 
 interface Testimonial {
   name: string;
@@ -57,7 +58,7 @@ function TestimonialCard({ name, image, quote }: Testimonial) {
 
 export default function Testimonial2() {
   return (
-    <section className="w-full bg-white py-16 sm:py-24 dark:bg-background">
+    <section className="w-full bg-white pb-16 pt-2 sm:pb-24 dark:bg-background">
       <div className="mx-auto max-w-6xl px-4 text-center">
         <span
           className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
@@ -88,7 +89,7 @@ export default function Testimonial2() {
 
         <div className="mt-10 flex justify-center sm:mt-12">
           <Link
-            href="/app"
+            href={APP_URL}
             className="inline-flex items-center gap-1 rounded-full bg-btn-primary px-6 py-3 text-base font-bold text-white transition-transform hover:scale-105"
           >
             Get Started

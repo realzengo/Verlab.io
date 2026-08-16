@@ -1,9 +1,9 @@
 import { ScrollAnimationPauser } from "@/components/ScrollAnimationPauser";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
-import { VideoMarqueeSection } from "@/components/landing/VideoMarqueeSection";
 import { ToolsMarqueeSection } from "@/components/landing/ToolsMarqueeSection";
 import { VerlabProcess } from "@/components/landing/VerlabProcess";
+import { FeaturesGridSection } from "@/components/landing/FeaturesGridSection";
 import { AnimatedFeatureSection } from "@/components/landing/AnimatedFeatureSection";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { CtaBand } from "@/components/landing/CtaBand";
@@ -18,7 +18,7 @@ export default function Home() {
       <Nav />
       <main className="flex-1">
         <Hero />
-        <VideoMarqueeSection />
+        <FeaturesGridSection />
         <VerlabProcess />
         <AnimatedFeatureSection />
         <ToolsMarqueeSection />

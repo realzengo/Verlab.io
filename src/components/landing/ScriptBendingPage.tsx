@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { APP_URL } from "@/lib/constants";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <span className="text-[13px] font-bold uppercase tracking-[1.4px] text-primary">{children}</span>;
@@ -236,10 +237,10 @@ export function ScriptBendingPage() {
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button href="/app/bend" icon={ArrowRight} iconPosition="right" size="lg">
+          <Button href={`${APP_URL}/app/bend`} icon={ArrowRight} iconPosition="right" size="lg">
             Try Niche Bending
           </Button>
-          <Button href="/app/scripts" variant="secondary" size="lg">
+          <Button href={`${APP_URL}/app/scripts`} variant="secondary" size="lg">
             Try the Script Generator
           </Button>
         </div>
@@ -280,7 +281,7 @@ export function ScriptBendingPage() {
               is who and what it&rsquo;s about (history, fitness, true crime). Change either one and you get a
               different niche entirely.
             </p>
-            <Button href="/app/bend" variant="text" icon={ArrowRight} iconPosition="right">
+            <Button href={`${APP_URL}/app/bend`} variant="text" icon={ArrowRight} iconPosition="right">
               Try Niche Bending
             </Button>
           </Card>
@@ -297,7 +298,7 @@ export function ScriptBendingPage() {
 
         <Card className="mx-auto mt-10 flex flex-col items-center gap-6 p-8 text-center sm:mt-12 sm:p-10">
           <FormulaCard result="Viral Script" operands={["Unique Idea", "Proven Storytelling Framework"]} />
-          <Button href="/app/scripts" variant="text" icon={ArrowRight} iconPosition="right">
+          <Button href={`${APP_URL}/app/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
             Try the Script Generator
           </Button>
         </Card>
@@ -364,7 +365,7 @@ export function ScriptBendingPage() {
             </div>
           </div>
           <div className="mt-6 text-center">
-            <Button href="/app/scripts" variant="text" icon={ArrowRight} iconPosition="right">
+            <Button href={`${APP_URL}/app/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
               Bend your own hook in the Script Generator
             </Button>
           </div>
@@ -546,7 +547,7 @@ export function ScriptBendingPage() {
             scripts bent from proven frameworks in minutes.
           </p>
           <div className="mt-6 flex justify-center">
-            <Button href="/app" icon={ArrowRight} iconPosition="right" size="lg" variant="white">
+            <Button href={APP_URL} icon={ArrowRight} iconPosition="right" size="lg" variant="white">
               Try Verlab
             </Button>
           </div>

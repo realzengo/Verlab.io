@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/constants";
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
@@ -14,8 +16,22 @@ const NAV_LINKS = [
 ];
 
 export function Nav() {
+  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Next's client-side router only scrolls on an actual pathname change --
+  // clicking a "/#section" link while already on "/" leaves the hash in the
+  // URL but never scrolls. Do it ourselves when we're already home.
+  const handleNavLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("/#") || pathname !== "/") return;
+    const id = href.slice(2);
+    const target = document.getElementById(id);
+    if (!target) return;
+    event.preventDefault();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.pushState(null, "", href);
+  };
 
   useEffect(() => {
     let ticking = false;
@@ -97,6 +113,7 @@ export function Nav() {
                 <Link
                   key={link.label}
                   href={link.href}
+                  onClick={(e) => handleNavLinkClick(e, link.href)}
                   className="cursor-pointer text-sm font-medium text-slate-600 transition-colors hover:text-black dark:text-slate-300 dark:hover:text-white"
                 >
                   {link.label}
@@ -105,7 +122,7 @@ export function Nav() {
             </div>
 
             <Link
-              href="/app"
+              href={APP_URL}
               className="-mr-2 hidden shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-3.5 py-2 text-xs font-bold text-white transition-transform hover:scale-105 sm:flex sm:gap-2 sm:px-5 sm:py-3 sm:text-sm"
             >
               <span className="sm:hidden">Get Started</span>
@@ -175,7 +192,10 @@ export function Nav() {
                 <Link
                   key={link.label}
                   href={link.href}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={(e) => {
+                    handleNavLinkClick(e, link.href);
+                    setMobileOpen(false);
+                  }}
                   className="flex items-center justify-between border-b border-slate-100 px-5 py-5 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-zinc-800 dark:text-slate-200 dark:hover:bg-zinc-800"
                 >
                   {link.label}
@@ -185,7 +205,7 @@ export function Nav() {
 
             <div className="shrink-0 border-t border-slate-200 p-4 dark:border-zinc-800">
               <Link
-                href="/app"
+                href={APP_URL}
                 onClick={() => setMobileOpen(false)}
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-btn-primary px-4 py-3.5 text-sm font-bold text-white"
               >

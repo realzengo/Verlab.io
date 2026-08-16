@@ -36,7 +36,30 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
   });
 }
 
+// The app (dashboard, admin, auth, checkout, oauth) only lives on
+// app.<ROOT_DOMAIN> -- the root domain is the marketing site. Keeping the
+// two on separate hosts means a session cookie is never scoped to the
+// wrong one (cookies here are host-only; see src/lib/supabase).
+const ROOT_DOMAIN = "verlab.io";
+
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const currentHost = request.nextUrl.hostname;
+  const isAppHost = currentHost === `app.${ROOT_DOMAIN}`;
+  const isRootDomain = currentHost === ROOT_DOMAIN || currentHost === `www.${ROOT_DOMAIN}`;
+
+  // Only the two real production hosts get split -- localhost and Vercel
+  // preview URLs (which don't have an app.* DNS entry) fall through to the
+  // pre-split behavior below, unchanged.
+  if (pathname === "/") {
+    return isAppHost ? NextResponse.redirect(new URL("/app", request.url)) : NextResponse.next();
+  }
+  if (isRootDomain) {
+    const url = request.nextUrl.clone();
+    url.hostname = `app.${ROOT_DOMAIN}`;
+    return NextResponse.redirect(url, 308);
+  }
+
   const requestHeaders = new Headers(request.headers);
   let pendingCookies: { name: string; value: string; options?: CookieOptions }[] = [];
 
@@ -56,7 +79,6 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { pathname } = request.nextUrl;
   const mayNeedProfile = pathname.startsWith("/app") && !pathname.startsWith("/app/settings");
 
   // getSession() decodes the session cookie locally -- no network round trip
@@ -222,5 +244,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/admin/:path*", "/checkout/:path*", "/oauth/:path*", "/login", "/signup"],
+  matcher: ["/", "/app/:path*", "/admin/:path*", "/checkout/:path*", "/oauth/:path*", "/login", "/signup"],
 };

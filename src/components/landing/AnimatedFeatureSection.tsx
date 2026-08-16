@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 import { ArrowDown, ArrowRight, BadgeCheck, Check, Filter, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/constants";
 
 function GlassCard({
   position,
@@ -234,7 +235,7 @@ export function AnimatedFeatureSection() {
             The all-in-one studio for reverse-engineering and cloning winning video niches.
           </p>
           <Link
-            href="/app"
+            href={APP_URL}
             className="liquid-glass mt-1 inline-flex items-center gap-2 rounded-full py-2 pl-6 pr-2 text-sm font-semibold sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
           >
             Try Verlab Studio

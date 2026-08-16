@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { APP_URL } from "@/lib/constants";
 
 export function CtaBand() {
   return (
@@ -23,7 +24,7 @@ export function CtaBand() {
             Join thousands of satisfied customers and transform your workflow today.
           </p>
           <Link
-            href="/app"
+            href={APP_URL}
             className="liquid-glass mt-6 inline-flex items-center gap-2 rounded-full py-2 pl-6 pr-2 text-sm font-semibold sm:gap-3 sm:pl-7 sm:text-base"
           >
             Get started
