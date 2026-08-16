@@ -58,7 +58,6 @@ const APP_HOST_PASSTHROUGH_PREFIXES = [
   "/oauth",
   "/login",
   "/signup",
-  "/app",
   "/legal",
   "/pricing",
   "/affiliates",
@@ -75,11 +74,25 @@ function matchesPrefix(pathname: string, prefixes: string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+// Strips an old-style /app prefix down to the clean path it now redirects
+// to ("/app" -> "/", "/app/library" -> "/library"). Every dashboard link in
+// the app itself already points at the clean form (see src/lib/constants.ts
+// and friends) -- this only exists to normalize stale bookmarks/links from
+// before the clean-URL rewrite, since usePathname() on the client reflects
+// whatever the browser actually navigated to. Without this, landing on
+// app.verlab.io/app/mcp directly would render the right page but leave
+// every client-side `pathname === "/mcp"` check unmatched (wrong active
+// nav item, wrong background, wrong page heading).
+function stripAppPrefix(pathname: string) {
+  return pathname === "/app" ? "/" : pathname.slice("/app".length);
+}
+
 export async function proxy(request: NextRequest) {
   const rawPathname = request.nextUrl.pathname;
   const currentHost = request.nextUrl.hostname;
   const isAppHost = currentHost === `app.${ROOT_DOMAIN}`;
   const isRootDomain = currentHost === ROOT_DOMAIN || currentHost === `www.${ROOT_DOMAIN}`;
+  const isOldStyleAppPath = rawPathname === "/app" || rawPathname.startsWith("/app/");
 
   // Only the two real production hosts get split -- localhost and Vercel
   // preview URLs (which don't have an app.* DNS entry) fall through to the
@@ -87,6 +100,18 @@ export async function proxy(request: NextRequest) {
   if (isRootDomain && matchesPrefix(rawPathname, APP_ONLY_PREFIXES)) {
     const url = request.nextUrl.clone();
     url.hostname = `app.${ROOT_DOMAIN}`;
+    // Land in one hop on the clean URL instead of redirecting again
+    // immediately after crossing hosts.
+    if (isOldStyleAppPath) url.pathname = stripAppPrefix(rawPathname);
+    return NextResponse.redirect(url, 308);
+  }
+
+  // A stale app.verlab.io/app/... link -- normalize to the clean form so
+  // every client-side pathname check downstream sees the same URL a fresh
+  // clean-URL visit would have produced.
+  if (isAppHost && isOldStyleAppPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = stripAppPrefix(rawPathname);
     return NextResponse.redirect(url, 308);
   }
 
