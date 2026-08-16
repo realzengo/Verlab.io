@@ -71,22 +71,14 @@ export function ToolGridCard({
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm border border-[#E0E4F2] dark:border-zinc-800">
           {video ? (
-            <>
-              <ProtectedVideo
-                src={video}
-                poster={videoPoster}
-                className={cn("h-full w-full object-cover", videoDark && "dark:hidden")}
-                style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
-              />
-              {videoDark && (
-                <ProtectedVideo
-                  src={videoDark}
-                  poster={videoPosterDark}
-                  className="hidden h-full w-full object-cover dark:block"
-                  style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
-                />
-              )}
-            </>
+            <ProtectedVideo
+              src={video}
+              srcDark={videoDark}
+              poster={videoPoster}
+              posterDark={videoPosterDark}
+              className="h-full w-full object-cover"
+              style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
+            />
           ) : thumbnail ? (
             <Image
               src={thumbnail}

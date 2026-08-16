@@ -568,23 +568,11 @@ body {
     }
   }
 
-  /* Opacity dips to 0 right at the loop seam (0%/100%) so the zoom's hard
-     reset back to scale(1) happens while the image is invisible, instead
-     of as a visible jump-cut. */
-  @keyframes sky-fade {
-    0%,
-    100% {
-      opacity: 0;
-    }
-    8%,
-    92% {
-      opacity: 0.4;
-    }
-  }
+  /* Ping-pongs between scale(1) and scale(1.3) instead of hard-resetting,
+     so the sky stays visible the whole time -- no fade needed to mask a
+     jump-cut. */
   .animate-sky-zoom {
-    animation:
-      zoom 18s linear infinite,
-      sky-fade 18s ease-in-out infinite;
+    animation: zoom 9s ease-in-out infinite alternate;
   }
 
   @keyframes tunnel-flow-y {
@@ -976,6 +964,45 @@ body {
     .animate-marquee:hover {
       animation-play-state: paused;
     }
+  }
+
+  /* Generic <Marquee> (src/components/ui/marquee.tsx) — content is
+     duplicated `repeat` times (2 by default), each copy identically
+     sized, so a 100% shift of one copy always lands exactly on the next
+     for a seamless loop. --duration is set per-instance via className
+     (e.g. [--duration:20s]), falling back to 40s if unset. */
+  @keyframes marquee-track {
+    from {
+      transform: translateX(0%);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes marquee-track-vertical {
+    from {
+      transform: translateY(0%);
+    }
+    to {
+      transform: translateY(-100%);
+    }
+  }
+  .animate-marquee-track {
+    animation: marquee-track var(--duration, 40s) linear infinite;
+  }
+  .animate-marquee-track-vertical {
+    animation: marquee-track-vertical var(--duration, 40s) linear infinite;
+  }
+  .animate-marquee-track.reverse,
+  .animate-marquee-track-vertical.reverse {
+    animation-direction: reverse;
+  }
+  /* Opt-in via the pauseOnHover prop (adds .marquee-pauseable to the
+     wrapper) -- unlayered like the other marquees in this file so it
+     reliably applies. */
+  .marquee-pauseable:hover .animate-marquee-track,
+  .marquee-pauseable:hover .animate-marquee-track-vertical {
+    animation-play-state: paused;
   }
 
   /* Testimonials rows — content is duplicated 4x, so a 25% shift is a

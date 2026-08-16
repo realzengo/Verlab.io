@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
@@ -19,6 +19,17 @@ const TOOLS: {
   videoPosterDark?: string;
   videoScale?: number;
 }[] = [
+  {
+    title: "Niche Bending",
+    description: "Reverse-engineer a winning channel's format and bend it into a fresh, non-competing niche.",
+    href: "/app/bend",
+    icon: Wand2,
+    tone: "cat-7",
+    video: "/videos/niche-bender.mp4",
+    videoPoster: "/videos/niche-bender-poster.jpg",
+    videoDark: "/videos/niche-bender-dark.mp4",
+    videoPosterDark: "/videos/niche-bender-dark-poster.jpg",
+  },
   {
     title: "Image Generator",
     description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",

@@ -6,12 +6,10 @@ import {
   Wand2,
   Captions,
   Image as ImageIcon,
-  Compass,
-  ClipboardList,
   PenSquare,
-  CloudCog,
-  Plug,
   Clapperboard,
+  Download,
+  Mic2,
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
@@ -28,8 +26,20 @@ interface MarqueeTool {
 }
 
 const TOOLS: MarqueeTool[] = [
-  { title: "Niche Bending", icon: Wand2, tone: "blue" },
-  { title: "Transcript Extractor", icon: Captions, tone: "violet" },
+  {
+    title: "Niche Bending",
+    icon: Wand2,
+    tone: "blue",
+    video: "/videos/niche-bender.mp4",
+    videoPoster: "/videos/niche-bender-poster.jpg",
+  },
+  {
+    title: "Transcript Extractor",
+    icon: Captions,
+    tone: "violet",
+    video: "/videos/transcript-extractor.mp4",
+    videoPoster: "/videos/transcript-extractor-poster.jpg",
+  },
   {
     title: "Image Generator",
     icon: ImageIcon,
@@ -37,8 +47,6 @@ const TOOLS: MarqueeTool[] = [
     video: "/videos/image-generator.mp4",
     videoPoster: "/videos/image-generator-poster.jpg",
   },
-  { title: "Niche Finder", icon: Compass, tone: "violet" },
-  { title: "SOP Builder", icon: ClipboardList, tone: "sky" },
   {
     title: "Script Maker",
     icon: PenSquare,
@@ -53,8 +61,20 @@ const TOOLS: MarqueeTool[] = [
     video: "/videos/video-generator.mp4",
     videoPoster: "/videos/video-generator-poster.jpg",
   },
-  { title: "Cloud Library", icon: CloudCog, tone: "green" },
-  { title: "MCP", icon: Plug, tone: "rose" },
+  {
+    title: "Downloader",
+    icon: Download,
+    tone: "sky",
+    video: "/videos/downloader.mp4",
+    videoPoster: "/videos/downloader-poster.jpg",
+  },
+  {
+    title: "Voiceover Generator",
+    icon: Mic2,
+    tone: "green",
+    video: "/videos/voiceover-generator.mp4",
+    videoPoster: "/videos/voiceover-generator-poster.jpg",
+  },
 ];
 
 // Autoplay speed in pixels/second. Runs continuously -- not pausable or
