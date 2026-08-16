@@ -17,6 +17,7 @@ import {
   AUTH_INPUT_CLASSES,
   AUTH_OAUTH_BUTTON_CLASSES,
   AUTH_PRIMARY_BUTTON_CLASSES,
+  AUTH_SIGNIN_BUTTON_CLASSES,
 } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
 
@@ -108,7 +109,7 @@ function LoginForm() {
         transition={FADE_TRANSITION}
         className="text-center"
       >
-        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">
@@ -121,7 +122,7 @@ function LoginForm() {
         <button
           type="button"
           onClick={() => setView("login")}
-          className="mt-6 inline-flex text-sm font-semibold text-primary hover:underline"
+          className="mt-6 inline-flex text-sm font-semibold text-[#0075ff] hover:underline"
         >
           Back to sign in
         </button>
@@ -260,7 +261,7 @@ function LoginForm() {
               setError(null);
               setView("forgot");
             }}
-            className="self-start text-sm font-semibold text-primary hover:underline"
+            className="self-start text-sm font-semibold text-[#0075ff] hover:underline"
           >
             Forgot password?
           </button>
@@ -272,14 +273,14 @@ function LoginForm() {
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting} className={AUTH_PRIMARY_BUTTON_CLASSES}>
+          <button type="submit" disabled={isSubmitting} className={AUTH_SIGNIN_BUTTON_CLASSES}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-body">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-semibold text-primary hover:underline">
+          <Link href="/signup" className="font-semibold text-[#0075ff] hover:underline">
             Sign up here
           </Link>
         </p>

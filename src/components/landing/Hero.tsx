@@ -5,7 +5,7 @@ import { StarIcon } from "@/components/landing/StarIcon";
 
 export function Hero() {
   return (
-    <section className="relative isolate mx-auto flex max-w-6xl flex-col items-center px-4 pb-6 pt-20 text-center sm:px-6 sm:pb-10 sm:pt-28 lg:px-8 md:pt-40">
+    <section className="relative isolate mx-auto flex max-w-6xl flex-col items-center px-4 pb-6 pt-24 text-center sm:px-6 sm:pb-10 sm:pt-32 lg:px-8 md:pt-48">
       <TrustBadge />
 
       <div className="relative flex w-full justify-center">

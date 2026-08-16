@@ -43,7 +43,7 @@ function UpdatePasswordForm() {
   if (done) {
     return (
       <div className="text-center">
-        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">

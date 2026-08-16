@@ -6,3 +6,9 @@ export const AUTH_OAUTH_BUTTON_CLASSES =
 
 export const AUTH_PRIMARY_BUTTON_CLASSES =
   "flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(180deg,#5170ff_0%,#335cff_45%,#1d3fc9_100%)] py-4 text-[15px] font-bold tracking-[-0.01em] text-white ring-1 ring-inset ring-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.12),0_1px_2px_rgba(16,24,40,0.08)] transition-[transform,filter] duration-200 ease-out active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50";
+
+// Sign In only (per feedback) -- brighter cyan-blue gradient with a visible
+// light-blue outline ring, distinct from AUTH_PRIMARY_BUTTON_CLASSES' indigo
+// look used by Sign Up / Reset Password.
+export const AUTH_SIGNIN_BUTTON_CLASSES =
+  "flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(180deg,#009cff_0%,#0075ff_100%)] py-4 text-[15px] font-bold tracking-[-0.01em] text-white ring-2 ring-inset ring-[#00b2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-1px_0_rgba(0,0,0,0.15),0_1px_2px_rgba(16,24,40,0.08)] transition-[transform,filter] duration-200 ease-out active:scale-[0.98] active:brightness-95 disabled:pointer-events-none disabled:opacity-50";
