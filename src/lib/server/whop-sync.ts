@@ -76,8 +76,19 @@ export async function handlePaymentSucceeded(
  * whatever's left instead of failing the whole webhook. Deliberately skips
  * subscription payments -- their credits are for the period already
  * granted, and subscription access itself is driven by membership.* events.
+ *
+ * Deduped on refund.id via whop_processed_refunds, same insert-before-mutate
+ * idiom as handlePaymentSucceeded above. This matters even with a strict
+ * no-refunds policy: a rare forced refund (bank chargeback, dispute Whop
+ * settles against you) still fires this webhook, and IMPORTANTLY uses
+ * refund.amount -- this specific refund's own amount -- rather than
+ * payment.refunded_amount, which is the payment's cumulative refunded total
+ * across every refund ever issued against it. Using the cumulative figure
+ * would re-claw the full running total on every subsequent refund.created
+ * event for the same payment (e.g. two partial refunds), double-deducting
+ * credits that an earlier event already clawed back.
  */
-export async function handleRefundCreated(refund: RefundCreatedWebhookEvent.Data): Promise<void> {
+export async function handleRefundCreated(admin: AdminClient, refund: RefundCreatedWebhookEvent.Data): Promise<void> {
   const paymentId = refund.payment?.id;
   if (!paymentId) return;
 
@@ -92,7 +103,7 @@ export async function handleRefundCreated(refund: RefundCreatedWebhookEvent.Data
   const pack = findCreditPackByPlanId(planId);
   if (!pack) return;
 
-  const refundFraction = payment.settlement_amount > 0 ? (payment.refunded_amount ?? 0) / payment.settlement_amount : 1;
+  const refundFraction = payment.settlement_amount > 0 ? refund.amount / payment.settlement_amount : 1;
   const creditsToClaw = Math.round(pack.credits * Math.min(1, Math.max(0, refundFraction)));
   if (creditsToClaw <= 0) return;
 
@@ -100,7 +111,15 @@ export async function handleRefundCreated(refund: RefundCreatedWebhookEvent.Data
   const actualClaw = Math.min(creditsToClaw, currentBalance);
   if (actualClaw <= 0) return;
 
-  await deductCredits(userId, actualClaw, "Refund clawback", `whop.refund.${pack.packId}`);
+  const { error: dedupeError } = await admin
+    .from("whop_processed_refunds")
+    .insert({ refund_id: refund.id, user_id: userId, credits_clawed: actualClaw });
+  if (dedupeError) {
+    if (dedupeError.code === "23505") return;
+    throw new Error(dedupeError.message);
+  }
+
+  await deductCredits(userId, actualClaw, "Refund clawback", `whop.refund.${refund.id}`);
 }
 
 export async function syncMembershipState(admin: AdminClient, membership: Membership): Promise<void> {

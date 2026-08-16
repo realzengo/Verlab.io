@@ -10,21 +10,17 @@ export interface PromoRedemption {
 
 /**
  * Validates a promo code and atomically increments its used_count via the
- * redeem_promo_code() Postgres function (see
- * 20260725150000_promo_codes.sql) -- the lookup, active/expiry/max-uses
- * checks, and increment all happen in one statement so two concurrent
- * redemptions of a near-exhausted code can't both succeed. The RPC raises
- * the exact user-facing message this re-throws unchanged.
- *
- * userId isn't used by the SQL function (there's no per-user redemption
- * ledger) but stays in the signature since the caller needs it to apply the
- * returned reward to that user's account/checkout afterward.
+ * redeem_promo_code() Postgres function (see 20260725150000_promo_codes.sql,
+ * extended by 20260816130000_promo_code_redemptions.sql) -- the lookup,
+ * active/expiry/max-uses/already-redeemed-by-this-user checks, the
+ * increment, and the per-user redemption record all happen in one
+ * statement, so two concurrent redemptions (of a near-exhausted code, or by
+ * the same user twice) can't both succeed. The RPC raises the exact
+ * user-facing message this re-throws unchanged.
  */
 export async function validateAndUsePromoCode(code: string, userId: string): Promise<PromoRedemption> {
-  void userId;
-
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("redeem_promo_code", { p_code: code }).single();
+  const { data, error } = await admin.rpc("redeem_promo_code", { p_code: code, p_user_id: userId }).single();
 
   if (error) {
     throw new PromoCodeError(error.message);

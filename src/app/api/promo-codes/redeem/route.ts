@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { grantCredits } from "@/lib/server/credits";
 import { PromoCodeError, validateAndUsePromoCode } from "@/lib/server/promo-codes";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -11,6 +12,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Redemption itself is now one-per-user (see redeem_promo_code()), so this
+  // is just a brake on brute-forcing/guessing codes, not the actual
+  // double-redemption guard.
+  if (!(await checkRateLimit(`promo-redeem:${user.id}`, 5, 60))) {
+    return rateLimitedResponse();
   }
 
   let body: { code?: string };

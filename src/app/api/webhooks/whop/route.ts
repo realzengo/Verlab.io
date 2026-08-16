@@ -77,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         await handlePaymentSucceeded(admin, event.data as Payment, "webhook");
         break;
       case "refund.created":
-        await handleRefundCreated(event.data as RefundCreatedWebhookEvent.Data);
+        await handleRefundCreated(admin, event.data as RefundCreatedWebhookEvent.Data);
         break;
       case "membership.activated":
         await syncMembershipState(admin, event.data as Membership);

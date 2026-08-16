@@ -256,15 +256,23 @@ export async function proxy(request: NextRequest) {
     // paid tools live under /app/settings.
     if (!userIsAdmin && !pathname.startsWith("/app/settings")) {
       // The profile row was already fetched above, in parallel with
-      // getUser(), keyed off the session cookie's (unverified) id. Only use
-      // it if that id actually matches the now-verified user -- same
-      // fallback reasoning as before: a transient Supabase hiccup, a timeout,
-      // or an id mismatch all just skip the paywall header below rather than
-      // crashing the request. Worst case a lapsed subscriber briefly sees
-      // the dashboard instead of the paywall, which is the safe direction
-      // to fail in (never lock out someone who's actually paying).
+      // getUser(), keyed off the session cookie's (unverified) id. Only
+      // trust it if that id actually matches the now-verified user AND the
+      // fetch itself actually succeeded -- profileFetchFailed covers a
+      // timed-out/errored Supabase call, an id mismatch, or a query that
+      // came back with an error. It's checked again below, right before the
+      // paywall header gets set: a transient hiccup must fail OPEN (render
+      // the real dashboard) rather than toward the paywall -- accidentally
+      // paywalling someone who's still paying is worse than a lapsed
+      // subscriber briefly seeing tools they shouldn't.
+      const profileFetchFailed =
+        sessionUserId !== user.id ||
+        profileSettled.status !== "fulfilled" ||
+        !profileSettled.value ||
+        !!profileSettled.value.error;
+
       const profile: { subscription_status: string | null; subscription_current_period_end: string | null; credits: number | null } | null =
-        sessionUserId === user.id && profileSettled.status === "fulfilled" && profileSettled.value
+        !profileFetchFailed && profileSettled.status === "fulfilled" && profileSettled.value
           ? profileSettled.value.data
           : null;
 
@@ -306,7 +314,13 @@ export async function proxy(request: NextRequest) {
       // AppShell.tsx / PaywallPricing.tsx) instead of bouncing straight to
       // /pricing. This header is how that server-rendered layout finds out,
       // since middleware and the layout run in separate contexts.
-      if (!hasActiveSubscription && !hasCredits) {
+      //
+      // Gated on !profileFetchFailed -- see the comment above profile's
+      // declaration. Without it, hasActiveSubscription/hasCredits are both
+      // false whenever the fetch failed (profile is null), which paywalls a
+      // paying subscriber on every Supabase hiccup instead of leaving them
+      // alone.
+      if (!profileFetchFailed && !hasActiveSubscription && !hasCredits) {
         requestHeaders.set("x-paywalled", "1");
 
         // subscription_status is only ever written by a subscription
