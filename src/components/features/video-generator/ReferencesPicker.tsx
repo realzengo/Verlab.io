@@ -79,7 +79,13 @@ function RecentlyUsedPanel({ onSelect, onBack }: { onSelect: (dataUrl: string) =
               className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200 transition-opacity hover:opacity-80 disabled:opacity-50 dark:ring-white/10"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image */}
-              <img src={`/api/library/image/${image.id}/0?w=80`} alt="" className="h-full w-full object-cover" />
+              <img
+                src={`/api/library/image/${image.id}/0?w=80`}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

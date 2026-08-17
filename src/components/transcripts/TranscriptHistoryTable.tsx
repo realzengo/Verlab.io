@@ -234,6 +234,8 @@ function CoverThumbnail({ src, alt }: { src: string | null; alt?: string }) {
           alt={alt ?? ""}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover"
         />
       ) : (

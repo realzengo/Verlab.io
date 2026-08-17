@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import {
   Check,
   ChevronRight,
@@ -46,6 +47,10 @@ type ReferenceFile = {
 };
 
 type ScriptHistoryItem = ScriptRecord;
+
+type ReferenceFileRow = { kind: ReferenceKind; file_name: string; content: string };
+type ReferenceFilesResponse = { referenceFiles: ReferenceFileRow[] };
+type ScriptsResponse = { scripts: ScriptHistoryItem[] };
 
 // Derives a status label and rough completion percentage purely from the
 // streamed text itself (no fake timers) so the modal never lies about
@@ -180,12 +185,8 @@ function ScriptWriterPageInner() {
   const [prompt, setPrompt] = useState(() => searchParams.get("idea") ?? "");
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [transcriptFile, setTranscriptFile] = useState<ReferenceFile | null>(null);
-  const [sopFile, setSopFile] = useState<ReferenceFile | null>(null);
-  const [history, setHistory] = useState<ScriptHistoryItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
@@ -199,6 +200,37 @@ function ScriptWriterPageInner() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modalStreamRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cached by request URL -- revisiting /scripts after navigating to another
+  // sidebar tab reuses whatever was already fetched instead of re-requesting
+  // the SOP/transcript references and script history from scratch.
+  const {
+    data: referencesData,
+    error: referencesError,
+    mutate: mutateReferences,
+  } = useSWR<ReferenceFilesResponse>("/api/script-references");
+  const {
+    data: scriptsData,
+    error: scriptsError,
+    isLoading: isLoadingHistory,
+    mutate: mutateHistory,
+  } = useSWR<ScriptsResponse>("/api/scripts");
+  const history = useMemo(() => scriptsData?.scripts ?? [], [scriptsData]);
+  const error =
+    actionError ??
+    (scriptsError
+      ? "Couldn't load your script history. Try refreshing the page."
+      : referencesError
+        ? "Couldn't load your saved SOP/Transcript files."
+        : null);
+  const sopFile = useMemo<ReferenceFile | null>(() => {
+    const row = referencesData?.referenceFiles.find((r) => r.kind === "sop");
+    return row ? { name: row.file_name, content: row.content } : null;
+  }, [referencesData]);
+  const transcriptFile = useMemo<ReferenceFile | null>(() => {
+    const row = referencesData?.referenceFiles.find((r) => r.kind === "transcript");
+    return row ? { name: row.file_name, content: row.content } : null;
+  }, [referencesData]);
 
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
 
@@ -219,88 +251,65 @@ function ScriptWriterPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the user's persisted SOP/Transcript reference files and past
-  // scripts once on mount, so nothing needs re-uploading between visits.
-  useEffect(() => {
-    fetch("/api/script-references")
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
-      })
-      .then((data) => {
-        for (const row of data.referenceFiles ?? []) {
-          const reference = { name: row.file_name, content: row.content };
-          if (row.kind === "sop") setSopFile(reference);
-          if (row.kind === "transcript") setTranscriptFile(reference);
-        }
-      })
-      .catch(() => setError("Couldn't load your saved SOP/Transcript files."));
-
-    loadHistory();
-  }, []);
-
-  async function loadHistory(): Promise<ScriptHistoryItem[]> {
-    setIsLoadingHistory(true);
-    try {
-      const response = await fetch("/api/scripts");
-      if (!response.ok) throw new Error();
-      const data = await response.json();
-      const scripts: ScriptHistoryItem[] = data.scripts ?? [];
-      setHistory(scripts);
-      return scripts;
-    } catch {
-      setError("Couldn't load your script history. Try refreshing the page.");
-      return [];
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  }
-
   // Uploads the raw file and lets the server extract its text (PDF/DOCX are
   // parsed server-side; plain text passes through as-is) -- the client never
   // has to guess the format. Shows a per-dropzone loading state while that's
   // in flight, and surfaces a clear error if extraction or the save fails.
+  // The mutate updater does the actual PUT itself so the cache only ever
+  // reflects a real server response, and a thrown error leaves the cached
+  // reference files untouched (no rollback bookkeeping needed).
   async function saveReferenceFile(kind: ReferenceKind, file: File) {
     const label = kind === "sop" ? "SOP" : "transcript";
     setUploadingKind(kind);
-    setError(null);
+    setActionError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("kind", kind);
-      formData.append("file", file);
+      await mutateReferences(
+        async (current) => {
+          const formData = new FormData();
+          formData.append("kind", kind);
+          formData.append("file", file);
 
-      const response = await fetch("/api/script-references", { method: "PUT", body: formData });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || `Failed to save the ${label} file. Please try again.`);
+          const response = await fetch("/api/script-references", { method: "PUT", body: formData });
+          const data = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(data?.error || `Failed to save the ${label} file. Please try again.`);
 
-      const reference = { name: data.fileName ?? file.name, content: data.content ?? "" };
-      if (kind === "sop") setSopFile(reference);
-      else setTranscriptFile(reference);
+          const reference: ReferenceFileRow = { kind, file_name: data.fileName ?? file.name, content: data.content ?? "" };
+          const rest = (current?.referenceFiles ?? []).filter((row) => row.kind !== kind);
+          return { referenceFiles: [...rest, reference] };
+        },
+        { revalidate: false }
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to save the ${label} file. Please try again.`);
+      setActionError(err instanceof Error ? err.message : `Failed to save the ${label} file. Please try again.`);
     } finally {
       setUploadingKind(null);
     }
   }
 
   async function clearReferenceFile(kind: ReferenceKind) {
-    const previous = kind === "sop" ? sopFile : transcriptFile;
-    if (kind === "sop") setSopFile(null);
-    else setTranscriptFile(null);
-
     try {
-      const response = await fetch("/api/script-references", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind }),
-      });
-      if (!response.ok) throw new Error();
-      setError(null);
+      await mutateReferences(
+        async (current) => {
+          const response = await fetch("/api/script-references", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind }),
+          });
+          if (!response.ok) throw new Error();
+          return { referenceFiles: (current?.referenceFiles ?? []).filter((row) => row.kind !== kind) };
+        },
+        {
+          optimisticData: (current) => ({
+            referenceFiles: (current?.referenceFiles ?? []).filter((row) => row.kind !== kind),
+          }),
+          rollbackOnError: true,
+          revalidate: false,
+        }
+      );
+      setActionError(null);
     } catch {
-      if (kind === "sop") setSopFile(previous);
-      else setTranscriptFile(previous);
-      setError(`Failed to remove the ${kind === "sop" ? "SOP" : "transcript"} file. Please try again.`);
+      setActionError(`Failed to remove the ${kind === "sop" ? "SOP" : "transcript"} file. Please try again.`);
     }
   }
 
@@ -316,7 +325,7 @@ function ScriptWriterPageInner() {
 
     const message = prompt.trim();
     setIsGenerating(true);
-    setError(null);
+    setActionError(null);
     setResult("");
     setPopupDismissed(false);
 
@@ -354,11 +363,11 @@ function ScriptWriterPageInner() {
         setResult((prev) => prev + decoder.decode(value, { stream: true }));
       }
 
-      const scripts = await loadHistory();
-      setGeneratedScript(scripts[0] ?? null);
+      const refreshed = await mutateHistory();
+      setGeneratedScript(refreshed?.scripts[0] ?? null);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setActionError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -383,14 +392,25 @@ function ScriptWriterPageInner() {
   }
 
   async function handleDeleteScript(item: ScriptHistoryItem) {
+    if (viewingScript?.id === item.id) setViewingScript(null);
+    if (generatedScript?.id === item.id) setGeneratedScript(null);
     try {
-      const response = await fetch(`/api/scripts/${item.id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error();
-      setHistory((prev) => prev.filter((entry) => entry.id !== item.id));
-      if (viewingScript?.id === item.id) setViewingScript(null);
-      if (generatedScript?.id === item.id) setGeneratedScript(null);
+      await mutateHistory(
+        async (current) => {
+          const response = await fetch(`/api/scripts/${item.id}`, { method: "DELETE" });
+          if (!response.ok) throw new Error();
+          return current ? { scripts: current.scripts.filter((entry) => entry.id !== item.id) } : current;
+        },
+        {
+          optimisticData: (current) => ({
+            scripts: current?.scripts.filter((entry) => entry.id !== item.id) ?? [],
+          }),
+          rollbackOnError: true,
+          revalidate: false,
+        }
+      );
     } catch {
-      setError("Failed to delete the script. Please try again.");
+      setActionError("Failed to delete the script. Please try again.");
     }
   }
 
@@ -743,7 +763,11 @@ function ScriptWriterPageInner() {
           script={viewingScript}
           onClose={() => setViewingScript(null)}
           onSaved={(updated) => {
-            setHistory((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+            mutateHistory(
+              (current) =>
+                current ? { scripts: current.scripts.map((item) => (item.id === updated.id ? updated : item)) } : current,
+              { revalidate: false }
+            );
             setViewingScript(updated);
             setGeneratedScript((prev) => (prev?.id === updated.id ? updated : prev));
           }}

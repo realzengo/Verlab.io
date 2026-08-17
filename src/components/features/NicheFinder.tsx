@@ -208,6 +208,8 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
             alt=""
             referrerPolicy="no-referrer"
             onError={handleCoverError}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
           />
         )}

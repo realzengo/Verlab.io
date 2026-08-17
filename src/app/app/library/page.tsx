@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
@@ -22,6 +23,19 @@ import { setBendSaved } from "@/lib/api/niche-bend";
 import type { LibraryAsset, LibraryAssetType } from "@/lib/types";
 import { cn, formatBytes, formatRelativeTime } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+// Every tab x sort combination /api/library?type=...&sort=... gets its own
+// cache entry, so a delete has to patch all of them (not just whichever's
+// currently visible) or a stale copy of the deleted asset reappears the
+// moment the user switches to a tab that still has the old cached array.
+function removeAssetFromLibraryCache(assetId: string) {
+  globalMutate(
+    (key) => typeof key === "string" && key.startsWith("/api/library?"),
+    (data: { assets: LibraryAsset[] } | undefined) =>
+      data ? { assets: data.assets.filter((asset) => asset.id !== assetId) } : data,
+    { revalidate: false }
+  );
+}
 
 type TabValue = "all" | "image" | "video" | "sop" | "voiceover";
 
@@ -191,8 +205,6 @@ export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [category, setCategory] = useState("all");
-  const [assets, setAssets] = useState<LibraryAsset[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [previewAsset, setPreviewAsset] = useState<LibraryAsset | null>(null);
 
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
@@ -203,25 +215,12 @@ export default function LibraryPage() {
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setAssets(null);
-    setError(null);
-    fetch(`/api/library?type=${activeTab}&sort=${sort}`)
-      .then((response) => {
-        if (!response.ok) throw new Error();
-        return response.json();
-      })
-      .then((data) => {
-        if (!cancelled) setAssets(data.assets ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Couldn't load your library.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, sort]);
+  const { data: libraryData, error: libraryError } = useSWR<{ assets: LibraryAsset[] }>(
+    `/api/library?type=${activeTab}&sort=${sort}`
+  );
+  const assets = libraryData?.assets ?? null;
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const error = deleteError ?? (libraryError ? "Couldn't load your library." : null);
 
   useEffect(() => {
     setCategory("all");
@@ -254,7 +253,12 @@ export default function LibraryPage() {
   }, [assets, category]);
 
   async function handleDeleteAsset(asset: LibraryAsset) {
-    setError(null);
+    setDeleteError(null);
+    setOpenMenuId(null);
+    // Optimistic: remove from every cached tab immediately, then roll back
+    // (by revalidating) if the delete turns out not to have happened.
+    removeAssetFromLibraryCache(asset.id);
+    setPreviewAsset((prev) => (prev?.id === asset.id ? null : prev));
     try {
       if (asset.type === "sop") {
         const jobId = asset.id.replace(/^sop-/, "");
@@ -267,17 +271,15 @@ export default function LibraryPage() {
         // id is `image-${dbId}-${index}` -- dbId itself may contain dashes
         // (it's a uuid), so only the trailing `-<digits>` is the index.
         const match = asset.id.match(/^image-(.+)-(\d+)$/);
-        if (!match) return;
+        if (!match) throw new Error();
         const [, dbId, index] = match;
         const response = await fetch(`/api/library/image/${dbId}/${index}`, { method: "DELETE" });
         if (!response.ok) throw new Error();
       }
-      setAssets((prev) => (prev ? prev.filter((item) => item.id !== asset.id) : prev));
-      setPreviewAsset((prev) => (prev?.id === asset.id ? null : prev));
     } catch {
-      setError("Could not delete. Try again.");
+      setDeleteError("Could not delete. Try again.");
+      globalMutate((key) => typeof key === "string" && key.startsWith("/api/library?"));
     }
-    setOpenMenuId(null);
   }
 
   function handleDownload(asset: LibraryAsset) {

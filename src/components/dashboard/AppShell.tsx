@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { SWRConfig } from "swr";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { PaywallPricing } from "@/components/dashboard/PaywallPricing";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { McpBackground } from "@/components/mcp/McpBackground";
+import { fetcher } from "@/lib/client/fetcher";
 import { cn } from "@/lib/utils";
 
 // Keeps the backdrop mounted for the sidebar's 300ms slide-out so it fades
@@ -51,40 +53,50 @@ export function AppShell({
   );
 
   return (
-    <NicheSidebarProvider>
-      <div className="flex min-h-screen w-full bg-app">
-        <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
+    // Global SWR cache for the whole /app shell -- keyed by request URL, so
+    // navigating between sidebar tabs (Library, Scripts, Transcripts, ...)
+    // and back reuses whatever was already fetched instead of every screen
+    // re-requesting identical data from scratch on each remount. The cache
+    // itself is a module-level singleton (persists for the tab's lifetime
+    // regardless of where this provider sits); this just sets the shared
+    // fetcher and a dedup window so rapid remounts/StrictMode double-invokes
+    // don't double-fire the same request.
+    <SWRConfig value={{ fetcher, dedupingInterval: 5000, revalidateOnFocus: true }}>
+      <NicheSidebarProvider>
+        <div className="flex min-h-screen w-full bg-app">
+          <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
-        {showBackdrop && (
-          <div
-            aria-hidden="true"
-            onClick={() => setMobileNavOpen(false)}
-            className={cn(
-              "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ease-in-out lg:hidden",
-              mobileNavOpen ? "opacity-100" : "opacity-0"
-            )}
-          />
-        )}
-
-        {isHome ? (
-          <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
-        ) : isMcp ? (
-          <McpBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</McpBackground>
-        ) : isImageGenerator ? (
-          <div className="relative flex min-w-0 flex-1 flex-col">
-            {/* Plain black background (inherited from bg-app on the parent) --
-                just a single soft light near the top, not a full navy-tinted
-                Aurora wash, per request to keep this page simple. */}
+          {showBackdrop && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-[420px] dark:block [mask-image:linear-gradient(to_bottom,black,transparent)] [background-image:radial-gradient(50%_70%_at_50%_0%,rgba(59,130,246,0.22)_0%,rgba(37,99,235,0.07)_45%,transparent_75%)]"
+              onClick={() => setMobileNavOpen(false)}
+              className={cn(
+                "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ease-in-out lg:hidden",
+                mobileNavOpen ? "opacity-100" : "opacity-0"
+              )}
             />
-            {topBarAndMain}
-          </div>
-        ) : (
-          <div className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</div>
-        )}
-      </div>
-    </NicheSidebarProvider>
+          )}
+
+          {isHome ? (
+            <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
+          ) : isMcp ? (
+            <McpBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</McpBackground>
+          ) : isImageGenerator ? (
+            <div className="relative flex min-w-0 flex-1 flex-col">
+              {/* Plain black background (inherited from bg-app on the parent) --
+                  just a single soft light near the top, not a full navy-tinted
+                  Aurora wash, per request to keep this page simple. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-[420px] dark:block [mask-image:linear-gradient(to_bottom,black,transparent)] [background-image:radial-gradient(50%_70%_at_50%_0%,rgba(59,130,246,0.22)_0%,rgba(37,99,235,0.07)_45%,transparent_75%)]"
+              />
+              {topBarAndMain}
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</div>
+          )}
+        </div>
+      </NicheSidebarProvider>
+    </SWRConfig>
   );
 }

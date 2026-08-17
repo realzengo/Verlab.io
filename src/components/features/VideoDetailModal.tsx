@@ -378,7 +378,14 @@ export function VideoDetailModal({
             <div className="flex flex-col gap-6 sm:flex-row">
               <div className="relative aspect-[9/16] w-full shrink-0 overflow-hidden rounded-2xl bg-ink sm:w-[240px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={video.coverUrl} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
+                <img
+                  src={video.coverUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/40" />
                 <span className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-white">
                   <PlatformIcon className="h-3.5 w-3.5" />

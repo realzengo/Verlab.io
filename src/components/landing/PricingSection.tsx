@@ -1,12 +1,12 @@
 import { COMPARISON_ROWS } from "@/lib/mock-data";
-import { getPlanDefinitions } from "@/lib/server/admin-queries";
+import { getCachedPlanDefinitions } from "@/lib/server/admin-queries";
 import { createClient } from "@/lib/supabase/server";
 import { PricingSectionClient } from "@/components/landing/PricingSectionClient";
 
 export async function PricingSection() {
   const supabase = await createClient();
   const [plans, { data: { user } }] = await Promise.all([
-    getPlanDefinitions(supabase),
+    getCachedPlanDefinitions(),
     supabase.auth.getUser(),
   ]);
 

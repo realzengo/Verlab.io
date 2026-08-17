@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type {
@@ -637,12 +638,35 @@ function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
  * Falls back to the static PRICING_PLANS until the plan_definitions
  * migration is applied and payment (Whop) is wired up.
  */
+const PLAN_DEFINITION_SELECT =
+  "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
+
 export async function getPlanDefinitions(supabase: SupabaseClient): Promise<PricingPlan[]> {
-  const { data } = await supabase.from("plan_definitions").select("*").order("sort_order");
+  const { data } = await supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order");
   const rows = (data as PlanDefinitionRow[]) ?? [];
   if (rows.length === 0) return PRICING_PLANS;
   return rows.map(planRowToPricingPlan);
 }
+
+export const PLAN_DEFINITIONS_CACHE_TAG = "plan-definitions";
+
+/**
+ * Cached read path for callers that don't need admin-fresh data, e.g. the
+ * public pricing section, which every landing-page visitor triggers a fetch
+ * from. Backed by Next's shared Data Cache (unstable_cache), so unlike a
+ * plain in-process Map this stays consistent across serverless instances --
+ * no split-brain where instance A shows a just-edited price and instance B
+ * still has the old one. The 5-minute revalidate is a safety net; the write
+ * path (PUT /api/admin/plan-definitions) calls revalidateTag on save so
+ * admin edits show up immediately instead of waiting out the TTL. Falls
+ * back to the source table on any cache-layer failure since unstable_cache
+ * just re-invokes the function.
+ */
+export const getCachedPlanDefinitions = unstable_cache(
+  async (): Promise<PricingPlan[]> => getPlanDefinitions(createAdminClient()),
+  ["plan-definitions"],
+  { tags: [PLAN_DEFINITIONS_CACHE_TAG], revalidate: 300 }
+);
 
 const ACTION_TONES: ToolTone[] = ["blue", "violet", "amber", "green", "rose", "sky"];
 

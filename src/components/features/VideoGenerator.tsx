@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -446,7 +447,24 @@ export function VideoGenerator() {
   const [isPro, setIsPro] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("video-create"));
+  const {
+    data: historyData,
+    mutate: mutateHistory,
+  } = useSWR<{ generations: GenerationHistoryItem[] }>("/api/generate-video?mode=create", {
+    fallbackData: (() => {
+      const cached = readHistoryCache<GenerationHistoryItem>("video-create");
+      return cached ? { generations: cached } : undefined;
+    })(),
+    onSuccess: (data) => {
+      const items = data.generations ?? [];
+      const stillPending = items.filter((item) => item.status === "queued" || item.status === "processing").map((item) => item.id);
+      if (stillPending.length > 0 && !pollCancelRef.current) {
+        setIsGenerating(true);
+        pollGenerationStatus(stillPending);
+      }
+    },
+  });
+  const history = historyData?.generations ?? null;
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
   // Purely a same-tick UI affordance -- the actual download is a same-origin
@@ -472,25 +490,6 @@ export function VideoGenerator() {
     (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating && !promptTooLong;
   const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs, resolution: model.resolutions ? resolution : undefined }) || 0;
 
-  function loadHistory() {
-    return fetch("/api/generate-video?mode=create")
-      .then(async (response) => {
-        const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(data?.error);
-        return data;
-      })
-      .then((data) => {
-        const items: GenerationHistoryItem[] = data.generations ?? [];
-        setHistory(items);
-        const stillPending = items.filter((item) => item.status === "queued" || item.status === "processing").map((item) => item.id);
-        if (stillPending.length > 0 && !pollCancelRef.current) {
-          setIsGenerating(true);
-          pollGenerationStatus(stillPending);
-        }
-      })
-      .catch(() => {});
-  }
-
   function pollGenerationStatus(ids: string[]) {
     pollCancelRef.current?.();
     pendingIdsRef.current = new Set(ids);
@@ -505,7 +504,7 @@ export function VideoGenerator() {
       },
       () => pendingIdsRef.current.size === 0,
       (items) => {
-        setHistory(items);
+        mutateHistory({ generations: items }, { revalidate: false });
 
         const settled = [...pendingIdsRef.current].filter((id) => {
           const match = items.find((item) => item.id === id);
@@ -540,9 +539,7 @@ export function VideoGenerator() {
   }
 
   useEffect(() => {
-    loadHistory();
     return () => pollCancelRef.current?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Gates Pro-only models (Sora 2, Seedance 2.5) in the model pickers below.
@@ -599,11 +596,28 @@ export function VideoGenerator() {
   const editElapsedSeconds = useElapsedSeconds(editIsGenerating);
   const [editPendingCount, setEditPendingCount] = useState(0);
   const [editError, setEditError] = useState<string | null>(null);
-  const [editHistory, setEditHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("video-edit"));
-  const [isUploadingSource, setIsUploadingSource] = useState(false);
-
   const editPollCancelRef = useRef<(() => void) | null>(null);
   const editPendingIdsRef = useRef<Set<string>>(new Set());
+
+  const {
+    data: editHistoryData,
+    mutate: mutateEditHistory,
+  } = useSWR<{ generations: GenerationHistoryItem[] }>("/api/generate-video?mode=edit", {
+    fallbackData: (() => {
+      const cached = readHistoryCache<GenerationHistoryItem>("video-edit");
+      return cached ? { generations: cached } : undefined;
+    })(),
+    onSuccess: (data) => {
+      const items = data.generations ?? [];
+      const stillPending = items.filter((item) => item.status === "queued" || item.status === "processing").map((item) => item.id);
+      if (stillPending.length > 0 && !editPollCancelRef.current) {
+        setEditIsGenerating(true);
+        pollEditGenerationStatus(stillPending);
+      }
+    },
+  });
+  const editHistory = editHistoryData?.generations ?? null;
+  const [isUploadingSource, setIsUploadingSource] = useState(false);
 
   const editModelConfig = getEditVideoModel(editModel) ?? EDIT_VIDEO_MODELS[0];
   const editSourceDurationSeconds = editSource?.params.durationSeconds ?? null;
@@ -615,25 +629,6 @@ export function VideoGenerator() {
   const estimatedEditCost = editSourceDurationSeconds
     ? getVideoPromptEditCost({ model: editModel, sourceDurationSeconds: editSourceDurationSeconds, outputs: editOutputs })
     : 0;
-
-  function loadEditHistory() {
-    return fetch("/api/generate-video?mode=edit")
-      .then(async (response) => {
-        const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(data?.error);
-        return data;
-      })
-      .then((data) => {
-        const items: GenerationHistoryItem[] = data.generations ?? [];
-        setEditHistory(items);
-        const stillPending = items.filter((item) => item.status === "queued" || item.status === "processing").map((item) => item.id);
-        if (stillPending.length > 0 && !editPollCancelRef.current) {
-          setEditIsGenerating(true);
-          pollEditGenerationStatus(stillPending);
-        }
-      })
-      .catch(() => {});
-  }
 
   function pollEditGenerationStatus(ids: string[]) {
     editPollCancelRef.current?.();
@@ -649,7 +644,7 @@ export function VideoGenerator() {
       },
       () => editPendingIdsRef.current.size === 0,
       (items) => {
-        setEditHistory(items);
+        mutateEditHistory({ generations: items }, { revalidate: false });
 
         const settled = [...editPendingIdsRef.current].filter((id) => {
           const match = items.find((item) => item.id === id);
@@ -680,9 +675,7 @@ export function VideoGenerator() {
   }
 
   useEffect(() => {
-    loadEditHistory();
     return () => editPollCancelRef.current?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -788,7 +781,7 @@ export function VideoGenerator() {
         credits_quoted: 0,
         created_at: new Date().toISOString(),
       });
-      loadEditHistory();
+      mutateEditHistory();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Could not upload that video.");
     } finally {
@@ -949,8 +942,12 @@ export function VideoGenerator() {
       setError("Could not delete video. Try again.");
       return;
     }
-    setHistory((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
-    setEditHistory((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
+    mutateHistory((current) => (current ? { generations: current.generations.filter((item) => item.id !== id) } : current), {
+      revalidate: false,
+    });
+    mutateEditHistory((current) => (current ? { generations: current.generations.filter((item) => item.id !== id) } : current), {
+      revalidate: false,
+    });
     setEditSource((prev) => (prev?.id === id ? null : prev));
   }
 

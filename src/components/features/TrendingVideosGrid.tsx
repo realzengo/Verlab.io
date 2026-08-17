@@ -93,6 +93,8 @@ function TrendingVideoCard({ video }: { video: TrendingVideo }) {
         src={video.thumbnailUrl}
         alt=""
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 h-full w-full object-cover"
       />
 

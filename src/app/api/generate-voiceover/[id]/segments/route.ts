@@ -90,7 +90,16 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     const segments = [...existingSegments, newSegment];
 
     const { error: updateError } = await supabase.from("voiceover_generations").update({ segments }).eq("id", row.id).eq("user_id", user.id);
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) {
+      // The audio is already uploaded, but the row was never updated to
+      // point at it -- nothing else will ever reference audioPath, so it's
+      // an orphan the moment this request fails. Clean it up before
+      // reporting the error, same posture as every other Storage cleanup
+      // call site in this file (best-effort, logged, non-blocking).
+      const { error: cleanupError } = await admin.storage.from(STORAGE_BUCKET).remove([audioPath]);
+      if (cleanupError) console.error("[generate-voiceover/segments] Failed to remove orphaned storage object:", cleanupError);
+      throw new Error(updateError.message);
+    }
 
     try {
       await chargeUser(user.id, cost, "Voiceover Generation", `voiceover.${row.voice_id}.add_segment`);

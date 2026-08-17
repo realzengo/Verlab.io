@@ -1,8 +1,10 @@
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { fetchNicheYoutubeVideos } from "@/lib/server/youtube-client";
 import { NICHE_HASHTAGS, type NicheName } from "@/lib/niches-catalog";
+import { TRENDING_VIDEOS_CACHE_TAG } from "@/lib/server/trending-videos";
 
 export type VideoPlatform = "tiktok" | "youtube";
 
@@ -171,6 +173,10 @@ export async function refreshNicheVideoCache(
       console.error(`[niche-video-refresh] upsert failed (${platform}/${niche}/${region}):`, upsertError.message);
       return false;
     }
+    // New rows just landed -- expire the cached Niche Finder reads (see
+    // trending-videos.ts) immediately instead of leaving the next visitor
+    // looking at a pre-scrape snapshot for up to NICHE_FEED_CACHE_TTL_SECONDS.
+    revalidateTag(TRENDING_VIDEOS_CACHE_TAG, { expire: 0 });
     return true;
   } catch (err) {
     console.error(`[niche-video-refresh] scrape failed (${platform}/${niche}/${region}):`, err);

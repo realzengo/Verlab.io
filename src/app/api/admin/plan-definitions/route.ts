@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
+import { PLAN_DEFINITIONS_CACHE_TAG } from "@/lib/server/admin-queries";
 import type { PricingPlan } from "@/lib/types";
 
 export async function PUT(request: NextRequest): Promise<NextResponse> {
@@ -58,6 +60,11 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   if (error) {
     return serverError("admin/plan-definitions", error);
   }
+
+  // { expire: 0 } forces immediate expiration (vs the stale-while-revalidate
+  // "max" profile) since an admin editing pricing expects the change to show
+  // up on the very next pricing-section view, not after a background refresh.
+  revalidateTag(PLAN_DEFINITIONS_CACHE_TAG, { expire: 0 });
 
   return NextResponse.json({ ok: true });
 }

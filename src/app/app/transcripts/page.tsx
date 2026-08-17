@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import useSWR from "swr";
 import {
   ArrowLeft,
   Check,
@@ -35,6 +36,8 @@ const SUPPORTED_PLATFORMS = [
 ] as const;
 
 type PageView = "history" | "result";
+
+type TranscriptsResponse = { transcripts: TranscriptRow[] };
 
 // referrerPolicy is a valid global HTML attribute (browsers apply it to
 // <video>'s resource fetch), but React's VideoHTMLAttributes type omits it —
@@ -139,7 +142,15 @@ function firstUrl(input: string): string | null {
 
 export default function TranscriptsPage() {
   const [view, setView] = useState<PageView>("history");
-  const [rows, setRows] = useState<TranscriptRow[]>([]);
+  // Cached by request URL -- revisiting /transcripts after navigating to
+  // another sidebar tab reuses whatever was already fetched instead of
+  // re-requesting the whole history from scratch.
+  const {
+    data: transcriptsData,
+    isLoading: isLoadingRows,
+    mutate: mutateRows,
+  } = useSWR<TranscriptsResponse>("/api/transcripts");
+  const rows = transcriptsData?.transcripts ?? [];
   const [bulkInput, setBulkInput] = useState("");
   const [retranslateTo, setRetranslateTo] = useState("Original");
   const [activeRow, setActiveRow] = useState<TranscriptRow | null>(null);
@@ -155,11 +166,9 @@ export default function TranscriptsPage() {
   const [coverFailed, setCoverFailed] = useState(false);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupProgress, setPopupProgress] = useState(0);
-  const [isLoadingRows, setIsLoadingRows] = useState(true);
   const pollCancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    fetchRows();
     return () => pollCancelRef.current?.();
   }, []);
 
@@ -190,29 +199,32 @@ export default function TranscriptsPage() {
     setPopupOpen(false);
   }
 
-  async function fetchRows() {
-    try {
-      const res = await fetch("/api/transcripts");
-      if (res.ok) {
-        const data = await res.json();
-        setRows(data.transcripts);
-      }
-    } finally {
-      setIsLoadingRows(false);
-    }
-  }
-
   async function handleDeleteRows(ids: string[]) {
-    const res = await fetch("/api/transcripts", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    if (!res.ok) return;
-    setRows((prev) => prev.filter((row) => !ids.includes(row.id)));
     if (activeRow && ids.includes(activeRow.id)) {
       setActiveRow(null);
       setView("history");
+    }
+    try {
+      await mutateRows(
+        async (current) => {
+          const res = await fetch("/api/transcripts", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids }),
+          });
+          if (!res.ok) throw new Error();
+          return current ? { transcripts: current.transcripts.filter((row) => !ids.includes(row.id)) } : current;
+        },
+        {
+          optimisticData: (current) => ({
+            transcripts: current?.transcripts.filter((row) => !ids.includes(row.id)) ?? [],
+          }),
+          rollbackOnError: true,
+          revalidate: false,
+        }
+      );
+    } catch {
+      setError("Couldn't delete. Try again.");
     }
   }
 
@@ -238,7 +250,11 @@ export default function TranscriptsPage() {
       },
       (transcript) => transcript.status === "complete" || transcript.status === "failed",
       (transcript) => {
-        setRows((prev) => prev.map((r) => (r.id === id ? transcript : r)));
+        mutateRows(
+          (current) =>
+            current ? { transcripts: current.transcripts.map((r) => (r.id === id ? transcript : r)) } : current,
+          { revalidate: false }
+        );
         setActiveRow((prev) => (prev?.id === id ? transcript : prev));
         if (transcript.status === "complete") {
           setPopupProgress(100);
@@ -285,7 +301,7 @@ export default function TranscriptsPage() {
     setRetranslateTo("Original");
     setTranslateError(null);
     setPopupProgress(0);
-    setActiveRow({
+    const placeholderRow: TranscriptRow = {
       id: data.id,
       source_url: url,
       platform: "tiktok",
@@ -298,11 +314,19 @@ export default function TranscriptsPage() {
       lines: null,
       error_message: null,
       created_at: new Date().toISOString(),
-    });
+    };
+    setActiveRow(placeholderRow);
     setPopupOpen(true);
     setView("result");
     startPolling(data.id, "Original");
-    fetchRows();
+    // Prepend locally instead of refetching the whole list -- the server
+    // already agrees on the shape (this is exactly what it just created),
+    // and startPolling's mutateRows call above will replace it with the
+    // real row once the job settles.
+    mutateRows(
+      (current) => ({ transcripts: [placeholderRow, ...(current?.transcripts ?? [])] }),
+      { revalidate: false }
+    );
   };
 
   const handleCopy = async () => {
@@ -534,6 +558,8 @@ export default function TranscriptsPage() {
                           alt={activeRow.title ?? "Video cover"}
                           referrerPolicy="no-referrer"
                           onError={() => setCoverFailed(true)}
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-cover"
                         />
                         <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">

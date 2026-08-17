@@ -292,6 +292,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   after(async () => {
     const admin = createAdminClient();
+    // Tracked outside the try block so the catch below can still find (and
+    // remove) whichever segments finished uploading before a sibling
+    // segment's TTS call or upload threw -- mapWithConcurrency rejects the
+    // whole batch on the first error, but concurrency 4 means several other
+    // segments can have already landed in Storage by then.
+    const uploadedPaths: string[] = [];
     try {
       // The `voiceovers` bucket may not exist yet if the migration that
       // creates it hasn't been pushed to this environment's database --
@@ -312,6 +318,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           .from(STORAGE_BUCKET)
           .upload(audioPath, speech.bytes, { contentType: speech.contentType, upsert: true });
         if (uploadError) throw new Error(`Voiceover storage upload failed: ${uploadError.message}`);
+        uploadedPaths.push(audioPath);
 
         return { index, text, audioPath, durationSeconds: estimateDurationSeconds(text) };
       });
@@ -327,6 +334,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       await admin.from("voiceover_generations").update({ segments, status: "completed" }).eq("id", row.id);
       void recordUsageEvent("voiceover", user.id, { voiceId: voice.id, generationMode, segments: segments.length });
     } catch (error) {
+      // The row never gets a `segments` array when the batch fails this way
+      // (it stays the `[]` set at insert time), so any segment that did
+      // finish uploading before the failure is an orphan the moment status
+      // flips to "failed" -- nothing will ever come back to reference it.
+      if (uploadedPaths.length > 0) {
+        const { error: cleanupError } = await admin.storage.from(STORAGE_BUCKET).remove(uploadedPaths);
+        if (cleanupError) console.error("[generate-voiceover] Failed to remove orphaned storage objects:", cleanupError);
+      }
       await admin
         .from("voiceover_generations")
         .update({ status: "failed", ...describeGenerationFailure("generate-voiceover", error) })

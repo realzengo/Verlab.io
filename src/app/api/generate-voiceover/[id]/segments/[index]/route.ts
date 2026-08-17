@@ -192,7 +192,17 @@ async function handlePATCH(
       .update({ segments: updatedSegments })
       .eq("id", row.id)
       .eq("user_id", user.id);
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) {
+      // The new take is already uploaded, but the row still points at the
+      // old audioPath -- nothing will ever reference this new object, so
+      // it's an orphan the moment this request fails. Clean it up before
+      // reporting the error (the *old* object is untouched here, same as
+      // the success path below only removing it once the row is confirmed
+      // to point elsewhere).
+      const { error: cleanupError } = await admin.storage.from(STORAGE_BUCKET).remove([audioPath]);
+      if (cleanupError) console.error("[generate-voiceover/segments] Failed to remove orphaned storage object:", cleanupError);
+      throw new Error(updateError.message);
+    }
 
     if (target.audioPath && target.audioPath !== audioPath) {
       const { error: removeError } = await admin.storage.from(STORAGE_BUCKET).remove([target.audioPath]);

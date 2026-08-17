@@ -6,6 +6,7 @@ import { useEffect, useRef, type ComponentType, type SVGProps } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowUpRight, Image as ImageBadgeIcon, Mic2, Video as VideoBadgeIcon } from "lucide-react";
 import { ClaudeIcon } from "@/components/landing/AssistantIcons";
+import { KlingLogo } from "@/components/landing/ModelLogos";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 
@@ -83,7 +84,8 @@ const TOOL_LOGOS: ToolLogo[] = [
     description: "Create stunning videos in seconds",
     href: `${APP_URL}/video-generator`,
     badge: "New",
-    logo: "/logos/ai/kling.svg",
+    icon: KlingLogo,
+    iconClassName: "h-6 w-6",
   },
   {
     title: "Niche Bender MCP",

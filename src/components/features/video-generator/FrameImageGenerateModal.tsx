@@ -394,6 +394,8 @@ export function FrameImageGenerateModal({ frameLabel, defaultAspectRatio, onClos
                       <img
                         src={`/api/library/image/${row.item.id}/0?w=80`}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-10 w-10 shrink-0 rounded-lg object-cover"
                       />
                       <span className="min-w-0 flex-1">

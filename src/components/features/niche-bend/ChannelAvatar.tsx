@@ -72,6 +72,8 @@ export function ChannelAvatar({
             alt=""
             referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (

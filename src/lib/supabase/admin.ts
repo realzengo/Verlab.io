@@ -51,3 +51,58 @@ export async function ensureBucket(admin: SupabaseClient, id: string, options: E
     throw error;
   }
 }
+
+/**
+ * Recursively removes every Storage object under `${userId}/` in one bucket.
+ * Every per-user bucket in this app (videos, voiceovers, and -- once
+ * something actually writes to it -- avatars) keys its objects at
+ * `${userId}/...` per that bucket's own migration comment, so this one
+ * two-level list-then-remove covers all of them.
+ *
+ * Exists because account deletion (`DELETE /api/account`) removes the
+ * `auth.users` row, and `on delete cascade` FKs (e.g. video_generations.user_id,
+ * voiceover_generations.user_id) clean up the DB rows that pointed at these
+ * objects -- but Storage objects aren't rows in those tables, so nothing
+ * about that cascade ever reaches them. Without this, every video/voiceover
+ * a deleted user ever generated survives in Storage forever with no DB row
+ * left to ever reference or clean it up.
+ *
+ * Best-effort by design, same posture as every other Storage cleanup call
+ * site in this codebase (see e.g. /api/library/video/[id]'s DELETE): a
+ * listing/removal failure is logged, not thrown, so it can never block the
+ * account deletion itself.
+ */
+export async function removeUserStorageObjects(admin: SupabaseClient, bucket: string, userId: string): Promise<void> {
+  try {
+    const { data: topLevel, error: listError } = await admin.storage.from(bucket).list(userId);
+    if (listError || !topLevel || topLevel.length === 0) return;
+
+    const paths: string[] = [];
+    for (const entry of topLevel) {
+      // Supabase Storage's list() convention: a real file has `id` set, a
+      // folder entry (one level of nesting, e.g. `<generationId>/`) has
+      // `id: null`. Objects here live at `${userId}/${generationId}/<file>`,
+      // so folder entries need one more list() to reach the actual files.
+      if (entry.id) {
+        paths.push(`${userId}/${entry.name}`);
+        continue;
+      }
+      const { data: nested } = await admin.storage.from(bucket).list(`${userId}/${entry.name}`);
+      for (const file of nested ?? []) {
+        paths.push(`${userId}/${entry.name}/${file.name}`);
+      }
+    }
+
+    if (paths.length === 0) return;
+
+    // Chunked so one user with a very large library can't blow past
+    // Storage's per-request remove() limits.
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < paths.length; i += CHUNK_SIZE) {
+      const { error: removeError } = await admin.storage.from(bucket).remove(paths.slice(i, i + CHUNK_SIZE));
+      if (removeError) console.error(`[removeUserStorageObjects] Failed to remove objects from "${bucket}":`, removeError);
+    }
+  } catch (error) {
+    console.error(`[removeUserStorageObjects] Unexpected failure cleaning up "${bucket}":`, error);
+  }
+}

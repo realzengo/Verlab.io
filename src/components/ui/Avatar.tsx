@@ -57,6 +57,8 @@ export function Avatar({
         alt={name}
         referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
+        loading="lazy"
+        decoding="async"
         className={cn("shrink-0 rounded-full object-cover", SIZE_CLASSES[size], className)}
       />
     );

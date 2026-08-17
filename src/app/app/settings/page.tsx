@@ -127,6 +127,8 @@ export default function AccountSettingsPage() {
               alt={name || email || "Profile photo"}
               referrerPolicy="no-referrer"
               onError={() => setAvatarUrl(null)}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (

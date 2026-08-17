@@ -28,6 +28,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import {
   PillDropdown,
   GLASS_PILL_BASE,
@@ -37,6 +38,7 @@ import {
   GLASS_PANEL,
 } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
 import { BorderTrail } from "@/components/ui/BorderTrail";
@@ -242,6 +244,16 @@ function PendingGenerationTile({ aspectRatio, fill = false }: { aspectRatio: str
   );
 }
 
+function HistoryGridSkeleton() {
+  return (
+    <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <Skeleton key={index} className="aspect-square rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
 function RatioIcon({ ratio, className }: { ratio: string; className?: string }) {
   const [w, h] = ratio.split(":").map(Number);
   const size = 14;
@@ -347,7 +359,13 @@ function HistoryTile({
     >
       <button type="button" disabled={loading} onClick={onOpen} className="absolute inset-0 block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
-        <img src={`/api/library/image/${item.id}/0?w=640`} alt="" className="h-full w-full object-cover" />
+        <img
+          src={`/api/library/image/${item.id}/0?w=640`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-black/50">
             <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
@@ -644,9 +662,32 @@ export function ImageGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
-  const [history, setHistory] = useState<GenerationHistoryItem[] | null>(() => readHistoryCache("image"));
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  // Generations still running (e.g. the page was reloaded, or a poll loop was
+  // interrupted) have no client-side poller watching them -- resume one per
+  // row on every successful load/revalidation so none gets stuck looking
+  // finished. `pollGenerationStatus` guards against double-polling the same
+  // id, so this is safe to re-run on focus-revalidation too.
+  const {
+    data: historyData,
+    error: historyErrorObj,
+    isLoading: historyLoading,
+    mutate: mutateHistory,
+  } = useSWR<{ generations: GenerationHistoryItem[] }>("/api/generate-image", {
+    fallbackData: (() => {
+      const cached = readHistoryCache<GenerationHistoryItem>("image");
+      return cached ? { generations: cached } : undefined;
+    })(),
+    onSuccess: (data) => {
+      (data.generations ?? [])
+        .filter((item) => item.status === "generating" && !pollCancelsRef.current.has(item.id))
+        .forEach((item) => {
+          setPendingBatches((prev) => [...prev, { id: item.id, count: item.outputs, aspectRatio: item.aspect_ratio }]);
+          pollGenerationStatus(item.id, item.id);
+        });
+    },
+  });
+  const history = historyData?.generations ?? null;
+  const historyError = historyErrorObj ? "Couldn't load your generation history." : null;
 
   const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
   const [previewDims, setPreviewDims] = useState<{ width: number; height: number } | null>(null);
@@ -660,7 +701,6 @@ export function ImageGenerator() {
   // fresh-generation grid's preview clicks carry a real id/aspect-ratio/
   // outputs (for Delete/Reuse) the same way history-tab previews do.
   const [generatedRow, setGeneratedRow] = useState<GenerationHistoryItem | null>(null);
-  const [isDeletingPreview, setIsDeletingPreview] = useState(false);
   const [previewActionError, setPreviewActionError] = useState<string | null>(null);
 
   const [pendingBatches, setPendingBatches] = useState<PendingBatch[]>([]);
@@ -715,7 +755,6 @@ export function ImageGenerator() {
   }, [pendingBatches, visibleHistory, galleryColumns]);
 
   useEffect(() => {
-    loadHistory();
     const pollCancels = pollCancelsRef.current;
     return () => pollCancels.forEach((cancel) => cancel());
   }, []);
@@ -778,33 +817,6 @@ export function ImageGenerator() {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [isSettingsOpen]);
 
-  function loadHistory() {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    return fetch("/api/generate-image")
-      .then(async (response) => {
-        const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(data?.error);
-        return data;
-      })
-      .then((data) => {
-        const items: GenerationHistoryItem[] = data.generations ?? [];
-        setHistory(items);
-
-        // Generations still running (e.g. the page was reloaded, or a poll
-        // loop was interrupted) have no client-side poller watching them --
-        // resume one per row so none gets stuck looking finished.
-        items
-          .filter((item) => item.status === "generating" && !pollCancelsRef.current.has(item.id))
-          .forEach((item) => {
-            setPendingBatches((prev) => [...prev, { id: item.id, count: item.outputs, aspectRatio: item.aspect_ratio }]);
-            pollGenerationStatus(item.id, item.id);
-          });
-      })
-      .catch((err) => setHistoryError(err instanceof Error && err.message ? err.message : "Couldn't load your generation history."))
-      .finally(() => setHistoryLoading(false));
-  }
-
   // Generation can take minutes, especially for slower models -- rather than
   // holding a single fetch open for that whole time (fragile: proxies,
   // gateways, and the browser itself can kill a long-idle connection well
@@ -841,7 +853,10 @@ export function ImageGenerator() {
         (items) => {
           const match = items.find((item) => item.id === id);
           if (!match) return;
-          setHistory((prev) => mergeHistoryRow(prev, match));
+          mutateHistory(
+            (current) => ({ generations: mergeHistoryRow(current?.generations ?? null, match) }),
+            { revalidate: false }
+          );
           if (match.status === "generating") return;
 
           if (match.status === "failed") {
@@ -907,25 +922,38 @@ export function ImageGenerator() {
   async function deletePreviewImage() {
     if (!previewItem) return;
     const target = previewItem;
-    setIsDeletingPreview(true);
     setPreviewActionError(null);
+
+    // Optimistic: close the preview and drop the image from both grids right
+    // away, then restore this snapshot if the delete turns out to have failed.
+    const prevGeneratedImages = generatedImages;
+    const prevHistoryData = historyData;
+    const wasGeneratedRow = generatedRow?.id === target.id;
+
+    setPreviewItem(null);
+    if (wasGeneratedRow) {
+      setGeneratedImages((prev) => prev.filter((_, index) => index !== target.index));
+    }
+    mutateHistory(
+      (current) =>
+        current
+          ? {
+              generations: current.generations
+                .map((row) => (row.id === target.id ? { ...row, outputs: row.outputs - 1 } : row))
+                .filter((row) => row.outputs > 0),
+            }
+          : current,
+      { revalidate: false }
+    );
+
     try {
       const response = await fetch(`/api/library/image/${target.id}/${target.index}`, { method: "DELETE" });
       if (!response.ok) throw new Error();
-      if (generatedRow?.id === target.id) {
-        setGeneratedImages((prev) => prev.filter((_, index) => index !== target.index));
-      }
-      setHistory((prev) =>
-        prev
-          ? prev.map((row) => (row.id === target.id ? { ...row, outputs: row.outputs - 1 } : row)).filter((row) => row.outputs > 0)
-          : prev
-      );
-      setPreviewItem(null);
     } catch {
+      if (wasGeneratedRow) setGeneratedImages(prevGeneratedImages);
+      mutateHistory(prevHistoryData, { revalidate: false });
       setPreviewActionError("Could not delete this image. Try again.");
       setTimeout(() => setPreviewActionError(null), 3000);
-    } finally {
-      setIsDeletingPreview(false);
     }
   }
 
@@ -1021,14 +1049,31 @@ export function ImageGenerator() {
   // next output always lands back at index 0 -- sequentially awaited to
   // avoid two overlapping requests racing on the same stored array.
   async function deleteHistoryItem(item: GenerationHistoryItem) {
-    for (let i = 0; i < item.outputs; i++) {
-      const response = await fetch(`/api/library/image/${item.id}/0`, { method: "DELETE" });
-      if (!response.ok) throw new Error();
-    }
-    setHistory((prev) => prev?.filter((row) => row.id !== item.id) ?? prev);
-    if (generatedRow?.id === item.id) {
+    const prevHistoryData = historyData;
+    const prevGeneratedImages = generatedImages;
+    const wasGeneratedRow = generatedRow?.id === item.id;
+
+    mutateHistory(
+      (current) => (current ? { generations: current.generations.filter((row) => row.id !== item.id) } : current),
+      { revalidate: false }
+    );
+    if (wasGeneratedRow) {
       setGeneratedImages([]);
       setGeneratedRow(null);
+    }
+
+    try {
+      for (let i = 0; i < item.outputs; i++) {
+        const response = await fetch(`/api/library/image/${item.id}/0`, { method: "DELETE" });
+        if (!response.ok) throw new Error();
+      }
+    } catch (err) {
+      mutateHistory(prevHistoryData, { revalidate: false });
+      if (wasGeneratedRow) {
+        setGeneratedImages(prevGeneratedImages);
+        setGeneratedRow(item);
+      }
+      throw err;
     }
   }
 
@@ -1463,9 +1508,7 @@ export function ImageGenerator() {
           ) : (
             <div className="mt-6 pb-10">
               {historyLoading ? (
-                <div className="flex h-48 items-center justify-center text-slate-400">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
+                <HistoryGridSkeleton />
               ) : historyError ? (
                 <p className="mt-4 text-center text-sm font-medium text-red-500">{historyError}</p>
               ) : !history || history.filter((item) => item.status === "completed").length === 0 ? (
@@ -1488,6 +1531,8 @@ export function ImageGenerator() {
                         <img
                           src={`/api/library/image/${item.id}/0?w=112`}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-cover"
                         />
                         {loadingPreviewId === item.id && (
@@ -1892,8 +1937,8 @@ export function ImageGenerator() {
               )}
             </div>
           ) : historyLoading ? (
-            <div className="mt-6 flex h-48 items-center justify-center text-slate-400">
-              <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="mt-6">
+              <HistoryGridSkeleton />
             </div>
           ) : (
             <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
@@ -2002,11 +2047,10 @@ export function ImageGenerator() {
                       </button>
                       <button
                         type="button"
-                        disabled={isDeletingPreview}
                         onClick={deletePreviewImage}
-                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
                       >
-                        {isDeletingPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        <Trash2 className="h-3.5 w-3.5" />
                         Delete
                       </button>
                     </div>
