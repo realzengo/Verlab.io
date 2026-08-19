@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { preload } from "react-dom";
 import Link from "next/link";
-import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, Wand2 } from "lucide-react";
+import { BadgeCheck, Compass, Eye, Heart, MessageCircle, Play, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
 import {
@@ -174,6 +174,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
   const timeAgo = formatTimeAgo(video.postedAt);
   const niche = video.niche;
   const style = videoStyle(video);
+  const analysis = video.transcriptAnalysis?.status === "analyzed" ? video.transcriptAnalysis : null;
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
 
   function handleCoverError() {
@@ -265,9 +266,28 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
 
       <div className="flex flex-col gap-3 p-3.5 sm:p-4">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
-            {niche}
-          </span>
+          {analysis ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border-2 border-accent-line bg-accent px-2 py-0.5 text-[10px] font-bold leading-none text-primary"
+              title={`AI-verified niche — ${analysis.confidence}% confidence`}
+            >
+              <BadgeCheck className="h-3 w-3" />
+              {analysis.niche}
+            </span>
+          ) : (
+            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
+              {niche}
+            </span>
+          )}
+          {analysis?.is_faceless && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold leading-none text-white"
+              title="AI-verified: no real face on camera"
+            >
+              <VenetianMask className="h-3 w-3" />
+              Faceless
+            </span>
+          )}
           <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", styleChipClasses(style))}>
             {STYLE_LABEL[style]}
           </span>

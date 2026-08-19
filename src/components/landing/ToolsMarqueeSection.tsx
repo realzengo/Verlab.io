@@ -77,10 +77,6 @@ const TOOLS: MarqueeTool[] = [
   },
 ];
 
-// Autoplay speed in pixels/second. Runs continuously -- not pausable or
-// draggable, so it always reads as ambient motion rather than a control.
-const AUTOPLAY_SPEED = 45;
-
 function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -111,9 +107,9 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
     <Link
       href="/login"
       draggable={false}
-      className="group flex h-[130px] w-[136px] shrink-0 flex-col rounded-2xl bg-slate-100 p-2.5 transition-colors hover:bg-slate-200 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
+      className="group flex h-[130px] w-[136px] shrink-0 flex-col rounded-2xl bg-[#EDF3FA] p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
     >
-      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white sm:mb-3">
+      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-[#EDF3FA] sm:mb-3">
         {video ? (
           <video
             ref={videoRef}
@@ -132,8 +128,8 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
         )}
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-800 sm:text-sm">{title}</span>
-        <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+        <span className="text-[11px] font-semibold text-slate-800 transition-colors group-hover:text-blue-600 sm:text-sm">{title}</span>
+        <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-blue-600" />
       </div>
     </Link>
   );
@@ -151,44 +147,58 @@ export function ToolsMarqueeSection() {
     const el = trackRef.current;
     if (!scroller || !el) return;
 
+    const cards = Array.from(el.children) as HTMLElement[];
+    if (cards.length < 2) return;
+
+    // Distance from one card to the next (width + gap), measured from real
+    // layout so it stays correct across the responsive card-size breakpoints.
+    const cardStep = () => cards[1].offsetLeft - cards[0].offsetLeft;
+
     // Content is 3 copies of TOOLS; start in the middle copy so the loop
     // has room to reset in either direction without a visible jump.
-    const setWidth = () => el.scrollWidth / 3;
-    let offset = setWidth();
-    el.style.transform = `translateX(-${offset}px)`;
+    let index = TOOLS.length;
 
-    let frame: number;
-    let last = performance.now();
+    // Keeps the current card horizontally centered in the visible track
+    // instead of pinned to the left edge.
+    const offsetFor = (i: number) => (scroller.clientWidth - cards[i].offsetWidth) / 2 - cardStep() * i;
+
+    const jumpTo = (i: number) => {
+      el.style.transition = "none";
+      el.style.transform = `translateX(${offsetFor(i)}px)`;
+      void el.offsetWidth;
+    };
+    jumpTo(index);
+
     let visible = true;
-
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
     });
     observer.observe(scroller);
 
-    const step = (now: number) => {
-      const dt = now - last;
-      last = now;
+    let advanceTimeout: number;
+    let resetTimeout: number;
 
+    const advance = () => {
       if (visible) {
-        offset += (AUTOPLAY_SPEED * dt) / 1000;
+        index += 1;
+        el.style.transition = "transform 700ms cubic-bezier(0.65,0,0.35,1)";
+        el.style.transform = `translateX(${offsetFor(index)}px)`;
 
-        const width = setWidth();
-        if (offset >= width * 2) {
-          offset -= width;
-        } else if (offset <= 0) {
-          offset += width;
-        }
-
-        el.style.transform = `translateX(-${offset}px)`;
+        resetTimeout = window.setTimeout(() => {
+          if (index >= TOOLS.length * 2) {
+            index -= TOOLS.length;
+            jumpTo(index);
+          }
+        }, 700);
       }
 
-      frame = requestAnimationFrame(step);
+      advanceTimeout = window.setTimeout(advance, 4000);
     };
-    frame = requestAnimationFrame(step);
+    advanceTimeout = window.setTimeout(advance, 4000);
 
     return () => {
-      cancelAnimationFrame(frame);
+      window.clearTimeout(advanceTimeout);
+      window.clearTimeout(resetTimeout);
       observer.disconnect();
     };
   }, []);

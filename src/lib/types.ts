@@ -23,6 +23,37 @@ export interface SampleVideo {
   views: string;
 }
 
+// The Gemini transcript-analysis worker's structured verdict (see
+// niche-video-enrichment.ts). Every enrichment attempt writes one of these
+// three terminal shapes onto trending_videos.transcript_analysis -- "status"
+// is what lets a UI (or a future retry pass) tell a real verdict apart from
+// a permanent miss without re-parsing the whole payload.
+export interface AnalyzedTranscript {
+  status: "analyzed";
+  /** One of the fixed niches in niches-catalog.ts's NICHE_ORDER. */
+  niche: string;
+  is_faceless: boolean;
+  confidence: number;
+  summary: string;
+  reasoning: string;
+  analyzed_at: string;
+  model: string;
+}
+
+export interface UnavailableTranscript {
+  status: "unavailable";
+  reason: string;
+  failed_at: string;
+}
+
+export interface FailedTranscript {
+  status: "failed";
+  error: string;
+  failed_at: string;
+}
+
+export type TranscriptAnalysis = AnalyzedTranscript | UnavailableTranscript | FailedTranscript;
+
 export interface TrendingVideo {
   id: string;
   title: string;
@@ -40,6 +71,8 @@ export interface TrendingVideo {
   niche: string;
   postedAt: string | null;
   platform: "tiktok" | "youtube";
+  /** Null until the enrichment worker has attempted this video at least once. */
+  transcriptAnalysis: TranscriptAnalysis | null;
 }
 
 export interface Niche {

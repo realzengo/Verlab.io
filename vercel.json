@@ -5,6 +5,7 @@
     { "path": "/api/youtube-videos/refresh", "schedule": "0 */3 * * *" },
     { "path": "/api/cron/health-check", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/video-poll", "schedule": "*/2 * * * *" },
-    { "path": "/api/cron/redact-webhook-payloads", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/redact-webhook-payloads", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/niche-videos-enrich", "schedule": "*/15 * * * *" }
   ]
 }

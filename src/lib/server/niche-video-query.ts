@@ -29,6 +29,27 @@ const ALL_NICHES_WARM_TARGET = 30;
 // in SQL. This bounds how many matching rows get pulled per request.
 const DERIVED_FILTER_BATCH_CAP = 600;
 
+// A cache-miss on-demand scrape (see ranOutOfCache below) can legitimately
+// take up to the route's full 60s maxDuration -- a deep, high-view-floor
+// YouTube scrape searching a narrow niche for e.g. 1.5M+ views in the last 7
+// days is exactly the shape that runs long or comes back thin. Blocking the
+// request on it end-to-end used to mean that filter combo either hung until
+// the platform killed the function or ran out the clock with no response.
+// This caps how long a request will wait for a same-request answer; a scrape
+// still running past the cap keeps going in the background (see after()
+// below) so the *next* request for the same combo benefits, instead of the
+// scrape being wasted.
+const ON_DEMAND_SCRAPE_SOFT_TIMEOUT_MS = 8_000;
+
+const SOFT_TIMEOUT = Symbol("soft-timeout");
+
+function withSoftTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof SOFT_TIMEOUT> {
+  return Promise.race([
+    promise,
+    new Promise<typeof SOFT_TIMEOUT>((resolve) => setTimeout(() => resolve(SOFT_TIMEOUT), ms)),
+  ]);
+}
+
 const TIME_WINDOW_DAYS: Record<string, number> = {
   "24h": 1,
   "7d": 7,
@@ -112,6 +133,10 @@ function mapSearchResult(v: TrendingTikTokVideo | TrendingYoutubeVideo, platform
     niche: nicheForHashtag(v.hashtag),
     postedAt: v.postedAt,
     platform,
+    // Live search hits the provider directly (SociaVault/YouTube), bypassing
+    // trending_videos entirely -- these rows never go through the
+    // enrichment worker, so there's no analysis to attach.
+    transcriptAnalysis: null,
   };
 }
 
@@ -162,20 +187,24 @@ function filterAndSortLiveResults(
   applyViewFilter: boolean
 ): TrendingVideo[] {
   const { style, timeWindow, sort } = params;
-  const { viewsMin, viewsMax, followersMin, followersMax, postedAfter, postedBefore } = params;
-  const outlierMin = params.outlierMin ?? null;
-  const outlierMax = params.outlierMax ?? null;
-  const viewsPerHourMin = params.viewsPerHourMin ?? null;
-  const viewsPerHourMax = params.viewsPerHourMax ?? null;
+  const viewsMin = parseNonNegativeNumber(params.viewsMin);
+  const viewsMax = parseNonNegativeNumber(params.viewsMax);
+  const followersMin = parseNonNegativeNumber(params.followersMin);
+  const followersMax = parseNonNegativeNumber(params.followersMax);
+  const { postedAfter, postedBefore } = params;
+  const outlierMin = parseNonNegativeNumber(params.outlierMin ?? null);
+  const outlierMax = parseNonNegativeNumber(params.outlierMax ?? null);
+  const viewsPerHourMin = parseNonNegativeNumber(params.viewsPerHourMin ?? null);
+  const viewsPerHourMax = parseNonNegativeNumber(params.viewsPerHourMax ?? null);
 
   let results = raw;
   if (style !== "all") results = results.filter((v) => matchesStyle(v.hashtag, style));
   if (applyViewFilter) {
-    if (viewsMin) results = results.filter((v) => v.viewCount >= Number(viewsMin));
-    if (viewsMax) results = results.filter((v) => v.viewCount <= Number(viewsMax));
+    if (viewsMin !== null) results = results.filter((v) => v.viewCount >= viewsMin);
+    if (viewsMax !== null) results = results.filter((v) => v.viewCount <= viewsMax);
   }
-  if (followersMin) results = results.filter((v) => v.followerCount >= Number(followersMin));
-  if (followersMax) results = results.filter((v) => v.followerCount <= Number(followersMax));
+  if (followersMin !== null) results = results.filter((v) => v.followerCount >= followersMin);
+  if (followersMax !== null) results = results.filter((v) => v.followerCount <= followersMax);
 
   if (postedAfter || postedBefore) {
     const afterMs = postedAfter ? new Date(postedAfter).getTime() : null;
@@ -190,20 +219,20 @@ function filterAndSortLiveResults(
     results = results.filter((v) => v.postedAt && new Date(v.postedAt).getTime() >= cutoff);
   }
 
-  if (outlierMin || outlierMax || viewsPerHourMin || viewsPerHourMax) {
+  if (outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null) {
     const avgViews = results.length > 0 ? results.reduce((sum, v) => sum + v.viewCount, 0) / results.length : 1;
     const now = Date.now();
     results = results.filter((v) => {
-      if (outlierMin || outlierMax) {
+      if (outlierMin !== null || outlierMax !== null) {
         const ratio = v.viewCount / Math.max(avgViews, 1);
-        if (outlierMin && ratio < Number(outlierMin)) return false;
-        if (outlierMax && ratio > Number(outlierMax)) return false;
+        if (outlierMin !== null && ratio < outlierMin) return false;
+        if (outlierMax !== null && ratio > outlierMax) return false;
       }
-      if (viewsPerHourMin || viewsPerHourMax) {
+      if (viewsPerHourMin !== null || viewsPerHourMax !== null) {
         const hours = v.postedAt ? Math.max((now - new Date(v.postedAt).getTime()) / 3_600_000, 1) : Infinity;
         const vph = v.viewCount / hours;
-        if (viewsPerHourMin && vph < Number(viewsPerHourMin)) return false;
-        if (viewsPerHourMax && vph > Number(viewsPerHourMax)) return false;
+        if (viewsPerHourMin !== null && vph < viewsPerHourMin) return false;
+        if (viewsPerHourMax !== null && vph > viewsPerHourMax) return false;
       }
       return true;
     });
@@ -216,7 +245,8 @@ function filterAndSortLiveResults(
 
 async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams): Promise<NicheVideoPage> {
   const { page, limit, platform, country } = params;
-  const { viewsMin, viewsMax } = params;
+  const viewsMin = parseNonNegativeNumber(params.viewsMin);
+  const viewsMax = parseNonNegativeNumber(params.viewsMax);
   const offset = (page - 1) * limit;
   const countries = country ? country.split(",").filter(Boolean) : [];
   const { mode, term } = parseLiveSearchQuery(rawQuery);
@@ -263,7 +293,7 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
   // depth -- rather than show a blank page, drop just the view-count floor
   // (every other filter stays intact) and surface the closest matches.
   let relaxedFilters = false;
-  if (results.length === 0 && (viewsMin || viewsMax)) {
+  if (results.length === 0 && (viewsMin !== null || viewsMax !== null)) {
     results = filterAndSortLiveResults(raw, params, false);
     relaxedFilters = results.length > 0;
   }
@@ -288,6 +318,22 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
  * user-scoped (no per-user rows), so an admin (service-role) client is used
  * throughout rather than threading a cookie session through.
  */
+// trending_videos.view_count/follower_count are NOT NULL bigint columns (see
+// the schema migrations) -- there is no NULL to accidentally exclude here.
+// What *can* go wrong is a malformed query-string value (empty after
+// trimming, non-numeric, negative) silently becoming NaN and getting handed
+// straight to PostgREST's .gte()/.lte(), which is undefined behavior rather
+// than "no filter". Parsing once, up front, and treating anything invalid as
+// "filter not set" keeps every downstream .gte()/.lte() call working with a
+// real finite number or not being called at all.
+function parseNonNegativeNumber(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+const NICHE_QUERY_DEBUG = process.env.NICHE_QUERY_DEBUG === "1";
+
 export async function getNicheVideosPage(
   niche: string,
   isAllNiches: boolean,
@@ -298,14 +344,36 @@ export async function getNicheVideosPage(
 
   const admin = createAdminClient() as SupabaseClient;
   const { page, limit, style, platform, timeWindow, country, sort } = params;
-  const { viewsMin, viewsMax, followersMin, followersMax, postedAfter, postedBefore } = params;
-  const outlierMin = params.outlierMin ?? null;
-  const outlierMax = params.outlierMax ?? null;
-  const viewsPerHourMin = params.viewsPerHourMin ?? null;
-  const viewsPerHourMax = params.viewsPerHourMax ?? null;
+  const { postedAfter, postedBefore } = params;
+  const viewsMin = parseNonNegativeNumber(params.viewsMin);
+  const viewsMax = parseNonNegativeNumber(params.viewsMax);
+  const followersMin = parseNonNegativeNumber(params.followersMin);
+  const followersMax = parseNonNegativeNumber(params.followersMax);
+  const outlierMin = parseNonNegativeNumber(params.outlierMin ?? null);
+  const outlierMax = parseNonNegativeNumber(params.outlierMax ?? null);
+  const viewsPerHourMin = parseNonNegativeNumber(params.viewsPerHourMin ?? null);
+  const viewsPerHourMax = parseNonNegativeNumber(params.viewsPerHourMax ?? null);
   const offset = (page - 1) * limit;
   const countries = country ? country.split(",").filter(Boolean) : [];
-  const hasDerivedFilters = Boolean(outlierMin || outlierMax || viewsPerHourMin || viewsPerHourMax);
+  const hasDerivedFilters = outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null;
+
+  if (NICHE_QUERY_DEBUG) {
+    console.log("[niche-video-query] request", {
+      niche,
+      isAllNiches,
+      platform,
+      timeWindow,
+      country,
+      viewsMin,
+      viewsMax,
+      followersMin,
+      followersMax,
+      postedAfter,
+      postedBefore,
+      style,
+      sort,
+    });
+  }
 
   function buildBaseQuery(applyViewFilter = true) {
     let query = admin.from("trending_videos").select(TRENDING_VIDEO_COLUMNS);
@@ -330,11 +398,11 @@ export async function getNicheVideosPage(
     }
 
     if (applyViewFilter) {
-      if (viewsMin) query = query.gte("view_count", Number(viewsMin));
-      if (viewsMax) query = query.lte("view_count", Number(viewsMax));
+      if (viewsMin !== null) query = query.gte("view_count", viewsMin);
+      if (viewsMax !== null) query = query.lte("view_count", viewsMax);
     }
-    if (followersMin) query = query.gte("follower_count", Number(followersMin));
-    if (followersMax) query = query.lte("follower_count", Number(followersMax));
+    if (followersMin !== null) query = query.gte("follower_count", followersMin);
+    if (followersMax !== null) query = query.lte("follower_count", followersMax);
 
     if (postedAfter || postedBefore) {
       if (postedAfter) query = query.gte("posted_at", new Date(postedAfter).toISOString());
@@ -359,18 +427,18 @@ export async function getNicheVideosPage(
     const now = Date.now();
 
     return batch.filter((row) => {
-      if (outlierMin || outlierMax) {
+      if (outlierMin !== null || outlierMax !== null) {
         const outlierRatio = row.view_count / Math.max(nicheAvgViews, 1);
-        if (outlierMin && outlierRatio < Number(outlierMin)) return false;
-        if (outlierMax && outlierRatio > Number(outlierMax)) return false;
+        if (outlierMin !== null && outlierRatio < outlierMin) return false;
+        if (outlierMax !== null && outlierRatio > outlierMax) return false;
       }
-      if (viewsPerHourMin || viewsPerHourMax) {
+      if (viewsPerHourMin !== null || viewsPerHourMax !== null) {
         const hoursSincePosted = row.posted_at
           ? Math.max((now - new Date(row.posted_at).getTime()) / 3_600_000, 1)
           : Infinity;
         const viewsPerHour = row.view_count / hoursSincePosted;
-        if (viewsPerHourMin && viewsPerHour < Number(viewsPerHourMin)) return false;
-        if (viewsPerHourMax && viewsPerHour > Number(viewsPerHourMax)) return false;
+        if (viewsPerHourMin !== null && viewsPerHour < viewsPerHourMin) return false;
+        if (viewsPerHourMax !== null && viewsPerHour > viewsPerHourMax) return false;
       }
       return true;
     });
@@ -384,8 +452,16 @@ export async function getNicheVideosPage(
   async function runQuery(applyViewFilter = true): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
     if (hasDerivedFilters) {
       const { data, error } = await buildBaseQuery(applyViewFilter).limit(DERIVED_FILTER_BATCH_CAP);
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error(`[niche-video-query] Supabase error (derived-filter batch, niche=${niche}, platform=${platform}):`, error);
+        throw new Error(error.message);
+      }
       const filtered = applyDerivedFilters((data ?? []) as TrendingVideoRow[]);
+      if (NICHE_QUERY_DEBUG) {
+        console.log(
+          `[niche-video-query] derived-filter batch: fetched=${data?.length ?? 0} afterDerivedFilters=${filtered.length}`
+        );
+      }
       return {
         pageRows: filtered.slice(offset, offset + limit),
         hasMore: filtered.length > offset + limit,
@@ -393,12 +469,35 @@ export async function getNicheVideosPage(
     }
 
     const { data, error } = await buildBaseQuery(applyViewFilter).range(offset, offset + limit);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error(`[niche-video-query] Supabase error (niche=${niche}, platform=${platform}, applyViewFilter=${applyViewFilter}):`, error);
+      throw new Error(error.message);
+    }
     const rows = (data ?? []) as TrendingVideoRow[];
+    if (NICHE_QUERY_DEBUG) {
+      console.log(
+        `[niche-video-query] page query: applyViewFilter=${applyViewFilter} rawRowsReturned=${rows.length} offset=${offset} limit=${limit}`
+      );
+    }
     return {
       pageRows: rows.slice(0, limit),
       hasMore: rows.length > limit,
     };
+  }
+
+  if (NICHE_QUERY_DEBUG) {
+    let nicheScoped = admin.from("trending_videos").select("*", { count: "exact", head: true });
+    if (!isAllNiches) nicheScoped = nicheScoped.eq("niche_category", niche);
+    if (platform !== "all") nicheScoped = nicheScoped.eq("platform", platform);
+
+    const [{ count: totalCount }, { count: scopedCount }] = await Promise.all([
+      admin.from("trending_videos").select("*", { count: "exact", head: true }),
+      nicheScoped,
+    ]);
+    console.log(
+      `[niche-video-query] unfiltered counts: totalTableRows=${totalCount ?? "?"} ` +
+        `niche="${niche}" platform="${platform}" rowsBeforeOtherFilters=${scopedCount ?? "?"}`
+    );
   }
 
   let { pageRows, hasMore } = await runQuery();
@@ -413,14 +512,32 @@ export async function getNicheVideosPage(
     const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
     const ranOutOfCache = pageRows.length < limit;
     const staleFirstPage = page === 1 && (await isNicheCacheStale(admin, niche, platform, region));
-    const minViews = viewsMin ? Number(viewsMin) : 0;
+    const minViews = viewsMin ?? 0;
 
     if (ranOutOfCache) {
-      // Nothing usable cached for this page -- there's no stale-but-good-
-      // enough data to fall back on, so this request has to wait on a real
-      // scrape (can take up to ~a minute, see refreshNicheVideoCache).
-      const wrote = await refreshNicheVideoCache(admin, niche as NicheName, platform, offset + limit, region, minViews);
-      if (wrote) ({ pageRows, hasMore } = await runQuery());
+      // Nothing usable cached for this page -- give a real scrape a bounded
+      // window to answer this request directly (the common case: most
+      // niche/platform/view-floor combos resolve well under the soft
+      // timeout). A scrape that's still running past it (typically a deep,
+      // high-view-floor YouTube search) is hooked into after() instead of
+      // awaited further, so this request falls through to the
+      // relaxed-filters/possibly-empty response below rather than blocking
+      // until the platform kills the function -- the next request for this
+      // combo finds a warm cache instead of repeating the same slow scrape.
+      const refreshPromise = refreshNicheVideoCache(
+        admin,
+        niche as NicheName,
+        platform,
+        offset + limit,
+        region,
+        minViews
+      );
+      const outcome = await withSoftTimeout(refreshPromise, ON_DEMAND_SCRAPE_SOFT_TIMEOUT_MS);
+      if (outcome === SOFT_TIMEOUT) {
+        after(() => refreshPromise);
+      } else if (outcome) {
+        ({ pageRows, hasMore } = await runQuery());
+      }
     } else if (staleFirstPage) {
       // Enough cached rows to answer this request right now -- the cache is
       // just past its 24h TTL, not empty. Blocking on a fresh scrape here
@@ -439,7 +556,7 @@ export async function getNicheVideosPage(
     // selected date range -- rather than leave the page blank, drop just the
     // view-count floor (niche/platform/date/style/country stay intact) and
     // surface the closest matches instead.
-    if (pageRows.length === 0 && page === 1 && (viewsMin || viewsMax)) {
+    if (pageRows.length === 0 && page === 1 && (viewsMin !== null || viewsMax !== null)) {
       ({ pageRows, hasMore } = await runQuery(false));
       relaxedFilters = pageRows.length > 0;
     }

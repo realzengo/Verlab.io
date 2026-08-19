@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
 import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
+import { batchUpsertTrendingVideos } from "@/lib/server/trending-videos-batch-upsert";
 
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
@@ -46,7 +47,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { error: deleteError } = await admin.from("trending_videos").delete().eq("platform", "tiktok");
     if (deleteError) throw new Error(deleteError.message);
 
-    const { error: insertError } = await admin.from("trending_videos").insert(
+    // Chunked + bounded-concurrency rather than one insert() carrying the
+    // whole ~50-hashtag catalog (up to a few thousand rows) -- see
+    // batchUpsertTrendingVideos for why a single giant write is risky here
+    // (one malformed row previously poisoned an entire batch, and a huge
+    // payload holds a pooled DB connection longer than it needs to).
+    // upsert (not insert) is still safe post-delete: no conflicts are
+    // expected, it just tolerates a retry landing rows twice.
+    const refreshedAt = new Date().toISOString();
+    const summary = await batchUpsertTrendingVideos(
+      admin,
       videos.map((v) => ({
         id: v.id,
         title: v.title,
@@ -65,13 +75,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         platform: "tiktok",
         region: GLOBAL_REGION,
         posted_at: v.postedAt,
-        refreshed_at: new Date().toISOString(),
-      }))
+        refreshed_at: refreshedAt,
+      })),
+      "trending-videos/refresh"
     );
 
-    if (insertError) throw new Error(insertError.message);
+    if (summary.upsertedRows === 0) throw new Error("Batch upsert failed for every chunk");
 
-    return NextResponse.json({ ok: true, inserted: videos.length });
+    return NextResponse.json({
+      ok: true,
+      inserted: summary.upsertedRows,
+      totalScraped: summary.totalRows,
+      failedChunks: summary.failedChunks,
+    });
   } catch (error) {
     console.error("[trending-videos/refresh] failed:", error);
     const message = error instanceof Error ? error.message : "Refresh failed";

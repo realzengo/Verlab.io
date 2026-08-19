@@ -5,6 +5,7 @@ import { fetchNicheTrendingVideos } from "@/lib/server/sociavault-client";
 import { fetchNicheYoutubeVideos } from "@/lib/server/youtube-client";
 import { NICHE_HASHTAGS, type NicheName } from "@/lib/niches-catalog";
 import { TRENDING_VIDEOS_CACHE_TAG } from "@/lib/server/trending-videos";
+import { batchUpsertTrendingVideos } from "@/lib/server/trending-videos-batch-upsert";
 
 export type VideoPlatform = "tiktok" | "youtube";
 
@@ -146,7 +147,9 @@ export async function refreshNicheVideoCache(
     }
     if (scraped.length === 0) return false;
 
-    const { error: upsertError } = await admin.from("trending_videos").upsert(
+    const refreshedAt = new Date().toISOString();
+    const summary = await batchUpsertTrendingVideos(
+      admin,
       scraped.map((v) => ({
         id: v.id,
         title: v.title,
@@ -165,12 +168,12 @@ export async function refreshNicheVideoCache(
         platform,
         region,
         posted_at: v.postedAt,
-        refreshed_at: new Date().toISOString(),
+        refreshed_at: refreshedAt,
       })),
-      { onConflict: "id" }
+      `niche-video-refresh:${platform}/${niche}/${region}`
     );
-    if (upsertError) {
-      console.error(`[niche-video-refresh] upsert failed (${platform}/${niche}/${region}):`, upsertError.message);
+    if (summary.upsertedRows === 0) {
+      console.error(`[niche-video-refresh] upsert failed entirely (${platform}/${niche}/${region})`);
       return false;
     }
     // New rows just landed -- expire the cached Niche Finder reads (see

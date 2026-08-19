@@ -89,19 +89,36 @@ function stripAppPrefix(pathname: string) {
   return pathname === "/app" ? "/" : pathname.slice("/app".length);
 }
 
+// `next dev` has no real DNS for app.<ROOT_DOMAIN>, but app.localhost (and
+// any other *.localhost) resolves to 127.0.0.1 out of the box per RFC 6761
+// -- no /etc/hosts entry needed -- so it stands in for the app subdomain
+// during local dev and gets the exact same host split production does.
+// Gated on NODE_ENV so a spoofed Host header can never reach this in
+// production; `next build`/`next start` (what preview and production
+// deploys both run) always set NODE_ENV=production, matching the APP_URL
+// branch in src/lib/constants.ts.
+const isDev = process.env.NODE_ENV !== "production";
+const DEV_APP_HOST = "app.localhost";
+
 export async function proxy(request: NextRequest) {
   const rawPathname = request.nextUrl.pathname;
-  const currentHost = request.nextUrl.hostname;
-  const isAppHost = currentHost === `app.${ROOT_DOMAIN}`;
-  const isRootDomain = currentHost === ROOT_DOMAIN || currentHost === `www.${ROOT_DOMAIN}`;
+  // request.nextUrl.hostname doesn't reliably reflect the incoming Host
+  // header under `next dev` -- it's read off the request's actual Host
+  // header instead, with the port (if any) stripped the same way
+  // nextUrl.hostname would.
+  const currentHost = (request.headers.get("host") ?? "").split(":")[0];
+  const appHost = isDev ? DEV_APP_HOST : `app.${ROOT_DOMAIN}`;
+  const isAppHost = currentHost === appHost;
+  const isRootDomain =
+    currentHost === ROOT_DOMAIN || currentHost === `www.${ROOT_DOMAIN}` || (isDev && currentHost === "localhost");
   const isOldStyleAppPath = rawPathname === "/app" || rawPathname.startsWith("/app/");
 
-  // Only the two real production hosts get split -- localhost and Vercel
-  // preview URLs (which don't have an app.* DNS entry) fall through to the
-  // pre-split behavior below, unchanged.
+  // Only the app-host/root-domain pairs above get split -- a Vercel preview
+  // URL (no app.* DNS entry, and not "localhost" either) falls through to
+  // the pre-split behavior below, unchanged.
   if (isRootDomain && matchesPrefix(rawPathname, APP_ONLY_PREFIXES)) {
     const url = request.nextUrl.clone();
-    url.hostname = `app.${ROOT_DOMAIN}`;
+    url.hostname = appHost;
     // Land in one hop on the clean URL instead of redirecting again
     // immediately after crossing hosts.
     if (isOldStyleAppPath) url.pathname = stripAppPrefix(rawPathname);

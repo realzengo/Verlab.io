@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
-import { ArrowDown, ArrowRight, BadgeCheck, Check, Filter, Images, Play, Sparkles, Wand2 } from "lucide-react";
+import { ArrowDown, ArrowRight, BadgeCheck, Check, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 
@@ -13,18 +13,16 @@ function GlassCard({
   scale,
   tilt,
   className,
-  floatDelay = 0,
   children,
 }: {
   position: string;
   scale: string;
   tilt: string;
   className?: string;
-  floatDelay?: number;
   children: ReactNode;
 }) {
   return (
-    <div className={cn("absolute animate-float", position, scale)} style={{ animationDelay: `${floatDelay}s` }}>
+    <div className={cn("absolute", position, scale)}>
       <div className={tilt}>
         <div
           className={cn(
@@ -126,13 +124,6 @@ function ChannelPreview({
 }
 
 function NicheBendCard() {
-  const [revealed, setRevealed] = useState(false);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => setRevealed(true), 900);
-    return () => clearTimeout(timeoutId);
-  }, []);
-
   return (
     <div>
       <div className="flex items-center gap-1.5 text-sm font-semibold text-white">
@@ -158,12 +149,7 @@ function NicheBendCard() {
       </div>
 
       <p className="text-[9px] font-bold uppercase tracking-wider text-white/50">Bend:</p>
-      <div
-        className={cn(
-          "mt-1 transition-all duration-500",
-          revealed ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
-        )}
-      >
+      <div className="mt-1">
         <ChannelPreview
           avatarSrc="/bend-avatar.png"
           name="Apesthetic"
@@ -224,22 +210,21 @@ export function AnimatedFeatureSection() {
             className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[105px] w-[210px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-950 blur-[40px] sm:h-[200px] sm:w-[440px] sm:blur-[60px]"
           />
 
-          <div className="-translate-y-6">
-            <StatusPill icon={<Filter className="h-3 w-3 text-slate-300" />}>Creating&hellip;</StatusPill>
-          </div>
-
-          <h2 className="text-4xl font-extrabold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
-            Verlab Studio
+          <h2 className="whitespace-nowrap text-2xl font-extrabold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
+            Clone What Works
           </h2>
-          <p className="max-w-xl text-xs font-medium text-blue-100/80 sm:text-sm">
+          <p className="max-w-xl text-xs font-medium text-blue-100/80 sm:hidden">
+            Reverse-engineer and clone winning video niches.
+          </p>
+          <p className="hidden max-w-xl text-sm font-medium text-blue-100/80 sm:block">
             The all-in-one studio for reverse-engineering and cloning winning video niches.
           </p>
           <Link
             href={APP_URL}
-            className="liquid-glass mt-1 inline-flex items-center gap-2 rounded-full py-2 pl-6 pr-2 text-sm font-semibold sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
+            className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-slate-800 py-2 pl-6 pr-2 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
           >
             Try Verlab Studio
-            <span className="liquid-glass-puck grid h-8 w-8 shrink-0 place-items-center rounded-full text-white sm:h-9 sm:w-9">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9">
               <ArrowRight className="h-4 w-4" />
             </span>
           </Link>
@@ -251,11 +236,10 @@ export function AnimatedFeatureSection() {
             keep the original 3D-tilted three-card spread from sm/xl onward. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-30">
           <GlassCard
-            position="top-[2%] left-[2%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[13%]"
-            scale="origin-top-left scale-[0.34] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
+            position="top-[-6%] left-[-4%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[13%]"
+            scale="origin-top-left scale-[0.26] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(-8deg)] sm:[transform:perspective(1000px)_rotateY(10deg)_rotateX(4deg)]"
             className="w-[270px]"
-            floatDelay={0}
           >
             <NicheBendCard />
           </GlassCard>
@@ -265,7 +249,6 @@ export function AnimatedFeatureSection() {
             scale="origin-top-right sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
             tilt="[transform:perspective(1000px)_rotateY(-10deg)_rotateX(4deg)]"
             className="w-[270px]"
-            floatDelay={1.4}
           >
             <div className="flex items-center gap-2">
               <Image
@@ -308,11 +291,10 @@ export function AnimatedFeatureSection() {
           </GlassCard>
 
           <GlassCard
-            position="bottom-[2%] right-[2%] sm:bottom-[-4%] sm:right-[1%] md:bottom-[-4%] md:right-[3%] xl:bottom-[-5%] xl:right-[11%] 2xl:right-[17%]"
-            scale="origin-bottom-right scale-[0.42] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
+            position="bottom-[-6%] right-[-4%] sm:bottom-[-4%] sm:right-[1%] md:bottom-[-4%] md:right-[3%] xl:bottom-[-5%] xl:right-[11%] 2xl:right-[17%]"
+            scale="origin-bottom-right scale-[0.3] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(7deg)] sm:[transform:perspective(1000px)_rotateY(-6deg)_rotateX(4deg)]"
             className="w-[270px]"
-            floatDelay={2.8}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-sm font-semibold text-white">

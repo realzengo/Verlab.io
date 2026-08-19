@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import type { TrendingVideo } from "@/lib/types";
+import type { TranscriptAnalysis, TrendingVideo } from "@/lib/types";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -20,10 +20,13 @@ export interface TrendingVideoRow {
   niche_category: string | null;
   posted_at: string | null;
   platform: "tiktok" | "youtube";
+  // JSONB, already parsed to an object by postgrest-js -- null until the
+  // enrichment worker (niche-video-enrichment.ts) has attempted this row.
+  transcript_analysis: TranscriptAnalysis | null;
 }
 
 export const TRENDING_VIDEO_COLUMNS =
-  "id, title, views, view_count, like_count, comment_count, share_count, follower_count, cover_url, video_url, author, avatar_url, hashtag, niche_category, posted_at, platform";
+  "id, title, views, view_count, like_count, comment_count, share_count, follower_count, cover_url, video_url, author, avatar_url, hashtag, niche_category, posted_at, platform, transcript_analysis";
 
 // niche_category is backfilled going forward, but rows ingested before that
 // column existed fall back to the hashtag-derived niche so old cache entries
@@ -46,6 +49,7 @@ export function mapTrendingVideoRow(row: TrendingVideoRow): TrendingVideo {
     niche: row.niche_category ?? nicheForHashtag(row.hashtag),
     postedAt: row.posted_at,
     platform: row.platform,
+    transcriptAnalysis: row.transcript_analysis,
   };
 }
 
