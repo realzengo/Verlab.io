@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, type ComponentType, type SVGProps } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUpRight, Image as ImageBadgeIcon, Mic2, Video as VideoBadgeIcon } from "lucide-react";
+import { ArrowUpRight, Image as ImageBadgeIcon, Mic2, Play, Video as VideoBadgeIcon } from "lucide-react";
 import { ClaudeIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
+import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 
@@ -250,11 +251,20 @@ export function FeaturesGridSection() {
   return (
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
       <div className="mx-auto max-w-7xl px-5 sm:px-6">
-        <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
-          Every AI tool you need,
-          <br />
-          <span className="font-medium text-slate-400">in one place.</span>
-        </h2>
+        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-start">
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
+              Every AI tool, in one place.
+            </h2>
+            <p className="mt-3 text-xs font-medium text-slate-500 sm:text-sm">
+              Generate videos, images, voiceovers, and scripts, all in one place.
+            </p>
+          </div>
+          <Button href={APP_URL} size="md" bevel={false} className="shrink-0 rounded-xl! px-7 py-3.5 text-xl font-bold! shadow-none">
+            Make an account
+            <Play className="h-3.5 w-3.5 shrink-0 fill-current" />
+          </Button>
+        </div>
 
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
           {HERO_TOOLS.map((tool) => (

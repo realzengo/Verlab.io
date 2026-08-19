@@ -207,7 +207,7 @@ const FORMULA_LINES = [
   },
   {
     before: "Except Buchanan, dead broke.",
-    after: "Except {name} — {trait} ever.",
+    after: "Except {name}, {trait} ever.",
     label: "Fact",
     tint: "emerald",
   },
@@ -554,7 +554,7 @@ function StepTwoCard() {
       <CardShell
         step={2}
         title="Extract the Formula"
-        description="Our AI turns the script into a fill-in-the-blank template — hook, pattern, and facts kept, topic stripped out."
+        description="Our AI turns the script into a fill-in-the-blank template. Hook, pattern, and facts kept, topic stripped out."
       >
         <FormulaMockup active={inView} />
       </CardShell>

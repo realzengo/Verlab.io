@@ -69,7 +69,7 @@ export function ComparisonSection() {
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl md:text-5xl">
+        <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-900 sm:text-3xl md:text-5xl">
           Before VS After <span className="font-bold">Verlab</span>
         </h2>
         <p className="mt-3 text-sm text-slate-500 sm:mt-4 sm:text-base md:text-lg">
