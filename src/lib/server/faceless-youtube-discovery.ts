@@ -113,34 +113,27 @@ export async function discoverAndIngestTrendingYoutubeChannels(
   const videos = await fetchNicheYoutubeVideos(DISCOVERY_KEYWORDS, TARGET_VIDEO_COUNT);
   const channels = groupByChannel(videos);
 
-  const results: DiscoveredChannel[] = [];
+  const { data, error } = await admin
+    .from("niche_channels")
+    .upsert(
+      channels.map((channel) => ({
+        platform: "youtube",
+        channel_url: `https://www.youtube.com/channel/${channel.channelId}`,
+        channel_title: channel.channelTitle,
+        avatar_url: channel.avatarUrl || null,
+        subscriber_count: channel.subscriberCount,
+        total_views: channel.totalViews,
+        recent_videos: channel.videos,
+        niche: channel.niche,
+      })),
+      { onConflict: "channel_url" }
+    )
+    .select("id, channel_title");
 
-  for (const channel of channels) {
-    const { data, error } = await admin
-      .from("niche_channels")
-      .upsert(
-        {
-          platform: "youtube",
-          channel_url: `https://www.youtube.com/channel/${channel.channelId}`,
-          channel_title: channel.channelTitle,
-          avatar_url: channel.avatarUrl || null,
-          subscriber_count: channel.subscriberCount,
-          total_views: channel.totalViews,
-          recent_videos: channel.videos,
-          niche: channel.niche,
-        },
-        { onConflict: "channel_url" }
-      )
-      .select("id, channel_title")
-      .single();
-
-    if (error || !data) {
-      console.error(`[faceless-youtube-discovery] Failed to upsert channel ${channel.channelId}:`, error);
-      continue;
-    }
-
-    results.push({ channelId: data.id, channelTitle: data.channel_title });
+  if (error) {
+    console.error("[faceless-youtube-discovery] Batch upsert failed:", error);
+    return [];
   }
 
-  return results;
+  return (data ?? []).map((row) => ({ channelId: row.id, channelTitle: row.channel_title }));
 }

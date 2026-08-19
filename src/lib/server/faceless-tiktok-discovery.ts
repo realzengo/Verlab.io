@@ -122,35 +122,27 @@ export async function discoverAndIngestTrendingTikTokChannels(
     authors.map((a) => a.handle)
   );
 
-  const results: DiscoveredChannel[] = [];
+  const { data, error } = await admin
+    .from("niche_channels")
+    .upsert(
+      authors.map((author) => ({
+        platform: "tiktok",
+        channel_url: `https://www.tiktok.com/@${author.handle}`,
+        channel_title: author.channelTitle,
+        avatar_url: author.avatarUrl || null,
+        subscriber_count: followerByHandle.get(author.handle) ?? author.subscriberCount,
+        total_views: author.totalViews,
+        recent_videos: author.videos,
+        niche: author.niche,
+      })),
+      { onConflict: "channel_url" }
+    )
+    .select("id, channel_title");
 
-  for (const author of authors) {
-    const subscriberCount = followerByHandle.get(author.handle) ?? author.subscriberCount;
-    const { data, error } = await admin
-      .from("niche_channels")
-      .upsert(
-        {
-          platform: "tiktok",
-          channel_url: `https://www.tiktok.com/@${author.handle}`,
-          channel_title: author.channelTitle,
-          avatar_url: author.avatarUrl || null,
-          subscriber_count: subscriberCount,
-          total_views: author.totalViews,
-          recent_videos: author.videos,
-          niche: author.niche,
-        },
-        { onConflict: "channel_url" }
-      )
-      .select("id, channel_title")
-      .single();
-
-    if (error || !data) {
-      console.error(`[faceless-tiktok-discovery] Failed to upsert @${author.handle}:`, error);
-      continue;
-    }
-
-    results.push({ channelId: data.id, channelTitle: data.channel_title });
+  if (error) {
+    console.error("[faceless-tiktok-discovery] Batch upsert failed:", error);
+    return [];
   }
 
-  return results;
+  return (data ?? []).map((row) => ({ channelId: row.id, channelTitle: row.channel_title }));
 }
