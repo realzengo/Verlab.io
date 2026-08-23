@@ -8,6 +8,7 @@ import { validateReferenceImage } from "@/lib/server/video-validation";
 import { describeGenerationFailure, GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -175,6 +176,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!prompt?.trim()) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+  }
+  // Edit models have no confirmed per-model prompt-length cap (see
+  // PromptEditModelConfig in video-models.ts), so this only enforces
+  // character safety plus the shared free-text default length.
+  if (!isSafeFreeText(prompt, FREE_TEXT_MAX)) {
+    return NextResponse.json({ error: "prompt contains characters that aren't allowed" }, { status: 400 });
   }
 
   if (!sourceGenerationId || typeof sourceGenerationId !== "string") {

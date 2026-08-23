@@ -11,6 +11,17 @@ function isReferenceKind(value: unknown): value is ReferenceKind {
   return value === "sop" || value === "transcript";
 }
 
+// Guards the PDF/DOCX parse below from being handed an oversized or
+// unexpected file type -- both checks run before extractText() so a bad
+// upload never reaches the (comparatively expensive) parser.
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = [".txt", ".md", ".csv", ".pdf", ".docx"];
+
+function hasAllowedExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 // Extracts plain text from an uploaded reference file. SOPs/transcripts are
 // realistically PDF or Word docs (this app even exports SOPs as PDF/DOCX
 // elsewhere), so those get parsed server-side instead of forcing users to
@@ -87,6 +98,17 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
   }
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "file is required" }, { status: 400 });
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return NextResponse.json({ error: "File is too large (max 10MB)." }, { status: 400 });
+  }
+
+  if (!hasAllowedExtension(file.name)) {
+    return NextResponse.json(
+      { error: `Unsupported file type. Allowed: ${ALLOWED_EXTENSIONS.join(", ")}` },
+      { status: 400 }
+    );
   }
 
   let content: string;

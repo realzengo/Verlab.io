@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
+import { EMAIL_MAX, NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
 
 const ROLE_VARIANT: Record<AdminRole, "success" | "default" | "warning"> = {
   owner: "success",
@@ -55,6 +56,16 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
 
   async function handleInvite(event: FormEvent) {
     event.preventDefault();
+
+    if (!isValidName(name, NAME_MAX)) {
+      setError("Name is required and contains invalid characters or is too long");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email address");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -130,6 +141,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
                   <input
                     type="text"
                     required
+                    maxLength={NAME_MAX}
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     className={inputClass}
@@ -141,6 +153,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
                   <input
                     type="email"
                     required
+                    maxLength={EMAIL_MAX}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     className={inputClass}

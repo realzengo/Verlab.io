@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkle } from "lucide-react";
 import { APP_URL } from "@/lib/constants";
 
 export function CtaBand() {
@@ -25,7 +25,7 @@ export function CtaBand() {
           }}
         />
         <div className="relative">
-          <h2 className="text-[26px] font-bold leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
+          <h2 className="font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
             Ready to Get Started?
           </h2>
           <p className="mt-3 text-base text-white/80 sm:text-[17px]">
@@ -33,12 +33,16 @@ export function CtaBand() {
           </p>
           <Link
             href={APP_URL}
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-white py-2 pl-6 pr-2 text-sm font-semibold text-black sm:gap-3 sm:pl-7 sm:text-base"
+            className="btn-tactile-light mt-6 inline-flex items-center gap-3 rounded-[1.25rem] px-8 py-4"
           >
-            Get started
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9">
-              <ArrowRight className="h-4 w-4" />
+            <Sparkle className="h-5 w-5 shrink-0 fill-current" />
+            <span className="text-left">
+              <span className="mb-[-2px] block text-[10px] font-bold uppercase tracking-wider opacity-60">
+                Get started
+              </span>
+              <span className="block text-xl font-bold leading-none tracking-tight">Make an account</span>
             </span>
+            <ArrowRight className="h-6 w-6 shrink-0" />
           </Link>
         </div>
       </div>

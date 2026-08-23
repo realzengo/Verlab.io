@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
+import { isSafeFreeText } from "@/lib/validation";
+
+const REASONING_MAX = 2000;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -53,6 +56,23 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     typeof body.reasoning !== "string"
   ) {
     return NextResponse.json({ error: "A complete classification object is required" }, { status: 400 });
+  }
+
+  // confidence_score and viral_velocity_score are only type-checked above -- a direct API
+  // call could otherwise send an out-of-range value like 9999. The UI implies 0-100, so
+  // reject out-of-range values outright rather than silently clamping admin-entered data.
+  if (body.confidence_score < 0 || body.confidence_score > 100) {
+    return NextResponse.json({ error: "confidence_score must be between 0 and 100" }, { status: 400 });
+  }
+  if (body.viral_velocity_score < 0 || body.viral_velocity_score > 100) {
+    return NextResponse.json({ error: "viral_velocity_score must be between 0 and 100" }, { status: 400 });
+  }
+
+  if (!isSafeFreeText(body.reasoning, REASONING_MAX)) {
+    return NextResponse.json(
+      { error: `reasoning must be ${REASONING_MAX} characters or fewer and contain no HTML or control characters` },
+      { status: 400 }
+    );
   }
 
   const admin = createAdminClient();

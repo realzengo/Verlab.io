@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { getNicheChannelsForAdmin } from "@/lib/server/admin-queries";
 import { ingestChannel, FacelessIngestError } from "@/lib/server/faceless-ingest";
+import { NAME_MAX, URL_MAX, isValidName, isValidUrl } from "@/lib/validation";
 import type { NicheBendPlatform, NicheBendVideoType } from "@/lib/types";
 
 const PLATFORMS: NicheBendPlatform[] = ["youtube", "tiktok"];
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!body.url || !PLATFORMS.includes(body.platform as NicheBendPlatform)) {
     return NextResponse.json({ error: "url and a valid platform ('youtube' | 'tiktok') are required" }, { status: 400 });
+  }
+
+  if (!isValidUrl(body.url, URL_MAX)) {
+    return NextResponse.json({ error: "url must be a valid http(s) URL" }, { status: 400 });
+  }
+
+  if (body.niche != null && body.niche.trim() && !isValidName(body.niche.trim(), NAME_MAX)) {
+    return NextResponse.json({ error: "niche contains invalid characters or is too long" }, { status: 400 });
   }
 
   const videoType = VIDEO_TYPES.includes(body.videoType as NicheBendVideoType)

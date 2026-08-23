@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Check, CloudDownload, Download, Eye, Link2, Loader2, RotateCcw, X } from "lucide-react";
 import { BorderTrail } from "@/components/ui/BorderTrail";
 import type { DownloadFormat } from "@/lib/types";
+import { isValidUrl } from "@/lib/validation";
 
 // Always download at the highest quality reliably available for any video —
 // higher tiers (4K/8K) fail outright for sources that don't have them.
@@ -169,6 +170,11 @@ export function VideoDownloader() {
     }
     const trimmedUrl = url.trim();
     if ((state === "idle" || state === "error") && trimmedUrl && detectPlatform(trimmedUrl)) {
+      if (!isValidUrl(trimmedUrl)) {
+        setError("That doesn't look like a valid URL.");
+        setState("error");
+        return;
+      }
       void prepare(trimmedUrl, ++jobToken.current);
     }
   }

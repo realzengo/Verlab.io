@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { cn, formatCurrency } from "@/lib/utils";
+import { NAME_MAX, SHORT_TEXT_MAX, URL_MAX, isPlainTextSafe, isValidName, isValidUrl } from "@/lib/validation";
 
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
@@ -78,8 +79,20 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!form.name.trim() || !form.category.trim()) {
-      setError("Name and category are required");
+    if (!isValidName(form.name, NAME_MAX)) {
+      setError("Name is required and contains invalid characters or is too long");
+      return;
+    }
+    if (!isValidName(form.category, NAME_MAX)) {
+      setError("Category is required and contains invalid characters or is too long");
+      return;
+    }
+    if (form.envVar.trim() && !isPlainTextSafe(form.envVar.trim(), SHORT_TEXT_MAX)) {
+      setError("Env var contains invalid characters or is too long");
+      return;
+    }
+    if (form.websiteUrl.trim() && !isValidUrl(form.websiteUrl.trim())) {
+      setError("Website must be a valid http(s) URL");
       return;
     }
     const monthlyCost = form.monthlyCost.trim() ? Number(form.monthlyCost) : 0;
@@ -235,6 +248,7 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
                   <input
                     type="text"
                     required
+                    maxLength={NAME_MAX}
                     value={form.name}
                     onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
                     className={inputClass}
@@ -246,6 +260,7 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
                   <input
                     type="text"
                     required
+                    maxLength={NAME_MAX}
                     value={form.category}
                     onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
                     className={inputClass}
@@ -256,6 +271,7 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
                   <label className={labelClass}>Env var (optional)</label>
                   <input
                     type="text"
+                    maxLength={SHORT_TEXT_MAX}
                     value={form.envVar}
                     onChange={(event) => setForm((prev) => ({ ...prev, envVar: event.target.value }))}
                     className={cn(inputClass, "font-mono")}
@@ -270,6 +286,7 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
                     onChange={(event) => setForm((prev) => ({ ...prev, websiteUrl: event.target.value }))}
                     className={inputClass}
                     placeholder="https://"
+                    maxLength={URL_MAX}
                   />
                 </div>
                 <div>

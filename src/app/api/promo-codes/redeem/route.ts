@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { grantCredits } from "@/lib/server/credits";
 import { PromoCodeError, validateAndUsePromoCode } from "@/lib/server/promo-codes";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { isValidCode } from "@/lib/validation";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!body.code || typeof body.code !== "string" || !body.code.trim()) {
     return NextResponse.json({ error: "code is required" }, { status: 400 });
+  }
+
+  if (!isValidCode(body.code)) {
+    return NextResponse.json({ error: "Invalid promo code format" }, { status: 400 });
   }
 
   try {

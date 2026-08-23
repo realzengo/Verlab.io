@@ -18,6 +18,7 @@ import {
   AUTH_SIGNIN_BUTTON_CLASSES,
 } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
+import { EMAIL_MAX, isValidEmail } from "@/lib/validation";
 
 const FADE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 
@@ -55,6 +56,12 @@ function SignupForm() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     const supabase = createClient();
@@ -149,6 +156,7 @@ function SignupForm() {
           id="signup-email"
           type="email"
           required
+          maxLength={EMAIL_MAX}
           autoComplete="email"
           placeholder="Email address"
           value={email}

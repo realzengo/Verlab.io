@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
+import { NAME_MAX, SHORT_TEXT_MAX, isPlainTextSafe, isValidName, isValidUrl } from "@/lib/validation";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const adminEmail = await getAdminEmailOrNull();
@@ -25,6 +26,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!body.name?.trim() || !body.category?.trim()) {
     return NextResponse.json({ error: "Name and category are required" }, { status: 400 });
+  }
+  if (!isValidName(body.name, NAME_MAX)) {
+    return NextResponse.json({ error: "Name contains invalid characters or is too long" }, { status: 400 });
+  }
+  if (!isValidName(body.category, NAME_MAX)) {
+    return NextResponse.json({ error: "Category contains invalid characters or is too long" }, { status: 400 });
+  }
+  if (body.envVar?.trim() && !isPlainTextSafe(body.envVar.trim(), SHORT_TEXT_MAX)) {
+    return NextResponse.json({ error: "Env var contains invalid characters or is too long" }, { status: 400 });
+  }
+  if (body.websiteUrl?.trim() && !isValidUrl(body.websiteUrl.trim())) {
+    return NextResponse.json({ error: "Website must be a valid http(s) URL" }, { status: 400 });
   }
   if (body.monthlyCost != null && (!Number.isFinite(body.monthlyCost) || body.monthlyCost < 0)) {
     return NextResponse.json({ error: "Monthly cost must be a non-negative number" }, { status: 400 });

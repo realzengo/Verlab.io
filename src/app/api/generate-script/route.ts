@@ -6,6 +6,7 @@ import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/c
 import { withApiLogging } from "@/lib/server/api-logging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 
 export const maxDuration = 300;
 
@@ -45,6 +46,9 @@ async function handlePOST(request: NextRequest): Promise<Response> {
   const message = body.message?.trim();
   if (!message) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
+  }
+  if (!isSafeFreeText(message, FREE_TEXT_MAX)) {
+    return NextResponse.json({ error: `message must be ${FREE_TEXT_MAX} characters or fewer and contain no control characters or HTML tags` }, { status: 400 });
   }
 
   // Charged here, before any model is touched -- nothing has hit the network

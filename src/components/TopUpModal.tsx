@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { Check, ChevronRight, Lock, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlasticButton } from "@/components/ui/plastic-button";
+import { CODE_MAX, isValidCode } from "@/lib/validation";
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -81,6 +82,11 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   async function handleRedeem(event: FormEvent) {
     event.preventDefault();
     if (!promoCode.trim()) return;
+
+    if (!isValidCode(promoCode)) {
+      setRedeemError("Enter a valid promo code (letters, numbers, - and _ only).");
+      return;
+    }
 
     setRedeeming(true);
     setRedeemError(null);
@@ -232,6 +238,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
                   autoFocus
                   type="text"
                   value={promoCode}
+                  maxLength={CODE_MAX}
                   onChange={(event) => {
                     setPromoCode(event.target.value);
                     setRedeemError(null);

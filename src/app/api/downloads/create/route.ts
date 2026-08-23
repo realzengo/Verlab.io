@@ -10,6 +10,7 @@ import {
 import { getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
+import { isValidUrl } from "@/lib/validation";
 
 async function runDownload(supabase: SupabaseClient, id: string, url: string, format: DownloadFormat): Promise<void> {
   try {
@@ -57,6 +58,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const url = body.url?.trim();
   if (!url) {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
+  }
+
+  if (!isValidUrl(url)) {
+    return NextResponse.json({ error: "url must be a valid http(s) URL" }, { status: 400 });
   }
 
   const formatOption = getDownloadFormatOption(body.format ?? "");

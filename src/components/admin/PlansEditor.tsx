@@ -24,21 +24,34 @@ import { Switch } from "@/components/ui/Switch";
 import { Tabs } from "@/components/ui/Tabs";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { cn } from "@/lib/utils";
+import { FREE_TEXT_MAX, NAME_MAX, SHORT_TEXT_MAX, isPlainTextSafe, isSafeFreeText } from "@/lib/validation";
 
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
 const labelClass = "mb-1.5 block text-xs font-medium text-body";
 
-type FieldErrors = Partial<Record<"name" | "cta" | "info" | "priceMonthly" | "priceYearly", string>>;
+const SAFE_TEXT_ERROR = (max: number) => `Must be ${max} characters or fewer and contain no HTML or control characters`;
+
+type FieldErrors = Partial<Record<"name" | "cta" | "info" | "limits" | "features" | "priceMonthly" | "priceYearly", string>>;
 
 function validatePlan(plan: PricingPlan): FieldErrors {
   const errors: FieldErrors = {};
   if (!plan.name.trim()) errors.name = "Required";
+  else if (!isPlainTextSafe(plan.name, NAME_MAX)) errors.name = SAFE_TEXT_ERROR(NAME_MAX);
   if (!plan.cta.trim()) errors.cta = "Required";
+  else if (!isPlainTextSafe(plan.cta, NAME_MAX)) errors.cta = SAFE_TEXT_ERROR(NAME_MAX);
   if (!plan.info.trim()) errors.info = "Required";
+  else if (!isSafeFreeText(plan.info, FREE_TEXT_MAX)) errors.info = SAFE_TEXT_ERROR(FREE_TEXT_MAX);
+  if (plan.limits && !isSafeFreeText(plan.limits, FREE_TEXT_MAX)) errors.limits = SAFE_TEXT_ERROR(FREE_TEXT_MAX);
   if (!Number.isFinite(plan.price.monthly) || plan.price.monthly < 0) errors.priceMonthly = "Must be 0 or more";
   if (!plan.monthlyOnly && (!Number.isFinite(plan.price.yearly) || plan.price.yearly < 0)) {
     errors.priceYearly = "Must be 0 or more";
+  }
+  const hasInvalidFeature = plan.features.some(
+    (f) => !isPlainTextSafe(f.text, SHORT_TEXT_MAX) || (f.tooltip ? !isPlainTextSafe(f.tooltip, SHORT_TEXT_MAX) : false)
+  );
+  if (hasInvalidFeature) {
+    errors.features = `Each feature text and tooltip ${SAFE_TEXT_ERROR(SHORT_TEXT_MAX)}`;
   }
   return errors;
 }
@@ -210,6 +223,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
               <label className={labelClass}>Plan name</label>
               <input
                 type="text"
+                maxLength={NAME_MAX}
                 value={active.name}
                 onChange={(e) => updateActive({ name: e.target.value })}
                 className={cn(inputClass, activeErrors.name && "border-danger focus:border-danger")}
@@ -220,6 +234,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
               <label className={labelClass}>Call to action</label>
               <input
                 type="text"
+                maxLength={NAME_MAX}
                 value={active.cta}
                 onChange={(e) => updateActive({ cta: e.target.value })}
                 className={cn(inputClass, activeErrors.cta && "border-danger focus:border-danger")}
@@ -232,6 +247,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
             <label className={labelClass}>Description</label>
             <input
               type="text"
+              maxLength={FREE_TEXT_MAX}
               value={active.info}
               onChange={(e) => updateActive({ info: e.target.value })}
               className={cn(inputClass, activeErrors.info && "border-danger focus:border-danger")}
@@ -243,11 +259,13 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
             <label className={labelClass}>Limits note (optional, shown under the price)</label>
             <input
               type="text"
+              maxLength={FREE_TEXT_MAX}
               value={active.limits ?? ""}
               onChange={(e) => updateActive({ limits: e.target.value || undefined })}
               placeholder="e.g. Up to 5 team seats"
-              className={inputClass}
+              className={cn(inputClass, activeErrors.limits && "border-danger focus:border-danger")}
             />
+            <FieldError message={activeErrors.limits} />
           </div>
         </Card>
 
@@ -341,6 +359,8 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
             </Button>
           </div>
 
+          <FieldError message={activeErrors.features} />
+
           <div className="flex flex-col gap-2">
             {active.features.length === 0 && (
               <p className="rounded-lg border border-dashed border-hairline py-6 text-center text-sm text-subtle">
@@ -372,6 +392,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
                 <div className="flex flex-1 flex-col gap-1.5">
                   <input
                     type="text"
+                    maxLength={SHORT_TEXT_MAX}
                     value={feature.text}
                     onChange={(e) => updateFeature(i, { text: e.target.value })}
                     placeholder="Feature text"
@@ -379,6 +400,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
                   />
                   <input
                     type="text"
+                    maxLength={SHORT_TEXT_MAX}
                     value={feature.tooltip ?? ""}
                     onChange={(e) => updateFeature(i, { tooltip: e.target.value || undefined })}
                     placeholder="Tooltip (optional)"

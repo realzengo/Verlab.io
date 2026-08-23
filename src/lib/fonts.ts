@@ -5,4 +5,5 @@ export const europaGrotesk = localFont({
   weight: "700",
   style: "normal",
   display: "swap",
+  variable: "--font-europa-grotesk",
 });

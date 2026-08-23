@@ -40,6 +40,7 @@ import {
   getEditVideoModel,
 } from "@/lib/config/video-models";
 import { getVideoGenerationCost, getVideoPromptEditCost } from "@/lib/config/pricing";
+import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
@@ -486,8 +487,16 @@ export function VideoGenerator() {
   const pendingIdsRef = useRef<Set<string>>(new Set());
 
   const promptTooLong = Boolean(model.maxPromptLength) && prompt.length > model.maxPromptLength!;
+  // Character-safety gate (control chars / raw HTML tags) -- separate from
+  // the length check above, which already has its own message/UI. Skipped
+  // when the prompt is empty (an empty prompt is legal when a start/end
+  // frame is attached) so this never blocks image-to-video-only submits.
+  const promptUnsafe = prompt.trim().length > 0 && !isSafeFreeText(prompt, model.maxPromptLength ?? FREE_TEXT_MAX);
   const canSubmit =
-    (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) && !isGenerating && !promptTooLong;
+    (prompt.trim().length > 0 || Boolean(startFrame.dataUrl) || Boolean(endFrame.dataUrl)) &&
+    !isGenerating &&
+    !promptTooLong &&
+    !promptUnsafe;
   const estimatedCost = getVideoGenerationCost({ model: selectedModel, durationSeconds, outputs, resolution: model.resolutions ? resolution : undefined }) || 0;
 
   function pollGenerationStatus(ids: string[]) {
@@ -625,7 +634,12 @@ export function VideoGenerator() {
     editSourceDurationSeconds != null &&
     editSourceDurationSeconds >= editModelConfig.minSourceDurationSeconds &&
     editSourceDurationSeconds <= editModelConfig.maxSourceDurationSeconds;
-  const canSubmitEdit = Boolean(editSource) && editPrompt.trim().length > 0 && editSourceDurationValid && !editIsGenerating;
+  // Edit models have no confirmed per-model prompt-length cap (see
+  // PromptEditModelConfig in video-models.ts), so this only enforces
+  // character safety plus the shared free-text default length.
+  const editPromptUnsafe = editPrompt.trim().length > 0 && !isSafeFreeText(editPrompt, FREE_TEXT_MAX);
+  const canSubmitEdit =
+    Boolean(editSource) && editPrompt.trim().length > 0 && editSourceDurationValid && !editIsGenerating && !editPromptUnsafe;
   const estimatedEditCost = editSourceDurationSeconds
     ? getVideoPromptEditCost({ model: editModel, sourceDurationSeconds: editSourceDurationSeconds, outputs: editOutputs })
     : 0;
@@ -1158,6 +1172,11 @@ export function VideoGenerator() {
                         video (this one is {editSourceDurationSeconds}s).
                       </p>
                     )}
+                    {editPromptUnsafe && (
+                      <p className="mt-4 text-sm font-medium text-red-500" role="alert">
+                        Prompt contains characters that aren&apos;t allowed (e.g. raw HTML tags or control characters)
+                      </p>
+                    )}
                     {editError && (
                       <p className="mt-4 text-sm font-medium text-red-500" role="alert">
                         {editError}
@@ -1265,6 +1284,11 @@ export function VideoGenerator() {
                           {promptTooLong && (
                             <p className="mt-1 text-xs font-medium text-red-500">
                               {prompt.length} / {model.maxPromptLength} -- tap the expand icon above to trim it
+                            </p>
+                          )}
+                          {!promptTooLong && promptUnsafe && (
+                            <p className="mt-1 text-xs font-medium text-red-500">
+                              Prompt contains characters that aren&apos;t allowed (e.g. raw HTML tags or control characters)
                             </p>
                           )}
                         </div>

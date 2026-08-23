@@ -49,6 +49,9 @@ import { fetchImageAsDataUrl } from "@/lib/client/lazy-image";
 import { getImageGenerationCost, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, downloadDataUrl, formatDate, formatRelativeTime, readFileAsDataUrl } from "@/lib/utils";
+import { isSafeFreeText } from "@/lib/validation";
+
+const PROMPT_MAX = 4000;
 
 const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GPT_ICON = "/logos/ai/chatgpt.png";
@@ -1085,6 +1088,15 @@ export function ImageGenerator() {
   async function handleGenerate() {
     if (!canSubmit) return;
 
+    if (!isSafeFreeText(prompt, PROMPT_MAX)) {
+      setError(
+        prompt.length > PROMPT_MAX
+          ? `Prompt is too long (max ${PROMPT_MAX} characters).`
+          : "Prompt contains characters that aren't allowed."
+      );
+      return;
+    }
+
     setError(null);
     setGeneratedImages([]);
 
@@ -1259,6 +1271,7 @@ export function ImageGenerator() {
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                   placeholder="Describe the image you want to generate..."
+                  maxLength={PROMPT_MAX}
                   className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-bold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
                 />
               </section>
@@ -1626,6 +1639,7 @@ export function ImageGenerator() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to create..."
+              maxLength={PROMPT_MAX}
               className="min-h-[96px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 

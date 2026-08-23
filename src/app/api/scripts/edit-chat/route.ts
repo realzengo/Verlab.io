@@ -5,8 +5,12 @@ import { MODEL_CANDIDATES, buildEditSystemPrompt } from "@/lib/server/script-gen
 import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/credits";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
+import { isSafeFreeText } from "@/lib/validation";
 
 export const maxDuration = 300;
+
+const CONTENT_MAX = 20000;
+const INSTRUCTION_MAX = 2000;
 
 interface EditChatRequestBody {
   scriptId?: string;
@@ -49,6 +53,12 @@ async function handlePOST(request: NextRequest): Promise<Response> {
   }
   if (!instruction) {
     return NextResponse.json({ error: "instruction is required" }, { status: 400 });
+  }
+  if (!isSafeFreeText(content, CONTENT_MAX)) {
+    return NextResponse.json({ error: `content must be ${CONTENT_MAX} characters or fewer and contain no control characters or HTML tags` }, { status: 400 });
+  }
+  if (!isSafeFreeText(instruction, INSTRUCTION_MAX)) {
+    return NextResponse.json({ error: `instruction must be ${INSTRUCTION_MAX} characters or fewer and contain no control characters or HTML tags` }, { status: 400 });
   }
 
   try {

@@ -10,6 +10,7 @@ import { recordUsageEvent } from "@/lib/server/usage";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -221,6 +222,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       { error: `${model.id}'s prompt must be ${model.maxPromptLength} characters or fewer (this one is ${prompt.length}).` },
       { status: 400 }
     );
+  }
+  // Character-safety check (control chars / raw HTML tags) -- the length
+  // check above only covers the per-model cap; this runs regardless of
+  // whether the model has a confirmed maxPromptLength.
+  if (prompt && !isSafeFreeText(prompt, model.maxPromptLength ?? FREE_TEXT_MAX)) {
+    return NextResponse.json({ error: "prompt contains characters that aren't allowed" }, { status: 400 });
   }
   if (startFrameImage && !model.supportsImageToVideo) {
     return NextResponse.json({ error: `${model.id} doesn't support image-to-video` }, { status: 400 });

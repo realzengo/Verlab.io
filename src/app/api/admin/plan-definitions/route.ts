@@ -4,6 +4,7 @@ import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
 import { PLAN_DEFINITIONS_CACHE_TAG } from "@/lib/server/admin-queries";
+import { FREE_TEXT_MAX, NAME_MAX, SHORT_TEXT_MAX, isPlainTextSafe, isSafeFreeText } from "@/lib/validation";
 import type { PricingPlan } from "@/lib/types";
 
 export async function PUT(request: NextRequest): Promise<NextResponse> {
@@ -28,6 +29,18 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     if (!plan?.id || !plan.name?.trim() || !plan.cta?.trim() || !plan.info?.trim()) {
       return NextResponse.json({ error: `Plan "${label}" is missing a required field (name, CTA, or description)` }, { status: 400 });
     }
+    if (!isPlainTextSafe(plan.name, NAME_MAX)) {
+      return NextResponse.json({ error: `Plan "${label}" name must be ${NAME_MAX} characters or fewer and contain no HTML or control characters` }, { status: 400 });
+    }
+    if (!isPlainTextSafe(plan.cta, NAME_MAX)) {
+      return NextResponse.json({ error: `Plan "${label}" CTA must be ${NAME_MAX} characters or fewer and contain no HTML or control characters` }, { status: 400 });
+    }
+    if (!isSafeFreeText(plan.info, FREE_TEXT_MAX)) {
+      return NextResponse.json({ error: `Plan "${label}" description must be ${FREE_TEXT_MAX} characters or fewer and contain no HTML or control characters` }, { status: 400 });
+    }
+    if (plan.limits && !isSafeFreeText(plan.limits, FREE_TEXT_MAX)) {
+      return NextResponse.json({ error: `Plan "${label}" limits note must be ${FREE_TEXT_MAX} characters or fewer and contain no HTML or control characters` }, { status: 400 });
+    }
     if (typeof plan.price?.monthly !== "number" || !Number.isFinite(plan.price.monthly) || plan.price.monthly < 0) {
       return NextResponse.json({ error: `Plan "${label}" has an invalid monthly price` }, { status: 400 });
     }
@@ -36,6 +49,18 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
     if (!Array.isArray(plan.features)) {
       return NextResponse.json({ error: `Plan "${label}" has invalid features` }, { status: 400 });
+    }
+    const hasInvalidFeature = plan.features.some(
+      (f) =>
+        typeof f?.text !== "string" ||
+        !isPlainTextSafe(f.text, SHORT_TEXT_MAX) ||
+        (f.tooltip ? !isPlainTextSafe(f.tooltip, SHORT_TEXT_MAX) : false)
+    );
+    if (hasInvalidFeature) {
+      return NextResponse.json(
+        { error: `Plan "${label}" has a feature text or tooltip over ${SHORT_TEXT_MAX} characters or containing invalid characters` },
+        { status: 400 }
+      );
     }
   }
 

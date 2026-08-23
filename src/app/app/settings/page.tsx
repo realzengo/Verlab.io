@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PlanTab } from "@/components/settings/PlanTab";
+import { EMAIL_MAX, NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -25,11 +26,13 @@ export default function AccountSettingsPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -51,6 +54,13 @@ export default function AccountSettingsPage() {
   async function handleSaveName(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setNameError(null);
+
+    if (!isValidName(nameDraft)) {
+      setNameError(`Name must be 1-${NAME_MAX} characters, letters/numbers/basic punctuation only.`);
+      return;
+    }
+
     setSavingName(true);
 
     const supabase = createClient();
@@ -73,6 +83,13 @@ export default function AccountSettingsPage() {
     event.preventDefault();
     setError(null);
     setEmailNotice(null);
+    setEmailError(null);
+
+    if (!isValidEmail(emailDraft)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
     setSavingEmail(true);
 
     const supabase = createClient();
@@ -153,29 +170,36 @@ export default function AccountSettingsPage() {
             <p className="font-medium text-heading text-sm sm:text-base">Full name</p>
             <p className="text-body text-xs sm:text-sm mt-0.5">The name displayed on your account.</p>
             {editingName ? (
-              <form onSubmit={handleSaveName} className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
-                  value={nameDraft}
-                  onChange={(event) => setNameDraft(event.target.value)}
-                  placeholder="Your name"
-                  autoFocus
-                  className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <button
-                  type="submit"
-                  disabled={savingName}
-                  className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingName(false)}
-                  className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
-                >
-                  Cancel
-                </button>
+              <form onSubmit={handleSaveName} className="mt-2 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    placeholder="Your name"
+                    maxLength={NAME_MAX}
+                    autoFocus
+                    className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingName}
+                    className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {savingName ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingName(false);
+                      setNameError(null);
+                    }}
+                    className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {nameError && <p className="text-sm text-danger">{nameError}</p>}
               </form>
             ) : (
               <p className="mt-2 text-heading text-sm">{name || "—"}</p>
@@ -186,6 +210,7 @@ export default function AccountSettingsPage() {
               type="button"
               onClick={() => {
                 setNameDraft(name);
+                setNameError(null);
                 setEditingName(true);
               }}
               className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
@@ -201,29 +226,36 @@ export default function AccountSettingsPage() {
             <p className="font-medium text-heading text-sm sm:text-base">Email</p>
             <p className="text-body text-xs sm:text-sm mt-0.5">Used for login and notifications.</p>
             {editingEmail ? (
-              <form onSubmit={handleSaveEmail} className="mt-2 flex flex-wrap items-center gap-2">
-                <input
-                  type="email"
-                  value={emailDraft}
-                  onChange={(event) => setEmailDraft(event.target.value)}
-                  placeholder="you@example.com"
-                  autoFocus
-                  className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <button
-                  type="submit"
-                  disabled={savingEmail}
-                  className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingEmail(false)}
-                  className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
-                >
-                  Cancel
-                </button>
+              <form onSubmit={handleSaveEmail} className="mt-2 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="email"
+                    value={emailDraft}
+                    onChange={(event) => setEmailDraft(event.target.value)}
+                    placeholder="you@example.com"
+                    maxLength={EMAIL_MAX}
+                    autoFocus
+                    className="rounded-md border border-hairline bg-surface px-3 py-2 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingEmail}
+                    className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingEmail(false);
+                      setEmailError(null);
+                    }}
+                    className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {emailError && <p className="text-sm text-danger">{emailError}</p>}
               </form>
             ) : (
               <>
@@ -237,6 +269,7 @@ export default function AccountSettingsPage() {
               type="button"
               onClick={() => {
                 setEmailDraft(email);
+                setEmailError(null);
                 setEditingEmail(true);
               }}
               className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"

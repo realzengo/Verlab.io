@@ -37,6 +37,7 @@ import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { consumeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, downloadBlob } from "@/lib/utils";
+import { isValidName, NAME_MAX } from "@/lib/validation";
 
 type GenerationMode = "line_by_line" | "all_at_once";
 type View = "input" | "loading" | "editor";
@@ -686,6 +687,12 @@ export function VoiceoverGenerator() {
 
   async function handleGenerate() {
     if (!script.trim() || isGenerating) return;
+
+    if (title.trim() && !isValidName(title)) {
+      setGenerationError("Title contains characters that aren't allowed, or is too long.");
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationError(null);
     setView("loading");
@@ -999,6 +1006,7 @@ export function VoiceoverGenerator() {
                     onChange={(event) => setTitle(event.target.value)}
                     placeholder="Untitled Script"
                     disabled={view === "loading"}
+                    maxLength={NAME_MAX}
                     className="w-full bg-transparent px-4 pt-4 text-lg font-semibold text-heading outline-none placeholder:text-subtle disabled:opacity-60"
                   />
 

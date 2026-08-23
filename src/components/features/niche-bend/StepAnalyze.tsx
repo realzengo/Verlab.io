@@ -9,6 +9,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { detectPlatform } from "@/lib/niche-bend/platform";
 import { useFakeStepProgress } from "@/lib/niche-bend/useFakeStepProgress";
+import { isValidUrl } from "@/lib/validation";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
 import { ManualPasteFallback } from "./ManualPasteFallback";
 
@@ -51,8 +52,11 @@ export function StepAnalyze({
   manualSubmitting,
 }: StepAnalyzeProps) {
   const detected = platform ?? detectPlatform(sourceUrl);
-  const showValidation = sourceUrl.trim().length > 0 && !detected;
-  const canSubmit = Boolean(detected) && analyzeState !== "submitting";
+  const trimmedUrl = sourceUrl.trim();
+  const urlFormatValid = trimmedUrl.length === 0 || isValidUrl(trimmedUrl);
+  const showValidation = trimmedUrl.length > 0 && !detected;
+  const showUrlFormatError = trimmedUrl.length > 0 && Boolean(detected) && !urlFormatValid;
+  const canSubmit = Boolean(detected) && urlFormatValid && analyzeState !== "submitting";
   const phaseIndex = useFakeStepProgress(analyzeState === "polling", LOADING_PHASES.length);
 
   return (
@@ -94,6 +98,7 @@ export function StepAnalyze({
           />
 
           {showValidation && <p className="text-sm text-danger">Paste a full YouTube or TikTok link.</p>}
+          {showUrlFormatError && <p className="text-sm text-danger">That doesn&apos;t look like a valid URL.</p>}
 
           {detected && (
             <div className="flex items-center gap-3">

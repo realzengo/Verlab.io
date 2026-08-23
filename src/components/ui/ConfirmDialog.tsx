@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,7 @@ export function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={onClose}>
       <div
         className="relative w-full max-w-sm rounded-2xl bg-surface p-6 text-center shadow-card-hover"
@@ -90,6 +91,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

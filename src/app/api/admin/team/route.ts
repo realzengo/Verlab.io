@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
+import { NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
 import type { AdminRole } from "@/lib/types";
 
 const VALID_ROLES: AdminRole[] = ["owner", "admin", "support"];
@@ -25,6 +26,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!name || !email || !role || !VALID_ROLES.includes(role)) {
     return NextResponse.json({ error: "name, email, and a valid role are required" }, { status: 400 });
+  }
+
+  if (!isValidName(name, NAME_MAX)) {
+    return NextResponse.json({ error: "name contains invalid characters or is too long" }, { status: 400 });
+  }
+
+  // The client sends a type=email input, but that's a UI hint only -- a direct API call can
+  // bypass it entirely, so the format must be enforced here too, not just via the DB's
+  // unique-constraint check below.
+  if (!isValidEmail(email)) {
+    return NextResponse.json({ error: "email must be a valid email address" }, { status: 400 });
   }
 
   const admin = createAdminClient();

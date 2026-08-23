@@ -31,6 +31,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ScriptEditorModal } from "@/components/features/ScriptEditorModal";
+import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 
 const PLACEHOLDER =
   "Describe the video you want to create, and add reference videos to help write a viral script.";
@@ -324,6 +325,16 @@ function ScriptWriterPageInner() {
     if (!canSubmit) return;
 
     const message = prompt.trim();
+
+    if (!isSafeFreeText(message, FREE_TEXT_MAX)) {
+      setActionError(
+        message.length > FREE_TEXT_MAX
+          ? `Idea is too long (max ${FREE_TEXT_MAX} characters).`
+          : "Idea contains characters that aren't allowed."
+      );
+      return;
+    }
+
     setIsGenerating(true);
     setActionError(null);
     setResult("");
@@ -452,6 +463,7 @@ function ScriptWriterPageInner() {
                 onKeyDown={handleKeyDown}
                 placeholder={PLACEHOLDER}
                 disabled={isGenerating}
+                maxLength={FREE_TEXT_MAX}
                 className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
               />
             </div>

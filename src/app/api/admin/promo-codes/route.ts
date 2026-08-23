@@ -3,6 +3,7 @@ import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { getPromoCodes, mapPromoCodeRow } from "@/lib/server/admin-queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverError } from "@/lib/server/api-error";
+import { isValidCode } from "@/lib/validation";
 import type { PromoRewardType } from "@/lib/types";
 
 const REWARD_TYPES: PromoRewardType[] = ["credits", "discount_percent"];
@@ -40,6 +41,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!code || typeof code !== "string" || !code.trim()) {
     return NextResponse.json({ error: "code is required" }, { status: 400 });
+  }
+
+  if (!isValidCode(code)) {
+    return NextResponse.json({ error: "code may only contain letters, numbers, dashes, and underscores" }, { status: 400 });
   }
 
   if (!rewardType || !REWARD_TYPES.includes(rewardType as PromoRewardType)) {

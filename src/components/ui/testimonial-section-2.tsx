@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, CircleDot } from "lucide-react";
+import { CircleDot, Play, Quote, Sparkle, Star } from "lucide-react";
 import { APP_URL } from "@/lib/constants";
 
 interface Testimonial {
@@ -44,29 +44,37 @@ const testimonials: Testimonial[] = [
 
 function TestimonialCard({ name, image, quote }: Testimonial) {
   return (
-    <div className="rounded-2xl border border-hairline bg-surface px-7 py-5 text-left shadow-sm">
-      <div className="flex items-center gap-2.5">
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full">
+    <div className="group relative flex flex-col rounded-2xl border border-hairline bg-surface p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-0.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          ))}
+        </div>
+        <Quote className="h-6 w-6 shrink-0 fill-slate-100 text-slate-100" strokeWidth={0} />
+      </div>
+      <p className="mt-4 flex-1 text-[15px] leading-relaxed text-body">&ldquo;{quote}&rdquo;</p>
+      <div className="mt-6 flex items-center gap-3 border-t border-hairline pt-4">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-black/5">
           <Image src={image} alt="" fill sizes="36px" className="object-cover object-top" />
         </div>
-        <p className="font-semibold text-heading">{name}</p>
+        <p className="text-sm font-bold text-heading">{name}</p>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-body">{quote}</p>
     </div>
   );
 }
 
 export default function Testimonial2() {
   return (
-    <section className="w-full bg-white pb-16 pt-2 sm:pb-24 dark:bg-background">
-      <div className="mx-auto max-w-6xl px-4 text-center">
+    <section className="relative w-full overflow-hidden bg-white pb-16 pt-2 sm:pb-24 dark:bg-background">
+      <div className="relative mx-auto max-w-6xl px-4 text-center">
         <span
           className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
           style={{
             backgroundImage:
               "linear-gradient(160deg, #e2e8f0 0%, #94a3b8 10%, #334155 32%, #0b1220 52%, #1e293b 70%, #64748b 88%, #cbd5e1 100%)",
             boxShadow:
-              "inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 24px -6px rgba(15,23,42,0.55), 0 2px 4px rgba(15,23,42,0.4)",
+              "inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.08)",
           }}
         >
           <span
@@ -80,20 +88,23 @@ export default function Testimonial2() {
         <h2 className="text-2xl font-bold leading-tight tracking-tight text-heading sm:text-3xl md:text-4xl">
           What our users are saying
         </h2>
+      </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((testimonial) => (
-            <TestimonialCard key={testimonial.name} {...testimonial} />
-          ))}
-        </div>
+      <div className="relative mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-4 px-4 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
+        {testimonials.map((testimonial) => (
+          <TestimonialCard key={testimonial.name} {...testimonial} />
+        ))}
+      </div>
 
+      <div className="relative mx-auto max-w-6xl px-4 text-center">
         <div className="mt-10 flex justify-center sm:mt-12">
           <Link
             href={APP_URL}
-            className="inline-flex items-center gap-1 rounded-full bg-btn-primary px-6 py-3 text-base font-bold text-white transition-transform hover:scale-105"
+            className="inline-flex items-center gap-2 rounded-xl bg-btn-primary px-8 py-4 text-lg font-extrabold text-white transition-transform hover:scale-105"
           >
+            <Sparkle className="h-4 w-4 fill-white" />
             Get Started
-            <ChevronRight className="h-4 w-4" />
+            <Play className="h-3.5 w-3.5 fill-white" />
           </Link>
         </div>
       </div>

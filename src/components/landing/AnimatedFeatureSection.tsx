@@ -169,7 +169,7 @@ export function AnimatedFeatureSection() {
       <div
         ref={ref}
         data-inview={inView}
-        className="anim-gate relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-[28px] bg-[#6aa7dc] sm:h-[487px] sm:rounded-[24px]"
+        className="anim-gate relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-lg bg-[#6aa7dc] sm:h-[487px] sm:rounded-xl"
       >
         {/* Background — z-0: deep-space gradient + an animated starfield texture on top of it */}
         <div
@@ -210,18 +210,18 @@ export function AnimatedFeatureSection() {
             className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[105px] w-[210px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-950 blur-[40px] sm:h-[200px] sm:w-[440px] sm:blur-[60px]"
           />
 
-          <h2 className="whitespace-nowrap text-2xl font-extrabold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
+          <h2 className="whitespace-nowrap font-display text-2xl font-medium tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
             Clone What Works
           </h2>
-          <p className="max-w-xl text-xs font-medium text-blue-100/80 sm:hidden">
+          <p className="max-w-xl text-xs font-bold text-blue-100/80 sm:hidden">
             Reverse-engineer and clone winning video niches.
           </p>
-          <p className="hidden max-w-xl text-sm font-medium text-blue-100/80 sm:block">
+          <p className="hidden max-w-xl text-sm font-bold text-blue-100/80 sm:block">
             The all-in-one studio for reverse-engineering and cloning winning video niches.
           </p>
           <Link
             href={APP_URL}
-            className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-slate-800 py-2 pl-6 pr-2 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
+            className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white py-2 pl-6 pr-2 text-sm font-semibold text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
           >
             Try Verlab Studio
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9">

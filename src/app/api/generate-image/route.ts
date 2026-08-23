@@ -10,6 +10,9 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
+import { isSafeFreeText } from "@/lib/validation";
+
+const PROMPT_MAX = 4000;
 
 export const maxDuration = 300;
 
@@ -129,6 +132,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (!prompt || !prompt.trim()) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
+  }
+
+  if (!isSafeFreeText(prompt, PROMPT_MAX)) {
+    return NextResponse.json({ error: `prompt must be ${PROMPT_MAX} characters or fewer and contain no control characters or HTML tags` }, { status: 400 });
   }
 
   if (!model || !(model in IMAGE_MODEL_MAP)) {

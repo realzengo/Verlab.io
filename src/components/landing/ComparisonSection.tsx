@@ -69,10 +69,11 @@ export function ComparisonSection() {
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
-        <h2 className="text-2xl font-bold uppercase tracking-tight text-slate-900 sm:text-3xl md:text-5xl">
-          Before VS After <span className="font-bold">Verlab</span>
+        <h2 className="font-display text-3xl font-medium tracking-tighter text-slate-900 sm:text-4xl md:text-6xl">
+          Before vs. After{" "}
+          <span className="text-primary">Verlab</span>
         </h2>
-        <p className="mt-3 text-sm text-slate-500 sm:mt-4 sm:text-base md:text-lg">
+        <p className="mt-4 text-sm font-medium text-slate-500 sm:mt-5 sm:text-base md:text-lg">
           Verlab doesn&apos;t replace you. It multiplies you.
         </p>
       </div>
@@ -141,13 +142,7 @@ export function ComparisonSection() {
       </div>
 
       <div className="mt-10 text-center sm:mt-16">
-        <Link
-          href={APP_URL}
-          className={cn(
-            "inline-block rounded-full bg-blue-600 px-10 py-4 text-lg font-semibold text-white",
-            "transition-all hover:scale-105 hover:bg-blue-700",
-          )}
-        >
+        <Link href={APP_URL} className="btn-tactile-blue inline-block rounded-[1.25rem] px-10 py-4 text-lg font-bold">
           Try Verlab Now
         </Link>
       </div>

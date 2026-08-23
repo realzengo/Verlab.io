@@ -5,9 +5,17 @@ import { getUserCredits } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { isValidUrl } from "@/lib/validation";
 import type { NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 
 export const maxDuration = 300;
+
+// Mirrors parseManualVideos' own 10-video client-side cap (manual-parse.ts)
+// with generous headroom for a raw API call that bypasses that client
+// logic entirely -- guards against an oversized manualVideos payload being
+// fed straight into the pipeline.
+const MAX_MANUAL_VIDEOS = 200;
+const MAX_MANUAL_VIDEOS_TOTAL_TITLE_CHARS = 20000;
 
 interface AnalyzeRequestBody {
   url?: string;
@@ -45,8 +53,26 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
   }
 
+  if (!hasManualVideos && url && !isValidUrl(url)) {
+    return NextResponse.json({ error: "url must be a valid http(s) URL" }, { status: 400 });
+  }
+
   if (hasManualVideos && manualVideos!.length < 3) {
     return NextResponse.json({ error: "Provide at least 3 manually pasted videos" }, { status: 400 });
+  }
+
+  if (hasManualVideos && manualVideos!.length > MAX_MANUAL_VIDEOS) {
+    return NextResponse.json({ error: `Provide at most ${MAX_MANUAL_VIDEOS} manually pasted videos` }, { status: 400 });
+  }
+
+  if (hasManualVideos) {
+    const totalTitleChars = manualVideos!.reduce(
+      (sum, v) => sum + (typeof v?.title === "string" ? v.title.length : 0),
+      0
+    );
+    if (totalTitleChars > MAX_MANUAL_VIDEOS_TOTAL_TITLE_CHARS) {
+      return NextResponse.json({ error: "Manually pasted videos are too long in total" }, { status: 400 });
+    }
   }
 
   // Worst-case pre-check: which branch (manual/cache-hit/scrape) actually

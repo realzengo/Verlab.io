@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
+import { isSafeFreeText } from "@/lib/validation";
+
+const CONTENT_MAX = 20000;
 
 interface PatchScriptBody {
   content?: string;
@@ -34,6 +37,9 @@ async function handlePATCH(
   const content = body.content?.trim();
   if (!content) {
     return NextResponse.json({ error: "content is required" }, { status: 400 });
+  }
+  if (!isSafeFreeText(content, CONTENT_MAX)) {
+    return NextResponse.json({ error: `content must be ${CONTENT_MAX} characters or fewer and contain no control characters or HTML tags` }, { status: 400 });
   }
 
   const { data, error } = await supabase

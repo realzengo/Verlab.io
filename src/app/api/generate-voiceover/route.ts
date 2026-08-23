@@ -15,6 +15,7 @@ import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
+import { isValidName } from "@/lib/validation";
 
 export const maxDuration = 300;
 
@@ -225,6 +226,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { title, script, voiceId, stylePrompt, languageCode, generationMode } = body;
+
+  if (title && title.trim() && !isValidName(title)) {
+    return NextResponse.json({ error: "title contains characters that aren't allowed, or is too long" }, { status: 400 });
+  }
 
   if (!script || !script.trim()) {
     return NextResponse.json({ error: "script is required" }, { status: 400 });

@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { cn, formatDate } from "@/lib/utils";
+import { NAME_MAX, URL_MAX, isSafeFreeText, isValidName, isValidUrl } from "@/lib/validation";
+
+const REASONING_MAX = 2000;
 
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
@@ -112,8 +115,12 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
 
   async function handleIngestSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!ingestForm.url.trim()) {
-      setIngestError("Channel URL is required");
+    if (!isValidUrl(ingestForm.url, URL_MAX)) {
+      setIngestError("A valid channel URL is required");
+      return;
+    }
+    if (ingestForm.niche.trim() && !isValidName(ingestForm.niche.trim(), NAME_MAX)) {
+      setIngestError("Niche contains invalid characters or is too long");
       return;
     }
 
@@ -184,6 +191,10 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
 
   async function handleApprove() {
     if (!preview) return;
+    if (!isSafeFreeText(preview.classification.reasoning, REASONING_MAX)) {
+      setApproveError(`Reasoning must be ${REASONING_MAX} characters or fewer and contain no HTML or control characters`);
+      return;
+    }
     setApproving(true);
     setApproveError(null);
 
@@ -477,6 +488,7 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
                   <input
                     type="url"
                     required
+                    maxLength={URL_MAX}
                     value={ingestForm.url}
                     onChange={(event) => setIngestForm((prev) => ({ ...prev, url: event.target.value }))}
                     className={inputClass}
@@ -511,6 +523,7 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
                   <label className={labelClass}>Niche (optional)</label>
                   <input
                     type="text"
+                    maxLength={NAME_MAX}
                     value={ingestForm.niche}
                     onChange={(event) => setIngestForm((prev) => ({ ...prev, niche: event.target.value }))}
                     className={inputClass}
@@ -624,6 +637,7 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
                   value={preview.classification.reasoning}
                   onChange={(event) => updatePreviewField("reasoning", event.target.value)}
                   rows={4}
+                  maxLength={REASONING_MAX}
                   className={cn(inputClass, "resize-none")}
                 />
               </div>

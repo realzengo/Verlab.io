@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { RangeSlider } from "@/components/ui/RangeSlider";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn, formatNumber } from "@/lib/utils";
+import { SHORT_TEXT_MAX } from "@/lib/validation";
 
 export type VideoPlatformFilter = "all" | "tiktok" | "youtube";
 export type VideoTimeWindow = "all" | "24h" | "7d" | "30d" | "90d" | "365d";
@@ -813,6 +814,7 @@ export function NicheTopBar({
   query,
   onQueryChange,
   onSearchSubmit,
+  queryError,
   platform,
   onPlatformChange,
   timeWindow,
@@ -826,6 +828,11 @@ export function NicheTopBar({
   query: string;
   onQueryChange: (value: string) => void;
   onSearchSubmit: () => void;
+  /** Subtle inline note shown under the search box when the last submit was
+   * rejected client-side (see isPlainTextSafe's gate in NicheFinder.tsx) --
+   * intentionally quiet, not a hard error banner, since this is just a
+   * search box. */
+  queryError?: string | null;
   platform: VideoPlatformFilter;
   onPlatformChange: (platform: VideoPlatformFilter) => void;
   timeWindow: VideoTimeWindow;
@@ -866,6 +873,7 @@ export function NicheTopBar({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Search viral videos by keyword, creator, or hashtag…"
+            maxLength={SHORT_TEXT_MAX}
             className="w-full rounded-xl border border-hairline bg-surface py-2 pl-9 pr-8 text-[13px] text-heading shadow-card placeholder:text-body/60 transition-shadow focus:outline-none focus:ring-2 focus:ring-heading/15 focus:shadow-card-hover"
           />
           {query && (
@@ -880,6 +888,9 @@ export function NicheTopBar({
             >
               <X className="h-3.5 w-3.5" />
             </button>
+          )}
+          {queryError && (
+            <p className="absolute left-1 top-full mt-1 text-[11px] font-medium text-body/60">{queryError}</p>
           )}
         </form>
 

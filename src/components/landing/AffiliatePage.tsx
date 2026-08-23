@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Accordion } from "@/components/ui/Accordion";
+import { EMAIL_MAX } from "@/lib/validation";
 
 const STAT_CHIPS = [
   { label: "30% Recurring Commissions", icon: Percent },
@@ -137,6 +138,7 @@ function WaitlistForm() {
         <input
           type="email"
           required
+          maxLength={EMAIL_MAX}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter your email address"
@@ -172,7 +174,7 @@ export function AffiliatePage() {
           Verlab Partners — applications open
         </span>
 
-        <h1 className="max-w-4xl text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
+        <h1 className="max-w-4xl font-display text-[28px] font-medium leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
           Earn{" "}
           <span className="inline-block -rotate-[1.2deg] rounded-lg bg-primary px-3.5 py-0.5 leading-[1.05] text-white sm:rounded-2xl">
             30% Recurring
@@ -206,7 +208,7 @@ export function AffiliatePage() {
       <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-[90px] lg:px-8">
         <div className="mx-auto max-w-xl text-center">
           <span className="text-[13px] font-bold uppercase tracking-[1.4px] text-primary">How it works</span>
-          <h2 className="mt-3.5 text-[28px] font-semibold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+          <h2 className="mt-3.5 font-display text-[28px] font-medium leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
             Three steps to your first payout
           </h2>
           <p className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]">
@@ -235,7 +237,7 @@ export function AffiliatePage() {
       <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-[90px] lg:px-8">
         <div className="mx-auto max-w-xl text-center">
           <span className="text-[13px] font-bold uppercase tracking-[1.4px] text-primary">Why partner with us</span>
-          <h2 className="mt-3.5 text-[28px] font-semibold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+          <h2 className="mt-3.5 font-display text-[28px] font-medium leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
             Built to actually pay out
           </h2>
         </div>
@@ -246,7 +248,7 @@ export function AffiliatePage() {
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-chip bg-accent">
                 <benefit.icon className="h-[22px] w-[22px] text-primary" strokeWidth={1.8} />
               </div>
-              <h3 className="text-[19px] font-bold tracking-[-0.2px] text-heading">{benefit.title}</h3>
+              <h3 className="font-ui text-[19px] font-semibold tracking-[-0.2px] text-heading">{benefit.title}</h3>
               <p className="mt-2 text-sm leading-[1.6] text-subtle">{benefit.description}</p>
             </Card>
           ))}
@@ -256,7 +258,7 @@ export function AffiliatePage() {
       <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-[90px] lg:px-8">
         <div className="text-center">
           <span className="text-[13px] font-bold uppercase tracking-[1.4px] text-primary">FAQs</span>
-          <h2 className="mt-3.5 text-[28px] font-semibold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+          <h2 className="mt-3.5 font-display text-[28px] font-medium leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
             Affiliate program questions
           </h2>
         </div>
@@ -268,7 +270,7 @@ export function AffiliatePage() {
 
       <section className="px-4 py-14 text-center sm:px-6 sm:py-20 lg:px-8">
         <div className="mx-auto max-w-6xl rounded-card-lg bg-primary px-5 py-10 text-white shadow-blue sm:px-6 sm:py-14">
-          <h2 className="text-[26px] font-bold leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
+          <h2 className="font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
             Ready to start earning?
           </h2>
           <p className="mt-3 text-base text-white/80 sm:text-[17px]">

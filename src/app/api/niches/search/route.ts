@@ -5,6 +5,7 @@ import type { VideoPlatform } from "@/lib/server/niche-video-refresh";
 import { searchNicheVideos, NicheVideoSearchError, type SearchSort } from "@/lib/server/niche-video-search";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
+import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 
 // Pure DB read (no live scrape triggering, see searchNicheVideos) -- well
 // under the 60s ceiling the scrape-capable routes need.
@@ -54,6 +55,14 @@ async function routePOST(request: NextRequest): Promise<NextResponse> {
   const niche = body.niche && body.niche !== "all" ? body.niche : null;
   if (niche && !isNicheName(niche)) {
     return NextResponse.json({ error: `Unknown niche "${niche}"` }, { status: 400 });
+  }
+
+  // Free-text match against title/author/hashtag (see buildFilteredQuery in
+  // niche-video-search.ts) -- rejected outright rather than silently
+  // truncated/stripped, matching this route's existing "reject with a clear
+  // 400" style for bad input above.
+  if (body.q && !isPlainTextSafe(body.q, SHORT_TEXT_MAX)) {
+    return NextResponse.json({ error: "Search query contains unsupported characters." }, { status: 400 });
   }
 
   const limit = Math.min(50, Math.max(1, Number(body.limit) || 20));

@@ -182,9 +182,10 @@ html {
   --shadow-card-hover: var(--shadow-card-hover);
   --shadow-blue: var(--shadow-blue);
 
-  --font-sans: "Open Sauce One", sans-serif;
-  --font-heading: "Open Sauce One", sans-serif;
-  --font-logo: "Open Sauce One", sans-serif;
+  --font-sans: var(--font-geist-sans), "Open Sauce One", sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-geist-sans), system-ui, sans-serif;
+  --font-ui: var(--font-geist-sans), -apple-system, system-ui, sans-serif;
+  --font-logo: var(--font-geist-sans), "Open Sauce One", sans-serif;
 }
 
 html {
@@ -301,6 +302,39 @@ body {
   }
   .animate-craft-glow {
     animation: craft-glow 1.8s ease-in-out infinite;
+  }
+
+  /* Hero product-preview frame — the ambient blue glow behind the app
+     screenshot fades in once on load rather than looping. */
+  @keyframes image-glow {
+    0% {
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  .animate-image-glow {
+    animation: image-glow 6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+    opacity: 0;
+  }
+
+  /* Hero background — dots orbiting a shared center on dashed rings, each
+     instance driven purely by the --duration/--radius/--angle custom
+     properties set inline per orbiter (see OrbitingCircles). */
+  @keyframes orbit {
+    0% {
+      transform: rotate(calc(var(--angle) * 1deg)) translateY(calc(var(--radius) * 1px)) rotate(calc(var(--angle) * -1deg));
+    }
+    100% {
+      transform: rotate(calc(var(--angle) * 1deg + 360deg)) translateY(calc(var(--radius) * 1px)) rotate(calc((var(--angle) * -1deg) - 360deg));
+    }
+  }
+  .animate-orbit {
+    animation: orbit calc(var(--duration) * 1s) linear infinite;
   }
 
   @keyframes render-drift {
@@ -1431,4 +1465,113 @@ html[data-scrolling="true"] *::after {
 }
 .premium-slider:focus-visible {
   outline: none;
+}
+
+/* Tactile pill buttons — raised physical bevel with a mouse-lit hover lift
+   and a pressed-in active state. ".btn-tactile-blue" is the branded
+   equivalent of the "black" tactile button, recolored to Verlab's primary
+   blue instead of neutral dark. */
+.btn-tactile-light,
+.btn-tactile-blue {
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.btn-tactile-light {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  color: #0f172a;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    0 12px 24px -4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.06);
+}
+.btn-tactile-light:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 6px 12px -2px rgba(0, 0, 0, 0.15),
+    0 20px 32px -6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 1),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.06);
+}
+.btn-tactile-light:active {
+  transform: translateY(1px);
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    inset 0 3px 6px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+.btn-tactile-blue {
+  background: linear-gradient(180deg, #4d72ff 0%, var(--color-btn-primary) 100%);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 2px 4px rgba(15, 30, 90, 0.5),
+    0 12px 24px -4px rgba(15, 30, 90, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 20, 0.35);
+}
+.btn-tactile-blue:hover {
+  transform: translateY(-3px);
+  background: linear-gradient(180deg, #6086ff 0%, #4d72ff 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.15),
+    0 6px 12px -2px rgba(15, 30, 90, 0.55),
+    0 20px 32px -6px rgba(15, 30, 90, 0.75),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 20, 0.35);
+}
+.btn-tactile-blue:active {
+  transform: translateY(1px);
+  background: var(--color-btn-primary-hover);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 3px 8px rgba(0, 0, 20, 0.45),
+    inset 0 0 0 1px rgba(0, 0, 20, 0.2);
+}
+
+/* Flat, shadow-free tactile pill — solid brand blue, no gradient, no bevel, no cast shadow. */
+.btn-flat-blue {
+  background: var(--color-btn-primary);
+  color: #ffffff;
+  box-shadow: none;
+  transition: background-color 0.2s ease;
+}
+.btn-flat-blue:hover {
+  background: var(--color-btn-primary-hover);
+  transform: none;
+  box-shadow: none;
+}
+.btn-flat-blue:active {
+  background: var(--color-btn-primary-hover);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Compact contexts (e.g. the nav bar) — same glossy tactile surface, no cast shadow beneath. */
+.btn-tactile-blue-flat,
+.btn-tactile-blue-flat:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 20, 0.35);
+}
+
+/* Tinted glass pill for dark cosmic/starfield surfaces — dark, moonlit tint
+   (not the washed-out light-glass look) so the starfield reads through
+   while the button still stays premium and legible. Static: no hover/active
+   motion or color shift. */
+.btn-glass-cosmic {
+  background: linear-gradient(180deg, rgba(64, 100, 255, 0.32) 0%, rgba(8, 16, 52, 0.6) 100%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(148, 178, 255, 0.35),
+    0 0 40px -10px rgba(80, 130, 255, 0.55),
+    0 12px 32px -10px rgba(4, 8, 30, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 20, 0.3);
 }

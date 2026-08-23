@@ -35,12 +35,12 @@ const DOT_PATTERN = {
 };
 
 function SoundWave({ flip = false }: { flip?: boolean }) {
-  const line = <span className="h-px flex-1 bg-slate-300" />;
+  const line = <span className="h-px flex-1 bg-hairline" />;
   const bars = (
     <span className="flex shrink-0 items-end gap-0.5">
-      <span className="h-1.5 w-0.5 rounded-full bg-slate-300" />
-      <span className="h-2.5 w-0.5 rounded-full bg-slate-300" />
-      <span className="h-1.5 w-0.5 rounded-full bg-slate-300" />
+      <span className="h-1.5 w-0.5 rounded-full bg-subtle/40" />
+      <span className="h-2.5 w-0.5 rounded-full bg-subtle/40" />
+      <span className="h-1.5 w-0.5 rounded-full bg-subtle/40" />
     </span>
   );
   return (
@@ -72,11 +72,11 @@ function CardShell({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[1.25rem] bg-slate-50 p-2.5 shadow-sm">
-      <div className="relative flex h-[500px] flex-col overflow-hidden rounded-[1.25rem] bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+    <div className="group rounded-[1.75rem] border border-hairline bg-surface/40 p-2 shadow-card backdrop-blur-md transition-shadow duration-300 hover:shadow-card-hover">
+      <div className="relative flex h-[500px] flex-col overflow-hidden rounded-[1.4rem] border border-hairline bg-surface">
         <div
           aria-hidden
-          className="absolute inset-x-0 top-0 z-0 h-[65%] rounded-t-[1.25rem] border-4 border-white bg-gradient-to-b from-blue-500 to-white"
+          className="absolute inset-x-0 top-0 z-0 h-[62%] bg-gradient-to-b from-primary via-primary/90 to-transparent transition-transform duration-500 group-hover:scale-[1.03]"
         >
           <div aria-hidden className="absolute inset-0" style={DOT_PATTERN} />
         </div>
@@ -85,15 +85,15 @@ function CardShell({
 
         <div className="relative z-10 flex items-center gap-3 px-8 pb-6">
           <SoundWave />
-          <span className="shrink-0 rounded-lg bg-blue-500 px-4 py-1.5 text-sm font-bold text-white shadow-lg shadow-blue-500/40">
+          <span className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-blue">
             Step {step}
           </span>
           <SoundWave flip />
         </div>
 
         <div className="relative z-10 px-6 pb-8">
-          <h3 className="text-center text-xl font-bold text-slate-900">{title}</h3>
-          <p className="mt-2 text-center text-sm text-slate-500">{description}</p>
+          <h3 className="font-ui text-center text-xl font-semibold tracking-tight text-heading">{title}</h3>
+          <p className="mt-2 text-center text-sm text-subtle">{description}</p>
         </div>
       </div>
     </div>
@@ -580,36 +580,38 @@ function StepThreeCard() {
 export function VerlabProcess() {
   return (
     <section className="w-full pb-14 pt-10 sm:pb-24 sm:pt-16">
-      <div className="px-5 text-center sm:px-6">
-        <span
-          className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
-          style={{
-            backgroundImage:
-              "linear-gradient(160deg, #e2e8f0 0%, #94a3b8 10%, #334155 32%, #0b1220 52%, #1e293b 70%, #64748b 88%, #cbd5e1 100%)",
-            boxShadow:
-              "inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 24px -6px rgba(15,23,42,0.55), 0 2px 4px rgba(15,23,42,0.4)",
-          }}
-        >
+      <div className="mx-auto max-w-7xl px-5 sm:px-6">
+        <div className="text-center">
           <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-5 top-px h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent"
-          />
-          <CircleDot className="h-3.5 w-3.5 text-slate-300" />
-          How it Works
-          <CircleDot className="h-3.5 w-3.5 text-slate-300" />
-        </span>
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl md:text-5xl">
-          Go Viral in 3 Simple Steps
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm font-normal text-slate-500 sm:mt-4 md:text-base">
-          Discover viral ideas, extract what makes them work, and transform them into unique scripts tailored to your niche.
-        </p>
-      </div>
+            className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
+            style={{
+              backgroundImage:
+                "linear-gradient(160deg, #e2e8f0 0%, #94a3b8 10%, #334155 32%, #0b1220 52%, #1e293b 70%, #64748b 88%, #cbd5e1 100%)",
+              boxShadow:
+                "inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 24px -6px rgba(15,23,42,0.55), 0 2px 4px rgba(15,23,42,0.4)",
+            }}
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-5 top-px h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent"
+            />
+            <CircleDot className="h-3.5 w-3.5 text-slate-300" />
+            How it Works
+            <CircleDot className="h-3.5 w-3.5 text-slate-300" />
+          </span>
+          <h2 className="font-display text-2xl font-medium tracking-tight text-heading sm:text-3xl md:text-5xl">
+            Go Viral in 3 Simple Steps
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm font-normal text-subtle sm:mt-4 md:text-base">
+            Discover viral ideas, extract what makes them work, and transform them into unique scripts tailored to your niche.
+          </p>
+        </div>
 
-      <div className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-5 sm:mt-10 sm:gap-8 sm:px-6 md:grid-cols-3 md:px-4">
-        <StepOneCard />
-        <StepTwoCard />
-        <StepThreeCard />
+        <div className="mt-8 grid grid-cols-1 gap-10 sm:mt-10 sm:gap-12 md:grid-cols-3 md:gap-8 lg:gap-12">
+          <StepOneCard />
+          <StepTwoCard />
+          <StepThreeCard />
+        </div>
       </div>
     </section>
   );

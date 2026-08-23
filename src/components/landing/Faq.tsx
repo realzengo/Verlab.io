@@ -28,47 +28,45 @@ export function Faq() {
           FAQ
           <CircleDot className="h-3.5 w-3.5 text-slate-300" />
         </span>
-        <h2 className="text-2xl font-extrabold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+        <h2 className="font-display text-2xl font-medium leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
           Frequently asked questions
         </h2>
       </div>
 
-      <div className="mt-8 rounded-[32px] bg-[linear-gradient(135deg,var(--color-primary)_0%,#bfdbfe_65%)] p-[6px] dark:bg-[linear-gradient(135deg,var(--color-primary)_0%,rgba(147,197,253,0.35)_65%)] sm:mt-12">
-        <div className="rounded-[30px] bg-surface p-3 sm:p-4">
-          <div className="flex flex-col gap-3">
-            {FAQ_ITEMS.map((item) => {
-              const isOpen = openId === item.id;
-              return (
-                <div key={item.id} className="overflow-hidden rounded-2xl bg-zinc-200/70 transition-colors duration-300 dark:bg-white/[0.06]">
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(isOpen ? null : item.id)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left transition-colors duration-200 focus:outline-none sm:gap-4 sm:px-7 sm:py-5"
-                  >
-                    <span className="text-sm font-bold text-heading sm:text-base">{item.question}</span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-primary transition-transform duration-300 ease-out sm:h-5 sm:w-5",
-                        isOpen && "rotate-180"
-                      )}
-                      strokeWidth={2.5}
-                    />
-                  </button>
-                  <div
+      <div className="mt-8 rounded-[32px] bg-surface p-3 sm:mt-12 sm:p-4">
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4">
+          {FAQ_ITEMS.map((item) => {
+            const isOpen = openId === item.id;
+            return (
+              <div key={item.id} className="overflow-hidden rounded-2xl bg-zinc-200/70 transition-colors duration-300 dark:bg-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isOpen ? null : item.id)}
+                  aria-expanded={isOpen}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-5 py-4 text-left transition-colors duration-200 focus:outline-none sm:gap-4 sm:px-8 sm:py-6"
+                >
+                  <span className="text-base font-bold text-heading sm:text-lg">{item.question}</span>
+                  <ChevronDown
                     className={cn(
-                      "grid transition-all duration-300 ease-in-out",
-                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                      "h-4 w-4 shrink-0 text-primary transition-transform duration-300 ease-out sm:h-5 sm:w-5",
+                      isOpen && "rotate-180"
                     )}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="px-4 pb-4 text-sm leading-[1.65] text-body sm:px-7 sm:pb-5 sm:text-[15px]">{item.answer}</div>
-                    </div>
+                    strokeWidth={2.5}
+                  />
+                </button>
+                <div
+                  className={cn(
+                    "grid transition-all duration-300 ease-in-out",
+                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  )}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-4 pb-4 text-sm leading-[1.65] text-body sm:px-7 sm:pb-5 sm:text-[15px]">{item.answer}</div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

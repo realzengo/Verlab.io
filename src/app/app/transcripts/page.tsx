@@ -28,6 +28,7 @@ import { ExportModal } from "@/components/transcripts/ExportModal";
 import { exportTranscripts } from "@/lib/transcript-export";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn } from "@/lib/utils";
+import { isValidUrl } from "@/lib/validation";
 
 const SUPPORTED_PLATFORMS = [
   { id: "youtube", label: "YouTube", logo: "/logos/social/youtube.png" },
@@ -278,6 +279,11 @@ export default function TranscriptsPage() {
   const handleExtract = async () => {
     const url = firstUrl(bulkInput);
     if (!url) return;
+
+    if (!isValidUrl(url)) {
+      setError("That doesn't look like a valid URL.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);

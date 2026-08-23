@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminEmailOrNull } from "@/lib/server/admin-auth";
 import { InsufficientCreditsError, adjustCreditsAsAdmin } from "@/lib/server/credits";
+import { REASON_MAX, isPlainTextSafe } from "@/lib/validation";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const adminEmail = await getAdminEmailOrNull();
@@ -27,6 +28,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!reason || !reason.trim()) {
     return NextResponse.json({ error: "reason is required" }, { status: 400 });
+  }
+
+  if (!isPlainTextSafe(reason.trim(), REASON_MAX)) {
+    return NextResponse.json({ error: `reason must be ${REASON_MAX} characters or fewer and contain no HTML or control characters` }, { status: 400 });
   }
 
   try {

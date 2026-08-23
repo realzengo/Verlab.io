@@ -21,6 +21,7 @@ import { ToolFrame } from "@/components/dashboard/ToolFrame";
 import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
 import { cn } from "@/lib/utils";
+import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 import type { TrendingVideo } from "@/lib/types";
 
 export const VIDEOS_PER_PAGE = 20;
@@ -455,6 +456,20 @@ function NicheFinderInner({
   // typing doesn't fire a request per character.
   const [queryDraft, setQueryDraft] = useState("");
   const [videoQuery, setVideoQuery] = useState("");
+  // Subtle inline note (not a hard error) shown when a submitted search
+  // gets rejected client-side for containing control characters or raw
+  // HTML tags -- see isPlainTextSafe's gate in submitVideoQuery below.
+  const [queryError, setQueryError] = useState<string | null>(null);
+
+  function submitVideoQuery(raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed && !isPlainTextSafe(trimmed, SHORT_TEXT_MAX)) {
+      setQueryError("That search contains characters that aren't supported.");
+      return;
+    }
+    setQueryError(null);
+    setVideoQuery(trimmed);
+  }
   const { selected: selectedVideoNiches } = useNicheSidebar();
   const activeNiche = selectedVideoNiches.size > 0 ? [...selectedVideoNiches][0] : null;
   const [detailVideo, setDetailVideo] = useState<TrendingVideo | null>(null);
@@ -596,7 +611,8 @@ function NicheFinderInner({
           <NicheTopBar
             query={queryDraft}
             onQueryChange={setQueryDraft}
-            onSearchSubmit={() => setVideoQuery(queryDraft.trim())}
+            onSearchSubmit={() => submitVideoQuery(queryDraft)}
+            queryError={queryError}
             platform={videoPlatform}
             onPlatformChange={setVideoPlatform}
             timeWindow={videoTimeWindow}

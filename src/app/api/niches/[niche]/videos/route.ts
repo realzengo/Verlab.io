@@ -4,6 +4,7 @@ import { getNicheVideosPage } from "@/lib/server/niche-video-query";
 import type { VideoPlatform } from "@/lib/server/niche-video-refresh";
 import { isNicheName } from "@/lib/niches-catalog";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 
 // Let this route run long enough to cover a real scrape (SociaVault or
 // YouTube) without the platform silently killing the function mid-request
@@ -77,6 +78,13 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   const viewsPerHourMin = searchParams.get("viewsPerHourMin");
   const viewsPerHourMax = searchParams.get("viewsPerHourMax");
   const q = searchParams.get("q");
+  // A non-empty q drives a live scrape/search (see getNicheVideosPage ->
+  // searchLiveVideos) -- rejected outright with a 400 rather than silently
+  // truncated, matching the niche-name check's "reject with a clear 400"
+  // style above.
+  if (q && !isPlainTextSafe(q, SHORT_TEXT_MAX)) {
+    return NextResponse.json({ error: "Search query contains unsupported characters." }, { status: 400 });
+  }
   const sortParam = searchParams.get("sort");
   const sort: "views" | "newest" = sortParam === "newest" ? "newest" : "views";
 

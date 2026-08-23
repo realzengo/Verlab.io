@@ -12,6 +12,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { CODE_MAX, isValidCode } from "@/lib/validation";
 
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
@@ -90,8 +91,8 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
     event.preventDefault();
 
     const rewardValue = Number(form.rewardValue);
-    if (!form.code.trim()) {
-      setError("Code is required");
+    if (!isValidCode(form.code)) {
+      setError("Code is required and may only contain letters, numbers, dashes, and underscores");
       return;
     }
     if (!Number.isInteger(rewardValue) || rewardValue <= 0) {
@@ -218,6 +219,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
                   <input
                     type="text"
                     required
+                    maxLength={CODE_MAX}
                     value={form.code}
                     onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
                     className={cn(inputClass, "uppercase")}

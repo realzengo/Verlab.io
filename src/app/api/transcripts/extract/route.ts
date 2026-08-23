@@ -10,6 +10,7 @@ import {
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
+import { isValidUrl } from "@/lib/validation";
 
 async function runExtraction(supabase: SupabaseClient, id: string, url: string): Promise<void> {
   try {
@@ -60,6 +61,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const url = body.url?.trim();
   if (!url) {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
+  }
+
+  if (!isValidUrl(url)) {
+    return NextResponse.json({ error: "url must be a valid http(s) URL" }, { status: 400 });
   }
 
   const platform = detectTranscriptPlatform(url);

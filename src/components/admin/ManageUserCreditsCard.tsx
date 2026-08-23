@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn, formatNumber } from "@/lib/utils";
+import { REASON_MAX, isPlainTextSafe } from "@/lib/validation";
 
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
@@ -64,6 +65,10 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
     }
     if (!reason.trim()) {
       setError("A reason is required for the audit log");
+      return;
+    }
+    if (!isPlainTextSafe(reason.trim(), REASON_MAX)) {
+      setError(`Reason must be ${REASON_MAX} characters or fewer and contain no HTML or control characters`);
       return;
     }
 
@@ -200,6 +205,7 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
                   <input
                     type="text"
                     required
+                    maxLength={REASON_MAX}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
                     className={inputClass}

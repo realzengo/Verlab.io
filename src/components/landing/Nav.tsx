@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, Sparkle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 
@@ -123,7 +123,7 @@ export function Nav() {
 
             <Link
               href={APP_URL}
-              className="-mr-2 hidden shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-3.5 py-2 text-xs font-bold text-white transition-transform hover:scale-105 sm:flex sm:gap-2 sm:px-5 sm:py-3 sm:text-sm"
+              className="btn-flat-blue -mr-2 hidden shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-extrabold tracking-tight antialiased sm:flex sm:gap-2 sm:px-5 sm:py-3 sm:text-sm"
             >
               <span className="sm:hidden">Get Started</span>
               <span className="hidden sm:inline">Try Verlab Now</span>
@@ -207,8 +207,9 @@ export function Nav() {
               <Link
                 href={APP_URL}
                 onClick={() => setMobileOpen(false)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-btn-primary px-4 py-3.5 text-sm font-bold text-white"
+                className="btn-flat-blue flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-3.5 text-sm font-extrabold tracking-tight antialiased"
               >
+                <Sparkle size={14} className="shrink-0 fill-current" />
                 Get Started
                 <ArrowRight size={16} className="shrink-0" />
               </Link>

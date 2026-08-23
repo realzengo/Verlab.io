@@ -18,8 +18,8 @@ export default function Home() {
       <Nav />
       <main className="flex-1">
         <Hero />
-        <FeaturesGridSection />
         <VerlabProcess />
+        <FeaturesGridSection />
         <AnimatedFeatureSection />
         <ToolsMarqueeSection />
 

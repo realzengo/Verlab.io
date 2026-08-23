@@ -6,6 +6,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { parseManualVideos } from "@/lib/niche-bend/manual-parse";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import type { NicheBendVideo } from "@/lib/types";
+import { FREE_TEXT_MAX } from "@/lib/validation";
 
 export function ManualPasteFallback({
   onSubmit,
@@ -29,6 +30,7 @@ export function ManualPasteFallback({
         value={raw}
         onChange={(event) => setRaw(event.target.value)}
         placeholder={"The mistake that ended a career — 1.2M views\nEvery warning sign nobody caught — 890K views"}
+        maxLength={FREE_TEXT_MAX}
         className="w-full rounded-card-sm border border-hairline bg-surface p-3 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
       <div className="flex items-center justify-between gap-3">

@@ -137,7 +137,7 @@ export function Footer() {
           <div className="mb-10 grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 lg:grid-cols-4">
             {LINK_GROUPS.map((group) => (
               <div key={group.heading}>
-                <h3 className="mb-4 text-lg font-bold text-white">{group.heading}</h3>
+                <h3 className="font-ui mb-4 text-lg font-semibold text-white">{group.heading}</h3>
                 <ul className="flex flex-col gap-3">
                   {group.links.map((link) => (
                     <li key={link.label}>
