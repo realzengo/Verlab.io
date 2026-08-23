@@ -70,15 +70,15 @@ export function Nav() {
       <div
         className={cn(
           "contain-layout transition-[width,max-width] duration-300 ease-in-out",
-          isScrolled ? "w-[95%] max-w-5xl sm:w-[88%]" : "w-full max-w-7xl",
+          isScrolled ? "w-[95%] max-w-6xl sm:w-[88%]" : "w-full max-w-7xl",
         )}
       >
         <div
           className={cn(
             "flex items-center justify-between transition-all duration-300 ease-in-out",
             isScrolled
-              ? "rounded-xl border border-slate-200 bg-white px-5 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] sm:rounded-2xl sm:px-6 sm:py-2.5 dark:border-zinc-800 dark:bg-zinc-900"
-              : "rounded-none border-transparent bg-transparent px-4 py-1.5 shadow-[0_2px_10px_rgba(0,0,0,0)] backdrop-blur-[4px] sm:px-8 sm:py-2"
+              ? "rounded-xl border border-slate-200 bg-white/90 px-5 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.04)] backdrop-blur-md sm:rounded-2xl sm:px-6 sm:py-2.5 dark:border-zinc-800 dark:bg-zinc-900/90"
+              : "rounded-none border-transparent bg-white/70 px-4 py-1.5 shadow-[0_2px_10px_rgba(0,0,0,0)] backdrop-blur-md sm:px-8 sm:py-2 dark:bg-zinc-900/60"
           )}
         >
           <div className="flex w-full items-center justify-between">

@@ -210,7 +210,7 @@ export function AnimatedFeatureSection() {
             className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[105px] w-[210px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-950 blur-[40px] sm:h-[200px] sm:w-[440px] sm:blur-[60px]"
           />
 
-          <h2 className="whitespace-nowrap font-display text-2xl font-medium tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
+          <h2 className="whitespace-nowrap font-display text-2xl font-bold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
             Clone What Works
           </h2>
           <p className="max-w-xl text-xs font-bold text-blue-100/80 sm:hidden">

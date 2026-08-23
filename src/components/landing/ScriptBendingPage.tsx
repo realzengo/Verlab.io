@@ -74,7 +74,7 @@ function SectionHeading({
   return (
     <div className={center ? "mx-auto max-w-2xl text-center" : "max-w-2xl"}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3.5 font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] text-slate sm:text-[42px]">
+      <h2 className="mt-3.5 font-display text-[26px] font-bold leading-[1.15] tracking-[-0.8px] text-slate sm:text-[42px]">
         {title}
       </h2>
       {description && <p className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]">{description}</p>}
@@ -224,7 +224,7 @@ export function ScriptBendingPage() {
           The Verlab Method
         </span>
 
-        <h1 className="max-w-3xl font-display text-[30px] font-medium leading-[1.1] tracking-[-1px] text-heading sm:text-[56px] sm:leading-[1.05] sm:tracking-[-1.5px]">
+        <h1 className="max-w-3xl font-display text-[30px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[56px] sm:leading-[1.05] sm:tracking-[-1.5px]">
           Two questions decide whether a channel blows up
         </h1>
 
@@ -251,7 +251,7 @@ export function ScriptBendingPage() {
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div>
             <Eyebrow>Part 1</Eyebrow>
-            <h2 className="mt-3.5 font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] text-slate sm:text-[38px]">
+            <h2 className="mt-3.5 font-display text-[26px] font-bold leading-[1.15] tracking-[-0.8px] text-slate sm:text-[38px]">
               What is Niche Bending?
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-body sm:text-base">
@@ -539,7 +539,7 @@ export function ScriptBendingPage() {
       {/* CTA */}
       <section className="px-4 py-14 text-center sm:px-6 sm:py-20 lg:px-8">
         <div className="mx-auto max-w-6xl rounded-card-lg bg-primary px-5 py-10 text-white shadow-blue sm:px-6 sm:py-14">
-          <h2 className="font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
+          <h2 className="font-display text-[26px] font-bold leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
             Stop reinventing the wheel
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-white/80">

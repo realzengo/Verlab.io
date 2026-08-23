@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CircleDot, Play, Quote, Sparkle, Star } from "lucide-react";
+import { CircleDot, Play, Sparkle } from "lucide-react";
 import { APP_URL } from "@/lib/constants";
 
 interface Testimonial {
@@ -44,22 +44,14 @@ const testimonials: Testimonial[] = [
 
 function TestimonialCard({ name, image, quote }: Testimonial) {
   return (
-    <div className="group relative flex flex-col rounded-2xl border border-hairline bg-surface p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-0.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-          ))}
+    <div className="flex flex-col gap-4 rounded-2xl border border-hairline bg-surface p-6 text-left shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full">
+          <Image src={image} alt="" fill sizes="44px" className="object-cover object-top" />
         </div>
-        <Quote className="h-6 w-6 shrink-0 fill-slate-100 text-slate-100" strokeWidth={0} />
+        <p className="text-base font-bold text-heading">{name}</p>
       </div>
-      <p className="mt-4 flex-1 text-[15px] leading-relaxed text-body">&ldquo;{quote}&rdquo;</p>
-      <div className="mt-6 flex items-center gap-3 border-t border-hairline pt-4">
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-black/5">
-          <Image src={image} alt="" fill sizes="36px" className="object-cover object-top" />
-        </div>
-        <p className="text-sm font-bold text-heading">{name}</p>
-      </div>
+      <p className="text-[15px] leading-relaxed text-body">{quote}</p>
     </div>
   );
 }

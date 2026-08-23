@@ -25,7 +25,7 @@ export function CtaBand() {
           }}
         />
         <div className="relative">
-          <h2 className="font-display text-[26px] font-medium leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
+          <h2 className="font-display text-[26px] font-bold leading-[1.15] tracking-[-0.8px] sm:text-[40px]">
             Ready to Get Started?
           </h2>
           <p className="mt-3 text-base text-white/80 sm:text-[17px]">

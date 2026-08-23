@@ -28,7 +28,7 @@ export function Faq() {
           FAQ
           <CircleDot className="h-3.5 w-3.5 text-slate-300" />
         </span>
-        <h2 className="font-display text-2xl font-medium leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
+        <h2 className="font-display text-2xl font-bold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]">
           Frequently asked questions
         </h2>
       </div>

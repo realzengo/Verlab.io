@@ -659,19 +659,6 @@ body {
     animation: float-soft 7s ease-in-out infinite;
   }
 
-  /* Barely-there idle bob for the VerlabProcess folder card — reads as
-     "alive" without competing with the open/close hover animation. */
-  @keyframes float-tiny {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-4px);
-    }
-  }
-  .animate-float-tiny {
-    animation: float-tiny 5s ease-in-out infinite;
-  }
 
   @keyframes blob-drift-a {
     0%, 100% {
@@ -967,6 +954,7 @@ body {
     animation: graph-arrow 6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
     transform-origin: 0px 0px;
   }
+
 
   /* Floor and ceiling each sit at an opposite translateZ off the same
      rotateX(90deg), so both need the reversed direction for their grid

@@ -224,9 +224,9 @@ function VoiceoverCard() {
   return (
     <Link
       href={`${APP_URL}/voiceover-generator`}
-      className="group flex h-full flex-col gap-3 rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 p-3.5"
+      className="group flex h-full flex-col gap-2.5 rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 p-3 sm:gap-3 sm:p-3.5"
     >
-      <div className="relative flex-1 overflow-hidden rounded-xl">
+      <div className="relative aspect-video overflow-hidden rounded-xl lg:aspect-auto lg:flex-1">
         <video
           ref={videoRef}
           src="/videos/voiceover-generator.mp4"
@@ -240,8 +240,8 @@ function VoiceoverCard() {
       </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="font-ui text-lg font-semibold text-heading">Voiceover</h3>
-        <span className="flex h-9 w-9 items-center justify-center transition-transform duration-200 group-hover:translate-x-0.5">
+        <h3 className="font-ui text-base font-semibold text-heading sm:text-lg">Voiceover</h3>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center transition-transform duration-200 group-hover:translate-x-0.5 sm:h-9 sm:w-9">
           <ArrowUpRight className="h-4 w-4 text-slate-900" />
         </span>
       </div>
@@ -253,12 +253,12 @@ export function FeaturesGridSection() {
   return (
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
       <div className="mx-auto max-w-7xl px-5 sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-start">
+        <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-start sm:gap-6">
           <div>
-            <h2 className="font-display text-2xl font-medium tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
+            <h2 className="font-display text-[28px] font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
               Every AI tool, in one place.
             </h2>
-            <p className="mt-3 text-xs font-medium text-slate-500 sm:text-sm">
+            <p className="mt-2.5 text-sm font-medium leading-snug text-slate-500 sm:mt-3">
               Generate videos, images, voiceovers, and scripts, all in one place.
             </p>
           </div>
@@ -268,15 +268,23 @@ export function FeaturesGridSection() {
             eyebrow="Get started"
             icon={ArrowRight}
             iconPosition="right"
-            className="shrink-0"
+            className="gap-2! rounded-lg! px-5! py-3! shrink-0"
           >
             Make an account
           </Button>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div
+          className={cn(
+            "mt-8 -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1",
+            "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "sm:mx-0 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0"
+          )}
+        >
           {HERO_TOOLS.map((tool) => (
-            <HeroToolCard key={tool.title} {...tool} />
+            <div key={tool.title} className="w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
+              <HeroToolCard {...tool} />
+            </div>
           ))}
         </div>
 
@@ -284,7 +292,7 @@ export function FeaturesGridSection() {
           <div className="lg:col-span-2">
             <VoiceoverCard />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
             {TOOL_LOGOS.map((tool) => (
               <ToolLogoCard key={tool.title} {...tool} />
             ))}
