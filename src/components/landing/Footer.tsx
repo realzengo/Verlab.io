@@ -45,83 +45,85 @@ function InstagramGlyph({ className }: { className?: string }) {
 }
 
 const GLOW_GRADIENT =
-  "radial-gradient(450% 163% at 48.2% 0%, rgba(255,255,255,0) 10%, rgba(88,124,255,0.85) 28%, rgb(43,73,230) 46%, rgb(18,28,110) 62%)";
+  "radial-gradient(600% 163% at 50% 0%, rgba(255,255,255,0) 10%, rgba(88,124,255,0.85) 28%, rgb(43,73,230) 46%, rgb(18,28,110) 62%)";
 
 const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 
 export function Footer() {
   return (
-    <footer className="relative w-full overflow-hidden bg-white">
-      <nav className={`flex flex-col gap-16 pt-20 sm:pt-24 md:flex-row md:items-center md:justify-between lg:pt-28 ${CONTAINER}`}>
-        <div className="flex max-w-[305px] flex-col items-start gap-5">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/verlab-studio-logo.png"
-              alt="Verlab Studio"
-              width={1600}
-              height={474}
-              sizes="200px"
-              className="h-10 w-auto"
-            />
-          </Link>
+    <footer className="relative w-full overflow-hidden bg-[#F8F9FC]">
+      <nav className="flex w-full justify-center px-6 pt-28 sm:px-10 sm:pt-32 lg:px-20 lg:pt-36">
+        <div className="mx-auto flex w-max max-w-full flex-col items-center gap-16 md:flex-row md:items-center md:gap-x-16 lg:gap-x-24">
+          <div className="flex max-w-[305px] flex-col items-start gap-5">
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/verlab-studio-logo.png"
+                alt="Verlab Studio"
+                width={1600}
+                height={474}
+                sizes="200px"
+                className="h-10 w-auto"
+              />
+            </Link>
 
-          <div className="h-px w-full bg-black/10" />
+            <div className="h-px w-full bg-black/10" />
 
-          <div className="flex flex-col items-start gap-4">
-            <p className="text-[15px] leading-snug tracking-[-0.01em] text-slate-600">
-              Generate videos, images, voiceovers, and scripts, all in one place.
-            </p>
+            <div className="flex flex-col items-start gap-4">
+              <p className="text-[15px] leading-snug tracking-[-0.01em] text-slate-600">
+                Generate videos, images, voiceovers, and scripts, all in one place.
+              </p>
 
-            <div className="flex items-center gap-2.5">
-              <Link
-                href={APP_URL}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#333] bg-black px-4 py-2.5 text-sm font-medium tracking-[-0.02em] text-white shadow-[0_10px_14px_-3px_rgba(0,0,0,0.22),0_2.3px_3.2px_-2px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:scale-[1.03]"
-              >
-                Get Started
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-              <a
-                href="https://www.instagram.com/verlab.io/"
-                aria-label="Instagram"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black transition-opacity duration-200 hover:opacity-80"
-              >
-                <InstagramGlyph className="h-4 w-4 text-white" />
-              </a>
+              <div className="flex items-center gap-2.5">
+                <Link
+                  href={APP_URL}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#333] bg-black px-4 py-2.5 text-sm font-medium tracking-[-0.02em] text-white shadow-[0_10px_14px_-3px_rgba(0,0,0,0.22),0_2.3px_3.2px_-2px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:scale-[1.03]"
+                >
+                  Get Started
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+                <a
+                  href="https://www.instagram.com/verlab.io/"
+                  aria-label="Instagram"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black transition-opacity duration-200 hover:opacity-80"
+                >
+                  <InstagramGlyph className="h-4 w-4 text-white" />
+                </a>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex gap-16 sm:gap-20 lg:gap-24">
-          {LINK_GROUPS.map((group) => (
-            <div key={group.heading} className="flex flex-col items-start gap-3">
-              <h3 className="text-[18px] font-medium tracking-[-0.02em] text-black">{group.heading}</h3>
-              <ul className="flex flex-col items-start gap-2.5">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    {link.external ? (
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[15px] tracking-[-0.02em] text-[#545454] transition-colors hover:text-black"
-                      >
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link
-                        href={link.href}
-                        className="text-[15px] tracking-[-0.02em] text-[#424242] transition-colors hover:text-black"
-                      >
-                        {link.label}
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="flex gap-16 sm:gap-20 lg:gap-24">
+            {LINK_GROUPS.map((group) => (
+              <div key={group.heading} className="flex flex-col items-start gap-3">
+                <h3 className="text-[18px] font-medium tracking-[-0.02em] text-black">{group.heading}</h3>
+                <ul className="flex flex-col items-start gap-2.5">
+                  {group.links.map((link) => (
+                    <li key={link.label}>
+                      {link.external ? (
+                        <a
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[15px] tracking-[-0.02em] text-[#545454] transition-colors hover:text-black"
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={link.href}
+                          className="text-[15px] tracking-[-0.02em] text-[#424242] transition-colors hover:text-black"
+                        >
+                          {link.label}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </nav>
 
