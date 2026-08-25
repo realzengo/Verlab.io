@@ -52,7 +52,7 @@ const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 export function Footer() {
   return (
     <footer className="relative w-full overflow-hidden bg-[#F8F9FC]">
-      <nav className="flex w-full justify-center px-6 pt-28 sm:px-10 sm:pt-32 lg:px-20 lg:pt-36">
+      <nav className="flex w-full justify-center px-6 pt-[176px] sm:px-10 sm:pt-[192px] lg:px-20 lg:pt-[208px]">
         <div className="mx-auto flex w-max max-w-full flex-col items-center gap-16 md:flex-row md:items-center md:gap-x-16 lg:gap-x-24">
           <div className="flex max-w-[305px] flex-col items-start gap-5">
             <Link href="/" className="flex items-center">
@@ -127,19 +127,24 @@ export function Footer() {
         </div>
       </nav>
 
-      <div className="relative mt-16 sm:mt-20 lg:mt-[100px]">
+      <div className="relative mt-0 sm:mt-4 lg:mt-9">
         <div aria-hidden className="absolute inset-0" style={{ backgroundImage: GLOW_GRADIENT }} />
 
-        <div className="relative flex h-[150px] items-end justify-center overflow-hidden px-6 sm:h-[200px] lg:h-[250px]">
+        <div
+          className="relative flex h-[150px] items-end justify-center overflow-hidden px-6 sm:h-[200px] lg:h-[250px]"
+          style={{ perspective: "600px" }}
+        >
           <span
-            className={`${europaGrotesk.className} whitespace-nowrap font-black uppercase leading-[0.85] tracking-[-0.02em]`}
+            className={`${europaGrotesk.className} whitespace-nowrap font-bold uppercase leading-[0.8] tracking-[0.02em]`}
             style={{
               fontSize: "clamp(2.75rem, 9vw, 8rem)",
               color: "transparent",
               WebkitTextStroke: "1px rgba(255,255,255,0.9)",
-              backgroundImage: "linear-gradient(to top, #ffffff 12%, rgba(88,124,255,0) 100%)",
+              backgroundImage: "linear-gradient(0deg, #ffffff 9.56%, rgba(0,153,255,0) 100%)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
+              transform: "rotateX(10deg)",
+              transformOrigin: "50% 100%",
             }}
           >
             Verlab Studio

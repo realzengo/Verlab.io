@@ -16,7 +16,7 @@ export function Faq() {
         </h2>
       </div>
 
-      <div className="mt-8 rounded-[32px] bg-surface p-3 sm:mt-12 sm:p-4">
+      <div className="mt-8 rounded-[32px] bg-[#F8F9FC] p-3 sm:mt-12 sm:p-4">
         <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4">
           {FAQ_ITEMS.map((item) => {
             const isOpen = openId === item.id;

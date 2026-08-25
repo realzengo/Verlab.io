@@ -6,7 +6,6 @@ import { VerlabProcess } from "@/components/landing/VerlabProcess";
 import { FeaturesGridSection } from "@/components/landing/FeaturesGridSection";
 import { AnimatedFeatureSection } from "@/components/landing/AnimatedFeatureSection";
 import { Testimonials } from "@/components/landing/Testimonials";
-import { CtaBand } from "@/components/landing/CtaBand";
 import { Faq } from "@/components/landing/Faq";
 import { ComparisonSection } from "@/components/landing/ComparisonSection";
 import { Footer } from "@/components/landing/Footer";
@@ -26,7 +25,6 @@ export default function Home() {
         <Testimonials />
         <ComparisonSection />
         <Faq />
-        <CtaBand />
       </main>
       <Footer />
     </div>
