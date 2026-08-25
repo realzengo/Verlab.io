@@ -22,10 +22,12 @@ export function PricingSectionClient({
   plans,
   comparisonRows,
   authenticated,
+  showComparison = true,
 }: {
   plans: PricingPlan[];
   comparisonRows: ComparisonRow[];
   authenticated: boolean;
+  showComparison?: boolean;
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +57,7 @@ export function PricingSectionClient({
           animationNum={1}
           timelineRef={sectionRef}
           customVariants={revealVariants}
-          className="mt-3.5 text-[28px] font-semibold leading-[1.1] tracking-[-1px] text-slate sm:text-[45px]"
+          className="mt-3.5 font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl"
         >
           Pricing that pays for
           <br />
@@ -76,9 +78,11 @@ export function PricingSectionClient({
         <PricingTable plans={plans} ctaHref={APP_URL} authenticated={authenticated} />
       </TimelineContent>
 
-      <div className="mt-8 overflow-x-auto sm:mt-12">
-        <PricingComparisonTable plans={plans} rows={comparisonRows} />
-      </div>
+      {showComparison && (
+        <div className="mt-8 overflow-x-auto sm:mt-12">
+          <PricingComparisonTable plans={plans} rows={comparisonRows} />
+        </div>
+      )}
     </div>
   );
 }

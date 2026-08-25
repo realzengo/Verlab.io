@@ -63,10 +63,10 @@ export function SpotlightCard({
             className="pointer-events-none absolute inset-0 rounded-[inherit]"
             style={{ background: borderGradient }}
           />
-          <div aria-hidden className="absolute inset-px rounded-[inherit] bg-surface" />
+          <div aria-hidden className="absolute inset-px rounded-[inherit] bg-[#F8F9FC]" />
         </>
       )}
-      <div className={cn("relative h-full overflow-hidden rounded-[inherit]", !border && "bg-surface")}>
+      <div className={cn("relative h-full overflow-hidden rounded-[inherit]", !border && "bg-[#F8F9FC]")}>
         {children}
         <motion.div
           aria-hidden

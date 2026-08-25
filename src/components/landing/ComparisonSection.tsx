@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 import { APP_URL } from "@/lib/constants";
+import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
 
 const OTHER_TOOLS_ITEMS = [
   "Staring at a blank page",
@@ -69,7 +69,7 @@ export function ComparisonSection() {
   return (
     <section className="w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-white to-blue-50/30 px-4 pb-2 pt-10">
       <div className="text-center">
-        <h2 className="font-display text-3xl font-bold tracking-tighter text-slate-900 sm:text-4xl md:text-6xl">
+        <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
           Before vs. After{" "}
           <span className="text-primary">Verlab</span>
         </h2>
@@ -142,9 +142,17 @@ export function ComparisonSection() {
       </div>
 
       <div className="mt-10 text-center sm:mt-16">
-        <Link href={APP_URL} className="btn-tactile-blue inline-block rounded-[1.25rem] px-10 py-4 text-lg font-bold">
+        <GlassCtaButton
+          href={APP_URL}
+          radius={20}
+          className="px-10! py-4! text-lg!"
+          style={{
+            boxShadow:
+              "inset -3px -3px 4px rgba(191,229,251,0.4), inset 4px 4px 4px rgba(19,26,228,0.1)",
+          }}
+        >
           Try Verlab Now
-        </Link>
+        </GlassCtaButton>
       </div>
     </section>
   );

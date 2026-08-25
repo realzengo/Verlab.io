@@ -11,10 +11,10 @@ export function TrustBadge() {
           />
         ))}
       </span>
-      <span className="text-xs font-bold uppercase tracking-wide text-blue-600 sm:hidden">
+      <span className="text-xs font-bold uppercase tracking-wide text-white sm:hidden">
         100k+ Users
       </span>
-      <span className="hidden text-xs font-bold uppercase tracking-wide text-blue-600 sm:inline sm:text-base">
+      <span className="hidden text-xs font-bold uppercase tracking-wide text-white sm:inline sm:text-base">
         100k+ Users Worldwide
       </span>
     </div>

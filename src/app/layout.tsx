@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { Inter } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import "@fontsource/open-sauce-one/400.css";
 import "@fontsource/open-sauce-one/500.css";
@@ -12,6 +13,8 @@ import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 // Mirrors isThemedRoute() in ThemeProvider.tsx -- keep the two in sync.
 // Can't import UNTHEMED_APP_HOST_PREFIXES here since this runs as an
@@ -56,7 +59,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${GeistSans.variable}`}
+      className={`h-full antialiased ${GeistSans.variable} ${inter.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">

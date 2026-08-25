@@ -3,7 +3,7 @@ import { getCachedPlanDefinitions } from "@/lib/server/admin-queries";
 import { createClient } from "@/lib/supabase/server";
 import { PricingSectionClient } from "@/components/landing/PricingSectionClient";
 
-export async function PricingSection() {
+export async function PricingSection({ showComparison = true }: { showComparison?: boolean } = {}) {
   const supabase = await createClient();
   const [plans, { data: { user } }] = await Promise.all([
     getCachedPlanDefinitions(),
@@ -11,8 +11,13 @@ export async function PricingSection() {
   ]);
 
   return (
-    <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-28 sm:px-6 sm:pb-[90px] sm:pt-40 lg:px-8">
-      <PricingSectionClient plans={plans} comparisonRows={COMPARISON_ROWS} authenticated={!!user} />
+    <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-2 sm:px-6 sm:pb-[90px] sm:pt-4 lg:px-8">
+      <PricingSectionClient
+        plans={plans}
+        comparisonRows={COMPARISON_ROWS}
+        authenticated={!!user}
+        showComparison={showComparison}
+      />
     </section>
   );
 }

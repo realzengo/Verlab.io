@@ -165,16 +165,16 @@ export function AnimatedFeatureSection() {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
 
   return (
-    <section className="mt-10 mb-2 md:mt-16">
+    <section className="mt-1 mb-2 md:mt-2">
       <div
         ref={ref}
         data-inview={inView}
-        className="anim-gate relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-lg bg-[#6aa7dc] sm:h-[487px] sm:rounded-xl"
+        className="anim-gate relative isolate mx-auto h-[360px] w-[calc(100%-2rem)] overflow-hidden rounded-xl bg-[#010208] sm:h-[487px] sm:rounded-2xl"
       >
-        {/* Background — z-0: deep-space gradient + an animated starfield texture on top of it */}
+        {/* Background — z-0: near-black base + an animated starfield texture on top of it */}
         <div
           aria-hidden
-          className="absolute inset-0 z-0 bg-gradient-to-b from-[#0b1a3a] via-[#0a1230] to-[#050916]"
+          className="absolute inset-0 z-0 bg-gradient-to-b from-[#050914] via-[#020408] to-[#000000]"
         />
         <Image
           src="/starfield.jpg"
@@ -182,7 +182,7 @@ export function AnimatedFeatureSection() {
           fill
           aria-hidden
           sizes="100vw"
-          className="z-0 animate-sky-zoom object-cover opacity-70 saturate-[1.4] pointer-events-none"
+          className="z-0 animate-sky-zoom object-cover opacity-50 mix-blend-screen saturate-150 pointer-events-none"
         />
         {/* 4-wall perspective tunnel — z-10, floor/ceiling/left/right converge on a
             center vanishing point with a soft glow */}
@@ -195,7 +195,18 @@ export function AnimatedFeatureSection() {
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-[240px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full sm:h-[320px] sm:w-[600px]"
-          style={{ background: "radial-gradient(circle at 50% 50%, rgba(8,15,40,.85) 0%, rgba(8,15,40,.4) 20%, transparent 38%)" }}
+          style={{ background: "radial-gradient(circle at 50% 50%, rgba(10,18,60,.85) 0%, rgba(20,35,110,.45) 20%, transparent 38%)" }}
+        />
+
+        {/* Brand-blue inner-shadow rim — z-15, painted above the starfield/tunnel so the
+            glow reads clearly, matching a card lit by blue light bleeding in from its edges. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[15] rounded-xl sm:rounded-2xl"
+          style={{
+            boxShadow:
+              "inset 0 0 0 1px rgba(120,155,255,0.35), inset 0 -110px 140px -50px rgba(51,92,255,0.95), inset 0 90px 120px -60px rgba(51,92,255,0.4), inset -90px 0 140px -60px rgba(51,92,255,0.6), inset 90px 0 140px -60px rgba(51,92,255,0.6)",
+          }}
         />
 
         {/* Title block — z-20. Badge, heading, copy, and CTA share one flex flow so they
@@ -210,7 +221,7 @@ export function AnimatedFeatureSection() {
             className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[105px] w-[210px] -translate-x-1/2 -translate-y-1/2 rounded-[100%] bg-blue-950 blur-[40px] sm:h-[200px] sm:w-[440px] sm:blur-[60px]"
           />
 
-          <h2 className="whitespace-nowrap font-display text-2xl font-bold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
+          <h2 className="whitespace-nowrap font-display text-4xl font-bold tracking-tight text-transparent bg-gradient-to-b from-white to-blue-100 bg-clip-text pb-1 sm:text-7xl">
             Clone What Works
           </h2>
           <p className="max-w-xl text-xs font-bold text-blue-100/80 sm:hidden">
@@ -221,11 +232,11 @@ export function AnimatedFeatureSection() {
           </p>
           <Link
             href={APP_URL}
-            className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white py-2 pl-6 pr-2 text-sm font-semibold text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base"
+            className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white py-2 pl-6 pr-2 text-sm font-semibold text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base md:mt-3 md:gap-4 md:pl-8 md:pr-2.5 md:text-lg"
           >
             Try Verlab Studio
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9">
-              <ArrowRight className="h-4 w-4" />
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9 md:h-10 md:w-10">
+              <ArrowRight className="h-4 w-4 md:h-5 md:w-5" />
             </span>
           </Link>
         </div>
@@ -236,8 +247,8 @@ export function AnimatedFeatureSection() {
             keep the original 3D-tilted three-card spread from sm/xl onward. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-30">
           <GlassCard
-            position="top-[-6%] left-[-4%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[13%]"
-            scale="origin-top-left scale-[0.26] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
+            position="top-[-1%] left-[0%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[13%]"
+            scale="origin-top-left scale-[0.33] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(-8deg)] sm:[transform:perspective(1000px)_rotateY(10deg)_rotateX(4deg)]"
             className="w-[270px]"
           >
@@ -291,8 +302,8 @@ export function AnimatedFeatureSection() {
           </GlassCard>
 
           <GlassCard
-            position="bottom-[-6%] right-[-4%] sm:bottom-[-4%] sm:right-[1%] md:bottom-[-4%] md:right-[3%] xl:bottom-[-5%] xl:right-[11%] 2xl:right-[17%]"
-            scale="origin-bottom-right scale-[0.3] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
+            position="bottom-[3%] right-[2%] sm:bottom-[4%] sm:right-[1%] md:bottom-[4%] md:right-[3%] xl:bottom-[5%] xl:right-[11%] 2xl:right-[17%]"
+            scale="origin-bottom-right scale-[0.42] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
             tilt="[transform:rotate(7deg)] sm:[transform:perspective(1000px)_rotateY(-6deg)_rotateX(4deg)]"
             className="w-[270px]"
           >

@@ -107,7 +107,7 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
     <Link
       href="/login"
       draggable={false}
-      className="group flex h-[130px] w-[136px] shrink-0 flex-col rounded-2xl bg-[#EDF3FA] p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
+      className="group flex h-[130px] w-[158px] shrink-0 flex-col rounded-2xl bg-[#EDF3FA] p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
     >
       <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-[#EDF3FA] sm:mb-3">
         {video ? (
@@ -127,9 +127,11 @@ function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) 
           </span>
         )}
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-800 transition-colors group-hover:text-blue-600 sm:text-sm">{title}</span>
-        <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-blue-600" />
+      <div className="flex items-center justify-between gap-1">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-tight text-slate-800 transition-colors group-hover:text-blue-600 sm:text-sm sm:tracking-normal">
+          {title}
+        </span>
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-colors group-hover:text-blue-600" />
       </div>
     </Link>
   );
@@ -204,9 +206,9 @@ export function ToolsMarqueeSection() {
   }, []);
 
   return (
-    <section className="relative w-full overflow-hidden bg-white pt-2 pb-12 sm:pb-16">
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-white to-transparent md:w-48" />
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-white to-transparent md:w-48" />
+    <section className="relative w-full overflow-hidden bg-[#F8F9FC] pt-2 pb-12 sm:pb-16">
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-[#F8F9FC] to-transparent md:w-48" />
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-[#F8F9FC] to-transparent md:w-48" />
 
       <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
         <div ref={trackRef} className="flex w-max gap-3 will-change-transform sm:gap-4 md:gap-6">

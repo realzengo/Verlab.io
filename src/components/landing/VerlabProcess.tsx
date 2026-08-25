@@ -2,33 +2,6 @@
 
 import { type ReactNode } from "react";
 import Image from "next/image";
-import { CircleDot } from "lucide-react";
-
-function SoundWave({ flip = false }: { flip?: boolean }) {
-  const line = <span className="h-px flex-1 bg-hairline" />;
-  const bars = (
-    <span className="flex shrink-0 items-end gap-0.5">
-      <span className="h-1.5 w-0.5 rounded-full bg-subtle/40" />
-      <span className="h-2.5 w-0.5 rounded-full bg-subtle/40" />
-      <span className="h-1.5 w-0.5 rounded-full bg-subtle/40" />
-    </span>
-  );
-  return (
-    <span aria-hidden className="flex flex-1 items-center gap-2">
-      {flip ? (
-        <>
-          {bars}
-          {line}
-        </>
-      ) : (
-        <>
-          {line}
-          {bars}
-        </>
-      )}
-    </span>
-  );
-}
 
 function CardShell({
   step,
@@ -42,24 +15,29 @@ function CardShell({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[1.75rem] bg-surface/40 p-2 shadow-[0_4px_16px_rgba(15,23,42,0.06),0_28px_56px_-16px_rgba(15,23,42,0.2)] backdrop-blur-md">
-      <div className="relative flex h-[430px] flex-col overflow-hidden rounded-[1.4rem] bg-surface">
-        <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center overflow-hidden px-8 pb-2 pt-6">
+    <div className="rounded-2xl border border-black/[0.06] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_20px_45px_-28px_rgba(15,23,42,0.18)]">
+      <div className="relative h-[340px] overflow-hidden rounded-xl bg-white">
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(15,23,42,0.10) 1px, transparent 0)",
+            backgroundSize: "16px 16px",
+            WebkitMaskImage: "radial-gradient(120% 90% at 15% 15%, black 30%, transparent 75%)",
+            maskImage: "radial-gradient(120% 90% at 15% 15%, black 30%, transparent 75%)",
+          }}
+        />
+        <div aria-hidden className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#bfe0ff] opacity-60 blur-[70px]" />
+
+        <div className="relative z-10 flex h-full flex-col items-center justify-center overflow-hidden px-8">
           {children}
         </div>
+      </div>
 
-        <div className="relative z-10 flex items-center gap-3 px-8 pb-4">
-          <SoundWave />
-          <span className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-blue">
-            Step {step}
-          </span>
-          <SoundWave flip />
-        </div>
-
-        <div className="relative z-10 px-6 pb-6">
-          <h3 className="font-ui text-center text-xl font-semibold tracking-tight text-heading">{title}</h3>
-          <p className="mt-2 text-center text-sm text-subtle">{description}</p>
-        </div>
+      <div className="px-3 pb-2 pt-6">
+        <span className="text-xs font-semibold uppercase tracking-wider text-primary">Step {step}</span>
+        <h3 className="mt-1.5 font-ui text-xl font-semibold tracking-tight text-heading">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-subtle">{description}</p>
       </div>
     </div>
   );
@@ -67,7 +45,7 @@ function CardShell({
 
 function HookMockup() {
   return (
-    <div className="relative -mx-8 flex h-[260px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
+    <div className="relative -mx-8 flex h-[310px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
       <div
         className="relative h-full w-full"
         style={{
@@ -83,7 +61,7 @@ function HookMockup() {
 
 function FormulaMockup() {
   return (
-    <div className="relative -mx-8 flex h-[260px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
+    <div className="relative -mx-8 flex h-[310px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
       <div
         className="relative h-full w-full"
         style={{
@@ -99,7 +77,7 @@ function FormulaMockup() {
 
 function BendMockup() {
   return (
-    <div className="relative -mx-8 flex h-[300px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
+    <div className="relative -mx-8 flex h-[350px] w-[calc(100%+4rem)] items-center justify-center" aria-hidden>
       <div
         className="relative -mt-6 h-full w-full"
         style={{
@@ -148,25 +126,8 @@ function StepThreeCard() {
 export function VerlabProcess() {
   return (
     <section className="w-full pb-14 pt-10 sm:pb-24 sm:pt-16">
-      <div className="mx-auto max-w-7xl px-5 sm:px-6">
+      <div className="mx-auto max-w-[88rem] px-5 sm:px-6">
         <div className="text-center">
-          <span
-            className="relative mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-slate-100 [text-shadow:0_1px_1px_rgba(0,0,0,0.5)] sm:mb-8"
-            style={{
-              backgroundImage:
-                "linear-gradient(160deg, #e2e8f0 0%, #94a3b8 10%, #334155 32%, #0b1220 52%, #1e293b 70%, #64748b 88%, #cbd5e1 100%)",
-              boxShadow:
-                "inset 0 1px 1px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.08), 0 10px 24px -6px rgba(15,23,42,0.55), 0 2px 4px rgba(15,23,42,0.4)",
-            }}
-          >
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-x-5 top-px h-px rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent"
-            />
-            <CircleDot className="h-3.5 w-3.5 text-slate-300" />
-            How it Works
-            <CircleDot className="h-3.5 w-3.5 text-slate-300" />
-          </span>
           <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Go Viral in 3 Simple Steps
           </h2>

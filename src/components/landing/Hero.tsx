@@ -1,114 +1,113 @@
+"use client";
+
 import Image from "next/image";
+import { useRef } from "react";
+import { useScroll, useTransform } from "framer-motion";
 import { Sparkle } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { OrbitingCircles } from "@/components/landing/OrbitingCircles";
-import { TrustBadge } from "@/components/landing/TrustBadge";
+import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
+import { PayPalNotification } from "@/components/landing/PayPalNotification";
 import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-function OrbitDot({ size = "sm" }: { size?: "sm" | "md" }) {
-  return (
-    <span className="relative flex items-center justify-center">
-      <span className={cn("absolute rounded-full bg-primary/20", size === "md" ? "size-6" : "size-4")} />
-      <span className={cn("relative rounded-full bg-primary", size === "md" ? "size-3" : "size-2")} />
-    </span>
-  );
-}
-
 export function Hero() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  // Tracks scroll from the hero's top hitting the viewport top (progress 0,
+  // i.e. page load) to its bottom hitting the viewport top (progress 1, i.e.
+  // fully scrolled past) -- so the floating notifications drift and fade as
+  // a direct function of scroll position rather than a one-shot reveal.
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const leftY = useTransform(scrollYProgress, [0, 1], [0, -140]);
+  const leftOpacity = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 0]);
+  const rightY = useTransform(scrollYProgress, [0, 1], [0, -220]);
+  const rightOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [1, 1, 0]);
+
   return (
-    <section className="relative isolate mx-auto flex max-w-6xl flex-col items-center px-4 pb-6 pt-24 text-center sm:px-6 sm:pb-10 sm:pt-32 lg:px-8 md:pt-48">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 hidden items-center justify-center overflow-hidden lg:flex"
+    <>
+    {/* The White Frame: outermost layer matches the page background and gives the sky
+        canvas below a uniform margin on every side. */}
+    <div ref={heroRef} className="bg-[#F8F9FC] p-3">
+      <section
+        className="relative isolate flex h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-2xl"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, #ffffff 0%, #ffffff 32%, #eaf2ff 50%, #6fa3f2 74%, #335cff 100%)",
+        }}
       >
-        <OrbitingCircles radius={220} duration={20} speed={0.5}>
-          <OrbitDot size="md" />
-          <OrbitDot />
-        </OrbitingCircles>
-        <OrbitingCircles radius={320} duration={20} speed={0.25} reverse>
-          <OrbitDot />
-          <OrbitDot size="md" />
-          <OrbitDot />
-        </OrbitingCircles>
-        <OrbitingCircles radius={420} duration={20} speed={0.1}>
-          <OrbitDot />
-          <OrbitDot />
-          <OrbitDot size="md" />
-          <OrbitDot />
-        </OrbitingCircles>
-      </div>
-
-      <TrustBadge />
-
-      <div className="relative flex w-full justify-center">
-        <h1 className="relative max-w-6xl font-display text-[clamp(24px,7.8vw,29px)] font-bold leading-[1.1] tracking-[-0.5px] text-heading sm:text-[72px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[84px]">
-          <span className="whitespace-nowrap">
-            Build a{" "}
-            <span className="inline-block -rotate-[1.2deg] rounded-md bg-primary px-2.5 py-1 leading-[1.05] text-white sm:rounded-2xl sm:px-4 sm:py-1">
-              Non-Competitive
-            </span>
-          </span>
-          <br />
-          Faceless Page
-        </h1>
-      </div>
-
-      <p className="mt-4 max-w-xl text-sm font-bold leading-relaxed text-gray-400 sm:hidden">
-        Everything you need to grow and profit.
-      </p>
-      <p className="mt-7 hidden max-w-2xl text-lg font-bold leading-relaxed text-gray-400 sm:block">
-        Everything you need to make money with social media, all in one place.
-      </p>
-
-      <div className="mt-8 flex justify-center sm:mt-14">
-        <Button
-          href={APP_URL}
-          variant="flatBlue"
-          icon={Sparkle}
-          iconClassName="fill-current"
-          className="px-7 py-4 sm:px-10 sm:py-5"
-        >
-          Try Verlab Now
-        </Button>
-      </div>
-
-      <div className="relative mt-10 w-full sm:mt-14">
+        {/* Halftone dot texture, matching the reference's grain over the gradient. */}
         <div
           aria-hidden
-          className="animate-image-glow absolute left-1/2 top-[20%] -z-10 h-1/4 w-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 blur-[4rem] lg:w-3/4 lg:blur-[10rem]"
+          className="pointer-events-none absolute inset-0 -z-20 opacity-[0.5]"
+          style={{
+            backgroundImage:
+              "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
+            backgroundSize: "6px 6px",
+            maskImage: "linear-gradient(to bottom, transparent 0%, transparent 25%, black 85%)",
+            WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, transparent 25%, black 85%)",
+          }}
         />
-        <div className="relative rounded-xl border border-hairline bg-surface/30 p-1.5 backdrop-blur-md sm:rounded-[32px] sm:p-2">
-          <div className="overflow-hidden rounded-lg border border-hairline bg-surface sm:rounded-[22px]">
-            <Image
-              src="/hero-app-preview-v2.png"
-              alt="Verlab's Niche Bending tool — reverse-engineer any viral format"
-              width={2116}
-              height={1180}
-              priority
-              className="w-full rounded-lg sm:rounded-[20px]"
-            />
+
+        {/* Content layer: sits above the gradient and cloud edges. */}
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-20 pt-36 text-center sm:px-6 sm:pb-28 sm:pt-32 lg:px-8 lg:pb-32 md:pt-44">
+          <div className="relative flex w-full justify-center">
+            <h1 className="relative max-w-6xl font-display text-[clamp(22px,7vw,27px)] font-bold leading-[1.1] tracking-[-0.5px] text-heading sm:text-[62px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[72px]">
+              <span className="whitespace-nowrap">
+                Build a Non-Competitive
+              </span>
+              <br />
+              Faceless Page
+            </h1>
           </div>
-        </div>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent sm:h-32"
-        />
-      </div>
 
-      <div className="mt-6 flex flex-col items-center sm:mt-8">
-        <p className="text-[10px] font-bold uppercase tracking-[1.5px] text-heading sm:text-xs sm:tracking-[2px]">
-          Supported Platforms
-        </p>
-        <Image
-          src="/hero-social.png"
-          alt="YouTube, Instagram, TikTok"
-          width={628}
-          height={46}
-          priority
-          className="mt-5 h-auto w-full max-w-[240px] sm:mt-6 sm:max-w-md"
-        />
+          <p className="mt-4 max-w-xl text-sm font-bold leading-relaxed text-subtle sm:hidden">
+            Everything you need to grow and profit.
+          </p>
+          <p className="mt-7 hidden max-w-2xl text-lg font-bold leading-relaxed text-subtle sm:block">
+            Everything you need to make money with social media, all in one place.
+          </p>
+
+          <div className="relative z-20 mt-8 flex justify-center sm:mt-14">
+            <GlassCtaButton
+              href={APP_URL}
+              radius={999}
+              icon={<Sparkle size={18} className="fill-current sm:h-5 sm:w-5" />}
+              className="px-7 py-4 text-base font-bold! sm:px-10 sm:py-5 sm:text-lg"
+            >
+              Try Verlab Now
+            </GlassCtaButton>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+    {/* Product preview: floats on top of the frame, overlapping its bottom edge. */}
+    <div className="relative z-20 mx-auto -mt-[40vh] w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute left-0 top-[16%] z-30 hidden -translate-x-[10%] xl:block 2xl:-translate-x-[32%]">
+        <PayPalNotification amount="577.94" style={{ y: leftY, opacity: leftOpacity }} />
       </div>
-    </section>
+      <div className="pointer-events-none absolute right-0 top-[40%] z-30 hidden translate-x-[10%] xl:block 2xl:translate-x-[32%]">
+        <PayPalNotification amount="1,284.50" style={{ y: rightY, opacity: rightOpacity }} />
+      </div>
+      <div
+        className={cn(
+          "relative rounded-xl border border-hairline bg-surface/30 p-2.5 backdrop-blur-xl sm:rounded-[32px] sm:p-4",
+          "[mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
+          "[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
+        )}
+      >
+        <div className="overflow-hidden rounded-lg border border-hairline bg-surface sm:rounded-[22px]">
+          <Image
+            src="/hero-app-preview-v2.png"
+            alt="Verlab's Niche Bending tool — reverse-engineer any viral format"
+            width={2116}
+            height={1180}
+            priority
+            className="w-full rounded-lg sm:rounded-[20px]"
+          />
+        </div>
+      </div>
+    </div>
+
+    </>
   );
 }

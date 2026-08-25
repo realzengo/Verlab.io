@@ -184,18 +184,20 @@ html {
 
   --font-sans: var(--font-geist-sans), "Open Sauce One", sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-geist-sans), system-ui, sans-serif;
-  --font-ui: var(--font-geist-sans), -apple-system, system-ui, sans-serif;
+  --font-ui: var(--font-inter), -apple-system, system-ui, sans-serif;
   --font-logo: var(--font-geist-sans), "Open Sauce One", sans-serif;
 }
 
 html {
   overflow-x: clip;
+  overscroll-behavior-y: none;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   overflow-x: clip;
+  overscroll-behavior-y: none;
 }
 
 /* Premium scrollbar — thin, rounded, low-contrast track that only firms up
@@ -302,24 +304,6 @@ body {
   }
   .animate-craft-glow {
     animation: craft-glow 1.8s ease-in-out infinite;
-  }
-
-  /* Hero product-preview frame — the ambient blue glow behind the app
-     screenshot fades in once on load rather than looping. */
-  @keyframes image-glow {
-    0% {
-      opacity: 0;
-    }
-    10% {
-      opacity: 0.5;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
-  .animate-image-glow {
-    animation: image-glow 6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
-    opacity: 0;
   }
 
   /* Hero background — dots orbiting a shared center on dashed rings, each
@@ -955,7 +939,6 @@ body {
     transform-origin: 0px 0px;
   }
 
-
   /* Floor and ceiling each sit at an opposite translateZ off the same
      rotateX(90deg), so both need the reversed direction for their grid
      to flow forward in sync with the left/right walls. */
@@ -1327,6 +1310,58 @@ html[data-scrolling="true"] *::after {
   }
   .animate-winner-glow {
     animation: winner-glow-breathe 3.2s ease-in-out infinite;
+  }
+}
+
+/* Process-step cards (VerlabProcess) — a faint brand-blue edge with a
+   single comet of light orbiting it on hover, flush with the card's true
+   outer edge (reuses the comet-border technique from
+   .comparison-winner-border, retuned to a single brand-blue hue for a
+   quieter, more premium read than a flat static gradient line). */
+@property --card-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.premium-hover-border {
+  position: relative;
+  isolation: isolate;
+}
+.premium-hover-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--card-border-angle),
+    rgba(51, 92, 255, 0.14) 0deg,
+    rgba(51, 92, 255, 0.14) 250deg,
+    rgba(147, 179, 255, 0.9) 292deg,
+    #eaf0ff 320deg,
+    #335cff 335deg,
+    rgba(147, 179, 255, 0.9) 350deg,
+    rgba(51, 92, 255, 0.14) 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.premium-hover-border:hover::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .premium-hover-border:hover::before {
+    animation: card-border-spin 3.2s linear infinite;
+  }
+  @keyframes card-border-spin {
+    to {
+      --card-border-angle: 360deg;
+    }
   }
 }
 

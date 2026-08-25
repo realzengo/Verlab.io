@@ -77,10 +77,10 @@ export function Button(props: ButtonProps | LinkProps) {
       {eyebrow ? (
         <span className="text-left">
           <span className="mb-[-2px] block text-[10px] font-bold uppercase tracking-wider opacity-60">{eyebrow}</span>
-          <span className="block text-xl font-extrabold leading-none tracking-tight antialiased">{children}</span>
+          <span className="block text-lg font-bold leading-none tracking-tight antialiased">{children}</span>
         </span>
       ) : (
-        <span className="text-lg font-extrabold leading-none tracking-tight antialiased">{children}</span>
+        <span className="text-lg font-bold leading-none tracking-tight antialiased">{children}</span>
       )}
       {Icon && iconPosition === "right" && <Icon className={cn("h-5 w-5 shrink-0", iconClassName)} />}
     </>

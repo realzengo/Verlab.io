@@ -28,7 +28,7 @@ export function Tabs({
             aria-selected={isActive}
             onClick={() => onChange(item.id)}
             className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+              "font-ui rounded-full px-4 py-1.5 text-base font-semibold transition-colors",
               isActive ? "bg-primary text-white" : "text-body hover:text-heading"
             )}
           >

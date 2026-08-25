@@ -1,179 +1,152 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { europaGrotesk } from "@/lib/fonts";
 import { APP_URL } from "@/lib/constants";
 
-type LinkGroup = { heading: string; links: { label: string; href: string }[] };
+type LinkGroup = { heading: string; links: { label: string; href: string; external?: boolean }[] };
 
 const LINK_GROUPS: LinkGroup[] = [
   {
-    heading: "Generate Videos",
+    heading: "Navigation",
     links: [
-      { label: "Niche Bending", href: "/script-bending" },
-      { label: "Script Generator", href: "/script-bending" },
+      { label: "Video Generator", href: `${APP_URL}/video-generator` },
       { label: "Image Generator", href: `${APP_URL}/image-generator` },
-      { label: "Video Library", href: `${APP_URL}/library` },
-    ],
-  },
-  {
-    heading: "AI Tools",
-    links: [
       { label: "Niche Explorer", href: `${APP_URL}/niches` },
-      { label: "Transcript Extractor", href: `${APP_URL}/transcripts` },
-      { label: "MCP Connect", href: `${APP_URL}/mcp` },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
-    heading: "Product",
+    heading: "Socials",
     links: [
-      { label: "Pricing", href: "/pricing" },
-      { label: "How it Works", href: "/#workflow" },
-      { label: "FAQ", href: "/#faq" },
+      { label: "Instagram", href: "https://www.instagram.com/verlab.io/", external: true },
+      { label: "YouTube", href: "#", external: true },
+    ],
+  },
+  {
+    heading: "Pages",
+    links: [
+      { label: "Privacy Policy", href: "/legal/privacy" },
+      { label: "Terms of Service", href: "/legal/terms" },
+      { label: "Refund Policy", href: "/legal/refunds" },
       { label: "Affiliates", href: "/affiliates" },
     ],
   },
-  {
-    heading: "Legal",
-    links: [
-      { label: "Terms of Service", href: "/legal/terms" },
-      { label: "Privacy Policy", href: "/legal/privacy" },
-      { label: "Refund Policy", href: "/legal/refunds" },
-      { label: "Log In", href: "/login" },
-    ],
-  },
 ];
 
-// Flat, heading-free link list for the phone-width footer — condensed labels
-// so every entry stays on one line inside a narrow 3-col grid.
-const MOBILE_FOOTER_LINKS: { label: string; href: string }[] = [
-  { label: "Niche Bending", href: "/script-bending" },
-  { label: "Niches", href: `${APP_URL}/niches` },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Scripts", href: "/script-bending" },
-  { label: "Transcripts", href: `${APP_URL}/transcripts` },
-  { label: "How it Works", href: "/#workflow" },
-  { label: "Images", href: `${APP_URL}/image-generator` },
-  { label: "MCP", href: `${APP_URL}/mcp` },
-  { label: "FAQ", href: "/#faq" },
-  { label: "Library", href: `${APP_URL}/library` },
-  { label: "Affiliates", href: "/affiliates" },
-];
+function InstagramGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.75" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.75" />
+      <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
 
-const MOBILE_LEGAL_LINKS = [
-  { label: "Terms", href: "/legal/terms" },
-  { label: "Privacy", href: "/legal/privacy" },
-  { label: "Refunds", href: "/legal/refunds" },
-];
+const GLOW_GRADIENT =
+  "radial-gradient(450% 163% at 48.2% 0%, rgba(255,255,255,0) 10%, rgba(88,124,255,0.85) 28%, rgb(43,73,230) 46%, rgb(18,28,110) 62%)";
 
-const SOCIAL_LINKS = [
-  { label: "Instagram", href: "https://www.instagram.com/verlab.io/", src: "/social-instagram-mono.png" },
-  { label: "YouTube", href: "#", src: "/social-youtube-mono.png" },
-];
+const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 
 export function Footer() {
   return (
-    <footer className="w-full bg-surface px-4 pb-6 pt-2 md:px-8 md:pb-8">
-      <div className="flex w-full flex-col rounded-3xl bg-black p-6 md:p-10">
-        {/* Phone view — logo/socials up top, flat link grid, legal row + copyright */}
-        <div className="md:hidden">
-          <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="relative block h-7 w-7 shrink-0">
-                <Image src="/logo-mark-white.png" alt="" fill className="object-contain" sizes="28px" />
-              </span>
-              <span className={`${europaGrotesk.className} text-2xl font-bold tracking-tight text-white`}>Verlab</span>
-            </Link>
+    <footer className="relative w-full overflow-hidden bg-white">
+      <nav className={`flex flex-col gap-16 pt-20 sm:pt-24 md:flex-row md:items-center md:justify-between lg:pt-28 ${CONTAINER}`}>
+        <div className="flex max-w-[305px] flex-col items-start gap-5">
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/verlab-studio-logo.png"
+              alt="Verlab Studio"
+              width={1600}
+              height={474}
+              sizes="200px"
+              className="h-10 w-auto"
+            />
+          </Link>
 
-            <div className="flex gap-2">
-              {SOCIAL_LINKS.map(({ label, href, src }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  target={href.startsWith("http") ? "_blank" : undefined}
-                  rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-80 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:opacity-100"
-                >
-                  <Image src={src} alt={label} width={20} height={20} unoptimized className="h-5 w-5 object-contain" />
-                </a>
-              ))}
-            </div>
-          </div>
+          <div className="h-px w-full bg-black/10" />
 
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/50">
-            Everything you need to make money with social media, all in one place.
-          </p>
+          <div className="flex flex-col items-start gap-4">
+            <p className="text-[15px] leading-snug tracking-[-0.01em] text-slate-600">
+              Generate videos, images, voiceovers, and scripts, all in one place.
+            </p>
 
-          <div className="mt-8 grid grid-cols-3 gap-x-4 gap-y-4">
-            {MOBILE_FOOTER_LINKS.map((link) => (
+            <div className="flex items-center gap-2.5">
               <Link
-                key={link.label}
-                href={link.href}
-                className="text-xs font-medium leading-tight text-white/50 transition-colors hover:text-white"
+                href={APP_URL}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#333] bg-black px-4 py-2.5 text-sm font-medium tracking-[-0.02em] text-white shadow-[0_10px_14px_-3px_rgba(0,0,0,0.22),0_2.3px_3.2px_-2px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:scale-[1.03]"
               >
-                {link.label}
+                Get Started
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-6">
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {MOBILE_LEGAL_LINKS.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="text-xs font-medium text-white/40 transition-colors hover:text-white/70"
-                >
-                  {link.label}
-                </Link>
-              ))}
+              <a
+                href="https://www.instagram.com/verlab.io/"
+                aria-label="Instagram"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black transition-opacity duration-200 hover:opacity-80"
+              >
+                <InstagramGlyph className="h-4 w-4 text-white" />
+              </a>
             </div>
-            <p className="text-xs text-white/30">&copy; {new Date().getFullYear()} Verlab Studio. All rights reserved.</p>
           </div>
         </div>
 
-        {/* Desktop/tablet view — unchanged headed groups + logo/socials row */}
-        <div className="hidden md:block">
-          <div className="mb-10 grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 lg:grid-cols-4">
-            {LINK_GROUPS.map((group) => (
-              <div key={group.heading}>
-                <h3 className="font-ui mb-4 text-lg font-semibold text-white">{group.heading}</h3>
-                <ul className="flex flex-col gap-3">
-                  {group.links.map((link) => (
-                    <li key={link.label}>
-                      <Link href={link.href} className="text-sm font-medium text-white/50 transition-colors hover:text-white">
+        <div className="flex gap-16 sm:gap-20 lg:gap-24">
+          {LINK_GROUPS.map((group) => (
+            <div key={group.heading} className="flex flex-col items-start gap-3">
+              <h3 className="text-[18px] font-medium tracking-[-0.02em] text-black">{group.heading}</h3>
+              <ul className="flex flex-col items-start gap-2.5">
+                {group.links.map((link) => (
+                  <li key={link.label}>
+                    {link.external ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[15px] tracking-[-0.02em] text-[#545454] transition-colors hover:text-black"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="text-[15px] tracking-[-0.02em] text-[#424242] transition-colors hover:text-black"
+                      >
                         {link.label}
                       </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex w-full flex-col items-center justify-between gap-6 sm:flex-row">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="relative block h-7 w-7 shrink-0">
-                <Image src="/logo-mark-white.png" alt="" fill className="object-contain" sizes="28px" />
-              </span>
-              <span className={`${europaGrotesk.className} text-2xl font-bold tracking-tight text-white`}>Verlab</span>
-            </Link>
-
-            <div className="flex gap-3">
-              {SOCIAL_LINKS.map(({ label, href, src }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  target={href.startsWith("http") ? "_blank" : undefined}
-                  rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-                  className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 opacity-80 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:opacity-100"
-                >
-                  <Image src={src} alt={label} width={24} height={24} unoptimized className="h-6 w-6 object-contain" />
-                </a>
-              ))}
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          ))}
+        </div>
+      </nav>
+
+      <div className="relative mt-16 sm:mt-20 lg:mt-[100px]">
+        <div aria-hidden className="absolute inset-0" style={{ backgroundImage: GLOW_GRADIENT }} />
+
+        <div className="relative flex h-[150px] items-end justify-center overflow-hidden px-6 sm:h-[200px] lg:h-[250px]">
+          <span
+            className={`${europaGrotesk.className} whitespace-nowrap font-black uppercase leading-[0.85] tracking-[-0.02em]`}
+            style={{
+              fontSize: "clamp(2.75rem, 9vw, 8rem)",
+              color: "transparent",
+              WebkitTextStroke: "1px rgba(255,255,255,0.9)",
+              backgroundImage: "linear-gradient(to top, #ffffff 12%, rgba(88,124,255,0) 100%)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+            }}
+          >
+            Verlab Studio
+          </span>
+        </div>
+
+        <div className={`relative flex items-center justify-between border-t border-white/15 py-5 text-xs tracking-[-0.01em] text-white ${CONTAINER}`}>
+          <span>Verlab &copy; {new Date().getFullYear()}</span>
+          <span>All rights reserved.</span>
         </div>
       </div>
     </footer>

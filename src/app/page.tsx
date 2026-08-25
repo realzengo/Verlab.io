@@ -13,7 +13,7 @@ import { Footer } from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FC]">
       <ScrollAnimationPauser />
       <Nav />
       <main className="flex-1">

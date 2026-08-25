@@ -23,7 +23,7 @@ export function OrbitingCircles({
     <>
       <svg xmlns="http://www.w3.org/2000/svg" className="pointer-events-none absolute inset-0 size-full">
         <circle
-          className="stroke-primary/[0.14]"
+          className="stroke-white/25"
           strokeDasharray="5 5"
           cx="50%"
           cy="50%"
