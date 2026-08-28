@@ -3,7 +3,6 @@ import type { User } from "@supabase/supabase-js";
 import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Plug, SquarePlay, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
-import { OnboardingChecklist, type OnboardingSteps } from "@/components/dashboard/OnboardingChecklist";
 import { createClient } from "@/lib/supabase/server";
 
 function displayName(user: User | null): string {
@@ -122,31 +121,6 @@ export default async function AppHome() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let onboardingDismissed = true;
-  let onboardingSteps: OnboardingSteps = { download: false, image: false, niche: false, video: false };
-
-  if (user) {
-    const [{ data: profile }, [downloads, images, bends, videos]] = await Promise.all([
-      supabase.from("profiles").select("onboarding_dismissed_at").eq("id", user.id).single(),
-      Promise.all([
-        supabase.from("downloads").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "complete"),
-        supabase.from("image_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
-        // niche_bend_jobs' two-stage flow reaches "ready" once the bends
-        // exist -- "sop_ready" is a later, optional stage on top of that.
-        supabase.from("niche_bend_jobs").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", ["ready", "sop_ready"]),
-        supabase.from("video_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
-      ]),
-    ]);
-
-    onboardingDismissed = Boolean(profile?.onboarding_dismissed_at);
-    onboardingSteps = {
-      download: (downloads.count ?? 0) > 0,
-      image: (images.count ?? 0) > 0,
-      niche: (bends.count ?? 0) > 0,
-      video: (videos.count ?? 0) > 0,
-    };
-  }
-
   return (
     <div className="flex flex-col gap-4 pt-8 sm:pt-12">
       <section>
@@ -155,7 +129,6 @@ export default async function AppHome() {
             Hello {displayName(user)}, what would you like to create today?
           </h1>
         </div>
-        {user && <OnboardingChecklist dismissed={onboardingDismissed} steps={onboardingSteps} />}
         <div className="mb-8 grid grid-cols-3 gap-2 sm:mb-12 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-4">
           {QUICK_ACTIONS.map((action) => (
             <Link
