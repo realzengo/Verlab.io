@@ -36,10 +36,26 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
+const title = "Verlab AI";
+const description =
+  "Verlab finds the faceless niches blowing up on TikTok, reverse-engineers why they work, and bends them into a repeatable system for your channel.";
+
 export const metadata: Metadata = {
-  title: "Verlab AI",
-  description:
-    "Verlab finds the faceless niches blowing up on TikTok, reverse-engineers why they work, and bends them into a repeatable system for your channel.",
+  metadataBase: new URL("https://verlab.io"),
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    url: "https://verlab.io",
+    siteName: title,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 // interactiveWidget: "resizes-content" makes mobile browsers actually shrink
