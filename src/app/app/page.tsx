@@ -129,10 +129,12 @@ export default async function AppHome() {
     const [{ data: profile }, [downloads, images, bends, videos]] = await Promise.all([
       supabase.from("profiles").select("onboarding_dismissed_at").eq("id", user.id).single(),
       Promise.all([
-        supabase.from("downloads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("image_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("niche_bend_jobs").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("video_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("downloads").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "complete"),
+        supabase.from("image_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
+        // niche_bend_jobs' two-stage flow reaches "ready" once the bends
+        // exist -- "sop_ready" is a later, optional stage on top of that.
+        supabase.from("niche_bend_jobs").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", ["ready", "sop_ready"]),
+        supabase.from("video_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
       ]),
     ]);
 
