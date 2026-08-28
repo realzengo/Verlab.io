@@ -11,6 +11,7 @@ import {
   Loader2,
   TriangleAlert,
 } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import {
   AUTH_INPUT_CLASSES,
@@ -34,10 +35,12 @@ function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const posthog = usePostHog();
 
   async function handleGoogleSignIn() {
     setError(null);
     setIsGoogleLoading(true);
+    posthog?.capture("google_auth_started", { context: "signup" });
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -78,6 +81,8 @@ function SignupForm() {
       setIsSubmitting(false);
       return;
     }
+
+    posthog?.capture("sign_up_submitted", { method: "email" });
 
     // If email confirmation is off, Supabase returns a session immediately.
     if (data.session) {

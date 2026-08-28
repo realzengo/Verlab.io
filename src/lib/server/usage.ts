@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { capturePostHogEvent } from "@/lib/server/posthog";
 import type { AdminToolKey } from "@/lib/types";
 
 /**
@@ -7,6 +8,12 @@ import type { AdminToolKey } from "@/lib/types";
  * stats. Uses the service-role client since usage_events has no client
  * insert grant (users shouldn't be able to fake their own usage). Never
  * throws — a logging failure shouldn't break the calling request.
+ *
+ * Also mirrors every call to PostHog as a "tool_used" event -- every tool
+ * run in the product (bend, transcripts, image, video, voiceover,
+ * downloader, mcp) already funnels through here, so this is the one place
+ * that needs to know about product analytics rather than sprinkling
+ * capture() calls across each tool's route handler.
  */
 export async function recordUsageEvent(
   tool: AdminToolKey,
@@ -19,6 +26,8 @@ export async function recordUsageEvent(
   } catch (error) {
     console.error(`[usage] Failed to record ${tool} usage event:`, error);
   }
+
+  await capturePostHogEvent({ distinctId: userId, event: "tool_used", properties: { tool, ...metadata } });
 }
 
 /**

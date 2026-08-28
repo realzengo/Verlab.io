@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Check, Clapperboard, Download, Image as ImageIcon, Wand2, X } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { cn } from "@/lib/utils";
 import type { ToolTone } from "./ToolGridCard";
 
@@ -68,11 +69,19 @@ const STEPS: { key: keyof OnboardingSteps; title: string; description: string; h
 export function OnboardingChecklist({ dismissed, steps }: { dismissed: boolean; steps: OnboardingSteps }) {
   const completedCount = STEPS.filter((step) => steps[step.key]).length;
   const [visible, setVisible] = useState(!dismissed && completedCount < STEPS.length);
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    if (visible) posthog?.capture("onboarding_checklist_shown", { completed_count: completedCount });
+    // Only ever want this on the initial mount that decided to show the card.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!visible) return null;
 
   function dismiss() {
     setVisible(false);
+    posthog?.capture("onboarding_dismissed", { completed_count: completedCount });
     fetch("/api/onboarding/dismiss", { method: "POST" }).catch(() => {
       // Best-effort -- the card stays hidden for this session even if the
       // write fails, and a retry next load is harmless.
@@ -124,6 +133,7 @@ export function OnboardingChecklist({ dismissed, steps }: { dismissed: boolean; 
               {!done && (
                 <Link
                   href={step.href}
+                  onClick={() => posthog?.capture("onboarding_step_clicked", { step: step.key })}
                   className="shrink-0 rounded-full border border-hairline px-3 py-1.5 text-xs font-semibold text-heading transition-colors hover:bg-accent"
                 >
                   {step.cta}

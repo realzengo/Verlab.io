@@ -12,6 +12,9 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/700.css";
 import "@fontsource/roboto/900.css";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
+import { PostHogPageView } from "@/components/analytics/PostHogPageView";
+import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -66,7 +69,11 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        <ThemeProvider>{children}</ThemeProvider>
+        <PostHogProvider>
+          <PostHogPageView />
+          <IdentifyUser />
+          <ThemeProvider>{children}</ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

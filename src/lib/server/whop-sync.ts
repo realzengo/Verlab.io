@@ -7,6 +7,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { grantCredits, deductCredits, getUserCredits } from "@/lib/server/credits";
 import { getWhopClient, findCreditPackByPlanId, findSubscriptionPlanByPlanId } from "@/lib/config/whop";
+import { capturePostHogEvent } from "@/lib/server/posthog";
 import type { Membership } from "@whop/sdk/resources/shared";
 import type { RefundCreatedWebhookEvent } from "@whop/sdk/resources/webhooks";
 
@@ -66,6 +67,11 @@ export async function handlePaymentSucceeded(
   }
 
   await grantCredits(userId, credits, feature, `whop.payment.${payment.id}`);
+  await capturePostHogEvent({
+    distinctId: userId,
+    event: "purchase_completed",
+    properties: { kind: payment.membership ? "subscription" : "credits", planId, credits, source },
+  });
 }
 
 /**

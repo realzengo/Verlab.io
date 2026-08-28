@@ -12,6 +12,7 @@ import {
   Loader2,
   TriangleAlert,
 } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import {
   AUTH_INPUT_CLASSES,
@@ -38,6 +39,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(searchParams.get("error"));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const posthog = usePostHog();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -62,6 +64,7 @@ function LoginForm() {
       return;
     }
 
+    posthog?.capture("login_succeeded", { method: "email" });
     router.push(next);
     router.refresh();
   }
@@ -69,6 +72,7 @@ function LoginForm() {
   async function handleGoogleSignIn() {
     setError(null);
     setIsGoogleLoading(true);
+    posthog?.capture("google_auth_started", { context: "login" });
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({

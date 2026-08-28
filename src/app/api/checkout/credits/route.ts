@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCreditPacks, getWhopClient, type CreditPackId } from "@/lib/config/whop";
+import { capturePostHogEvent } from "@/lib/server/posthog";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       metadata: { user_id: user.id },
       redirect_url: redirectUrl,
     });
+    after(() => capturePostHogEvent({ distinctId: user.id, event: "checkout_started", properties: { kind: "credits", packId } }));
     return NextResponse.json({ url: checkout.purchase_url });
   } catch (error) {
     console.error("[checkout/credits] Whop checkout creation failed:", error);
