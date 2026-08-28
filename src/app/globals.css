@@ -1254,70 +1254,9 @@ html[data-scrolling="true"] *::after {
   transition-duration: 0.15s;
 }
 
-/* Comparison section "winner" card — a comet of light orbiting the border
-   (conic-gradient masked down to a 1.5px ring via mask-composite: exclude)
-   plus a slow-breathing ambient glow behind the card. Reads as the premium
-   pick against the plain "Other Tools" card next to it. */
-@property --winner-border-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-.comparison-winner-border {
-  position: relative;
-}
-.comparison-winner-border::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background: conic-gradient(
-    from var(--winner-border-angle),
-    transparent 0deg,
-    transparent 250deg,
-    rgba(147, 179, 255, 0.85) 295deg,
-    #335cff 325deg,
-    rgba(147, 179, 255, 0.85) 345deg,
-    transparent 360deg
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .comparison-winner-border::before {
-    animation: winner-border-spin 4s linear infinite;
-  }
-  @keyframes winner-border-spin {
-    to {
-      --winner-border-angle: 360deg;
-    }
-  }
-
-  @keyframes winner-glow-breathe {
-    0%, 100% {
-      opacity: 0.55;
-      transform: scale(0.97);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.015);
-    }
-  }
-  .animate-winner-glow {
-    animation: winner-glow-breathe 3.2s ease-in-out infinite;
-  }
-}
-
 /* Process-step cards (VerlabProcess) — a faint brand-blue edge with a
    single comet of light orbiting it on hover, flush with the card's true
-   outer edge (reuses the comet-border technique from
-   .comparison-winner-border, retuned to a single brand-blue hue for a
-   quieter, more premium read than a flat static gradient line). */
+   outer edge. Quieter, more premium read than a flat static gradient line. */
 @property --card-border-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -1365,8 +1304,37 @@ html[data-scrolling="true"] *::after {
   }
 }
 
+/* FAQ card — always-on blue gradient stroke framing the accordion block,
+   matching the competitor's rounded-outline treatment. Reuses the
+   mask-composite border trick above but stays visible (no hover gate). */
+.faq-gradient-border {
+  position: relative;
+  isolation: isolate;
+}
+.faq-gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 6px;
+  background: linear-gradient(
+    135deg,
+    #335cff 0%,
+    #9db4ff 22%,
+    #335cff 45%,
+    #c7d5ff 65%,
+    #335cff 85%,
+    #7d9bff 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 /* Admin sidebar button — a "royal" pill with a static gold ring, reusing
-   the conic-gradient mask trick from .comparison-winner-border but
+   the conic-gradient mask trick from .premium-hover-border but
    always-on (not just on a "winner" state) so it reads as a permanent,
    distinct-from-the-rest-of-the-UI accent rather than a hover effect.
    Light mode gets an ivory/parchment take (a black pill reads as a hole

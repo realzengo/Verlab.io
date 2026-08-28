@@ -76,8 +76,8 @@ interface ToolLogo {
 const BADGE_TONE: Record<string, string> = {
   Image: "border border-slate-200 text-slate-500",
   Video: "border border-slate-200 text-slate-500",
-  New: "border border-accent-line bg-accent text-btn-primary",
-  Trending: "border border-accent-line bg-accent text-btn-primary",
+  New: "bg-btn-primary text-white",
+  Trending: "bg-btn-primary text-white",
 };
 
 const BADGE_ICON: Partial<Record<string, LucideIcon>> = {
@@ -155,9 +155,12 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
   }, []);
 
   return (
-    <SpotlightCard className="rounded-2xl" border={false}>
-      <Link href={href} className="flex flex-col p-2">
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-blue-50">
+    <Link
+      href={href}
+      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-[#E0E4F2] bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
+    >
+      <div className="flex flex-1 flex-col p-2.5">
+        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm bg-white">
           <video
             ref={videoRef}
             src={video}
@@ -168,19 +171,19 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
             playsInline
             preload="metadata"
           />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),inset_0_1px_3px_rgba(15,23,42,0.06),inset_0_-14px_20px_-14px_rgba(100,116,139,0.3),inset_0_0_0_1px_rgba(100,116,139,0.08)]"
-          />
         </div>
-        <div className="px-2 pb-2 pt-4">
-          <h3 className="font-ui text-sm font-semibold text-heading transition-colors duration-200 group-hover:text-btn-primary">
-            {title}
-          </h3>
-          <p className="mt-1 text-xs font-bold text-slate-500">{description}</p>
+        <div className="flex flex-1 flex-col pt-2.5">
+          <h3 className="text-sm font-bold tracking-tight text-heading lg:text-base">{title}</h3>
+          <p className="mt-0 mb-1 text-xs font-semibold leading-relaxed text-slate-500 lg:text-xs">{description}</p>
         </div>
-      </Link>
-    </SpotlightCard>
+      </div>
+      <div className="mt-auto px-2.5 pb-2.5">
+        <span className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1E5CFE] py-2 text-sm font-semibold text-white transition-colors lg:py-2.5">
+          <span className="transition-transform duration-200 group-hover:-translate-x-0.5">Try Now</span>
+          <ArrowRight className="h-3 w-3 -translate-x-1 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+        </span>
+      </div>
+    </Link>
   );
 }
 
@@ -472,7 +475,7 @@ export function FeaturesGridSection() {
           )}
         >
           {HERO_TOOLS.map((tool) => (
-            <div key={tool.title} className="w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
+            <div key={tool.title} className="h-full w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
               <HeroToolCard {...tool} />
             </div>
           ))}

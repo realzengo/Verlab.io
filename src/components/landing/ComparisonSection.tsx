@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { Check, X } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
+import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
 
 const OLD_WAY_ITEMS = [
   "Guessing viral trends in saturated markets",
@@ -21,131 +22,140 @@ const VERLAB_WAY_ITEMS = [
   "Ship a proven, repeatable system every morning",
 ];
 
-function ComparisonListItem({ children, tone }: { children: React.ReactNode; tone: "dim" | "bright" }) {
+function ComparisonListItem({ children, tone }: { children: React.ReactNode; tone: "red" | "blue" }) {
   return (
     <li className="flex items-start gap-3">
       <span
         className={cn(
-          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-          tone === "dim"
-            ? "bg-slate-100 text-slate-400"
-            : "bg-blue-600 text-white shadow-[0_2px_8px_rgba(37,99,235,0.35)]",
+          "relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          tone === "red"
+            ? "bg-red-50 text-red-400"
+            : "bg-[linear-gradient(155deg,#6d8dff_0%,#335cff_55%,#1c3fd6_100%)] shadow-[0_2px_6px_rgba(51,92,255,0.45),0_0_0_1px_rgba(51,92,255,0.2)]",
         )}
       >
-        {tone === "dim" ? <X className="h-3 w-3" strokeWidth={2.5} /> : <Check className="h-3 w-3" strokeWidth={2.75} />}
+        {tone === "blue" && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/50 to-transparent"
+          />
+        )}
+        {tone === "red" ? (
+          <X className="h-3.5 w-3.5" strokeWidth={3} />
+        ) : (
+          <Check className="relative h-3.5 w-3.5 text-white drop-shadow-[0_1px_0.5px_rgba(15,23,42,0.15)]" strokeWidth={3.25} />
+        )}
       </span>
-      <span className={cn("text-[15px] leading-snug", tone === "dim" ? "text-slate-400" : "text-slate-700")}>
+      <span className={cn("text-[17px] leading-snug", tone === "red" ? "text-slate-400" : "text-slate-700")}>
         {children}
       </span>
     </li>
   );
 }
 
-/** The literal Verlab "bend" — a viral structure warped into a new shape,
- * reused as the connector between Old Way and Verlab Way instead of a flat
- * "VS" chip. Rotated -90deg on mobile so the same path reads top-to-bottom
- * between the stacked cards. */
-function BendConnector() {
+/** Layered "device bezel" card shape: a tinted outer frame with an inset
+ * top highlight, holding a true white card inside. The Verlab card gets a
+ * brighter blue bezel plus a soft ambient glow so it visibly attracts the
+ * eye next to the neutral, muted Old Way card. */
+function ComparisonCard({
+  tone,
+  title,
+  items,
+  cta,
+}: {
+  tone: "red" | "blue";
+  title: React.ReactNode;
+  items: string[];
+  cta: React.ReactNode;
+}) {
+  const isRed = tone === "red";
   return (
-    <div className="relative flex shrink-0 flex-col items-center justify-center gap-2 py-2 lg:w-32 lg:py-0">
-      <div aria-hidden className="pointer-events-none absolute h-28 w-28 rounded-full bg-btn-primary/20 blur-3xl" />
-      <svg width="112" height="48" viewBox="0 0 112 48" fill="none" className="relative rotate-90 lg:rotate-0" aria-hidden>
-        <defs>
-          <linearGradient id="bend-line" x1="4" y1="24" x2="108" y2="24" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#cbd5e1" />
-            <stop offset="1" stopColor="#335cff" />
-          </linearGradient>
-        </defs>
-        <path d="M4 8 C 40 8, 40 40, 76 40" stroke="url(#bend-line)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <path d="M68 32 L 78 40 L 68 46" stroke="#335cff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      </svg>
-      <span className="relative text-[10px] font-bold uppercase tracking-[1.4px] text-primary">The Bend</span>
+    <div className="relative flex flex-1 flex-col">
+      <div
+        className={cn(
+          "relative flex h-full flex-col rounded-[36px] p-3 sm:p-3.5",
+          isRed
+            ? "bg-gradient-to-b from-slate-100 to-slate-200/70 shadow-[0_24px_50px_-24px_rgba(15,23,42,0.28),0_10px_20px_-12px_rgba(15,23,42,0.18),0_0_0_1px_rgba(255,255,255,0.5)_inset] lg:rotate-y-6"
+            : "bg-gradient-to-b from-blue-100 to-blue-200/80 shadow-[0_34px_80px_-22px_rgba(37,99,235,0.45),0_14px_28px_-14px_rgba(37,99,235,0.3),0_0_0_1px_rgba(255,255,255,0.6)_inset] lg:-rotate-y-6",
+        )}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-[1px] rounded-[33px] bg-gradient-to-b from-white/70 to-transparent"
+          style={{ height: "50%" }}
+        />
+
+        <div className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-white p-10 shadow-[0_2px_8px_rgba(15,23,42,0.06),0_0_0_1px_rgba(15,23,42,0.04)] sm:p-12">
+          <div className="relative flex items-center justify-center">
+            <h3
+              className={cn(
+                "font-display text-2xl font-black uppercase tracking-tight sm:text-3xl",
+                isRed ? "text-slate-500" : "text-heading",
+              )}
+            >
+              {title}
+            </h3>
+          </div>
+          <div aria-hidden className="relative mx-auto mt-6 mb-2 h-px w-full bg-slate-200" />
+
+          <ul className="relative mt-9 flex flex-1 flex-col gap-6">
+            {items.map((item) => (
+              <ComparisonListItem key={item} tone={tone}>
+                {item}
+              </ComparisonListItem>
+            ))}
+          </ul>
+
+          <div className="relative mt-10">{cta}</div>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function ComparisonSection() {
   return (
-    <section className="relative w-full overflow-hidden bg-[#F8F9FC] py-20 sm:py-28">
-      <div className="relative mx-auto max-w-6xl px-4">
-        <div className="flex justify-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-1.5 text-[13px] font-bold uppercase tracking-[1.4px] text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            The Transformation
-          </span>
+    <section className="relative w-full overflow-hidden bg-[#F8F9FC] py-24 sm:py-32">
+      <div className="relative mx-auto max-w-[88rem] px-4 sm:px-6">
+        <div className="text-center">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
+            Before <span className="text-heading">vs</span> After Verlab
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-base font-normal text-subtle sm:mt-4 sm:text-lg">
+            Verlab doesn&apos;t replace you. It multiplies you.
+          </p>
         </div>
-        <h2 className="mt-4 text-center font-display text-3xl font-bold tracking-tight text-heading sm:text-4xl md:text-5xl">
-          The Old Way <span className="text-slate-300">vs</span>{" "}
-          <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">The Verlab Way</span>
-        </h2>
 
-        <div className="mt-14 flex flex-col items-stretch gap-3 lg:flex-row lg:items-center lg:gap-0 [perspective:1800px]">
-          {/* The Old Way — tilted back, flat and receding */}
-          <div className="flex flex-1 flex-col rounded-2xl border border-slate-200/70 bg-white/70 p-8 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_24px_50px_-30px_rgba(15,23,42,0.15)] backdrop-blur-sm transition-transform duration-500 ease-out lg:[transform:rotateY(6deg)] lg:hover:[transform:rotateY(0deg)_translateY(-4px)]">
-            <h3 className="border-b border-slate-200 pb-5 text-center text-2xl font-semibold text-slate-400">
-              The Old Way
-            </h3>
+        <div className="mt-12 flex flex-col items-stretch gap-8 sm:mt-16 lg:flex-row lg:items-stretch lg:gap-10 lg:perspective-[2200px]">
+          <ComparisonCard
+            tone="red"
+            title="The Old Way"
+            items={OLD_WAY_ITEMS}
+            cta={
+              <span className="block w-full cursor-not-allowed select-none rounded-full bg-slate-100 py-4 text-center text-lg font-semibold text-slate-400">
+                Stay Stuck
+              </span>
+            }
+          />
 
-            <ul className="mt-7 flex flex-1 flex-col gap-5">
-              {OLD_WAY_ITEMS.map((item) => (
-                <ComparisonListItem key={item} tone="dim">
-                  {item}
-                </ComparisonListItem>
-              ))}
-            </ul>
-
-            <span className="mt-8 block w-full cursor-not-allowed select-none rounded-full border border-dashed border-slate-300 py-3 text-center font-semibold text-slate-400">
-              Continue Guessing
-            </span>
-          </div>
-
-          <BendConnector />
-
-          {/* The Verlab Way — tilted forward, popping toward the viewer */}
-          <div className="relative flex flex-1 flex-col">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -inset-4 rounded-[28px] bg-gradient-to-b from-blue-400/20 via-blue-400/5 to-transparent blur-2xl"
-            />
-            <div className="absolute -top-3.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-1 text-[11px] font-bold uppercase tracking-[1.2px] text-white shadow-[0_4px_14px_rgba(51,92,255,0.45)]">
-              Recommended
-            </div>
-
-            <div className="relative flex flex-1 flex-col overflow-hidden rounded-2xl bg-gradient-to-b from-white to-blue-50/50 p-8 shadow-[0_30px_70px_-25px_rgba(15,23,42,0.18),0_0_40px_rgba(59,130,246,0.1)] ring-1 ring-inset ring-blue-200 transition-transform duration-500 ease-out lg:[transform:rotateY(-6deg)] lg:hover:[transform:rotateY(0deg)_translateY(-6px)]">
-              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/70 to-transparent" />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-400 opacity-15 blur-[80px]"
+          <ComparisonCard
+            tone="blue"
+            title={
+              <Image
+                src="/verlab-studio-logo-hires.png"
+                alt="Verlab Studio"
+                width={1600}
+                height={474}
+                className="h-9 w-auto sm:h-12"
               />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-indigo-400 opacity-10 blur-[90px]"
-              />
-
-              <div className="relative flex items-center justify-center gap-2.5 border-b border-slate-200 pb-5">
-                <Image src="/logo-icon.png" alt="" width={28} height={28} className="rounded-full ring-1 ring-slate-200" />
-                <h3 className="text-2xl font-bold text-heading">Verlab Studio</h3>
-              </div>
-
-              <ul className="relative mt-7 flex flex-1 flex-col gap-5">
-                {VERLAB_WAY_ITEMS.map((item) => (
-                  <ComparisonListItem key={item} tone="bright">
-                    {item}
-                  </ComparisonListItem>
-                ))}
-              </ul>
-
-              <a
-                href={APP_URL}
-                className="group relative mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-center font-semibold text-white shadow-[0_10px_25px_-5px_rgba(59,130,246,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-5px_rgba(59,130,246,0.55)]"
-              >
-                Try Verlab Now
-                <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-0.5">
-                  →
-                </span>
-              </a>
-            </div>
-          </div>
+            }
+            items={VERLAB_WAY_ITEMS}
+            cta={
+              <GlassCtaButton href={APP_URL} radius={999} className="w-full! justify-center py-4! text-lg! font-semibold!">
+                Join Verlab Now
+                <ArrowRight size={18} className="relative -mb-px ml-1 inline shrink-0" />
+              </GlassCtaButton>
+            }
+          />
         </div>
       </div>
     </section>

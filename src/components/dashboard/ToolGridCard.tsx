@@ -69,7 +69,7 @@ export function ToolGridCard({
       )}
     >
       <div className="flex flex-1 flex-col p-2.5">
-        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm border border-[#E0E4F2] dark:border-zinc-800">
+        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm">
           {video ? (
             <ProtectedVideo
               src={video}
