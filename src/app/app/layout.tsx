@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AppShell } from "@/components/dashboard/AppShell";
+
+// The dashboard is gated behind login and a paid subscription -- nothing
+// here should ever appear in search results.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();

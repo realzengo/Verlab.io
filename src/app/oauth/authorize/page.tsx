@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { CheckCircle2, Plug } from "lucide-react";
@@ -6,6 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { getClient } from "@/lib/server/oauth/clients";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 interface AuthorizeSearchParams {
   client_id?: string;
