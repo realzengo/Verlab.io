@@ -44,22 +44,22 @@ const HERO_TOOLS: HeroTool[] = [
     title: "AI Video Generator",
     description: "Generate AI videos without watermarks, ready to post.",
     href: `${APP_URL}/video-generator`,
-    video: "/videos/video-generator.mp4",
-    poster: "/videos/video-generator-poster.jpg",
+    video: "/videos/video-generator-marquee.mp4",
+    poster: "/videos/video-generator-marquee-poster.jpg",
   },
   {
     title: "Downloader",
     description: "Download TikTok, Reels, and Shorts, watermark-free.",
     href: `${APP_URL}/downloads`,
-    video: "/videos/downloader.mp4",
-    poster: "/videos/downloader-poster.jpg",
+    video: "/videos/downloader-marquee.mp4",
+    poster: "/videos/downloader-marquee-poster.jpg",
   },
   {
     title: "AI Image Generator",
     description: "Create AI images from text prompts, ready to use.",
     href: `${APP_URL}/image-generator`,
-    video: "/videos/image-generator.mp4",
-    poster: "/videos/image-generator-poster.jpg",
+    video: "/videos/image-generator-marquee.mp4",
+    poster: "/videos/image-generator-marquee-poster.jpg",
   },
 ];
 

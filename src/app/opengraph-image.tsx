@@ -7,8 +7,10 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  const iconData = await readFile(join(process.cwd(), "src/app/icon.png"));
-  const iconSrc = `data:image/png;base64,${iconData.toString("base64")}`;
+  const logoData = await readFile(
+    join(process.cwd(), "public/logo-full-dark.png")
+  );
+  const logoSrc = `data:image/png;base64,${logoData.toString("base64")}`;
 
   return new ImageResponse(
     (
@@ -17,39 +19,15 @@ export default async function Image() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#09090b",
+          background: "#050914",
           backgroundImage:
-            "radial-gradient(circle at 22% 18%, rgba(51,92,255,0.35), transparent 42%), radial-gradient(circle at 82% 88%, rgba(51,92,255,0.22), transparent 45%)",
+            "radial-gradient(1100px 700px at 28% 68%, rgba(37,84,255,0.55), transparent 60%), radial-gradient(900px 600px at 75% 15%, rgba(59,102,255,0.28), transparent 55%), linear-gradient(155deg, #04060f 0%, #070c22 35%, #101c47 58%, #060a1c 100%)",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={iconSrc} width={128} height={128} style={{ borderRadius: 28 }} />
-        <div
-          style={{
-            marginTop: 40,
-            fontSize: 84,
-            fontWeight: 700,
-            color: "#f5f5f6",
-            letterSpacing: -2,
-          }}
-        >
-          Verlab AI
-        </div>
-        <div
-          style={{
-            marginTop: 20,
-            fontSize: 32,
-            color: "#a1a1aa",
-            maxWidth: 820,
-            textAlign: "center",
-          }}
-        >
-          Find the faceless niches blowing up on TikTok, and bend them into a
-          repeatable system for your channel.
-        </div>
+        <img src={logoSrc} width={620} height={183.6} />
       </div>
     ),
     { ...size }
