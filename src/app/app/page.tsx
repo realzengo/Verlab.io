@@ -33,6 +33,7 @@ const TOOLS: {
   videoDark?: string;
   videoPosterDark?: string;
   videoScale?: number;
+  videoSkipRanges?: [number, number][];
 }[] = [
   {
     title: "Niche Bender",
@@ -55,6 +56,8 @@ const TOOLS: {
     videoPoster: "/videos/transcript-extractor-poster.jpg",
     videoDark: "/videos/transcript-extractor-dark.mp4",
     videoPosterDark: "/videos/transcript-extractor-dark-poster.jpg",
+    // The clip opens on a ~0.3s blown-out focus-pull that flashes white on every loop -- skip it.
+    videoSkipRanges: [[0, 0.3]],
   },
   {
     title: "Scriptwriter",
@@ -66,6 +69,8 @@ const TOOLS: {
     videoPoster: "/videos/scriptwriter-poster.jpg",
     videoDark: "/videos/scriptwriter-dark.mp4",
     videoPosterDark: "/videos/scriptwriter-dark-poster.jpg",
+    // The doc card sits blank for ~1.1s before the lines draw in -- skip the empty hold.
+    videoSkipRanges: [[1.8, 2.9]],
   },
   {
     title: "Image Generator",
@@ -167,6 +172,7 @@ export default async function AppHome() {
                 videoDark={tool.videoDark}
                 videoPosterDark={tool.videoPosterDark}
                 videoScale={tool.videoScale}
+                videoSkipRanges={tool.videoSkipRanges}
               />
             ))}
           </div>

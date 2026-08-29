@@ -195,7 +195,7 @@ function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconC
         className="relative flex h-full flex-col justify-between gap-5 rounded-[inherit] border border-slate-200 bg-white p-4 transition-colors duration-150 ease-out hover:border-slate-300"
       >
         <div className="flex items-start justify-between">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
             {logo ? (
               <Image src={logo} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
             ) : Icon ? (

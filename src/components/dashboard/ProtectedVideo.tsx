@@ -10,6 +10,7 @@ export function ProtectedVideo({
   posterDark,
   className,
   style,
+  skipRanges,
 }: {
   src: string;
   /** Dark-mode variant. When set, only one of `src`/`srcDark` is ever mounted (based on the resolved theme) instead of rendering both and hiding one with CSS. */
@@ -18,6 +19,8 @@ export function ProtectedVideo({
   posterDark?: string;
   className?: string;
   style?: CSSProperties;
+  /** [start, end] second ranges (source-clip time) to jump over -- e.g. a blown-out focus-pull intro or a blank hold baked into the export. Checked every `timeupdate`, so the jump lands within a frame or two of `start`. Applies to whichever of `src`/`srcDark` is active, since both variants share the same cut and timing. */
+  skipRanges?: [number, number][];
 }) {
   const { resolvedTheme } = useTheme();
   const activeSrc = resolvedTheme === "dark" && srcDark ? srcDark : src;
@@ -45,6 +48,24 @@ export function ProtectedVideo({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !skipRanges?.length) return;
+
+    const jumpIfInRange = () => {
+      const range = skipRanges.find(([start, end]) => el.currentTime >= start && el.currentTime < end);
+      if (range) el.currentTime = range[1];
+    };
+    // `loadeddata` catches the very first frame (before playback has produced a
+    // `timeupdate`) so the initial paint doesn't flash the skipped range too.
+    el.addEventListener("loadeddata", jumpIfInRange);
+    el.addEventListener("timeupdate", jumpIfInRange);
+    return () => {
+      el.removeEventListener("loadeddata", jumpIfInRange);
+      el.removeEventListener("timeupdate", jumpIfInRange);
+    };
+  }, [skipRanges]);
 
   return (
     <video

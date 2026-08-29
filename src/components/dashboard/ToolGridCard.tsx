@@ -39,6 +39,8 @@ interface ToolGridCardProps {
   videoPosterDark?: string;
   /** Zoom factor for the video preview, e.g. 1.25 for 125%. Defaults to 1 (no zoom). */
   videoScale?: number;
+  /** [start, end] second ranges to jump over during playback -- see ProtectedVideo. */
+  videoSkipRanges?: [number, number][];
   /** Not yet released -- still linked (the destination shows a "coming soon" placeholder), just visibly marked unavailable here. */
   comingSoon?: boolean;
 }
@@ -57,6 +59,7 @@ export function ToolGridCard({
   videoDark,
   videoPosterDark,
   videoScale = 1,
+  videoSkipRanges,
   comingSoon,
 }: ToolGridCardProps) {
   const toneClasses = TONE_CLASSES[tone];
@@ -78,6 +81,7 @@ export function ToolGridCard({
               posterDark={videoPosterDark}
               className="h-full w-full object-cover"
               style={videoScale !== 1 ? { transform: `scale(${videoScale})` } : undefined}
+              skipRanges={videoSkipRanges}
             />
           ) : thumbnail ? (
             <Image
