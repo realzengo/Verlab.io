@@ -101,13 +101,9 @@ export function TopBar({
         </button>
         {isHome ? (
           <div className="min-w-0">
-            <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl" suppressHydrationWarning>
+            <h1 className="truncate text-base font-bold tracking-tight text-black sm:text-xl" suppressHydrationWarning>
               {timeGreeting()}
-              {firstName(user) && (
-                <>
-                  , <span className="bg-gradient-to-r from-heading to-heading/60 bg-clip-text text-transparent">{firstName(user)}</span>
-                </>
-              )}
+              {firstName(user) && <>, {firstName(user)}</>}
             </h1>
             {today && (
               <p className="hidden truncate text-xs text-subtle sm:block" suppressHydrationWarning>

@@ -1348,6 +1348,51 @@ html[data-scrolling="true"] *::after {
   pointer-events: none;
 }
 
+/* Top-up modal — "Most Popular" credit pack. A dark card ringed by a single
+   always-on glowing stroke (no separate flat border underneath it). The
+   stroke itself is a flowing blue gradient (oversized background, animated
+   position) rather than a static fill, so the ring itself reads as a live
+   neon light rather than a painted-on color; the breathing glow is a
+   separate inset shadow on the inner card so it lights the inside edges
+   only — no outer bloom bleeding onto the page behind it. Built as two
+   nested boxes because a gradient border can't itself render as a ring on
+   its own: the outer box supplies the animated gradient "stroke" ring, the
+   inner box supplies the dark card body plus the inset glow, nested with
+   just enough inset to read as one continuous stroke around the card. */
+.topup-neon-frame {
+  --topup-stroke-gradient: linear-gradient(
+    115deg,
+    #7dd3fc 0%,
+    #60a5fa 20%,
+    color-mix(in srgb, var(--color-primary) 90%, white) 45%,
+    #a5b4fc 65%,
+    #60a5fa 85%,
+    #7dd3fc 100%
+  );
+  position: relative;
+  padding: 2px;
+  background: var(--topup-stroke-gradient);
+  background-size: 260% 260%;
+  animation: topup-stroke-flow 8s ease-in-out infinite;
+}
+@keyframes topup-stroke-flow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.topup-neon-card {
+  background:
+    radial-gradient(130% 100% at 12% -15%, rgba(255, 255, 255, 0.32), transparent 55%),
+    linear-gradient(160deg, #5686ff 0%, #2f5be0 48%, #1a3aa8 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -28px 52px -14px rgba(10, 22, 74, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
 /* Admin sidebar button — a "royal" pill with a static gold ring, reusing
    the conic-gradient mask trick from .premium-hover-border but
    always-on (not just on a "winner" state) so it reads as a permanent,

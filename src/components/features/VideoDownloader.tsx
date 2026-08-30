@@ -182,9 +182,6 @@ export function VideoDownloader() {
   return (
     <div className="mx-auto flex w-full max-w-2xl min-h-[calc(100dvh-4.5rem)] flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24">
       <div className="relative text-center">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-8 -z-10 flex justify-center">
-          <div className="h-24 w-72 rounded-full bg-primary/25 blur-[70px] dark:bg-primary/35" />
-        </div>
         <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-[2.75rem]">
           Video Downloader
         </h1>

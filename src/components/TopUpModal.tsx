@@ -6,6 +6,7 @@ import { Check, ChevronRight, Lock, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CODE_MAX, isValidCode } from "@/lib/validation";
+import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -17,22 +18,26 @@ interface TopUpModalProps {
 export type PackId = "500" | "1000" | "3000" | "10000";
 type Badge = { label: string; tone: "primary" | "neutral" };
 
-export const PACKS: { id: PackId; credits: string; price: string; perK: string; badge?: Badge }[] = [
-  { id: "500", credits: "500 Credits", price: "$8.00", perK: "$16.00 / 1,000" },
-  { id: "1000", credits: "1,000 Credits", price: "$15.00", perK: "$15.00 / 1,000" },
+export const PACKS: { id: PackId; creditsNum: number; priceUsd: number; credits: string; price: string; perK: string; badge?: Badge }[] = [
+  { id: "500", creditsNum: 500, priceUsd: 8, credits: "500 Credits", price: "$8.00", perK: "$16.00 / 1,000" },
+  { id: "1000", creditsNum: 1000, priceUsd: 15, credits: "1,000 Credits", price: "$15.00", perK: "$15.00 / 1,000" },
   {
     id: "3000",
+    creditsNum: 3000,
+    priceUsd: 39,
     credits: "3,000 Credits",
     price: "$39.00",
     perK: "$13.00 / 1,000",
-    badge: { label: "Best Value", tone: "primary" },
+    badge: { label: "Most Popular", tone: "primary" },
   },
   {
     id: "10000",
+    creditsNum: 10000,
+    priceUsd: 119,
     credits: "10,000 Credits",
     price: "$119.00",
     perK: "$11.90 / 1,000",
-    badge: { label: "Lowest Rate", tone: "neutral" },
+    badge: { label: "Best Value", tone: "neutral" },
   },
 ];
 
@@ -50,6 +55,8 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  useResetOnPageRestore(() => setIsCheckingOut(false));
 
   if (!isOpen) return null;
 

@@ -22,6 +22,25 @@ function hasAllowedExtension(fileName: string): boolean {
   return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
+// Extension is just a UI hint from the client and is trivially spoofed (a
+// script renamed to report.pdf still has the extension "pdf"), so the actual
+// bytes have to start with the format's real magic number before we hand
+// them to the parser.
+const PDF_MAGIC = Buffer.from("%PDF-", "ascii");
+const DOCX_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // ZIP local file header (docx is a zip)
+
+function hasValidMagicBytes(name: string, buffer: Buffer): boolean {
+  if (name.endsWith(".pdf")) {
+    return buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC);
+  }
+  if (name.endsWith(".docx")) {
+    return buffer.subarray(0, DOCX_MAGIC.length).equals(DOCX_MAGIC);
+  }
+  // .txt/.md/.csv have no magic number to check -- the null-byte heuristic
+  // below is what catches non-text content for those.
+  return true;
+}
+
 // Extracts plain text from an uploaded reference file. SOPs/transcripts are
 // realistically PDF or Word docs (this app even exports SOPs as PDF/DOCX
 // elsewhere), so those get parsed server-side instead of forcing users to
@@ -29,6 +48,10 @@ function hasAllowedExtension(fileName: string): boolean {
 async function extractText(file: File): Promise<string> {
   const name = file.name.toLowerCase();
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  if (!hasValidMagicBytes(name, buffer)) {
+    throw new Error("That file's contents don't match its extension. Please upload a genuine .txt, .pdf, or .docx file.");
+  }
 
   if (name.endsWith(".pdf")) {
     const { extractText: extractPdfText, getDocumentProxy } = await import("unpdf");
@@ -83,6 +106,15 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Reject an oversized body by its declared Content-Length before
+  // request.formData() buffers the whole thing into memory -- the
+  // file.size check below runs too late to prevent that buffering, it only
+  // stops an oversized file from reaching the parser afterward.
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_FILE_SIZE_BYTES) {
+    return NextResponse.json({ error: "File is too large (max 10MB)." }, { status: 413 });
   }
 
   const formData = await request.formData().catch(() => null);

@@ -101,7 +101,7 @@ function renderRows(data: ListData): string {
     const thumb = image.outputs?.[0];
     rows.push(`
       <div class="v-row">
-        ${thumb ? `<img class="v-row-thumb" src="${thumb}" alt="">` : ""}
+        ${thumb ? `<img class="v-row-thumb" src="${escapeHtml(thumb)}" alt="">` : ""}
         <div class="v-row-main">
           <div class="v-row-title">${escapeHtml(truncate(image.prompt, 60))}</div>
           <div class="v-row-sub">Image · ${formatDate(image.created_at)}</div>

@@ -157,6 +157,7 @@ export default async function OAuthAuthorizePage({
             value="deny"
             variant="ghost"
             size="lg"
+            bevel={false}
             className="flex-1 justify-center border border-hairline"
           >
             Deny
@@ -167,6 +168,7 @@ export default async function OAuthAuthorizePage({
             value="approve"
             variant="primary"
             size="lg"
+            bevel={false}
             className="flex-1 justify-center"
           >
             Allow

@@ -117,7 +117,7 @@ function render(data: TranscriptData | null) {
     <div class="v-card">
       <div class="v-header">
         ${LOGO_MARK}
-        ${data?.coverUrl ? `<img src="${data.coverUrl}" alt="">` : ""}
+        ${data?.coverUrl ? `<img src="${escapeHtml(data.coverUrl)}" alt="">` : ""}
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Transcript")}</span>
         <span class="v-spacer"></span>
         ${watchUrl ? `<button class="v-btn v-btn-primary" id="watch-btn">Watch</button>` : ""}

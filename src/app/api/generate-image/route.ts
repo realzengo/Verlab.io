@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
 import { getImageGenerationCost, slugifyModelName, type ImageQuality, type ImageResolution } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
@@ -37,6 +38,7 @@ const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 // body bounded.
 const MAX_REFERENCE_IMAGES = 4;
 const DATA_URL_PATTERN = /^data:image\/[a-zA-Z0-9.+-]+;base64,/;
+const ALLOWED_IMAGE_FORMATS = new Set(["jpeg", "png", "webp", "gif"]);
 
 // The after() background job (see POST below) is what normally flips a row
 // out of "generating" -- but nothing guarantees it gets to run: a redeploy,
@@ -121,6 +123,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return rateLimitedResponse();
   }
 
+  // Base64 inflates bytes by ~4/3, so this is the JSON-body ceiling implied
+  // by MAX_REFERENCE_IMAGES * MAX_REFERENCE_IMAGE_BYTES -- checked against
+  // the declared Content-Length before request.json() buffers the whole
+  // body into memory, with headroom for the JSON wrapper/prompt text.
+  const MAX_REQUEST_BODY_BYTES = Math.ceil((MAX_REFERENCE_IMAGES * MAX_REFERENCE_IMAGE_BYTES * 4) / 3) + 64 * 1024;
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   let body: GenerateImageRequestBody;
   try {
     body = await request.json();
@@ -169,6 +181,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const approxBytes = (referenceImage.length * 3) / 4;
       if (approxBytes > MAX_REFERENCE_IMAGE_BYTES) {
         return NextResponse.json({ error: "Each reference image must be under 8MB" }, { status: 400 });
+      }
+
+      // The data-URL prefix above is just a label the client attached to the
+      // payload -- it isn't verified against the actual bytes. Decode and
+      // sniff the real image header with sharp so a mislabeled/spoofed file
+      // (e.g. an arbitrary blob wrapped in "data:image/png;base64,") can't
+      // reach the downstream model provider as if it were a real image.
+      const base64Payload = referenceImage.slice(referenceImage.indexOf(",") + 1);
+      const imageBuffer = Buffer.from(base64Payload, "base64");
+      try {
+        const { format } = await sharp(imageBuffer).metadata();
+        if (!format || !ALLOWED_IMAGE_FORMATS.has(format)) {
+          return NextResponse.json({ error: "referenceImages must be valid JPEG, PNG, WebP, or GIF images" }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: "referenceImages must be valid image files" }, { status: 400 });
       }
     }
   }

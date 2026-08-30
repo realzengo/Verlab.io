@@ -216,10 +216,10 @@ function renderVideoList(videos: NicheReportVideo[]): string {
         .map((video, i) => {
           const clickable = Boolean(video.videoUrl);
           const cover = video.coverUrl
-            ? `<img class="vf-video-cover" src="${video.coverUrl}" alt="">`
+            ? `<img class="vf-video-cover" src="${escapeHtml(video.coverUrl)}" alt="">`
             : `<div class="vf-video-cover-empty"></div>`;
           const avatar = video.avatarUrl
-            ? `<img class="vf-video-avatar" src="${video.avatarUrl}" alt="">`
+            ? `<img class="vf-video-avatar" src="${escapeHtml(video.avatarUrl)}" alt="">`
             : "";
           const author = video.author ? `<span class="vf-video-author">@${escapeHtml(video.author)}</span>` : "";
           return `

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
+import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
 function maxYearlyPercentOff(plans: PricingPlan[]): number {
   return plans.reduce((max, plan) => {
@@ -27,6 +28,8 @@ export function PricingTable({
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useResetOnPageRestore(() => setCheckingOutPlanId(null));
 
   async function handleSelect(plan: PricingPlan) {
     setError(null);

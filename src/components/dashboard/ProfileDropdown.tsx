@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { Switch } from "@/components/ui/Switch";
 import { useTheme } from "@/components/theme/ThemeProvider";
+import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 
 function displayName(user: User | null): string {
   const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
@@ -23,13 +24,13 @@ function avatarUrl(user: User | null): string | null {
 const SUPPORT_URL = "https://discord.gg/pG9uFUhJb4";
 
 const NAV_LINKS = [
-  { label: "Upgrade", href: "/pricing", icon: ArrowUpCircle },
   { label: "Settings", href: "/settings", icon: Settings },
   { label: "Earn with Verlab", href: "/affiliates", icon: CircleDollarSign },
 ];
 
 export function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -94,6 +95,17 @@ export function ProfileDropdown() {
           </div>
 
           <div className="border-t border-hairline mt-3">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setIsUpgradeOpen(true);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+            >
+              <ArrowUpCircle className="w-4 h-4" />
+              Upgrade
+            </button>
             {NAV_LINKS.map(({ label, href, icon: Icon }) => (
               <Link
                 key={label}
@@ -142,6 +154,8 @@ export function ProfileDropdown() {
           </div>
         </div>
       )}
+
+      <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />
     </div>
   );
 }

@@ -26,7 +26,7 @@ function render(data: VideoGridData | null) {
     .map(
       (video, index) => `
       <button class="v-video" data-index="${index}">
-        ${video.coverUrl ? `<img src="${video.coverUrl}" alt="">` : `<div class="v-video-thumb-empty"></div>`}
+        ${video.coverUrl ? `<img src="${escapeHtml(video.coverUrl)}" alt="">` : `<div class="v-video-thumb-empty"></div>`}
         <span class="v-video-badge">${video.platform === "tiktok" ? "TikTok" : "YouTube"}</span>
         <div class="v-video-info">
           <div class="v-video-title">${escapeHtml(truncate(video.title, 60))}</div>

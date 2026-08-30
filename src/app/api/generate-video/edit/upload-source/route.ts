@@ -6,6 +6,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const maxDuration = 30;
 
 const STORAGE_BUCKET = "videos";
+
+// The bucket's allowed_mime_types (see the videos_bucket migration) only
+// checks the Content-Type the *browser* declares on its direct-to-Storage
+// PUT -- same as a spoofable Content-Type header on a normal upload, since
+// these bytes never pass through this app's server to be sniffed there.
+// This is the belated sniff: once the browser confirms its upload
+// succeeded, pull back just the header bytes (not the whole file -- it can
+// be up to 500MB) and check them against real container magic numbers
+// before trusting the row as "completed".
+const FTYP_OFFSET = 4;
+const FTYP_MAGIC = Buffer.from("ftyp", "ascii"); // ISO-BMFF (mp4/mov)
+const EBML_MAGIC = Buffer.from([0x1a, 0x45, 0xdf, 0xa3]); // webm/mkv
+const HEADER_SNIFF_BYTES = 12;
+
+function looksLikeVideo(header: Buffer): boolean {
+  if (header.length >= FTYP_OFFSET + FTYP_MAGIC.length && header.subarray(FTYP_OFFSET, FTYP_OFFSET + FTYP_MAGIC.length).equals(FTYP_MAGIC)) {
+    return true;
+  }
+  return header.subarray(0, EBML_MAGIC.length).equals(EBML_MAGIC);
+}
 // Generous sanity cap, not the real Kling-specific gate -- the actual
 // 3-10.05s window is enforced against the *selected* edit model at submit
 // time (see /api/generate-video/edit/route.ts), which can change after this
@@ -104,14 +124,39 @@ async function handlePATCH(request: NextRequest): Promise<NextResponse> {
 
   const { data: row } = await supabase
     .from("video_generations")
-    .select("id")
+    .select("id, output_video_path")
     .eq("id", body.id)
     .eq("user_id", user.id)
     .eq("operation", "uploaded")
     .maybeSingle();
 
-  if (!row) {
+  if (!row || !row.output_video_path) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const admin = createAdminClient();
+  const { data: signed, error: signError } = await admin.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(row.output_video_path, 60);
+
+  if (signError || !signed) {
+    console.error("[generate-video/edit/upload-source] Failed to sign for header sniff:", signError);
+    return NextResponse.json({ error: "Could not verify upload" }, { status: 500 });
+  }
+
+  const headerResponse = await fetch(signed.signedUrl, {
+    headers: { Range: `bytes=0-${HEADER_SNIFF_BYTES - 1}` },
+  }).catch(() => null);
+
+  const header = headerResponse?.ok ? Buffer.from(await headerResponse.arrayBuffer()) : null;
+
+  if (!header || !looksLikeVideo(header)) {
+    await admin.storage.from(STORAGE_BUCKET).remove([row.output_video_path]);
+    await supabase
+      .from("video_generations")
+      .update({ status: "failed", error_message: "Uploaded file isn't a valid video." })
+      .eq("id", row.id);
+    return NextResponse.json({ error: "Uploaded file isn't a valid video." }, { status: 400 });
   }
 
   const { error: updateError } = await supabase.from("video_generations").update({ status: "completed" }).eq("id", row.id);

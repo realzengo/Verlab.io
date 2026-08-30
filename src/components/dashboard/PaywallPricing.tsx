@@ -6,6 +6,7 @@ import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyTog
 import { createClient } from "@/lib/supabase/client";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
+import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
 // Mirrors planRowToPricingPlan in UpgradeModal.tsx -- kept in sync there since
 // it can't be shared without pulling the service-role client into a bundle.
@@ -60,6 +61,8 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useResetOnPageRestore(() => setCheckingOutPlanId(null));
 
   useEffect(() => {
     let cancelled = false;
