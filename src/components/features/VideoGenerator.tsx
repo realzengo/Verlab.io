@@ -28,7 +28,7 @@ import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TopUpModal } from "@/components/TopUpModal";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
-import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import { CREDITS_CHANGED_EVENT, notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { readHistoryCache, writeHistoryCache } from "@/lib/client/history-cache";
 import { consumeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
 import {
@@ -53,6 +53,7 @@ import { ReferenceImagesPicker } from "./video-generator/ReferenceImagesPicker";
 import { SourceVideoPicker } from "./video-generator/SourceVideoPicker";
 import { MobileCreatePanel } from "./video-generator/MobileCreatePanel";
 import { MobileEditPanel } from "./video-generator/MobileEditPanel";
+import { LowCreditBanner } from "./video-generator/LowCreditBanner";
 
 type VideoMode = "create" | "edit" | "motion";
 
@@ -447,6 +448,14 @@ export function VideoGenerator() {
   const [showTopUp, setShowTopUp] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const { data: creditsSummary, mutate: mutateCredits } = useSWR<{ balance: number }>("/api/credits/summary");
+  const creditBalance = creditsSummary?.balance ?? null;
+  useEffect(() => {
+    const handleCreditsChanged = () => void mutateCredits();
+    window.addEventListener(CREDITS_CHANGED_EVENT, handleCreditsChanged);
+    return () => window.removeEventListener(CREDITS_CHANGED_EVENT, handleCreditsChanged);
+  }, [mutateCredits]);
 
   const {
     data: historyData,
@@ -1182,6 +1191,9 @@ export function VideoGenerator() {
                         {editError}
                       </p>
                     )}
+                    {creditBalance !== null && creditBalance < estimatedEditCost && (
+                      <LowCreditBanner balance={creditBalance} cost={estimatedEditCost} onTopUp={() => setShowTopUp(true)} />
+                    )}
                   </div>
 
                   <div className="lg:hidden">
@@ -1228,6 +1240,8 @@ export function VideoGenerator() {
                       estimatedCost={estimatedEditCost}
                       onGenerate={handleGenerateEdit}
                       error={editError}
+                      creditBalance={creditBalance}
+                      onTopUp={() => setShowTopUp(true)}
                     />
                   </div>
                   </>
@@ -1369,6 +1383,9 @@ export function VideoGenerator() {
                         {error}
                       </p>
                     )}
+                    {creditBalance !== null && creditBalance < estimatedCost && (
+                      <LowCreditBanner balance={creditBalance} cost={estimatedCost} onTopUp={() => setShowTopUp(true)} />
+                    )}
                   </div>
 
                   <div className="lg:hidden">
@@ -1403,6 +1420,8 @@ export function VideoGenerator() {
                       estimatedCost={estimatedCost}
                       onGenerate={handleGenerate}
                       error={error}
+                      creditBalance={creditBalance}
+                      onTopUp={() => setShowTopUp(true)}
                     />
                   </div>
                   </>

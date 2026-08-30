@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Plug } from "lucide-react";
+import { ArrowRight, Check, Plug, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
@@ -88,44 +88,59 @@ export default async function OAuthAuthorizePage({
   })();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app px-4">
-      <Card className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app px-4">
+      {/* Ambient brand glow */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[110px]" />
+
+      <Card className="relative w-full max-w-md" shadow>
+        <div className="flex items-center justify-center gap-4">
           <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
             <ClientIcon clientName={client.clientName} />
           </span>
-          <span className="flex shrink-0 items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
-            <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
-            <span className="h-1.5 w-1.5 rounded-full bg-hairline" />
+
+          <span className="relative flex shrink-0 items-center">
+            <span className="h-px w-5 bg-gradient-to-r from-transparent to-hairline" />
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-hairline bg-app">
+              <ArrowRight className="h-3 w-3 text-subtle" />
+            </span>
+            <span className="h-px w-5 bg-gradient-to-l from-transparent to-hairline" />
           </span>
+
           <span className="relative block h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card">
-            <Image src="/logo-icon.png" alt="" fill className="object-contain p-1.5" sizes="64px" />
+            <Image src="/logo-icon.png" alt="" fill className="object-cover" sizes="64px" />
           </span>
         </div>
 
-        <h1 className="mt-6 text-center text-xl font-bold text-heading">{clientLabel} wants to access Verlab</h1>
+        <h1 className="mt-6 text-center text-xl font-bold tracking-tight text-heading">
+          {clientLabel} wants to access Verlab
+        </h1>
         <p className="mt-1.5 text-center text-sm text-subtle">on behalf of your account</p>
 
         <div className="mt-6 rounded-2xl border border-hairline bg-app p-4">
           <p className="text-[11px] font-semibold tracking-wide text-subtle uppercase">
-            This will allow {clientLabel} access to:
+            This will allow {clientLabel} to
           </p>
-          <ul className="mt-2.5 flex flex-col gap-2">
-            <li className="flex items-center gap-2.5 text-sm text-heading">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-              Your email address
+          <ul className="mt-3 flex flex-col gap-3">
+            <li className="flex items-center gap-3 text-sm font-medium text-heading">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+              </span>
+              View your email address
             </li>
-            <li className="flex items-center gap-2.5 text-sm text-heading">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+            <li className="flex items-center gap-3 text-sm font-medium text-heading">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+              </span>
               Use your Verlab tools and credits on your behalf
             </li>
           </ul>
         </div>
 
-        <p className="mt-5 text-center text-xs text-subtle">
-          Make sure you trust {clientLabel} ({requestedHost}). You may be sharing sensitive data with this site or
-          app.
+        <p className="mt-5 flex items-start justify-center gap-1.5 text-center text-xs text-subtle">
+          <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0 text-subtle" />
+          <span>
+            Make sure you trust {clientLabel} ({requestedHost}) — you may be sharing sensitive data with this app.
+          </span>
         </p>
 
         <form method="POST" action="/api/oauth/authorize" className="mt-6 flex gap-3">
@@ -140,9 +155,9 @@ export default async function OAuthAuthorizePage({
             type="submit"
             name="decision"
             value="deny"
-            variant="secondary"
+            variant="ghost"
             size="lg"
-            className="flex-1 justify-center"
+            className="flex-1 justify-center border border-hairline"
           >
             Deny
           </Button>

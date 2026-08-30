@@ -19,6 +19,10 @@ type Tab = PlanTopupTab;
 // can't be imported here -- it pulls in the service-role Supabase client,
 // which must never reach a client bundle. plan_definitions has a public-read
 // RLS policy, so the browser client can query it directly instead.
+// PLAN_DEFINITION_SELECT mirrors admin-queries.ts's column list too -- the
+// table also has `updated_at`, which nothing here renders.
+const PLAN_DEFINITION_SELECT = "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
+
 interface PlanDefinitionRow {
   id: string;
   name: string;
@@ -98,7 +102,7 @@ export function UpgradeModal({
     let cancelled = false;
     (async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("plan_definitions").select("*").order("sort_order");
+      const { data } = await supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order");
       if (!cancelled && data && data.length > 0) {
         setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
       }

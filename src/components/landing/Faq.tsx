@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { FAQ_ITEMS } from "@/lib/mock/faq";
+import { Reveal } from "@/components/ui/Reveal";
 import { cn } from "@/lib/utils";
 
 export function Faq() {
@@ -10,13 +11,13 @@ export function Faq() {
 
   return (
     <section id="faq" className="mx-auto w-full max-w-[88rem] px-4 py-14 sm:px-6 sm:py-[90px]">
-      <div className="text-center">
+      <Reveal className="text-center">
         <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
           Frequently asked questions
         </h2>
-      </div>
+      </Reveal>
 
-      <div className="relative mt-8 sm:mt-12">
+      <Reveal delay={100} className="relative mt-8 sm:mt-12">
         <div className="relative rounded-[36px] bg-gradient-to-b from-blue-100 to-blue-200/80 p-3 shadow-[0_30px_70px_-24px_rgba(37,99,235,0.4),0_0_0_1px_rgba(255,255,255,0.6)_inset] sm:p-3.5">
           <div
             aria-hidden
@@ -61,7 +62,7 @@ export function Faq() {
             </div>
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

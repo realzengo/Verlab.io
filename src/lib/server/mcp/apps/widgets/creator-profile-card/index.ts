@@ -79,12 +79,12 @@ function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): str
     .join("");
 
   return `
-    ${renderSection("The Hook Formula", analysis.hookFormula)}
-    ${renderSection("Pacing & Structure", analysis.pacingAndStructure)}
-    ${renderSection("Voice & Delivery", analysis.voiceAndTone)}
-    ${renderSection("Recurring Patterns", analysis.recurringPatterns)}
+    ${renderSection("The hook formula", analysis.hookFormula)}
+    ${renderSection("Pacing and structure", analysis.pacingAndStructure)}
+    ${renderSection("Voice and delivery", analysis.voiceAndTone)}
+    ${renderSection("Recurring patterns", analysis.recurringPatterns)}
     <div class="v-report-section">
-      <div class="v-report-heading">How To Replicate This</div>
+      <div class="v-report-heading">How to replicate this</div>
       <ol class="v-steps">${steps}</ol>
     </div>
     ${

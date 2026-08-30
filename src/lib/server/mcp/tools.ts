@@ -361,7 +361,10 @@ const findNicheTool: McpToolDefinition = {
         stage: "processing",
         id: row.id,
         platform,
-        note: "Still researching — call check_niche_report_status with this id shortly.",
+        // The widget polls check_niche_report_status itself and updates in place --
+        // telling the calling model to also call it would just spawn duplicate
+        // "processing" widget cards in the chat on top of the one already polling.
+        note: "Still researching — the report will appear in the widget above once it's ready, no need to check again.",
       });
     }
 
@@ -393,7 +396,12 @@ const checkNicheReportStatusTool: McpToolDefinition = {
     if (!data) return errorResult("Not found");
     if (data.status === "failed") return jsonResult({ stage: "error", error_message: data.error_message ?? "Research failed" });
     if (data.status === "processing") {
-      return jsonResult({ stage: "processing", id: data.id, platform: data.platform, note: "Still researching — try again shortly." });
+      return jsonResult({
+        stage: "processing",
+        id: data.id,
+        platform: data.platform,
+        note: "Still researching — the widget polls this automatically and will show the report once it's ready, no need to check again.",
+      });
     }
     return jsonResult({ stage: "result", id: data.id, platform: data.platform, niches: data.niches, live: data.live });
   },
@@ -507,7 +515,10 @@ const generateImageTool: McpToolDefinition = {
       return jsonResult({
         id: row.id,
         status: "generating",
-        note: "Still generating — call check_image_status with this id shortly.",
+        // The widget polls check_image_status itself and updates in place --
+        // telling the calling model to also call it would just spawn duplicate
+        // "generating" widget cards in the chat on top of the one already polling.
+        note: "Still generating — the image will appear in the widget above once it's ready, no need to check again.",
       });
     }
 

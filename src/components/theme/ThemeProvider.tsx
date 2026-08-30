@@ -25,10 +25,13 @@ function systemTheme(): ResolvedTheme {
 // the marketing site, login, and signup pages must always render light.
 // Old-style /app and /admin paths are still themed directly (bookmarks,
 // local dev where there's no real subdomain split); everything else on
-// app.verlab.io is a clean-URL dashboard page and themed via hostname.
+// app.verlab.io (or its dev stand-in, app.localhost -- see APP_URL in
+// src/lib/constants.ts) is a clean-URL dashboard page themed via hostname.
 function isThemedRoute(pathname: string) {
   if (pathname.startsWith("/app") || pathname.startsWith("/admin")) return true;
-  if (typeof window === "undefined" || window.location.hostname !== "app.verlab.io") return false;
+  if (typeof window === "undefined") return false;
+  const { hostname } = window.location;
+  if (hostname !== "app.verlab.io" && hostname !== "app.localhost") return false;
   return !UNTHEMED_APP_HOST_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 

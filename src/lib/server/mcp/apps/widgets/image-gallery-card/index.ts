@@ -32,8 +32,8 @@ function render(data: ImageData | null) {
         <figure class="v-image-frame">
           <img src="${escapeHtml(src)}" alt="">
           <figcaption class="v-image-actions">
-            <button class="v-btn v-btn-ghost" data-action="view" data-index="${index}" type="button">${EYE_ICON}View</button>
-            <button class="v-btn" data-action="download" data-index="${index}" type="button">${DOWNLOAD_ICON}Download</button>
+            <button class="v-btn" data-action="view" data-index="${index}" type="button">${EYE_ICON}View</button>
+            <button class="v-btn v-btn-primary" data-action="download" data-index="${index}" type="button">${DOWNLOAD_ICON}Download</button>
           </figcaption>
         </figure>`
       )

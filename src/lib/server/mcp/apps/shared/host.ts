@@ -1,4 +1,4 @@
-import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
+import { App, PostMessageTransport, applyDocumentTheme } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 // Verlab's brand mark, inlined as SVG path data so every widget carries the
@@ -39,8 +39,17 @@ export function connectApp({ name, onResult, onLoading, onConnected }: ConnectAp
   app.onerror = (error) => console.error(`[verlab:${name}]`, error);
   app.ontoolinput = () => onLoading?.();
   app.ontoolresult = (result) => onResult(result as CallToolResult);
+  // Hosts that implement the theme handshake report light/dark here --
+  // applyDocumentTheme sets [data-theme] on <html>, which base.css's dark
+  // overrides key off. Hosts that don't implement it just never call this,
+  // and prefers-color-scheme covers the fallback.
+  app.onhostcontextchanged = (ctx) => {
+    if (ctx.theme) applyDocumentTheme(ctx.theme);
+  };
 
   app.connect(new PostMessageTransport(window.parent, window.parent)).then(() => {
+    const theme = app.getHostContext()?.theme;
+    if (theme) applyDocumentTheme(theme);
     onConnected?.(app);
   });
 

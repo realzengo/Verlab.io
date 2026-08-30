@@ -8,6 +8,7 @@ import type { PromptEditModelConfig } from "@/lib/config/video-models";
 import { cn } from "@/lib/utils";
 import { readFileAsDataUrl } from "./FrameImagePicker";
 import { SourceVideoPicker, type SourceVideoOption } from "./SourceVideoPicker";
+import { LowCreditBanner } from "./LowCreditBanner";
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -51,6 +52,9 @@ interface MobileEditPanelProps {
   estimatedCost: number;
   onGenerate: () => void;
   error: string | null;
+
+  creditBalance: number | null;
+  onTopUp: () => void;
 }
 
 /**
@@ -86,6 +90,8 @@ export function MobileEditPanel({
   estimatedCost,
   onGenerate,
   error,
+  creditBalance,
+  onTopUp,
 }: MobileEditPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -288,6 +294,9 @@ export function MobileEditPanel({
         <p className="text-sm font-medium text-red-500" role="alert">
           {error}
         </p>
+      )}
+      {creditBalance !== null && creditBalance < estimatedCost && (
+        <LowCreditBanner balance={creditBalance} cost={estimatedCost} onTopUp={onTopUp} />
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/90 lg:hidden">

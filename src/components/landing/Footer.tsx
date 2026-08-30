@@ -131,12 +131,14 @@ export function Footer() {
         <div aria-hidden className="absolute inset-0" style={{ backgroundImage: GLOW_GRADIENT }} />
 
         <div
-          className="relative flex h-[150px] items-end justify-center overflow-hidden px-6 sm:h-[200px] lg:h-[250px]"
+          className="relative flex h-[150px] items-end justify-center overflow-hidden px-6 select-none sm:h-[200px] lg:h-[250px]"
           style={{ perspective: "600px" }}
         >
           <span
-            className={`${europaGrotesk.className} whitespace-nowrap font-bold uppercase leading-[0.8] tracking-[0.02em]`}
+            className={`${europaGrotesk.className} select-none whitespace-nowrap font-bold uppercase leading-[0.8] tracking-[0.02em]`}
             style={{
+              userSelect: "none",
+              WebkitUserSelect: "none",
               fontSize: "clamp(2.75rem, 9vw, 8rem)",
               color: "transparent",
               WebkitTextStroke: "1px rgba(255,255,255,0.9)",

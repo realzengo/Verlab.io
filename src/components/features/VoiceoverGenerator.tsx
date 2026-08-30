@@ -497,7 +497,7 @@ export function VoiceoverGenerator() {
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE_ID);
-  const generationMode: GenerationMode = "all_at_once";
+  const generationMode: GenerationMode = "line_by_line";
   const [stylePrompt, setStylePrompt] = useState(DEFAULT_STYLE_PROMPT);
   const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
 

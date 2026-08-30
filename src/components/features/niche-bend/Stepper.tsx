@@ -15,7 +15,7 @@ export function Stepper({
   onStepClick?: (step: 1 | 2 | 3) => void;
 }) {
   return (
-    <div className="sticky top-0 z-20 -mt-2 bg-app/80 py-5 backdrop-blur-xl">
+    <div className="sticky top-0 z-20 -mt-2 bg-white/80 py-5 backdrop-blur-xl dark:bg-black/80">
       <div className="mx-auto flex max-w-3xl items-center gap-2">
         {STEPS.map(({ step, label }, index) => {
           const complete = step < currentStep;

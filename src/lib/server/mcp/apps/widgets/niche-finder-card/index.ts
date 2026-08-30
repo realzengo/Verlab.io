@@ -123,6 +123,7 @@ function renderForm() {
           <div class="vf-q-title">Channels you already love or watch?</div>
           <div class="vf-q-help">Names or @handles — even ones outside the niche you're chasing.</div>
           <textarea class="vf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel...">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
+          <div class="vf-error" id="nf-error" hidden></div>
         </div>
       </div>
 
@@ -168,11 +169,11 @@ function renderForm() {
           <div class="vf-q-title">Monthly budget</div>
           <div class="vf-q-help">Roughly what you'd spend to produce videos each month.</div>
           <input class="vf-input" id="nf-budget" type="number" min="0" step="50" placeholder="1500" value="${escapeHtml(lastAnswers.budget)}">
+          <div class="vf-error" id="nf-budget-error" hidden></div>
         </div>
       </div>
 
       <button type="button" class="vf-submit" id="nf-submit">Find my niche</button>
-      <div class="vf-error" id="nf-error" hidden></div>
     </div>
   `;
 }
@@ -291,6 +292,13 @@ function showFormError(message: string) {
   el.textContent = message;
 }
 
+function showBudgetError(message: string | null) {
+  const el = document.getElementById("nf-budget-error") as HTMLElement | null;
+  if (!el) return;
+  el.hidden = !message;
+  el.textContent = message ?? "";
+}
+
 function setSubmitting(submitting: boolean) {
   const btn = document.getElementById("nf-submit") as HTMLButtonElement | null;
   if (!btn) return;
@@ -405,6 +413,12 @@ root.addEventListener("click", async (event) => {
     showFormError("Answer at least the first two questions — that's what actually drives the report.");
     return;
   }
+
+  if (lastAnswers.budget && (!Number.isFinite(Number(lastAnswers.budget)) || Number(lastAnswers.budget) < 0)) {
+    showBudgetError("Enter a budget of 0 or more.");
+    return;
+  }
+  showBudgetError(null);
 
   const errorEl = document.getElementById("nf-error") as HTMLElement | null;
   if (errorEl) errorEl.hidden = true;

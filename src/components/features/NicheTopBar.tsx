@@ -858,7 +858,7 @@ export function NicheTopBar({
   }
 
   return (
-    <div className="sticky top-0 z-20 -mx-4 bg-app px-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+    <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
         <form
           onSubmit={(e) => {
@@ -894,7 +894,7 @@ export function NicheTopBar({
           )}
         </form>
 
-        <button type="button" onClick={onSearchSubmit} className={cn(TOOLBAR_BUTTON, "bg-app")}>
+        <button type="button" onClick={onSearchSubmit} className={TOOLBAR_BUTTON}>
           Search
         </button>
 

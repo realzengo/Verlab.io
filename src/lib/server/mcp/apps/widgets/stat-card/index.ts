@@ -19,8 +19,8 @@ function render(data: StatData | null) {
         <span class="v-title">Verlab</span>
       </div>
       <div class="v-stat">
+        <div class="v-stat-label">Credits remaining</div>
         <div class="v-stat-value">${data.credits.toLocaleString()}</div>
-        <div class="v-stat-label">credits remaining</div>
       </div>
     </div>
   `;

@@ -19,7 +19,7 @@ function render(data: DownloadData | null) {
   if (data?.error_message) {
     body = `<div class="v-error">${escapeHtml(data.error_message)}</div>`;
   } else if (downloadUrl) {
-    body = `<button class="v-btn" id="download-btn">Download video</button>`;
+    body = `<button class="v-btn v-btn-primary" id="download-btn">Download video</button>`;
   } else {
     const progress = typeof data?.progress === "number" ? ` (${data.progress}%)` : "";
     body = `<div class="v-empty">${escapeHtml((data?.note ?? "Preparing download…") + progress)}</div>`;

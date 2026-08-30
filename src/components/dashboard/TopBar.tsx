@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { Menu, Rocket } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 function defaultHeading(pathname: string): string {
@@ -14,6 +16,20 @@ function defaultHeading(pathname: string): string {
   if (match) return match.label;
   if (pathname.startsWith("/settings")) return "Settings";
   return "Verlab";
+}
+
+function firstName(user: User | null): string {
+  const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
+  const full = meta?.full_name ?? meta?.name ?? user?.email?.split("@")[0] ?? "";
+  const first = full.split(" ")[0];
+  return first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
+}
+
+function timeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export function TopBar({
@@ -27,11 +43,28 @@ export function TopBar({
   isPaywalled?: boolean;
 }) {
   const pathname = usePathname();
+  const isHome = pathname === "/";
   const resolvedHeading = heading ?? defaultHeading(pathname);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const today = isHome
+    ? new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+    : "";
+
+  useEffect(() => {
+    if (!isHome) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, [isHome]);
 
   const hideHeading =
-    pathname === "/" ||
+    isHome ||
     pathname.startsWith("/scripts") ||
     pathname.startsWith("/library") ||
     pathname.startsWith("/transcripts") ||
@@ -46,13 +79,15 @@ export function TopBar({
   return (
     <div
       className={cn(
-        "relative z-30 flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-6 md:px-8",
-        // Niche Finder's sticky search bar uses the app-background fill --
-        // match it here so the two don't show a seam before the page is
-        // scrolled. Scoped to this one route rather than applied globally,
-        // since other pages (home, MCP) rely on TopBar staying transparent
-        // over their own background effects.
-        pathname.startsWith("/niches") && "bg-app"
+        "relative z-30 flex items-center justify-between gap-2 px-3 pb-2.5 pt-1.5 sm:gap-4 sm:px-6 md:px-8 sm:pb-4 sm:pt-3",
+        // Niche Finder's tabs/search bar are a flat white block -- match it
+        // here so the two don't show a seam before the page is scrolled.
+        // Scoped to this one route rather than applied globally, since other
+        // pages (home, MCP) rely on TopBar staying transparent over their
+        // own background effects.
+        pathname.startsWith("/niches") && "bg-surface",
+        isHome && "bg-surface",
+        isHome && "border-b border-hairline"
       )}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -64,10 +99,28 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {!hideHeading && (
-          <h1 className="min-w-0 truncate text-lg font-bold tracking-tight text-heading sm:text-2xl">
-            {resolvedHeading}
-          </h1>
+        {isHome ? (
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl" suppressHydrationWarning>
+              {timeGreeting()}
+              {firstName(user) && (
+                <>
+                  , <span className="bg-gradient-to-r from-heading to-heading/60 bg-clip-text text-transparent">{firstName(user)}</span>
+                </>
+              )}
+            </h1>
+            {today && (
+              <p className="hidden truncate text-xs text-subtle sm:block" suppressHydrationWarning>
+                {today}
+              </p>
+            )}
+          </div>
+        ) : (
+          !hideHeading && (
+            <h1 className="min-w-0 truncate text-lg font-bold tracking-tight text-heading sm:text-2xl">
+              {resolvedHeading}
+            </h1>
+          )
         )}
       </div>
 

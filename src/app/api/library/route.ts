@@ -20,7 +20,7 @@ import type { LibraryAsset, LibraryAssetType, NicheBendCandidate } from "@/lib/t
 const IMAGE_SELECT = "id, prompt, model, outputs, created_at";
 // Same byte-light approach: no raw video bytes here, just the path columns
 // /api/library/video/[id] needs to mint signed playback/thumbnail URLs.
-const VIDEO_SELECT = "id, prompt, model, output_video_path, thumbnail_path, created_at";
+const VIDEO_SELECT = "id, prompt, model, operation, output_video_path, thumbnail_path, created_at";
 const SOP_SELECT = "id, analysis, chosen_bend, created_at";
 const VOICEOVER_SELECT = "id, title, voice_id, created_at";
 
@@ -60,6 +60,11 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
           .from("video_generations")
           .select(VIDEO_SELECT)
           .eq("status", "completed")
+          // "uploaded" rows are raw edit-source input the user uploaded to use
+          // as a starting point for an edit, not a deliverable the Library
+          // should list -- they carry no prompt, which previously made them
+          // show up mislabeled as "Generated video".
+          .neq("operation", "uploaded")
           .order("created_at", { ascending: false })
           .limit(40)
       : Promise.resolve({ data: [] as never[], error: null }),

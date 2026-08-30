@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ClaudeIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
+import { Reveal } from "@/components/ui/Reveal";
 import { SpotlightCard } from "@/components/ui/SpotlightCard";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 import { TOOL_TONE_CLASSES } from "@/lib/tone";
@@ -458,14 +459,14 @@ export function FeaturesGridSection() {
   return (
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
       <div className="w-full px-5 sm:px-6">
-        <div className="flex flex-col items-center text-center">
+        <Reveal className="flex flex-col items-center text-center">
           <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Every AI tool, in one place.
           </h2>
           <p className="mt-4 max-w-xl text-base font-medium leading-snug text-slate-500 sm:mt-5 sm:text-lg">
             Generate videos, images, voiceovers, and scripts, all in one place.
           </p>
-        </div>
+        </Reveal>
 
         <div
           className={cn(
@@ -474,20 +475,22 @@ export function FeaturesGridSection() {
             "sm:mx-0 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0"
           )}
         >
-          {HERO_TOOLS.map((tool) => (
-            <div key={tool.title} className="h-full w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
+          {HERO_TOOLS.map((tool, i) => (
+            <Reveal key={tool.title} delay={i * 90} className="h-full w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
               <HeroToolCard {...tool} />
-            </div>
+            </Reveal>
           ))}
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <div className="lg:col-span-2">
+          <Reveal className="lg:col-span-2">
             <McpDemoCard />
-          </div>
+          </Reveal>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
-            {TOOL_LOGOS.map((tool) => (
-              <ToolLogoCard key={tool.title} {...tool} />
+            {TOOL_LOGOS.map((tool, i) => (
+              <Reveal key={tool.title} delay={i * 60}>
+                <ToolLogoCard {...tool} />
+              </Reveal>
             ))}
           </div>
         </div>

@@ -40,7 +40,7 @@ function lineRow(segment: Segment, index: number): string {
     </div>`;
 }
 
-const SEGMENT_LABEL: Record<Segment["role"], string> = { hook: "Hook", body: "Body", cta: "Call to Action" };
+const SEGMENT_LABEL: Record<Segment["role"], string> = { hook: "Hook", body: "Body", cta: "Call to action" };
 
 function segmentedBody(): string {
   const blocks: { role: Segment["role"]; start: number; end: number }[] = [];

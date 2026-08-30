@@ -126,15 +126,32 @@ async function handleGeminiEdit(params: GeminiEditParams): Promise<NextResponse>
             .upload(outputPath, result.bytes, { contentType: result.contentType, upsert: true });
           if (uploadError) throw new Error(`Video storage upload failed: ${uploadError.message}`);
 
+          // Record output_video_path right after the upload succeeds, before
+          // charging -- a charge failure below used to leave this row headed
+          // to the catch clause's "failed" update with output_video_path
+          // never set, orphaning the file that's already sitting in Storage
+          // (mirrors the same fix in video-jobs.ts's advanceVideoJob). Checked
+          // explicitly, not just left to throw: a PostgREST-level error here
+          // doesn't propagate on its own, so it needs its own cleanup path.
+          const { error: completeError } = await supabase
+            .from("video_generations")
+            .update({ status: "completed", output_video_path: outputPath })
+            .eq("id", rowId);
+
+          if (completeError) {
+            const { error: cleanupError } = await admin.storage.from(STORAGE_BUCKET).remove([outputPath]);
+            if (cleanupError) console.error("[generate-video/edit] Failed to remove orphaned storage object:", cleanupError);
+            throw new Error(`Failed to record completed video: ${completeError.message}`);
+          }
+
           try {
             await chargeUser(userId, perOutputCost, "Video Generation", `video.edit.${slugifyModelName(model.id)}`);
           } catch (creditError) {
-            // The video is already rendered and stored -- a ledger failure
-            // here shouldn't undo that (mirrors video-jobs.ts/generate-image).
+            // The video is already rendered, stored, and marked completed
+            // above -- a ledger failure here shouldn't undo that (mirrors
+            // video-jobs.ts/generate-image).
             console.error("[credits] Failed to deduct for Gemini video edit:", creditError);
           }
-
-          await supabase.from("video_generations").update({ status: "completed", output_video_path: outputPath }).eq("id", rowId);
         } catch (error) {
           await supabase
             .from("video_generations")

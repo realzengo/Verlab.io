@@ -356,7 +356,7 @@ export function HistoryPanel({
   }
 
   return (
-    <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-hairline bg-app/60 shadow-card dark:bg-white/[0.015]">
+    <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-hairline bg-white shadow-card dark:bg-white/[0.015]">
       <audio
         ref={audioRef}
         className="hidden"

@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { SWRConfig } from "swr";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { PaywallPricing } from "@/components/dashboard/PaywallPricing";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
-import { McpBackground } from "@/components/mcp/McpBackground";
 import { fetcher } from "@/lib/client/fetcher";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +27,6 @@ export function AppShell({
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackdrop, setShowBackdrop] = useState(false);
-  const pathname = usePathname();
 
   useEffect(() => {
     if (mobileNavOpen) {
@@ -39,9 +36,6 @@ export function AppShell({
     const timeout = setTimeout(() => setShowBackdrop(false), SIDEBAR_TRANSITION_MS);
     return () => clearTimeout(timeout);
   }, [mobileNavOpen]);
-  const isHome = pathname === "/";
-  const isMcp = pathname === "/mcp";
-  const isImageGenerator = pathname === "/image-generator";
 
   const topBarAndMain = (
     <>
@@ -77,24 +71,7 @@ export function AppShell({
             />
           )}
 
-          {isHome ? (
-            <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
-          ) : isMcp ? (
-            <McpBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</McpBackground>
-          ) : isImageGenerator ? (
-            <div className="relative flex min-w-0 flex-1 flex-col">
-              {/* Plain black background (inherited from bg-app on the parent) --
-                  just a single soft light near the top, not a full navy-tinted
-                  Aurora wash, per request to keep this page simple. */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-[420px] dark:block [mask-image:linear-gradient(to_bottom,black,transparent)] [background-image:radial-gradient(50%_70%_at_50%_0%,rgba(59,130,246,0.22)_0%,rgba(37,99,235,0.07)_45%,transparent_75%)]"
-              />
-              {topBarAndMain}
-            </div>
-          ) : (
-            <div className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</div>
-          )}
+          <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
         </div>
       </NicheSidebarProvider>
     </SWRConfig>

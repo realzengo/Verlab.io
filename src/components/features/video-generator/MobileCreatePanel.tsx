@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ModelIcon } from "./VideoModelPicker";
 import { EMPTY_FRAME_SLOT, loadFrameFile, type FrameSlotState } from "./FrameImagePicker";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
+import { LowCreditBanner } from "./LowCreditBanner";
 
 function MobileCard({ label, badge, children }: { label: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -210,6 +211,9 @@ interface MobileCreatePanelProps {
   estimatedCost: number;
   onGenerate: () => void;
   error: string | null;
+
+  creditBalance: number | null;
+  onTopUp: () => void;
 }
 
 /**
@@ -250,6 +254,8 @@ export function MobileCreatePanel({
   estimatedCost,
   onGenerate,
   error,
+  creditBalance,
+  onTopUp,
 }: MobileCreatePanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [showBuilderNotice, setShowBuilderNotice] = useState(false);
@@ -457,6 +463,9 @@ export function MobileCreatePanel({
         <p className="text-sm font-medium text-red-500" role="alert">
           {error}
         </p>
+      )}
+      {creditBalance !== null && creditBalance < estimatedCost && (
+        <LowCreditBanner balance={creditBalance} cost={estimatedCost} onTopUp={onTopUp} />
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/90 lg:hidden">

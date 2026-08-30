@@ -1,10 +1,9 @@
 .v-script {
   white-space: pre-wrap;
   font-family: var(--v-font);
-  font-size: 13px;
-  color: var(--v-body);
-  max-height: 380px;
-  overflow-y: auto;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -16,44 +15,42 @@
 }
 
 .v-seg-block {
-  margin-top: 14px;
+  margin-top: 1rem;
 }
 
 .v-seg-block:first-of-type {
-  margin-top: 12px;
+  margin-top: 0.75rem;
 }
 
 .v-seg-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   margin-bottom: 6px;
-  color: var(--v-subtle);
+  color: var(--text-muted);
 }
 
 .v-seg-hook .v-seg-label {
-  color: var(--v-primary);
+  color: var(--text-accent);
 }
 
 .v-seg-cta .v-seg-label {
-  color: var(--v-success);
+  color: var(--text-success);
 }
 
 .v-seg-lines {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border-radius: var(--v-radius-sm);
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
 .v-seg-hook .v-seg-lines {
-  background: var(--v-accent);
+  background: var(--bg-accent);
 }
 
 .v-seg-cta .v-seg-lines {
-  background: var(--v-success-tint);
+  background: var(--bg-success);
 }
 
 .v-line {
@@ -61,24 +58,24 @@
   align-items: flex-start;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: var(--v-radius-xs);
+  border-radius: var(--radius);
 }
 
 .v-seg-body .v-line:hover {
-  background: var(--v-fill);
+  background: var(--surface-1);
 }
 
 .v-line-text {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--v-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 .v-seg-hook .v-line-text {
-  color: var(--v-heading);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .v-copy-line {

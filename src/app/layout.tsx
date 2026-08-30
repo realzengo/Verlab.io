@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Inter } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import "@fontsource/open-sauce-one/400.css";
 import "@fontsource/open-sauce-one/500.css";
@@ -17,8 +16,6 @@ import { PostHogPageView } from "@/components/analytics/PostHogPageView";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
 // Mirrors isThemedRoute() in ThemeProvider.tsx -- keep the two in sync.
 // Can't import UNTHEMED_APP_HOST_PREFIXES here since this runs as an
 // inline <script>, not a module, so the list is duplicated below.
@@ -27,8 +24,9 @@ const THEME_INIT_SCRIPT = `
   try {
     var path = window.location.pathname;
     var unthemed = ["/login","/signup","/checkout","/oauth","/auth","/api","/legal","/pricing","/affiliates","/script-bending","/dev-preview-script-modal","/.well-known"];
+    var host = window.location.hostname;
     var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0 ||
-      (window.location.hostname === "app.verlab.io" && !unthemed.some(function (p) { return path === p || path.indexOf(p + "/") === 0; }));
+      ((host === "app.verlab.io" || host === "app.localhost") && !unthemed.some(function (p) { return path === p || path.indexOf(p + "/") === 0; }));
     if (!isAppRoute) return;
     var stored = localStorage.getItem("verlab-theme");
     document.documentElement.classList.toggle("dark", stored === "dark");
@@ -78,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`h-full antialiased ${GeistSans.variable} ${inter.variable}`}
+      className={`h-full antialiased ${GeistSans.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">

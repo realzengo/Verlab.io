@@ -2,8 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 320px;
-  overflow-y: auto;
 }
 
 .v-row {
@@ -11,14 +9,14 @@
   gap: 10px;
   align-items: center;
   padding: 8px;
-  border-radius: var(--v-radius-sm);
-  background: var(--v-fill);
+  border-radius: var(--radius);
+  background: var(--surface-1);
 }
 
 .v-row-thumb {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 6px;
   object-fit: cover;
   flex: none;
 }
@@ -28,8 +26,8 @@
 }
 
 .v-row-title {
-  color: var(--v-heading);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: 500;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -37,14 +35,14 @@
 }
 
 .v-row-sub {
-  color: var(--v-subtle);
+  color: var(--text-muted);
   font-size: 12px;
   margin-top: 2px;
 }
 
 .v-profile {
-  background: var(--v-fill);
-  border-radius: var(--v-radius-sm);
+  background: var(--surface-1);
+  border-radius: var(--radius);
   padding: 12px;
 }
 
@@ -56,8 +54,8 @@
 }
 
 .v-profile-name {
-  font-weight: 700;
-  color: var(--v-heading);
+  font-weight: 500;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -69,21 +67,22 @@
 }
 
 .v-stat-tile {
-  background: var(--v-accent);
-  border: 1px solid var(--v-accent-line);
-  border-radius: var(--v-radius-sm);
+  background: var(--surface-2);
+  border-radius: var(--radius);
   padding: 8px 10px;
 }
 
 .v-stat-tile-value {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--v-heading);
+  font-family: var(--v-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .v-stat-tile-label {
   font-size: 11px;
-  color: var(--v-subtle);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -102,32 +101,33 @@
 
 .v-bench-label {
   font-size: 12px;
-  color: var(--v-body);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .v-bench-track {
-  height: 8px;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-accent);
+  height: 6px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
   overflow: hidden;
 }
 
 .v-bench-fill {
   height: 100%;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-hairline);
+  border-radius: var(--radius);
+  background: var(--border-strong);
 }
 
 .v-bench-fill.top {
-  background: var(--v-primary);
+  background: var(--border-accent);
 }
 
 .v-bench-value {
+  font-family: var(--v-mono);
   font-size: 11px;
-  color: var(--v-subtle);
+  color: var(--text-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

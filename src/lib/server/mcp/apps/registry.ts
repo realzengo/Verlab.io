@@ -35,26 +35,26 @@ interface WidgetDefinition {
 // showing a stale cached fetch. Bump a widget's suffix whenever its HTML
 // changes meaningfully to force hosts to refetch.
 const WIDGETS = {
-  statCard: { resourceUri: "ui://verlab/stat-card-v4.html", html: statCardHtml, outputSchema: StatCardSchema },
-  listCard: { resourceUri: "ui://verlab/list-card-v4.html", html: listCardHtml, outputSchema: ListCardSchema },
+  statCard: { resourceUri: "ui://verlab/stat-card-v5.html", html: statCardHtml, outputSchema: StatCardSchema },
+  listCard: { resourceUri: "ui://verlab/list-card-v5.html", html: listCardHtml, outputSchema: ListCardSchema },
   videoGridCard: {
-    resourceUri: "ui://verlab/video-grid-card-v4.html",
+    resourceUri: "ui://verlab/video-grid-card-v5.html",
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
   scriptCard: {
-    resourceUri: "ui://verlab/script-card-v5.html",
+    resourceUri: "ui://verlab/script-card-v6.html",
     html: scriptCardHtml,
     outputSchema: ScriptCardSchema,
     permissions: { clipboardWrite: {} },
   },
   imageGalleryCard: {
-    resourceUri: "ui://verlab/image-gallery-card-v6.html",
+    resourceUri: "ui://verlab/image-gallery-card-v7.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },
   transcriptCard: {
-    resourceUri: "ui://verlab/transcript-card-v5.html",
+    resourceUri: "ui://verlab/transcript-card-v6.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
     // Export panel falls back to a clipboard copy when the host can't do a
@@ -62,17 +62,17 @@ const WIDGETS = {
     permissions: { clipboardWrite: {} },
   },
   downloadCard: {
-    resourceUri: "ui://verlab/download-card-v4.html",
+    resourceUri: "ui://verlab/download-card-v5.html",
     html: downloadCardHtml,
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card-v6.html",
+    resourceUri: "ui://verlab/creator-profile-card-v7.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
   },
   nicheFinderCard: {
-    resourceUri: "ui://verlab/niche-finder-card-v5.html",
+    resourceUri: "ui://verlab/niche-finder-card-v6.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
   },

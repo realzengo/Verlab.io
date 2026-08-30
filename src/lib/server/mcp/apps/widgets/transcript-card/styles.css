@@ -1,6 +1,4 @@
 .v-transcript {
-  max-height: 320px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -12,36 +10,36 @@
   align-items: baseline;
   gap: 10px;
   padding: 4px 6px;
-  border-radius: var(--v-radius-xs);
+  border-radius: var(--radius);
   font-size: 13px;
   transition: background var(--v-ease);
 }
 
 .v-line:hover {
-  background: var(--v-fill);
+  background: var(--surface-1);
 }
 
 .v-line-ts {
   flex: none;
   font-family: var(--v-mono);
   font-size: 11px;
-  font-weight: 600;
-  color: var(--v-primary);
-  background: var(--v-accent);
+  font-weight: 500;
+  color: var(--text-accent);
+  background: var(--bg-accent);
   border-radius: 5px;
   padding: 2px 6px;
   font-variant-numeric: tabular-nums;
 }
 
 .v-line-text {
-  color: var(--v-body);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .v-export {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--v-hairline);
+  border-top: 0.5px solid var(--border);
   position: relative;
 }
 
@@ -50,20 +48,20 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: none;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-fill);
-  color: var(--v-body);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: background var(--v-ease), color var(--v-ease);
 }
 
 .v-export-toggle:hover,
 .v-export-toggle.is-open {
-  background: var(--v-accent);
-  color: var(--v-primary);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .v-export-toggle svg {
@@ -88,7 +86,7 @@
 
 .v-export-status {
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.5;
-  color: var(--v-subtle);
+  color: var(--text-muted);
 }

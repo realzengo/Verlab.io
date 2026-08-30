@@ -110,7 +110,7 @@ const GEMINI_ICON = "/logos/ai/gemini.svg";
 const GROK_ICON = "/logos/ai/grok.svg";
 const KLING_ICON = "/logos/ai/kling.svg";
 const SEEDANCE_ICON = "/logos/ai/seedance.webp";
-const SORA_ICON = "/logos/ai/sora.png";
+const SORA_ICON = "/logos/ai/sora.svg";
 
 export const VIDEO_MODELS: VideoModelConfig[] = [
   {
@@ -157,7 +157,6 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     description: "OpenAI's video model — strong physics & realism, native audio",
     requiresPro: true,
     logo: SORA_ICON,
-    logoFullBleed: true,
     supportsImageToVideo: true,
     supportsReferenceImages: true,
     supportsEndFrame: false,

@@ -102,9 +102,9 @@ function render(data: TranscriptData | null) {
           ${DOWNLOAD_ICON}<span>Export</span><span class="v-export-chevron">${CHEVRON_DOWN_ICON}</span>
         </button>
         <div class="v-export-panel" id="export-panel" hidden>
-          <button type="button" class="v-quick-pill" data-export="srt">.SRT</button>
-          <button type="button" class="v-quick-pill" data-export="vtt">.VTT</button>
-          <button type="button" class="v-quick-pill" data-export="txt">.TXT</button>
+          <button type="button" class="v-quick-pill" data-export="srt">.srt</button>
+          <button type="button" class="v-quick-pill" data-export="vtt">.vtt</button>
+          <button type="button" class="v-quick-pill" data-export="txt">.txt</button>
         </div>
         <div class="v-export-status" id="export-status" hidden></div>
       </div>
@@ -120,7 +120,7 @@ function render(data: TranscriptData | null) {
         ${data?.coverUrl ? `<img src="${data.coverUrl}" alt="">` : ""}
         <span class="v-title">${escapeHtml(data?.title ?? "Verlab Transcript")}</span>
         <span class="v-spacer"></span>
-        ${watchUrl ? `<button class="v-btn" id="watch-btn">Watch</button>` : ""}
+        ${watchUrl ? `<button class="v-btn v-btn-primary" id="watch-btn">Watch</button>` : ""}
       </div>
       ${body}
     </div>

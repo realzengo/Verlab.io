@@ -5,6 +5,7 @@ import { ArrowRight, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
+import { Reveal } from "@/components/ui/Reveal";
 
 const OLD_WAY_ITEMS = [
   "Guessing viral trends in saturated markets",
@@ -116,46 +117,50 @@ export function ComparisonSection() {
   return (
     <section className="relative w-full overflow-hidden bg-[#F8F9FC] py-24 sm:py-32">
       <div className="relative mx-auto max-w-[88rem] px-4 sm:px-6">
-        <div className="text-center">
+        <Reveal className="text-center">
           <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Before <span className="text-heading">vs</span> After Verlab
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-base font-normal text-subtle sm:mt-4 sm:text-lg">
             Verlab doesn&apos;t replace you. It multiplies you.
           </p>
-        </div>
+        </Reveal>
 
         <div className="mt-12 flex flex-col items-stretch gap-8 sm:mt-16 lg:flex-row lg:items-stretch lg:gap-10 lg:perspective-[2200px]">
-          <ComparisonCard
-            tone="red"
-            title="The Old Way"
-            items={OLD_WAY_ITEMS}
-            cta={
-              <span className="block w-full cursor-not-allowed select-none rounded-full bg-slate-100 py-4 text-center text-lg font-semibold text-slate-400">
-                Stay Stuck
-              </span>
-            }
-          />
+          <Reveal className="flex flex-1 flex-col">
+            <ComparisonCard
+              tone="red"
+              title="The Old Way"
+              items={OLD_WAY_ITEMS}
+              cta={
+                <span className="block w-full cursor-not-allowed select-none rounded-full bg-slate-100 py-4 text-center text-lg font-semibold text-slate-400">
+                  Stay Stuck
+                </span>
+              }
+            />
+          </Reveal>
 
-          <ComparisonCard
-            tone="blue"
-            title={
-              <Image
-                src="/verlab-studio-logo-hires.png"
-                alt="Verlab Studio"
-                width={1600}
-                height={474}
-                className="h-9 w-auto sm:h-12"
-              />
-            }
-            items={VERLAB_WAY_ITEMS}
-            cta={
-              <GlassCtaButton href={APP_URL} radius={999} className="w-full! justify-center py-4! text-lg! font-semibold!">
-                Join Verlab Now
-                <ArrowRight size={18} className="relative -mb-px ml-1 inline shrink-0" />
-              </GlassCtaButton>
-            }
-          />
+          <Reveal delay={150} className="flex flex-1 flex-col">
+            <ComparisonCard
+              tone="blue"
+              title={
+                <Image
+                  src="/verlab-studio-logo-hires.png"
+                  alt="Verlab Studio"
+                  width={1600}
+                  height={474}
+                  className="h-9 w-auto sm:h-12"
+                />
+              }
+              items={VERLAB_WAY_ITEMS}
+              cta={
+                <GlassCtaButton href={APP_URL} radius={999} className="w-full! justify-center py-4! text-lg! font-semibold!">
+                  Join Verlab Now
+                  <ArrowRight size={18} className="relative -mb-px ml-1 inline shrink-0" />
+                </GlassCtaButton>
+              }
+            />
+          </Reveal>
         </div>
       </div>
     </section>

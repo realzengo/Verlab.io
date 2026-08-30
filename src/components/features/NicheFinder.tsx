@@ -600,7 +600,7 @@ function NicheFinderInner({
 
   return (
     <section ref={sectionRef}>
-      <div className="mb-4">
+      <div className="-mx-4 bg-surface px-4 pb-4 pt-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <SegmentedControl ariaLabel="Niche Finder view" items={viewTabs} value={activeView} onChange={setActiveView} />
       </div>
 

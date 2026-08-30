@@ -15,14 +15,35 @@ import {
   type LucideIcon,
   Mic2,
   MoreHorizontal,
+  Pause,
+  Play,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { setBendSaved } from "@/lib/api/niche-bend";
 import type { LibraryAsset, LibraryAssetType } from "@/lib/types";
-import { cn, formatBytes, formatRelativeTime } from "@/lib/utils";
+import { cn, downloadBlob, formatBytes, formatRelativeTime } from "@/lib/utils";
+import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+function voiceoverSegmentUrl(generationId: string, index: number): string {
+  return `/api/generate-voiceover/${generationId}/segments/${index}`;
+}
+
+function formatSeconds(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+async function fetchVoiceoverSegmentDurations(generationId: string): Promise<number[]> {
+  const response = await fetch(`/api/generate-voiceover?id=${generationId}`);
+  const data = await response.json().catch(() => null);
+  const segments: { durationSeconds?: number }[] = data?.generations?.[0]?.segments ?? [];
+  return segments.map((segment) => segment.durationSeconds ?? 0);
+}
 
 // Every tab x sort combination /api/library?type=...&sort=... gets its own
 // cache entry, so a delete has to patch all of them (not just whichever's
@@ -191,12 +212,124 @@ function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }
   return <AssetPlaceholder type={asset.type} />;
 }
 
-function VideoPlayIndicator() {
+function PlayIndicator({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
-        <Film className="h-4 w-4" />
+        <Icon className="h-4 w-4" />
       </span>
+    </div>
+  );
+}
+
+// Voiceover generations don't store one stitched audio file (segments are
+// stitched client-side, see exportSegmentsAsWav) -- so previewing one plays
+// its segments back to back through a single hidden <audio> element,
+// advancing on `ended`, same sequencing approach as VoiceoverGenerator's
+// playSequenceFrom/handleAudioEnded.
+function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
+  const generationId = useMemo(() => asset.id.replace(/^voiceover-/, ""), [asset.id]);
+  const [durations, setDurations] = useState<number[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    // The library page keys this component on previewAsset.id (see the
+    // preview modal below), so switching voiceovers remounts it fresh --
+    // no manual state reset needed here, just the fetch.
+    let cancelled = false;
+    fetchVoiceoverSegmentDurations(generationId)
+      .then((values) => {
+        if (cancelled) return;
+        if (values.length === 0) {
+          setLoadError(true);
+          return;
+        }
+        setDurations(values);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [generationId]);
+
+  const totalDuration = durations?.reduce((sum, value) => sum + value, 0) ?? 0;
+  const progress = totalDuration > 0 ? Math.min(1, currentTime / totalDuration) : 0;
+
+  function playFrom(index: number) {
+    if (!audioRef.current || !durations || index >= durations.length) return;
+    audioRef.current.src = voiceoverSegmentUrl(generationId, index);
+    setPlayingIndex(index);
+    setIsPlaying(true);
+    void audioRef.current.play();
+  }
+
+  function togglePlayPause() {
+    if (!audioRef.current || !durations) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      return;
+    }
+    if (playingIndex !== null) {
+      setIsPlaying(true);
+      void audioRef.current.play();
+      return;
+    }
+    playFrom(0);
+  }
+
+  function handleEnded() {
+    if (playingIndex === null || !durations) return;
+    const nextIndex = playingIndex + 1;
+    if (nextIndex < durations.length) {
+      playFrom(nextIndex);
+    } else {
+      setIsPlaying(false);
+      setPlayingIndex(null);
+      setCurrentTime(0);
+    }
+  }
+
+  function handleTimeUpdate() {
+    if (!audioRef.current || !durations || playingIndex === null) return;
+    const priorDuration = durations.slice(0, playingIndex).reduce((sum, value) => sum + value, 0);
+    setCurrentTime(priorDuration + audioRef.current.currentTime);
+  }
+
+  return (
+    <div className="flex w-full max-w-xs flex-col items-center gap-6 py-4">
+      <audio ref={audioRef} onEnded={handleEnded} onTimeUpdate={handleTimeUpdate} className="hidden" />
+
+      <button
+        type="button"
+        onClick={togglePlayPause}
+        disabled={!durations}
+        aria-label={isPlaying ? "Pause" : "Play"}
+        className="group relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-cat-2-tint text-cat-2 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] transition-transform active:scale-[0.97] disabled:opacity-40 dark:ring-white/[0.06]"
+      >
+        <Mic2 className="h-11 w-11 transition-opacity group-hover:opacity-0" />
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-cat-2/90 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+          {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 translate-x-0.5" />}
+        </span>
+      </button>
+
+      <div className="flex w-full flex-col gap-2">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+          <div className="h-full rounded-full bg-cat-2 transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
+        </div>
+        <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-zinc-500">
+          <span>{formatSeconds(currentTime)}</span>
+          <span>{durations ? formatSeconds(totalDuration) : "—:—"}</span>
+        </div>
+      </div>
+
+      {loadError && <p className="text-xs font-medium text-red-500">Could not load this voiceover&rsquo;s audio.</p>}
     </div>
   );
 }
@@ -282,7 +415,26 @@ export default function LibraryPage() {
     }
   }
 
+  async function handleDownloadVoiceover(asset: LibraryAsset) {
+    const generationId = asset.id.replace(/^voiceover-/, "");
+    try {
+      const durations = await fetchVoiceoverSegmentDurations(generationId);
+      if (durations.length === 0) throw new Error();
+      const urls = durations.map((_, index) => voiceoverSegmentUrl(generationId, index));
+      const blob = await exportSegmentsAsWav(urls);
+      const slug = asset.title.trim().slice(0, 40).replace(/\s+/g, "-").toLowerCase() || "voiceover";
+      downloadBlob(blob, `${slug}.wav`);
+    } catch {
+      setDeleteError("Could not download audio. Try again.");
+    }
+    setOpenMenuId(null);
+  }
+
   function handleDownload(asset: LibraryAsset) {
+    if (asset.type === "voiceover") {
+      void handleDownloadVoiceover(asset);
+      return;
+    }
     // Images only ever populate thumbnailUrl (see /api/library) -- fall
     // back to it here. It's a same-origin /api/library/image/... URL that
     // serves the actual bytes with a Content-Disposition filename, not a
@@ -449,7 +601,7 @@ export default function LibraryPage() {
                   openMenuId === asset.id && "z-30"
                 )}
               >
-                {asset.type === "sop" || asset.type === "voiceover" ? (
+                {asset.type === "sop" ? (
                   <Link
                     href={asset.fileUrl ?? "#"}
                     className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
@@ -463,7 +615,8 @@ export default function LibraryPage() {
                     className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
                   >
                     <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
-                    {asset.type === "video" && <VideoPlayIndicator />}
+                    {asset.type === "video" && <PlayIndicator icon={Film} />}
+                    {asset.type === "voiceover" && <PlayIndicator icon={Play} />}
                   </button>
                 )}
 
@@ -495,7 +648,7 @@ export default function LibraryPage() {
                             ref={actionMenuRef}
                             className="absolute top-full right-0 z-20 mt-1 w-44 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover"
                           >
-                            {asset.type === "sop" || asset.type === "voiceover" ? (
+                            {asset.type === "sop" ? (
                               <Link
                                 href={asset.fileUrl ?? "#"}
                                 onClick={() => setOpenMenuId(null)}
@@ -504,6 +657,28 @@ export default function LibraryPage() {
                                 <ExternalLink className="h-3.5 w-3.5" />
                                 Open
                               </Link>
+                            ) : asset.type === "voiceover" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setPreviewAsset(asset);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                                >
+                                  <Play className="h-3.5 w-3.5" />
+                                  Play
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownload(asset)}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </button>
+                              </>
                             ) : (
                               <button
                                 type="button"
@@ -575,19 +750,23 @@ export default function LibraryPage() {
               </button>
 
               <div className="flex min-h-[30vh] flex-1 items-center justify-center bg-slate-100 p-6 dark:bg-black">
-                <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
-                  {previewAsset.type === "video" && previewAsset.fileUrl ? (
-                    <video
-                      key={previewAsset.id}
-                      src={previewAsset.fileUrl}
-                      controls
-                      autoPlay
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
-                  )}
-                </div>
+                {previewAsset.type === "voiceover" ? (
+                  <VoiceoverPreviewPlayer key={previewAsset.id} asset={previewAsset} />
+                ) : (
+                  <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
+                    {previewAsset.type === "video" && previewAsset.fileUrl ? (
+                      <video
+                        key={previewAsset.id}
+                        src={previewAsset.fileUrl}
+                        controls
+                        autoPlay
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-4 border-t border-slate-200 p-5 dark:border-white/[0.08]">

@@ -114,7 +114,7 @@ export function Sidebar({
     <aside
       ref={asideRef}
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-[#E0E4F2] bg-[#FBFAFF] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-[#E0E4F2] bg-[#FCFCFD] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "lg:w-[76px]" : "lg:w-64"
       )}
@@ -245,18 +245,18 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-[#E0E4F2] bg-surface font-semibold text-heading shadow-card dark:border-transparent"
-                    : "border-transparent text-[#535C76] hover:bg-accent hover:text-heading"
+                    : "border-transparent text-[#434C69] hover:bg-accent hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
                 <item.icon
                   className={cn(
                     "h-5 w-5 shrink-0 transition-colors",
-                    active ? "text-primary dark:text-white" : "text-[#535C76] group-hover:text-primary"
+                    active ? "text-primary dark:text-white" : "text-[#A1AAC8] group-hover:text-primary"
                   )}
                 />
                 <span
@@ -287,11 +287,11 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-bold transition-all duration-150",
+                  "font-ui group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-semibold transition-all duration-150",
                   collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"
-                    : "text-[#535C76] hover:bg-accent hover:text-heading"
+                    : "text-[#434C69] hover:bg-accent hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}
               >
@@ -299,7 +299,7 @@ export function Sidebar({
                   <item.icon
                     className={cn(
                       "h-5 w-5 shrink-0 transition-colors",
-                      groupActive ? "text-primary" : "text-[#535C76] group-hover:text-primary"
+                      groupActive ? "text-primary" : "text-[#A1AAC8] group-hover:text-primary"
                     )}
                   />
                   <span
@@ -339,15 +339,15 @@ export function Sidebar({
                             aria-current={active ? "page" : undefined}
                             style={{ transitionDelay: isOpen ? `${index * 30}ms` : "0ms" }}
                             className={cn(
-                              "flex items-center gap-3 rounded-lg border px-3 py-2 text-[13px] outline-none transition-all duration-200 ease-out focus:outline-none focus-visible:outline-none",
+                              "font-ui flex items-center gap-3 rounded-lg border px-3 py-2 text-[13px] font-medium outline-none transition-all duration-200 ease-out focus:outline-none focus-visible:outline-none",
                               isOpen ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
                               active
                                 ? "border-hairline bg-surface font-semibold text-heading shadow-card"
-                                : "border-transparent text-[#535C76] hover:bg-accent hover:text-body"
+                                : "border-transparent text-[#434C69] hover:bg-accent hover:text-body"
                             )}
                           >
                             <subItem.icon
-                              className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#535C76]")}
+                              className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#A1AAC8]")}
                             />
                             <span className="truncate">{subItem.title}</span>
                           </Link>
@@ -381,14 +381,14 @@ export function Sidebar({
                           }}
                           aria-current={active ? "page" : undefined}
                           className={cn(
-                            "flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-[13px] outline-none transition-all focus:outline-none focus-visible:outline-none",
+                            "font-ui flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-[13px] font-medium outline-none transition-all focus:outline-none focus-visible:outline-none",
                             active
                               ? "border-accent-line bg-accent font-semibold text-heading"
-                              : "text-[#535C76] hover:bg-accent hover:text-body"
+                              : "text-[#434C69] hover:bg-accent hover:text-body"
                           )}
                         >
                           <subItem.icon
-                            className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#535C76]")}
+                            className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#A1AAC8]")}
                           />
                           <span className="truncate">{subItem.title}</span>
                         </Link>

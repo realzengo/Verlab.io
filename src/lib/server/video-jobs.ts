@@ -78,33 +78,53 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
     // to the <video> element's own first-frame render instead.
     const thumbnailPath: string | null = null;
 
+    // Record the completed row -- and, critically, output_video_path --
+    // right after the upload succeeds and before any further step that can
+    // fail. Charging used to run first: if the credits_charged claim or
+    // chargeUser call failed, the outer catch below marked the row "failed"
+    // with output_video_path never set, even though the file was already
+    // sitting in Storage -- an orphan with no DB row ever pointing at it
+    // again (nothing but a full bucket-vs-table reconciliation would ever
+    // find it). Persisting the path first means a later charging hiccup can
+    // only affect billing, never strand the file. And unlike a thrown
+    // exception, a PostgREST-level error here doesn't propagate on its own
+    // -- checked explicitly so that failure mode doesn't silently skip both
+    // the completion write and the cleanup below.
+    const { error: completeError } = await admin
+      .from("video_generations")
+      .update({ status: "completed", output_video_path: outputPath, thumbnail_path: thumbnailPath })
+      .eq("id", row.id);
+
+    if (completeError) {
+      // Nothing will ever reference outputPath now -- remove it rather than
+      // orphaning it, same posture as generate-voiceover's segment routes.
+      const { error: cleanupError } = await admin.storage.from(STORAGE_BUCKET).remove([outputPath]);
+      if (cleanupError) console.error("[video-jobs] Failed to remove orphaned storage object:", cleanupError);
+      throw new Error(`Failed to record completed video: ${completeError.message}`);
+    }
+
     // Atomically claim the charge for this row: only the caller whose
     // UPDATE actually matches a still-null credits_charged row goes on to
     // call chargeUser. If the webhook and cron sweep both reach this point
     // for the same job, exactly one of them wins the claim -- the loser's
     // UPDATE affects zero rows and it skips charging entirely, so the user
     // is never billed twice for one render.
-    const { data: claimed } = await admin
-      .from("video_generations")
-      .update({ credits_charged: row.credits_quoted })
-      .eq("id", row.id)
-      .is("credits_charged", null)
-      .select("id");
+    try {
+      const { data: claimed } = await admin
+        .from("video_generations")
+        .update({ credits_charged: row.credits_quoted })
+        .eq("id", row.id)
+        .is("credits_charged", null)
+        .select("id");
 
-    if (claimed && claimed.length > 0) {
-      try {
+      if (claimed && claimed.length > 0) {
         await chargeUser(row.user_id, row.credits_quoted, "Video Generation", `video.${row.mode}.${slugifyModelName(row.model)}`);
-      } catch (creditError) {
-        // The video is already rendered and stored -- a ledger failure
-        // here shouldn't undo that (mirrors generate-image/route.ts).
-        console.error("[credits] Failed to deduct for video generation:", creditError);
       }
+    } catch (creditError) {
+      // The video is already rendered, stored, and marked completed above --
+      // a ledger failure here shouldn't undo that (mirrors generate-image/route.ts).
+      console.error("[credits] Failed to deduct for video generation:", creditError);
     }
-
-    await admin
-      .from("video_generations")
-      .update({ status: "completed", output_video_path: outputPath, thumbnail_path: thumbnailPath })
-      .eq("id", row.id);
 
     void recordUsageEvent("video", row.user_id, { generationId: row.id, mode: row.mode, model: row.model });
   } catch (error) {

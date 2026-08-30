@@ -1,14 +1,7 @@
-/* No outer drop shadow for this widget: on some hosts a box-shadow that
-   extends past the iframe's rounded corners rendered as a squared-off
-   glitch at each corner instead of a soft edge. */
-.v-card {
-  box-shadow: none;
-}
-
 .v-image-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .v-image-frame {
@@ -24,23 +17,12 @@
   max-width: 100%;
   max-height: 360px;
   width: auto;
-  border-radius: var(--v-radius-sm);
-  background: var(--v-fill);
+  border-radius: var(--radius);
+  background: var(--surface-1);
 }
 
 .v-image-actions {
   display: flex;
   justify-content: center;
   gap: 8px;
-}
-
-.v-btn-ghost {
-  background: var(--v-fill);
-  color: var(--v-heading);
-  box-shadow: none;
-}
-
-.v-btn-ghost:hover {
-  background: var(--v-fill-hover);
-  box-shadow: none;
 }

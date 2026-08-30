@@ -1,57 +1,120 @@
-/* Verlab brand tokens for MCP App widgets, mirroring src/app/globals.css.
-   Sandboxed iframes get no access to the parent page's fonts/CSS, so these
-   are duplicated here rather than shared at build time. System font stack
-   on purpose -- see plan notes: color + logo + layout carry the brand here,
-   not a self-hosted webfont, to keep every widget bundle small.
-   Light-only, on purpose: the widget IS the whole visible surface (no page
-   chrome around it), and hosts don't reliably report/restyle for theme, so
-   --v-bg and --v-surface must always be identical -- otherwise the card's
-   rounded corners show a seam of mismatched background at each corner. */
+/* Flat, host-native design tokens for Verlab's MCP App widgets. Sandboxed
+   iframes get no access to the parent page's fonts/CSS, so these are
+   duplicated here rather than shared at build time. System font stack on
+   purpose -- color + logo + layout carry the brand here, not a self-hosted
+   webfont, to keep every widget bundle small.
+
+   Theme: hosts that implement the MCP Apps theme handshake set
+   [data-theme] on <html> via applyDocumentTheme() -- see shared/host.ts,
+   which calls it from getHostContext()/onhostcontextchanged. Hosts that
+   don't implement it fall through to prefers-color-scheme. Every token
+   below resolves in both cases. */
 
 :root {
   --v-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* Metadata/telemetry line (word counts, timestamps, cost) reads as data,
-     not prose -- monospace + tracking sets it apart from body copy without
-     needing a second color. */
+  /* Handles, timestamps, and counted values read as data, not prose --
+     monospace sets them apart from body copy without needing a second color. */
   --v-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
-  --v-primary: #335cff;
-  --v-primary-hover: #2246d6;
+  --surface-0: transparent;
+  --surface-1: #f5f5f6;
+  --surface-2: #ffffff;
 
-  --v-bg: #ffffff;
-  --v-surface: #ffffff;
-  /* Nested-surface fill for elements inside the card (rows, tiles, inputs,
-     thumbnails) -- flat tinted fill instead of a hairline border, so
-     depth reads through shading rather than drawn lines. */
-  --v-fill: #f7f8fa;
-  --v-fill-hover: #eef0f3;
-  --v-heading: #111827;
-  --v-body: #374151;
-  --v-subtle: #525866;
-  --v-hairline: #e5e5e5;
-  --v-accent: #eff2ff;
-  --v-accent-line: #dbe2ff;
-  --v-danger: #dc2626;
-  --v-danger-tint: #fef2f2;
-  --v-success: #16a34a;
-  --v-success-tint: #f0fdf4;
-  --v-success-line: #bbf7d0;
-  /* Reserved for AI-authored/generative content markers (script segments,
-     model badges) so they read distinctly from the primary action blue. */
-  --v-ai: #9333ea;
-  --v-ai-tint: #faf5ff;
-  --v-ai-line: #e9d5ff;
+  --text-primary: #18181b;
+  --text-secondary: #55555c;
+  --text-muted: #8f8f97;
 
-  --v-radius-card: 20px;
-  --v-radius-sm: 16px;
-  --v-radius-xs: 10px;
-  --v-radius-pill: 9999px;
-  --v-shadow-card: 0 1px 1px rgba(16, 24, 40, 0.04), 0 3px 6px rgba(16, 24, 40, 0.05),
-    0 16px 40px rgba(16, 24, 40, 0.1);
-  --v-shadow-hover: 0 2px 4px rgba(16, 24, 40, 0.06), 0 10px 24px rgba(16, 24, 40, 0.12);
-  --v-shadow-btn: 0 1px 2px rgba(51, 92, 255, 0.16), 0 6px 16px rgba(51, 92, 255, 0.22);
-  --v-shadow-btn-hover: 0 2px 4px rgba(34, 70, 214, 0.2), 0 8px 20px rgba(34, 70, 214, 0.28);
-  --v-ease: 150ms cubic-bezier(0.2, 0, 0, 1);
+  --border: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.18);
+
+  --radius: 8px;
+  --radius-card: 12px;
+
+  --bg-accent: #eef1ff;
+  --text-accent: #2246d6;
+  --border-accent: #335cff;
+
+  --bg-danger: #fdf2f2;
+  --text-danger: #c0271c;
+  --border-danger: #f2b8b5;
+
+  --bg-success: #eefbf1;
+  --text-success: #157a3d;
+  --border-success: #a7e3bb;
+
+  --bg-warning: #fdf6e8;
+  --text-warning: #92620a;
+  --border-warning: #edd189;
+
+  /* Reserved for AI-authored/generative markers (script segments, model
+     badges) so they read distinctly from the accent (info/link) color. */
+  --bg-ai: #f6f0fd;
+  --text-ai: #7223c9;
+  --border-ai: #ddc4f3;
+
+  /* Text on a solid accent fill (the one filled primary button/badge per
+     view) -- not a themed surface, so it doesn't flip between modes. */
+  --text-on-accent: #ffffff;
+  /* Legibility scrim for a badge sitting on top of photographic content
+     (video thumbnails) -- not a UI surface, so it's fixed rather than
+     token-mapped to light/dark. */
+  --overlay-scrim: rgba(0, 0, 0, 0.6);
+
+  --v-ease: 120ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1c1c1f;
+    --surface-2: #232327;
+    --text-primary: #f2f2f3;
+    --text-secondary: #a8a8b0;
+    --text-muted: #75757d;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --bg-accent: rgba(60, 100, 255, 0.16);
+    --text-accent: #90a4ff;
+    --border-accent: #5c7cff;
+    --bg-danger: rgba(224, 66, 55, 0.15);
+    --text-danger: #f0857c;
+    --border-danger: rgba(224, 66, 55, 0.4);
+    --bg-success: rgba(35, 158, 92, 0.15);
+    --text-success: #5fd489;
+    --border-success: rgba(35, 158, 92, 0.4);
+    --bg-warning: rgba(196, 138, 15, 0.16);
+    --text-warning: #e0ab4c;
+    --border-warning: rgba(196, 138, 15, 0.4);
+    --bg-ai: rgba(146, 79, 219, 0.16);
+    --text-ai: #c69bef;
+    --border-ai: rgba(146, 79, 219, 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1c1c1f;
+  --surface-2: #232327;
+  --text-primary: #f2f2f3;
+  --text-secondary: #a8a8b0;
+  --text-muted: #75757d;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --bg-accent: rgba(60, 100, 255, 0.16);
+  --text-accent: #90a4ff;
+  --border-accent: #5c7cff;
+  --bg-danger: rgba(224, 66, 55, 0.15);
+  --text-danger: #f0857c;
+  --border-danger: rgba(224, 66, 55, 0.4);
+  --bg-success: rgba(35, 158, 92, 0.15);
+  --text-success: #5fd489;
+  --border-success: rgba(35, 158, 92, 0.4);
+  --bg-warning: rgba(196, 138, 15, 0.16);
+  --text-warning: #e0ab4c;
+  --border-warning: rgba(196, 138, 15, 0.4);
+  --bg-ai: rgba(146, 79, 219, 0.16);
+  --text-ai: #c69bef;
+  --border-ai: rgba(146, 79, 219, 0.4);
 }
 
 * {
@@ -62,31 +125,55 @@ html,
 body {
   margin: 0;
   padding: 0;
-  color-scheme: light;
 }
 
 body {
   font-family: var(--v-font);
-  background: var(--v-bg);
-  color: var(--v-body);
-  font-size: 14px;
-  line-height: 1.5;
+  /* Host provides the surface behind the widget -- never paint one here. */
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+h1 {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin: 0;
+}
+
 .v-card {
-  background: var(--v-surface);
-  border-radius: var(--v-radius-card);
-  box-shadow: var(--v-shadow-card);
-  padding: 16px;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1rem 1.25rem;
 }
 
 .v-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 
 .v-header img,
@@ -95,32 +182,29 @@ body {
   height: 20px;
   border-radius: 6px;
   flex: none;
-  color: var(--v-primary);
+  color: var(--text-accent);
 }
 
 .v-header .v-title {
-  font-weight: 650;
-  color: var(--v-heading);
-  font-size: 13px;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
 .v-header .v-spacer {
   flex: 1;
 }
 
-/* Small uppercase brand line used above a widget's own large title (e.g.
-   the niche finder's multi-step form/report), as opposed to .v-header
-   which doubles as the title row for single-view cards. */
+/* Small brand line above a widget's own heading (e.g. the niche finder's
+   multi-step form/report), as opposed to .v-header which doubles as the
+   title row for single-view cards. */
 .v-eyebrow {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--v-primary);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-accent);
 }
 
 .v-eyebrow svg {
@@ -129,17 +213,21 @@ body {
   flex: none;
 }
 
+/* Small colored badge -- the one place a tinted fill is expected, per the
+   "featured" pill pattern. Default reads neutral; apply a variant class for
+   semantic color (success = complete metric, ai = generated/prompt-related,
+   danger for risk states). */
 .v-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-accent);
-  color: var(--v-primary);
-  border: 1px solid var(--v-accent-line);
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-accent);
+  color: var(--text-accent);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .v-btn {
@@ -148,100 +236,146 @@ body {
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-primary);
-  color: #fff;
-  font-weight: 600;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
   font-size: 13px;
-  border: none;
+  border: 0.5px solid var(--border-strong);
   cursor: pointer;
   text-decoration: none;
-  box-shadow: var(--v-shadow-btn);
-  transition: background var(--v-ease), box-shadow var(--v-ease), transform var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .v-btn:hover {
-  background: var(--v-primary-hover);
-  box-shadow: var(--v-shadow-btn-hover);
+  background: var(--surface-1);
 }
 
 .v-btn:active {
   transform: scale(0.98);
 }
 
+/* At most one filled accent button per view -- the widget's single primary
+   action (e.g. the niche finder's submit, a lone download button). */
+.v-btn-primary {
+  background: var(--border-accent);
+  color: var(--text-on-accent);
+  border-color: var(--border-accent);
+}
+
+.v-btn-primary:hover {
+  background: var(--text-accent);
+  border-color: var(--text-accent);
+}
+
+.v-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .v-empty {
-  color: var(--v-subtle);
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
-  padding: 24px 0;
+  padding: 1.5rem 0;
 }
 
 .v-error {
-  background: var(--v-danger-tint);
-  color: var(--v-danger);
-  border-radius: var(--v-radius-sm);
+  background: var(--bg-danger);
+  border: 0.5px solid var(--border-danger);
+  color: var(--text-danger);
+  border-radius: var(--radius);
   padding: 10px 12px;
   font-size: 13px;
 }
 
-/* Telemetry/metadata line -- word counts, durations, costs. Monospace +
-   uppercase tracking so it reads as measured data, distinct from prose. */
+/* Inline field-level validation message. */
+.v-field-error {
+  color: var(--text-danger);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+/* Telemetry/metadata line -- word counts, durations, costs. Monospace so it
+   reads as measured data, distinct from prose. */
 .v-meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 3px 8px;
   font-family: var(--v-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--v-subtle);
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .v-meta-dot {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
-/* Small colored status/category tag. Default reads neutral; apply a
-   variant class for semantic color (success = complete metric, ai =
-   generated/prompt-related, warn/danger for risk states). */
+/* Small neutral tag -- category/status labels. */
 .v-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--v-fill);
-  color: var(--v-subtle);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--surface-1);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .v-tag-primary {
-  background: var(--v-accent);
-  color: var(--v-primary);
+  background: var(--bg-accent);
+  color: var(--text-accent);
 }
 
 .v-tag-success {
-  background: var(--v-success-tint);
-  color: var(--v-success);
+  background: var(--bg-success);
+  color: var(--text-success);
 }
 
 .v-tag-ai {
-  background: var(--v-ai-tint);
-  color: var(--v-ai);
+  background: var(--bg-ai);
+  color: var(--text-ai);
 }
 
 .v-tag-danger {
-  background: var(--v-danger-tint);
-  color: var(--v-danger);
+  background: var(--bg-danger);
+  color: var(--text-danger);
+}
+
+/* Metric/stat tile -- flat fill, no border, per the metric-card rule. */
+.v-stat-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.v-stat-tile {
+  background: var(--surface-1);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.v-stat-tile-value {
+  font-family: var(--v-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.v-stat-tile-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* Ghost icon button -- copy/download affordances that sit inline with
-   content (per-line copy, export actions) without competing with .v-btn's
-   filled primary treatment. */
+   content (per-line copy, export actions). */
 .v-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -250,21 +384,21 @@ body {
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: var(--v-radius-xs);
+  border-radius: var(--radius);
   background: transparent;
-  color: var(--v-subtle);
+  color: var(--text-muted);
   cursor: pointer;
   flex: none;
   transition: background var(--v-ease), color var(--v-ease);
 }
 
 .v-icon-btn:hover {
-  background: var(--v-fill-hover);
-  color: var(--v-heading);
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
 .v-icon-btn.is-done {
-  color: var(--v-success);
+  color: var(--text-success);
 }
 
 .v-icon-btn svg {
@@ -272,16 +406,16 @@ body {
   height: 14px;
 }
 
-/* Row of secondary pill actions along the bottom of a card (e.g. "Shorten",
-   "Send to voiceover") -- lighter weight than the primary .v-btn so the
-   card keeps one clear default action. */
+/* Row of secondary outline actions along the bottom of a card (e.g.
+   "Shorten", "Send to voiceover") -- same quiet button style as .v-btn, just
+   smaller, so the card keeps at most one primary action. */
 .v-quick-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--v-hairline);
+  gap: 8px;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 0.5px solid var(--border);
 }
 
 .v-quick-pill {
@@ -289,19 +423,18 @@ body {
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
-  border: none;
-  border-radius: var(--v-radius-pill);
-  background: var(--v-fill);
-  color: var(--v-body);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--v-ease), color var(--v-ease);
+  transition: background var(--v-ease);
 }
 
 .v-quick-pill:hover:not(:disabled) {
-  background: var(--v-accent);
-  color: var(--v-primary);
+  background: var(--surface-1);
 }
 
 .v-quick-pill:disabled {
@@ -316,7 +449,7 @@ body {
 }
 
 a {
-  color: var(--v-primary);
+  color: var(--text-accent);
 }
 
 ::-webkit-scrollbar {
@@ -325,6 +458,6 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--v-hairline);
-  border-radius: var(--v-radius-pill);
+  background: var(--border-strong);
+  border-radius: var(--radius);
 }

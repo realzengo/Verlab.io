@@ -9,6 +9,10 @@ import type { PricingFrequency, PricingPlan } from "@/lib/types";
 
 // Mirrors planRowToPricingPlan in UpgradeModal.tsx -- kept in sync there since
 // it can't be shared without pulling the service-role client into a bundle.
+// PLAN_DEFINITION_SELECT below mirrors admin-queries.ts's column list too --
+// the table also has `updated_at`, which nothing here renders.
+const PLAN_DEFINITION_SELECT = "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
+
 interface PlanDefinitionRow {
   id: string;
   name: string;
@@ -61,7 +65,7 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
     let cancelled = false;
     (async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("plan_definitions").select("*").order("sort_order");
+      const { data } = await supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order");
       if (!cancelled && data && data.length > 0) {
         setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
       }
