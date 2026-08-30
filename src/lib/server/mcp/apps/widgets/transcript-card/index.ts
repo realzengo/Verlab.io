@@ -150,16 +150,21 @@ async function exportTranscript(kind: "srt" | "vtt" | "txt") {
   const filename = `${slugify(currentTitle)}.${kind}`;
 
   try {
-    const result = await app.downloadFile({
-      contents: [{ type: "resource", resource: { uri: `file:///${filename}`, mimeType: mimeTypes[kind], text: content } }],
-    });
+    const result = await app.downloadFile(
+      { contents: [{ type: "resource", resource: { uri: `file:///${filename}`, mimeType: mimeTypes[kind], text: content } }] },
+      { timeout: 8000 }
+    );
     if (result.isError) throw new Error("denied");
     showExportStatus(`Downloaded ${filename}`);
   } catch {
     // Host doesn't support (or denied) a mediated download -- clipboard is
     // the next best thing so the export button never dead-ends silently.
-    await navigator.clipboard.writeText(content);
-    showExportStatus(`Host can't download files here — copied ${kind.toUpperCase()} to clipboard instead.`);
+    try {
+      await navigator.clipboard.writeText(content);
+      showExportStatus(`Host can't download files here — copied ${kind.toUpperCase()} to clipboard instead.`);
+    } catch {
+      showExportStatus(`Couldn't export ${kind.toUpperCase()} — this host doesn't support downloads or clipboard access.`);
+    }
   }
 }
 

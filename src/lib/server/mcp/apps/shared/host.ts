@@ -56,17 +56,36 @@ export function connectApp({ name, onResult, onLoading, onConnected }: ConnectAp
   return app;
 }
 
+// Hosts that don't yet implement a given ui/* method just never reply --
+// the SDK's default request timeout is 60s, which reads as a dead button for
+// that whole time. Fail fast instead so the fallback below kicks in quickly.
+const ACTION_TIMEOUT_MS = 8000;
+
 export function openLink(app: App, url: string | null | undefined) {
   if (!url) return;
-  void app.openLink({ url });
+  const fallback = () => window.open(url, "_blank", "noopener,noreferrer");
+  app
+    .openLink({ url }, { timeout: ACTION_TIMEOUT_MS })
+    .then((result) => {
+      if (result.isError) fallback();
+    })
+    .catch(fallback);
 }
 
 // Posts a user-authored follow-up message into the chat thread -- how a
 // widget's quick-action pills (e.g. "Shorten", "Send to voiceover") hand off
 // to Claude/other connected tools, since the widget itself can't call tools
-// outside its own server. Fire-and-forget; hosts that reject it just no-op.
+// outside its own server. Hosts that don't support (or reject) it get the
+// same clipboard fallback as the transcript export, so the pill never
+// dead-ends silently.
 export function sendChatMessage(app: App, text: string) {
-  void app.sendMessage({ role: "user", content: [{ type: "text", text }] });
+  const fallback = () => void navigator.clipboard.writeText(text).catch(() => {});
+  app
+    .sendMessage({ role: "user", content: [{ type: "text", text }] }, { timeout: ACTION_TIMEOUT_MS })
+    .then((result) => {
+      if (result.isError) fallback();
+    })
+    .catch(fallback);
 }
 
 const ESCAPE_MAP: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
