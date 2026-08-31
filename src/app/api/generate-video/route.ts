@@ -171,11 +171,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // The model picker UI already hides this behind an upgrade prompt for
-  // non-Pro users -- this is the enforcement boundary, since the UI check
-  // alone doesn't stop a direct API call.
-  if (model.requiresPro) {
+  // non-Pro/non-Scale users -- this is the enforcement boundary, since the UI
+  // check alone doesn't stop a direct API call.
+  if (model.requiresPro || model.requiresScale) {
     const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-    if (profile?.plan !== "pro" && profile?.plan !== "scale") {
+    if (model.requiresScale) {
+      if (profile?.plan !== "scale") {
+        return NextResponse.json({ error: `${model.id} requires the Scale plan.` }, { status: 403 });
+      }
+    } else if (profile?.plan !== "pro" && profile?.plan !== "scale") {
       return NextResponse.json({ error: `${model.id} requires the Pro plan or higher.` }, { status: 403 });
     }
   }

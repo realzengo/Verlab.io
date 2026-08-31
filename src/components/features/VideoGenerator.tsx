@@ -448,6 +448,7 @@ export function VideoGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [isScale, setIsScale] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   const { data: creditsSummary, mutate: mutateCredits } = useSWR<{ balance: number }>("/api/credits/summary");
@@ -561,7 +562,7 @@ export function VideoGenerator() {
     return () => pollCancelRef.current?.();
   }, []);
 
-  // Gates Pro-only models (Sora 2, Seedance 2.5) in the model pickers below.
+  // Gates Scale-only models (Sora 2, Seedance 2.5) in the model pickers below.
   useEffect(() => {
     const supabase = createBrowserClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -574,6 +575,7 @@ export function VideoGenerator() {
         .single()
         .then(({ data: profile }) => {
           setIsPro(profile?.plan === "pro" || profile?.plan === "scale");
+          setIsScale(profile?.plan === "scale");
         });
     });
   }, []);
@@ -1314,6 +1316,7 @@ export function VideoGenerator() {
                             onChange={setSelectedModel}
                             models={VIDEO_MODELS}
                             isPro={isPro}
+                            isScale={isScale}
                             onRequestUpgrade={() => setShowUpgrade(true)}
                           />
                           <PillDropdown
@@ -1398,6 +1401,7 @@ export function VideoGenerator() {
                       selectedModel={selectedModel}
                       onSelectModel={setSelectedModel}
                       isPro={isPro}
+                      isScale={isScale}
                       onRequestUpgrade={() => setShowUpgrade(true)}
                       startFrame={startFrame}
                       onStartFrameChange={setStartFrame}

@@ -179,7 +179,9 @@ interface MobileCreatePanelProps {
   onSelectModel: (id: string) => void;
   /** Current user is on the Pro (or higher) plan -- unlocks models with requiresPro. */
   isPro?: boolean;
-  /** Called instead of onSelectModel when a locked (requiresPro, isPro false) model is tapped. */
+  /** Current user is on the Scale plan -- unlocks models with requiresScale. */
+  isScale?: boolean;
+  /** Called instead of onSelectModel when a locked (requiresPro/requiresScale, isPro/isScale false) model is tapped. */
   onRequestUpgrade?: () => void;
 
   startFrame: FrameSlotState;
@@ -231,6 +233,7 @@ export function MobileCreatePanel({
   selectedModel,
   onSelectModel,
   isPro = false,
+  isScale = false,
   onRequestUpgrade,
   startFrame,
   onStartFrameChange,
@@ -311,7 +314,8 @@ export function MobileCreatePanel({
         <div className="flex flex-col gap-1">
           {models.map((m) => {
             const selected = m.id === selectedModel;
-            const locked = Boolean(m.requiresPro) && !isPro;
+            const locked = (Boolean(m.requiresPro) && !isPro) || (Boolean(m.requiresScale) && !isScale);
+            const lockLabel = Boolean(m.requiresScale) && !isScale ? "Scale" : "Pro";
             return (
               <button
                 key={m.id}
@@ -330,7 +334,7 @@ export function MobileCreatePanel({
                     {locked && (
                       <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.08] dark:text-slate-400">
                         <Lock className="h-2.5 w-2.5" />
-                        Pro
+                        {lockLabel}
                       </span>
                     )}
                   </span>

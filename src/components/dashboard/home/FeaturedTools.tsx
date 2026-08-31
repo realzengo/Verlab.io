@@ -44,14 +44,14 @@ const MODELS: FeaturedModel[] = [
   {
     id: "Sora 2",
     description: "Strong physics & realism",
-    badges: ["New", "Video"],
+    badges: ["Video"],
     href: "/video-generator",
     logo: SORA_ICON,
   },
   {
     id: "Nano Banana Pro",
     description: "Highest quality photoreal stills",
-    badges: ["New", "Image"],
+    badges: ["Image"],
     href: "/image-generator",
     logo: GOOGLE_ICON,
   },

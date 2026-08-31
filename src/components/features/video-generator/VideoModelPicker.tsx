@@ -15,6 +15,8 @@ export interface ModelPickerOption {
   logoFullBleed?: boolean;
   /** Only selectable on the Pro (or higher) plan -- see VideoModelPickerProps.isPro. */
   requiresPro?: boolean;
+  /** Only selectable on the Scale plan -- see VideoModelPickerProps.isScale. */
+  requiresScale?: boolean;
 }
 
 export function ModelIcon({ model, small }: { model: ModelPickerOption; small?: boolean }) {
@@ -63,7 +65,9 @@ interface VideoModelPickerProps<T extends ModelPickerOption> {
   popularIds?: string[];
   /** Current user is on the Pro (or higher) plan -- unlocks rows with requiresPro. Defaults to false (locked) so callers that don't pass plan info fail closed rather than silently unlocking everything. */
   isPro?: boolean;
-  /** Called instead of onChange when a locked (requiresPro, isPro false) row is clicked. */
+  /** Current user is on the Scale plan -- unlocks rows with requiresScale. Defaults to false (locked), same fail-closed reasoning as isPro. */
+  isScale?: boolean;
+  /** Called instead of onChange when a locked (requiresPro/requiresScale, isPro/isScale false) row is clicked. */
   onRequestUpgrade?: () => void;
   className?: string;
 }
@@ -83,6 +87,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
   models,
   popularIds = [],
   isPro = false,
+  isScale = false,
   onRequestUpgrade,
   className,
 }: VideoModelPickerProps<T>) {
@@ -126,7 +131,8 @@ export function VideoModelPicker<T extends ModelPickerOption>({
 
   function renderRow(model: T) {
     const selected = model.id === value;
-    const locked = Boolean(model.requiresPro) && !isPro;
+    const locked = (Boolean(model.requiresPro) && !isPro) || (Boolean(model.requiresScale) && !isScale);
+    const lockLabel = Boolean(model.requiresScale) && !isScale ? "Scale" : "Pro";
     return (
       <button
         key={model.id}
@@ -160,7 +166,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
             {locked && (
               <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.08] dark:text-slate-400">
                 <Lock className="h-2.5 w-2.5" />
-                Pro
+                {lockLabel}
               </span>
             )}
           </span>
