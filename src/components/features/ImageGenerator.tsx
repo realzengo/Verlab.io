@@ -61,32 +61,32 @@ export const MODEL_OPTIONS = [
     value: "Nano Banana",
     label: "Nano Banana",
     icon: GEMINI_ICON,
-    description: "Fast, lower quality — 1 credit",
+    description: "Fast, lower quality, 1 credit",
   },
   {
     value: "Nano Banana 2",
     label: "Nano Banana 2",
     icon: GEMINI_ICON,
-    description: "Recommended — 2-3 credits",
+    description: "Recommended, 2-3 credits",
   },
   {
     value: "Nano Banana Pro",
     label: "Nano Banana Pro",
     icon: GEMINI_ICON,
-    description: "Highest quality, slower — 3-4 credits",
+    description: "Highest quality, slower, 3-4 credits",
   },
   {
     value: "Nano Banana 2 Lite",
     label: "Nano Banana 2 Lite",
     icon: GEMINI_ICON,
-    description: "Fastest & cheapest — 1 credit",
+    description: "Fastest & cheapest, 1 credit",
   },
   {
     value: "GPT Image 2",
     label: "GPT Image 2",
     icon: GPT_ICON,
     invertDark: true,
-    description: "Sharp detail, great prompt following — 3-4 credits",
+    description: "Sharp detail, great prompt following, 3-4 credits",
   },
 ];
 
@@ -1627,11 +1627,12 @@ export function ImageGenerator() {
 
               <div
                 className={cn(
-                  "relative flex w-full flex-col rounded-[26px] bg-white/60 px-9 py-5 backdrop-blur-2xl backdrop-saturate-150",
+                  "relative flex w-full flex-col rounded-[26px] border border-slate-200 bg-slate-100/95 px-9 py-5 backdrop-blur-2xl backdrop-saturate-150",
+                  // Gray-toned fill (was bg-white/60) so the card reads as a distinct surface against the near-identical #fafafa page in light mode.
                   // Lighter than the page background (not near-black-on-black)
                   // plus a faint top sheen, so the panel reads as a distinct
                   // raised surface -- the glass-card look of premium SaaS UIs.
-                  "dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
+                  "dark:border-transparent dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
                 )}
               >
             {referenceImageStrip}
@@ -1969,7 +1970,7 @@ export function ImageGenerator() {
           (() => {
             const previewModel = MODEL_OPTIONS.find((option) => option.value === previewItem.model);
             const closePreview = () => setPreviewItem(null);
-            return (
+            return createPortal(
               <motion.div
                 key="preview-backdrop"
                 initial={{ opacity: 0 }}
@@ -2119,7 +2120,7 @@ export function ImageGenerator() {
                         <div>
                           <div className="text-[11px] text-white/40">Dimensions</div>
                           <div className="mt-0.5 text-sm font-medium text-white">
-                            {previewDims ? `${previewDims.width} × ${previewDims.height}` : "—"}
+                            {previewDims ? `${previewDims.width} × ${previewDims.height}` : "N/A"}
                           </div>
                         </div>
                         <div>
@@ -2138,7 +2139,8 @@ export function ImageGenerator() {
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </motion.div>,
+              document.body
             );
           })()}
       </AnimatePresence>

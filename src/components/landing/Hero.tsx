@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRef } from "react";
 import { useScroll, useTransform } from "framer-motion";
 import { Sparkle } from "lucide-react";
@@ -27,7 +26,7 @@ export function Hero() {
         canvas below a uniform margin on every side. */}
     <div ref={heroRef} className="bg-[#F8F9FC] p-3">
       <section
-        className="relative isolate flex h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-2xl"
+        className="relative isolate flex flex-col overflow-hidden rounded-2xl sm:min-h-[calc(100vh-1.5rem)]"
         style={{
           backgroundImage:
             "linear-gradient(to bottom, #ffffff 0%, #ffffff 32%, #eaf2ff 50%, #6fa3f2 74%, #335cff 100%)",
@@ -47,7 +46,7 @@ export function Hero() {
         />
 
         {/* Content layer: sits above the gradient and cloud edges. */}
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-20 pt-36 text-center sm:px-6 sm:pb-28 sm:pt-32 lg:px-8 lg:pb-32 md:pt-44">
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-24 text-center sm:px-6 sm:pb-28 sm:pt-32 lg:px-8 lg:pb-32 md:pt-44">
           <div className="relative flex w-full justify-center">
             <h1 className="relative max-w-6xl font-display text-[clamp(22px,7vw,27px)] font-bold leading-[1.1] tracking-[-0.5px] text-heading sm:text-[62px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[72px]">
               <span className="whitespace-nowrap">
@@ -81,7 +80,7 @@ export function Hero() {
     </div>
 
     {/* Product preview: floats on top of the frame, overlapping its bottom edge. */}
-    <div className="relative z-20 mx-auto -mt-[40vh] w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+    <div className="relative z-20 mx-auto -mt-72 w-full max-w-6xl px-8 sm:-mt-[40vh] sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute left-0 top-[16%] z-30 hidden -translate-x-[10%] xl:block 2xl:-translate-x-[32%]">
         <PayPalNotification amount="577.94" style={{ y: leftY, opacity: leftOpacity }} />
       </div>
@@ -91,17 +90,18 @@ export function Hero() {
       <div
         className={cn(
           "relative rounded-xl border border-hairline bg-surface/30 p-2.5 backdrop-blur-xl sm:rounded-[32px] sm:p-4",
-          "[mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
-          "[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
+          "[mask-image:none] sm:[mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
+          "[-webkit-mask-image:none] sm:[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
         )}
       >
         <div className="overflow-hidden rounded-lg border border-hairline bg-surface sm:rounded-[22px]">
-          <Image
-            src="/hero-app-preview-v2.png"
-            alt="Verlab's Niche Bending tool — reverse-engineer any viral format"
-            width={2116}
-            height={1180}
-            priority
+          <video
+            src="/videos/hero-preview.mp4"
+            poster="/videos/hero-preview-poster.jpg"
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full rounded-lg sm:rounded-[20px]"
           />
         </div>

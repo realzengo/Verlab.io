@@ -4,7 +4,7 @@ import { Footer } from "@/components/landing/Footer";
 import { PricingSection } from "@/components/landing/PricingSection";
 
 export const metadata: Metadata = {
-  title: "Pricing — Verlab AI",
+  title: "Pricing, Verlab AI",
   description: "Simple pricing that pays for itself in 24 hours. Reverse-engineer viral videos into your own scripts.",
 };
 

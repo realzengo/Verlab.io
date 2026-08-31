@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
 import { PlasticButton } from "@/components/ui/plastic-button";
@@ -129,7 +130,7 @@ function formatElapsed(totalSeconds: number): string {
 }
 
 function aspectRatioLabel(ratio: string | undefined): string {
-  if (!ratio) return "—";
+  if (!ratio) return "N/A";
   if (ratio === "9:16") return `Portrait (${ratio})`;
   if (ratio === "16:9") return `Landscape (${ratio})`;
   if (ratio === "1:1") return `Square (${ratio})`;
@@ -1508,7 +1509,7 @@ export function VideoGenerator() {
             const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model);
             const videoSrc = `/api/library/video/${previewItem.id}`;
             const closePreview = () => setPreviewItem(null);
-            return (
+            return createPortal(
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1649,7 +1650,7 @@ export function VideoGenerator() {
                         <div>
                           <div className="text-[11px] text-white/40">Duration</div>
                           <div className="mt-0.5 text-sm font-medium text-white">
-                            {previewItem.params.durationSeconds ? `${previewItem.params.durationSeconds}s` : "—"}
+                            {previewItem.params.durationSeconds ? `${previewItem.params.durationSeconds}s` : "N/A"}
                           </div>
                         </div>
                         <div>
@@ -1668,7 +1669,8 @@ export function VideoGenerator() {
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </motion.div>,
+              document.body
             );
           })()}
       </AnimatePresence>

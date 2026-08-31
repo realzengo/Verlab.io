@@ -140,10 +140,28 @@ const TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-const SIZE_STYLES: Record<CardSize, { card: string; quote: string; avatar: "sm" | "md" | "lg" }> = {
-  sm: { card: "p-5", quote: "text-sm", avatar: "sm" },
-  md: { card: "p-6", quote: "text-[15px]", avatar: "md" },
-  lg: { card: "p-7", quote: "text-lg", avatar: "lg" },
+const SIZE_STYLES: Record<
+  CardSize,
+  { card: string; quote: string; avatar: "sm" | "md" | "lg"; avatarClass: string }
+> = {
+  sm: {
+    card: "p-3.5 sm:p-5",
+    quote: "text-xs sm:text-sm",
+    avatar: "sm",
+    avatarClass: "h-6! w-6! text-[9px]! sm:h-7! sm:w-7! sm:text-[10px]!",
+  },
+  md: {
+    card: "p-3.5 sm:p-6",
+    quote: "text-xs sm:text-[15px]",
+    avatar: "md",
+    avatarClass: "h-6! w-6! text-[9px]! sm:h-9! sm:w-9! sm:text-xs!",
+  },
+  lg: {
+    card: "p-3.5 sm:p-7",
+    quote: "text-[13px] sm:text-lg",
+    avatar: "lg",
+    avatarClass: "h-6! w-6! text-[9px]! sm:h-12! sm:w-12! sm:text-sm!",
+  },
 };
 
 function TestimonialCard({ name, role, image, quote, size = "md" }: Testimonial) {
@@ -151,17 +169,24 @@ function TestimonialCard({ name, role, image, quote, size = "md" }: Testimonial)
   return (
     <div
       className={cn(
-        "mb-4 break-inside-avoid rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "mb-3 break-inside-avoid rounded-xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:mb-4 sm:rounded-2xl",
         styles.card
       )}
     >
       <blockquote>
-        <p className={cn("leading-relaxed text-slate-600", styles.quote)}>{quote}</p>
-        <footer className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
-          <Avatar name={name} src={image} size={styles.avatar} className="ring-2 ring-white shadow-sm" />
+        <p className={cn("line-clamp-6 leading-snug text-slate-600 sm:line-clamp-none sm:leading-relaxed", styles.quote)}>
+          {quote}
+        </p>
+        <footer className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3 sm:mt-5 sm:gap-3 sm:pt-4">
+          <Avatar
+            name={name}
+            src={image}
+            size={styles.avatar}
+            className={cn("ring-2 ring-white shadow-sm", styles.avatarClass)}
+          />
           <div>
-            <cite className="block text-sm font-semibold not-italic text-heading">{name}</cite>
-            <span className="block text-xs text-slate-500">{role}</span>
+            <cite className="block text-xs font-semibold not-italic text-heading sm:text-sm">{name}</cite>
+            <span className="block text-[10px] text-slate-500 sm:text-xs">{role}</span>
           </div>
         </footer>
       </blockquote>
@@ -173,7 +198,7 @@ export default function Testimonial2() {
   return (
     <section className="relative w-full overflow-hidden bg-[#F8F9FC] py-20 sm:py-28">
       <Reveal className="relative z-10 mx-auto max-w-2xl px-4 text-center">
-        <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
+        <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
           What our users are saying
         </h2>
         <p className="mt-4 text-base leading-relaxed text-slate-500">
@@ -182,8 +207,8 @@ export default function Testimonial2() {
       </Reveal>
 
       <div className="relative mt-14 sm:mt-16">
-        <Reveal delay={100} className="relative h-[560px] w-full overflow-hidden px-4 sm:h-[580px] sm:px-8 lg:h-[640px] lg:px-12 xl:px-16">
-          <div className="[column-width:280px] [column-gap:1rem]">
+        <Reveal delay={100} className="relative mx-auto h-[560px] w-full max-w-[1600px] overflow-hidden px-4 sm:h-[580px] sm:px-8 lg:h-[640px] lg:px-12 xl:px-16">
+          <div className="[column-width:150px] [column-gap:1rem] sm:[column-width:280px]">
             {TESTIMONIALS.map((testimonial) => (
               <TestimonialCard key={testimonial.name} {...testimonial} />
             ))}
@@ -195,7 +220,7 @@ export default function Testimonial2() {
           className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-b from-transparent to-[#F8F9FC] sm:h-80"
         />
 
-        <div className="relative z-10 -mt-6 flex justify-center sm:-mt-10">
+        <div className="relative z-10 mt-4 flex justify-center sm:-mt-10">
           <GlassCtaButton
             href={APP_URL}
             radius={999}

@@ -80,7 +80,7 @@ export function createMcpServer(userId: string): McpServer {
     },
     {
       instructions:
-        "Verlab tools for short-form video creators: trending niche research, single-creator content-strategy analysis (real transcripts, not just metadata), script generation, image generation, transcript extraction, and video downloads. Script/image/transcript/download/creator-analysis tools charge credits. Do NOT call get_credit_balance proactively before running these — only call it when the user explicitly asks about their credits/balance, or when a charging tool call fails due to insufficient credits.",
+        "Verlab tools for short-form video creators: trending niche research, single-creator content-strategy analysis (real transcripts, not just metadata), script generation, image generation, transcript extraction, and video downloads. Script/image/transcript/download/creator-analysis tools charge credits. Do NOT call get_credit_balance proactively before running these. Only call it when the user explicitly asks about their credits/balance, or when a charging tool call fails due to insufficient credits.",
     }
   );
 

@@ -10,12 +10,17 @@ export async function PricingSection({ showComparison = true }: { showComparison
     supabase.auth.getUser(),
   ]);
 
+  const currentPlanId = user
+    ? (await supabase.from("profiles").select("plan").eq("id", user.id).single()).data?.plan ?? null
+    : null;
+
   return (
-    <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-32 sm:px-6 sm:pb-[90px] sm:pt-36 lg:px-8">
+    <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-24 sm:px-6 sm:pb-[90px] sm:pt-36 lg:px-8">
       <PricingSectionClient
         plans={plans}
         comparisonRows={COMPARISON_ROWS}
         authenticated={!!user}
+        currentPlanId={currentPlanId}
         showComparison={showComparison}
       />
     </section>

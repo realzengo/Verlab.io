@@ -32,7 +32,7 @@ export default async function AdminSystemPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label="Uptime (30d)"
-          value={uptime.uptimePct !== null ? `${uptime.uptimePct}%` : "—"}
+          value={uptime.uptimePct !== null ? `${uptime.uptimePct}%` : "N/A"}
           icon={CheckCircle2}
           delta={
             uptime.uptimePct !== null
@@ -54,7 +54,7 @@ export default async function AdminSystemPage() {
         />
         <StatTile
           label="Avg. API error rate"
-          value={apiErrorRate.errorRatePct !== null ? `${apiErrorRate.errorRatePct}%` : "—"}
+          value={apiErrorRate.errorRatePct !== null ? `${apiErrorRate.errorRatePct}%` : "N/A"}
           icon={AlertTriangle}
           delta={
             apiErrorRate.errorRatePct !== null
@@ -78,7 +78,7 @@ export default async function AdminSystemPage() {
           <EmptyState
             icon={AlertTriangle}
             title="No requests logged yet"
-            description="Instrumentation is live — per-endpoint latency and error rates will appear here once traffic comes through the tracked routes."
+            description="Instrumentation is live. Per-endpoint latency and error rates will appear here once traffic comes through the tracked routes."
           />
         ) : (
           <EndpointHealthTable rows={endpointHealth} />

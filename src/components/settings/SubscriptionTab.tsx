@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CancelSubscriptionModal } from "@/components/settings/CancelSubscriptionModal";
 
 const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
 
@@ -16,8 +18,10 @@ function formatDate(iso: string): string {
 }
 
 export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, currentPeriodEnd }: SubscriptionTabProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelFlow, setShowCancelFlow] = useState(false);
 
   const hasBilling = subscriptionStatus !== null;
 
@@ -44,10 +48,10 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
   const statusCopy = (() => {
     if (!hasBilling) return `You're on the ${PLAN_LABELS[plan] ?? plan} plan.`;
     if (subscriptionStatus === "canceled" && currentPeriodEnd) {
-      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}) — cancels on ${formatDate(currentPeriodEnd)}.`;
+      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}), cancels on ${formatDate(currentPeriodEnd)}.`;
     }
     if (currentPeriodEnd) {
-      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}) — renews on ${formatDate(currentPeriodEnd)}.`;
+      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}), renews on ${formatDate(currentPeriodEnd)}.`;
     }
     return `${PLAN_LABELS[plan] ?? plan} plan.`;
   })();
@@ -82,7 +86,7 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
           <button
             type="button"
             disabled={loading}
-            onClick={openPortal}
+            onClick={() => setShowCancelFlow(true)}
             className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:pointer-events-none disabled:opacity-40"
           >
             Cancel subscription
@@ -91,6 +95,12 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
       )}
 
       {error && <p className="mt-4 text-xs text-danger">{error}</p>}
+
+      <CancelSubscriptionModal
+        isOpen={showCancelFlow}
+        onClose={() => setShowCancelFlow(false)}
+        onCanceled={() => router.refresh()}
+      />
     </div>
   );
 }

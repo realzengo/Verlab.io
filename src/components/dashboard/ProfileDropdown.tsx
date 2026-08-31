@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { ArrowUpCircle, CircleDollarSign, LifeBuoy, LogOut, Moon, Settings } from "lucide-react";
+import { ArrowUpCircle, ChevronDown, CircleDollarSign, LifeBuoy, LogOut, Moon, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { Switch } from "@/components/ui/Switch";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
+import { cn } from "@/lib/utils";
 
 function displayName(user: User | null): string {
   const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
@@ -77,42 +78,51 @@ export function ProfileDropdown() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-label="Account menu"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-surface p-1"
+        className="flex h-9 items-center gap-2 rounded-full border border-hairline bg-surface py-1 pl-1 pr-1 transition-colors hover:bg-accent sm:pr-3"
       >
-        <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-7 w-7" />
+        <Avatar name={name} src={avatarUrl(user)} size="sm" className="h-7 w-7 shrink-0" />
+        {name && (
+          <span className="hidden max-w-[10rem] truncate text-sm font-medium text-heading sm:inline">{name}</span>
+        )}
+        <ChevronDown className={cn("hidden h-4 w-4 shrink-0 text-subtle transition-transform sm:block", isOpen && "rotate-180")} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-64 rounded-2xl border border-hairline bg-surface shadow-card-hover overflow-hidden z-50">
-          <div className="p-4">
+        <div className="animate-menu-pop absolute top-full right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-hairline bg-surface shadow-card-hover">
+          <div className="relative overflow-hidden border-b border-hairline bg-gradient-to-br from-accent to-transparent p-4">
             <div className="flex items-center gap-3">
-              <Avatar name={name} src={avatarUrl(user)} size="md" />
+              <Avatar name={name} src={avatarUrl(user)} size="md" className="ring-2 ring-surface" />
               <div className="min-w-0">
-                <p className="text-heading font-semibold text-sm">{name}</p>
-                <p className="text-subtle text-xs truncate">{email}</p>
+                <p className="truncate text-sm font-semibold text-heading">{name}</p>
+                <p className="truncate text-xs text-subtle">{email}</p>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-hairline mt-3">
+          <div className="p-1.5">
             <button
               type="button"
               onClick={() => {
                 setIsOpen(false);
                 setIsUpgradeOpen(true);
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+              className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-heading transition-colors hover:bg-accent"
             >
-              <ArrowUpCircle className="w-4 h-4" />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-primary transition-colors group-hover:bg-accent-line">
+                <ArrowUpCircle className="h-4 w-4" />
+              </span>
               Upgrade
             </button>
             {NAV_LINKS.map(({ label, href, icon: Icon }) => (
               <Link
                 key={label}
                 href={href}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+                onClick={() => setIsOpen(false)}
+                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-heading transition-colors hover:bg-accent"
               >
-                <Icon className="w-4 h-4" />
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-subtle transition-colors group-hover:bg-accent-line group-hover:text-heading">
+                  <Icon className="h-4 w-4" />
+                </span>
                 {label}
               </Link>
             ))}
@@ -120,17 +130,21 @@ export function ProfileDropdown() {
               href={SUPPORT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+              className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-heading transition-colors hover:bg-accent"
             >
-              <LifeBuoy className="w-4 h-4" />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-subtle transition-colors group-hover:bg-accent-line group-hover:text-heading">
+                <LifeBuoy className="h-4 w-4" />
+              </span>
               24/7 Support
             </a>
           </div>
 
-          <div className="border-t border-hairline">
-            <div className="w-full flex items-center justify-between gap-3 px-4 py-3 text-heading text-sm font-medium">
-              <span className="flex items-center gap-3">
-                <Moon className="w-4 h-4" />
+          <div className="border-t border-hairline p-1.5">
+            <div className="flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-sm font-medium text-heading">
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-subtle">
+                  <Moon className="h-4 w-4" />
+                </span>
                 Dark mode
               </span>
               <Switch
@@ -142,13 +156,15 @@ export function ProfileDropdown() {
             </div>
           </div>
 
-          <div className="border-t border-hairline">
+          <div className="border-t border-hairline p-1.5">
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-heading text-sm font-medium"
+              className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger-tint"
             >
-              <LogOut className="w-4 h-4 text-danger" />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-danger-tint text-danger transition-colors group-hover:bg-danger/15">
+                <LogOut className="h-4 w-4" />
+              </span>
               Logout
             </button>
           </div>

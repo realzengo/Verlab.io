@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  Loader2,
   Search,
   SlidersHorizontal,
   X,
@@ -815,6 +816,7 @@ export function NicheTopBar({
   onQueryChange,
   onSearchSubmit,
   queryError,
+  loading,
   platform,
   onPlatformChange,
   timeWindow,
@@ -833,6 +835,9 @@ export function NicheTopBar({
    * intentionally quiet, not a hard error banner, since this is just a
    * search box. */
   queryError?: string | null;
+  /** Swaps the search icon for a spinner while a fetch triggered by this
+   * bar (submit, filter/sort change, page change) is in flight. */
+  loading?: boolean;
   platform: VideoPlatformFilter;
   onPlatformChange: (platform: VideoPlatformFilter) => void;
   timeWindow: VideoTimeWindow;
@@ -858,7 +863,7 @@ export function NicheTopBar({
   }
 
   return (
-    <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+    <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
         <form
           onSubmit={(e) => {
@@ -867,12 +872,16 @@ export function NicheTopBar({
           }}
           className="relative min-w-[220px] flex-1"
         >
-          <Search className={cn(TOOLBAR_BUTTON_ICON, "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2")} />
+          {loading ? (
+            <Loader2 className={cn(TOOLBAR_BUTTON_ICON, "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 animate-spin")} />
+          ) : (
+            <Search className={cn(TOOLBAR_BUTTON_ICON, "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2")} />
+          )}
           <input
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search viral videos by keyword, creator, or hashtag…"
+            placeholder="Search videos, creators, hashtags…"
             maxLength={SHORT_TEXT_MAX}
             className="w-full rounded-xl border border-hairline bg-surface py-2 pl-9 pr-8 text-[13px] text-heading shadow-card placeholder:text-body/60 transition-shadow focus:outline-none focus:ring-2 focus:ring-heading/15 focus:shadow-card-hover"
           />
@@ -894,8 +903,14 @@ export function NicheTopBar({
           )}
         </form>
 
-        <button type="button" onClick={onSearchSubmit} className={TOOLBAR_BUTTON}>
-          Search
+        <button
+          type="button"
+          onClick={onSearchSubmit}
+          aria-label="Search"
+          className={cn(TOOLBAR_BUTTON, "px-2.5 sm:px-3.5")}
+        >
+          <Search className={cn(TOOLBAR_BUTTON_ICON, "sm:hidden")} />
+          <span className="sr-only sm:not-sr-only">Search</span>
         </button>
 
         <FiltersToggleButton

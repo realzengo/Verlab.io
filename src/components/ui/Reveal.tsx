@@ -11,10 +11,14 @@ export function Reveal({
   children,
   className,
   delay = 0,
+  instantOnMobile = false,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
+  /** Skip the fade/rise-in on phone screens (<640px) -- content renders in
+   * its resting state immediately there, and only animates from `sm:` up. */
+  instantOnMobile?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -40,7 +44,7 @@ export function Reveal({
     <div
       ref={ref}
       data-inview={inView}
-      className={cn("reveal", className)}
+      className={cn(instantOnMobile ? "sm:reveal" : "reveal", className)}
       style={delay ? ({ transitionDelay: `${delay}ms` } as CSSProperties) : undefined}
     >
       {children}

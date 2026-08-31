@@ -5,7 +5,7 @@ import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPage
 import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Refund Policy — Verlab AI",
+  title: "Refund Policy, Verlab AI",
   description: "Verlab's refund and cancellation policy: how billing works, how to cancel, and what happens to your data.",
 };
 
@@ -115,7 +115,7 @@ const SECTIONS: LegalSection[] = [
 ];
 
 const HIGHLIGHTS = [
-  { icon: XCircle, text: "All sales are final — no exceptions." },
+  { icon: XCircle, text: "All sales are final. No exceptions." },
   { icon: RefreshCw, text: "Cancel anytime, no questions asked." },
   { icon: CreditCard, text: "No further charges once you've cancelled." },
 ];
@@ -126,7 +126,7 @@ export default function RefundPolicyPage() {
       icon={RefreshCw}
       activeHref="/legal/refunds"
       title="Refund Policy"
-      description="Billing, cancellation, and our no-refund policy — explained plainly."
+      description="Billing, cancellation, and our no-refund policy, explained plainly."
       effectiveDate="July 16, 2026"
       updatedDate="July 16, 2026"
       highlights={HIGHLIGHTS}

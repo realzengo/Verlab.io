@@ -278,18 +278,6 @@ export function VerlabClaudeChatDemo({ className }: { className?: string }) {
           </AnimatePresence>
         </div>
       </div>
-
-      <div className="mt-4 flex items-center justify-center gap-1.5">
-        {SCENARIOS.map((s, i) => (
-          <span
-            key={s.tool}
-            className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
-              i === index ? "w-4 bg-primary" : "w-1.5 bg-slate-200 dark:bg-white/15"
-            )}
-          />
-        ))}
-      </div>
     </div>
   );
 }

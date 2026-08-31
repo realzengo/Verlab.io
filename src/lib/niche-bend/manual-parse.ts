@@ -25,7 +25,7 @@ export function parseManualVideos(raw: string): NicheBendVideo[] {
       continue;
     }
 
-    videos.push({ title: line, views: "—" });
+    videos.push({ title: line, views: "N/A" });
   }
 
   return videos;

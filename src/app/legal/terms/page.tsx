@@ -5,7 +5,7 @@ import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPage
 import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Verlab AI",
+  title: "Terms of Service, Verlab AI",
   description: "The terms and conditions that govern your use of Verlab's niche research and script-generation tools.",
 };
 
@@ -150,7 +150,7 @@ const SECTIONS: LegalSection[] = [
         <ul className="list-disc space-y-2 pl-5 marker:text-primary">
           <li>A physical or electronic signature of the copyright owner or a person authorized to act on the owner&apos;s behalf.</li>
           <li>Identification of the copyrighted work claimed to have been infringed, or, if multiple works at a single online location are covered by one notice, a representative list of those works.</li>
-          <li>Identification of the material claimed to be infringing and information reasonably sufficient to let us locate it — typically the specific URL(s) or in-app location of the content.</li>
+          <li>Identification of the material claimed to be infringing and information reasonably sufficient to let us locate it, typically the specific URL(s) or in-app location of the content.</li>
           <li>Your name, mailing address, telephone number, and email address, so we can contact you about the notice.</li>
           <li>A statement that you have a good faith belief that the disputed use is not authorized by the copyright owner, its agent, or the law.</li>
           <li>A statement, made under penalty of perjury, that the information in the notice is accurate and that you are the copyright owner or authorized to act on the owner&apos;s behalf.</li>
@@ -289,7 +289,7 @@ const SECTIONS: LegalSection[] = [
           <span className="whitespace-nowrap">adr.org</span> or <span className="whitespace-nowrap">jams-endispute.com</span>.
           The arbitrator, not any court, has exclusive authority to resolve any dispute over the interpretation,
           applicability, enforceability, or formation of these Terms, including any claim that all or part of this
-          arbitration provision is void or voidable — except that the question of whether the Class Action Waiver
+          arbitration provision is void or voidable, except that the question of whether the Class Action Waiver
           below is enforceable is reserved for a court of competent jurisdiction, not the arbitrator.
         </p>
         <p>

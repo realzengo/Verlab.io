@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
+import { Portal } from "@/components/ui/Portal";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/transcript-export";
 
 interface ExportModalProps {
@@ -31,6 +32,7 @@ export function ExportModal({ isOpen, onClose, count, onExport }: ExportModalPro
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="mx-4 flex w-full max-w-md flex-col rounded-xl bg-surface shadow-card-hover"
@@ -105,5 +107,6 @@ export function ExportModal({ isOpen, onClose, count, onExport }: ExportModalPro
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

@@ -19,7 +19,7 @@ import type {
 
 export class NicheBendAiError extends Error {}
 
-const SYSTEM_PROMPT = `You are Verlab's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work — hooks, structure, pacing, retention devices — and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
+const SYSTEM_PROMPT = `You are Verlab's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work, hooks, structure, pacing, retention devices, and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
 
 function wrapProviderError(error: unknown): never {
   if (error instanceof NicheBendAiError) throw error;
@@ -193,7 +193,7 @@ export async function regenerateOneCandidate(
   otherCandidates: NicheBendCandidate[]
 ): Promise<{ candidate: NicheBendCandidate; conversation: ModelMessage[] }> {
   const avoidList = [analysis.detectedNiche, ...otherCandidates.map((c) => c.nicheName)].join(", ");
-  const prompt = `Give exactly 1 NEW strategic "niche bend" candidate for this same channel — a different niche than any of these: ${avoidList}. Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
+  const prompt = `Give exactly 1 NEW strategic "niche bend" candidate for this same channel, a different niche than any of these: ${avoidList}. Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
 
   const messages: ModelMessage[] = [...conversation, { role: "user", content: prompt }];
   const { object, messages: nextMessages } = await runExtract(messages, CandidateOnlySchema, {
@@ -216,7 +216,7 @@ export async function regenerateCandidates(
   conversation: ModelMessage[],
   analysis: NicheBendChannelAnalysis
 ): Promise<{ candidates: NicheBendCandidate[]; conversation: ModelMessage[] }> {
-  const prompt = `Give 3 NEW strategic "niche bend" candidates for this same channel — different niches than any you've already proposed earlier in this conversation, and still different from the channel's own detected niche ("${analysis.detectedNiche}"). Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
+  const prompt = `Give 3 NEW strategic "niche bend" candidates for this same channel, different niches than any you've already proposed earlier in this conversation, and still different from the channel's own detected niche ("${analysis.detectedNiche}"). Same format: nicheName (max 3 words), angle (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the channel's real hook style. Respond only in the required structured format.`;
 
   const messages: ModelMessage[] = [...conversation, { role: "user", content: prompt }];
   const { object, messages: nextMessages } = await runExtract(messages, CandidatesOnlySchema, {
@@ -313,7 +313,7 @@ function buildTranscriptBlock(transcripts: { video: ScrapedChannelVideo; text: s
   const sections = transcripts
     .map(({ video, text }) => `--- Transcript: "${video.title}" (${video.views} views) ---\n${text}`)
     .join("\n\n");
-  return `\n\n${TRANSCRIPT_BLOCK_MARKER} for the ${transcripts.length} highest-viewed of these videos. Use these to extract the ACTUAL hook wording, beat structure, and signature phrases — pull them verbatim where exact wording matters, rather than inferring from titles alone:\n\n${sections}`;
+  return `\n\n${TRANSCRIPT_BLOCK_MARKER} for the ${transcripts.length} highest-viewed of these videos. Use these to extract the ACTUAL hook wording, beat structure, and signature phrases, pulling them verbatim where exact wording matters, rather than inferring from titles alone:\n\n${sections}`;
 }
 
 // Lets job-store decide whether a cached research conversation is worth
@@ -356,7 +356,7 @@ export async function researchChannel(
   }
 
   const transcripts = await transcriptsPromise;
-  const videoList = scraped.videos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
+  const videoList = scraped.videos.map((video) => `- ${video.title}, ${video.views} views`).join("\n");
 
   const extractionPrompt = `We scraped the real top ${formatLabel} from the ${platformLabel} channel "${scraped.channelName}" (${url}), sorted by view count:
 
@@ -364,8 +364,8 @@ ${videoList}
 ${buildTranscriptBlock(transcripts)}
 
 From this real data, produce:
-1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles${transcripts.length > 0 ? " and transcripts" : ""}), and topVideos (echo the videos given, exactly).
-2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself. Each candidate needs: a bold niche name (max 3 words), an angle tag — exactly one of Ranking, Timeline, or Conflict — describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
+1. A structured channel analysis: channelName ("${scraped.channelName}"), detectedNiche, format (one paragraph, length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles${transcripts.length > 0 ? " and transcripts" : ""}), and topVideos (echo the videos given, exactly).
+2. Exactly 3 strategic "niche bend" candidates: each applies this exact channel's proven format to a DIFFERENT vertical/niche than the one you detected for the channel itself. Each candidate needs: a bold niche name (max 3 words), an angle tag, exactly one of Ranking, Timeline, or Conflict, describing the narrative shape, and exactly 3 example video titles in that new niche, written in the same hook style as this channel's real top-video titles.
 
 Respond only in the required structured format.`;
 
@@ -381,14 +381,14 @@ export async function researchFromManualVideos(
 ): Promise<ResearchOutcome> {
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
   const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
-  const videoList = manualVideos.map((video) => `- ${video.title} — ${video.views} views`).join("\n");
+  const videoList = manualVideos.map((video) => `- ${video.title}, ${video.views} views`).join("\n");
 
-  const prompt = `A creator pasted their own top ${platformLabel} video titles and view counts below (no web research needed or possible — work only from this data). These are ${formatLabel}.
+  const prompt = `A creator pasted their own top ${platformLabel} video titles and view counts below (no web research needed or possible, work only from this data). These are ${formatLabel}.
 
 ${videoList}
 
 From only this data, infer and produce:
-1. A structured channel analysis: channelName (use "${url ? url : "Your channel"}" or infer a reasonable label if a URL was given), detectedNiche, format (one paragraph — length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
+1. A structured channel analysis: channelName (use "${url ? url : "Your channel"}" or infer a reasonable label if a URL was given), detectedNiche, format (one paragraph, length range if inferable, narration POV if inferable, recurring structural/thematic patterns across these titles), and topVideos (echo the videos given, exactly).
 2. Exactly 3 strategic "niche bend" candidates applying the same proven format to 3 different verticals than the detected niche. Each with a niche name (max 3 words), an angle tag (Ranking, Timeline, or Conflict), and exactly 3 example titles in that new niche, in the same hook style as the given titles.
 
 Respond only in the required structured format.`;
@@ -401,7 +401,7 @@ export async function generateSopContent(
   analysis: NicheBendChannelAnalysis,
   chosenBend: NicheBendCandidate
 ): Promise<NicheBendSopContent> {
-  const groundingRule = `Ground everything in the real videos you found or were given earlier — cite specific source videos by their actual titles wherever you make a claim (in every "usedInVideos" field, reference real titles, not placeholders like "Video 1"). Do not invent details unrelated to the real channel. If real video transcripts were provided earlier in this conversation, extract hook wording, beat timing, and signature/rehook phrases directly from that transcript text — verbatim where exact wording matters — instead of inferring them from titles alone.`;
+  const groundingRule = `Ground everything in the real videos you found or were given earlier, cite specific source videos by their actual titles wherever you make a claim (in every "usedInVideos" field, reference real titles, not placeholders like "Video 1"). Do not invent details unrelated to the real channel. If real video transcripts were provided earlier in this conversation, extract hook wording, beat timing, and signature/rehook phrases directly from that transcript text, verbatim where exact wording matters, instead of inferring them from titles alone.`;
 
   const baseConversation: ModelMessage[] =
     conversation.length > 0
@@ -417,13 +417,13 @@ export async function generateSopContent(
 
 Write the first half of the Scripting SOP now. ${groundingRule}
 
-Header — title: "${analysis.channelName} — Scripting SOP". subtitle: a one-line description of who this SOP is prepared for and the target niche/format. onelinePromise: one sentence stating this SOP reverse-engineers ${analysis.channelName}'s scripting formula, noting every pattern below appeared in multiple of the real videos.
+Header, title: "${analysis.channelName}, Scripting SOP". subtitle: a one-line description of who this SOP is prepared for and the target niche/format. onelinePromise: one sentence stating this SOP reverse-engineers ${analysis.channelName}'s scripting formula, noting every pattern below appeared in multiple of the real videos.
 
-1. Channel Overview — channel, niche, format (with length range), narrationPov, avgLength, recurringThemes (list), yourChannelNote (how the ${chosenBend.nicheName} bend creates a competitive moat).
+1. Channel Overview, channel, niche, format (with length range), narrationPov, avgLength, recurringThemes (list), yourChannelNote (how the ${chosenBend.nicheName} bend creates a competitive moat).
 
-2. Hook Playbook — 2 to 4 REAL hook formulas actually used by this channel. Each needs: a fill-in-the-blank template, usedInVideos (real titles), psychology (why it works in the first 2 seconds), whenToUse, and forYourChannelExamples (1-2 rewritten examples in the ${chosenBend.nicheName} niche).
+2. Hook Playbook, 2 to 4 REAL hook formulas actually used by this channel. Each needs: a fill-in-the-blank template, usedInVideos (real titles), psychology (why it works in the first 2 seconds), whenToUse, and forYourChannelExamples (1-2 rewritten examples in the ${chosenBend.nicheName} niche).
 
-3. Script Structure Blueprint (scriptStructureBeats) — the beat structure actually used (4-6 beats), each with a beat name, a timing range, and a fill-in-the-blank function template.
+3. Script Structure Blueprint (scriptStructureBeats), the beat structure actually used (4-6 beats), each with a beat name, a timing range, and a fill-in-the-blank function template.
 
 Respond only in the required structured format.`;
 
@@ -436,13 +436,13 @@ Respond only in the required structured format.`;
 
   const promptB = `Now write the second half of the same Scripting SOP for ${chosenBend.nicheName}. ${groundingRule}
 
-4. Storytelling Frameworks — 2 to 4 named frameworks actually used, each with howItWorks, usedInVideos (real titles), a numbered steps sequence, signaturePhrases, and yourChannelMoat.
+4. Storytelling Frameworks, 2 to 4 named frameworks actually used, each with howItWorks, usedInVideos (real titles), a numbered steps sequence, signaturePhrases, and yourChannelMoat.
 
-5. Retention Mechanics — rehookCatalog (signature phrases to steal verbatim, each with whenToUse), patternInterrupts (recurring tension devices), openLoopsRule, specificitySpikesRule + specificityExamples (real examples: exact numbers, names, places from the videos).
+5. Retention Mechanics, rehookCatalog (signature phrases to steal verbatim, each with whenToUse), patternInterrupts (recurring tension devices), openLoopsRule, specificitySpikesRule + specificityExamples (real examples: exact numbers, names, places from the videos).
 
-6. Opening & Closing Patterns — first30SecondsTemplate (sentence by sentence, S1-S4), hardRules, howVideosEnd, signatureClosingPhrases.
+6. Opening & Closing Patterns, first30SecondsTemplate (sentence by sentence, S1-S4), hardRules, howVideosEnd, signatureClosingPhrases.
 
-7. Quick Reference Card — hookFormulaPicks, beatStructureOneLine, topRehooks (top 5), dos, donts.
+7. Quick Reference Card, hookFormulaPicks, beatStructureOneLine, topRehooks (top 5), dos, donts.
 
 Respond only in the required structured format.`;
 

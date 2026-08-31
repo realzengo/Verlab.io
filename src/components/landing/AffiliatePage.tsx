@@ -45,7 +45,7 @@ const STEPS = [
 const BENEFITS = [
   {
     title: "Recurring, not one-time",
-    description: "Commissions renew every billing cycle your referral stays subscribed — not a single flat bounty.",
+    description: "Commissions renew every billing cycle your referral stays subscribed, not a single flat bounty.",
     icon: TrendingUp,
   },
   {
@@ -80,7 +80,7 @@ const FAQ_ITEMS = [
   {
     id: "affiliate-cookie",
     trigger: "How long does the cookie last?",
-    content: "90 days — if someone clicks your link and subscribes within 90 days, you get the credit.",
+    content: "90 days. If someone clicks your link and subscribes within 90 days, you get the credit.",
   },
   {
     id: "affiliate-who",
@@ -127,7 +127,7 @@ function WaitlistForm() {
     return (
       <div className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-full border border-hairline bg-surface px-5 py-3.5 text-sm font-semibold text-heading shadow-card">
         <Check className="h-4 w-4 shrink-0 text-primary" />
-        You&rsquo;re on the list — we&rsquo;ll be in touch.
+        You&rsquo;re on the list. We&rsquo;ll be in touch.
       </div>
     );
   }
@@ -171,7 +171,7 @@ export function AffiliatePage() {
 
         <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-semibold text-primary shadow-card md:mb-8">
           <Sparkles className="h-3.5 w-3.5" />
-          Verlab Partners — applications open
+          Verlab Partners, applications open
         </span>
 
         <h1 className="max-w-4xl font-display text-[28px] font-bold leading-[1.1] tracking-[-1px] text-heading sm:text-[60px] sm:leading-[1.05] sm:tracking-[-1.5px] lg:text-[76px]">
@@ -184,7 +184,7 @@ export function AffiliatePage() {
         </h1>
 
         <p className="mt-6 max-w-xl text-sm leading-relaxed text-body sm:text-base">
-          Join the Verlab affiliate program and get paid every month your referrals stay subscribed — no cap, no
+          Join the Verlab affiliate program and get paid every month your referrals stay subscribed, no cap, no
           complicated tiers.
         </p>
 
@@ -212,7 +212,7 @@ export function AffiliatePage() {
             Three steps to your first payout
           </h2>
           <p className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]">
-            No minimums to apply, no gatekeeping — just share and earn.
+            No minimums to apply, no gatekeeping. Just share and earn.
           </p>
         </div>
 

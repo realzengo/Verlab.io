@@ -4,7 +4,7 @@ import { Footer } from "@/components/landing/Footer";
 import { AffiliatePage } from "@/components/landing/AffiliatePage";
 
 export const metadata: Metadata = {
-  title: "Affiliates — Verlab AI",
+  title: "Affiliates, Verlab AI",
   description: "The Verlab affiliate program is coming soon. Join the waitlist for early access.",
 };
 

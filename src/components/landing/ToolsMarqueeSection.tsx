@@ -13,125 +13,53 @@ import {
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
-import type { ToolTone } from "@/lib/types";
-import { TOOL_TONE_CLASSES } from "@/lib/tone";
-import { cn } from "@/lib/utils";
 
 interface MarqueeTool {
   title: string;
   icon: LucideIcon;
-  tone: ToolTone;
-  video?: string;
-  videoPoster?: string;
 }
 
 const TOOLS: MarqueeTool[] = [
-  {
-    title: "Niche Bending",
-    icon: Wand2,
-    tone: "blue",
-    video: "/videos/niche-bender.mp4",
-    videoPoster: "/videos/niche-bender-poster.jpg",
-  },
-  {
-    title: "Transcript Extractor",
-    icon: Captions,
-    tone: "violet",
-    video: "/videos/transcript-extractor.mp4",
-    videoPoster: "/videos/transcript-extractor-poster.jpg",
-  },
-  {
-    title: "Image Generator",
-    icon: ImageIcon,
-    tone: "rose",
-    video: "/videos/image-generator-marquee.mp4",
-    videoPoster: "/videos/image-generator-marquee-poster.jpg",
-  },
-  {
-    title: "Script Maker",
-    icon: PenSquare,
-    tone: "blue",
-    video: "/videos/scriptwriter.mp4",
-    videoPoster: "/videos/scriptwriter-poster.jpg",
-  },
-  {
-    title: "Video Generator",
-    icon: Clapperboard,
-    tone: "orange",
-    video: "/videos/video-generator-marquee.mp4",
-    videoPoster: "/videos/video-generator-marquee-poster.jpg",
-  },
-  {
-    title: "Downloader",
-    icon: Download,
-    tone: "sky",
-    video: "/videos/downloader-marquee.mp4",
-    videoPoster: "/videos/downloader-marquee-poster.jpg",
-  },
-  {
-    title: "Voiceover Generator",
-    icon: Mic2,
-    tone: "green",
-    video: "/videos/voiceover-generator.mp4",
-    videoPoster: "/videos/voiceover-generator-poster.jpg",
-  },
+  { title: "Niche Bending", icon: Wand2 },
+  { title: "Transcript Extractor", icon: Captions },
+  { title: "Image Generator", icon: ImageIcon },
+  { title: "Script Maker", icon: PenSquare },
+  { title: "Video Generator", icon: Clapperboard },
+  { title: "Downloader", icon: Download },
+  { title: "Voiceover Generator", icon: Mic2 },
 ];
 
-function ToolCard({ title, icon: Icon, tone, video, videoPoster }: MarqueeTool) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  // The track is tripled for a seamless infinite loop, so most copies of
-  // each video are off-screen at any moment. Autoplaying all of them at
-  // once forces the browser to fetch every clip immediately on page load
-  // (this section carries 5MB+ videos) -- only play the copies that are
-  // actually visible, same approach as VideoMarqueeSection's VideoCard.
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.play().catch(() => {});
-        } else {
-          el.pause();
-        }
-      },
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+function ToolCard({ title, icon: Icon }: MarqueeTool) {
   return (
     <Link
       href="/login"
       draggable={false}
-      className="group flex h-[130px] w-[158px] shrink-0 flex-col rounded-2xl bg-[#EDF3FA] p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
+      className="flex h-[130px] w-[158px] shrink-0 flex-col rounded-card border border-[#E0E4F2] bg-white p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
     >
-      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-[#EDF3FA] sm:mb-3">
-        {video ? (
-          <video
-            ref={videoRef}
-            src={video}
-            poster={videoPoster}
-            className="h-full w-full object-cover"
-            loop
-            muted
-            playsInline
-            preload="metadata"
+      <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-card-sm bg-slate-100 sm:mb-3">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #000 1px, transparent 1px)",
+            backgroundSize: "14px 14px",
+          }}
+        />
+        <span
+          className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-[22%] bg-gradient-to-b from-[#6EA8FF] to-[#2258E8] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-8px_12px_-2px_rgba(10,30,120,0.45)] sm:h-11 sm:w-11 md:h-12 md:w-12"
+        >
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/45 to-transparent"
           />
-        ) : (
-          <span className={cn("flex h-7 w-7 items-center justify-center rounded-xl sm:h-10 sm:w-10", TOOL_TONE_CLASSES[tone])}>
-            <Icon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.8} />
-          </span>
-        )}
+          <Icon className="relative h-4 w-4 text-white sm:h-5 sm:w-5 md:h-6 md:w-6" strokeWidth={2} />
+        </span>
       </div>
       <div className="flex items-center justify-between gap-1">
-        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-tight text-slate-800 transition-colors group-hover:text-blue-600 sm:text-sm sm:tracking-normal">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-tight text-slate-800 sm:text-sm sm:tracking-normal">
           {title}
         </span>
-        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-colors group-hover:text-blue-600" />
+        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
       </div>
     </Link>
   );
@@ -206,15 +134,17 @@ export function ToolsMarqueeSection() {
   }, []);
 
   return (
-    <section className="relative w-full overflow-hidden bg-[#F8F9FC] pt-2 pb-12 sm:pb-16">
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-[#F8F9FC] to-transparent md:w-48" />
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-[#F8F9FC] to-transparent md:w-48" />
+    <section className="w-full overflow-hidden bg-[#F8F9FC] pt-2 pb-12 sm:pb-16">
+      <div className="relative mx-auto max-w-[1600px] px-6 md:px-12">
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#F8F9FC] to-transparent sm:w-14 md:w-20" />
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#F8F9FC] to-transparent sm:w-14 md:w-20" />
 
-      <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
-        <div ref={trackRef} className="flex w-max gap-3 will-change-transform sm:gap-4 md:gap-6">
-          {track.map((tool, i) => (
-            <ToolCard key={i} {...tool} />
-          ))}
+        <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
+          <div ref={trackRef} className="flex w-max gap-3 will-change-transform sm:gap-4 md:gap-6">
+            {track.map((tool, i) => (
+              <ToolCard key={i} {...tool} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

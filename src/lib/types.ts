@@ -456,6 +456,13 @@ export interface RevenueDailyPoint {
   collected: number;
 }
 
+export interface CancellationReasonBreakdown {
+  reason: string;
+  label: string;
+  count: number;
+  tone: ToolTone;
+}
+
 export interface RevenueData {
   mrr: number;
   arr: number;
@@ -471,6 +478,9 @@ export interface RevenueData {
   dailySeries: RevenueDailyPoint[];
   recentTransactions: RevenueTransaction[];
   webhookConfigured: boolean;
+  cancellationBreakdown: CancellationReasonBreakdown[];
+  retentionOffersShown: number;
+  retentionOfferAcceptRatePct: number;
 }
 
 export interface SignupPoint {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCreditPacks, getWhopClient, type CreditPackId } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
+import { hasActiveSubscription } from "@/lib/server/subscription";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -11,6 +12,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Top-ups are extra credits on top of a plan, not a standalone purchase --
+  // someone with no subscription (or a fully lapsed one) has no plan for
+  // extra credits to sit on top of, so send them to subscribe first instead
+  // of letting them buy a pack that has nothing to attach to.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_status, subscription_current_period_end")
+    .eq("id", user.id)
+    .single();
+
+  if (!hasActiveSubscription(profile)) {
+    return NextResponse.json({ error: "An active subscription is required to top up credits.", code: "no_active_subscription" }, { status: 403 });
   }
 
   let body: { packId?: string };

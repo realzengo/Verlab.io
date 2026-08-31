@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
 
 export const metadata: Metadata = {
-  title: "Legal — Verlab AI",
+  title: "Legal, Verlab AI",
   description: "Verlab's Terms of Service, Privacy Policy, and Refund Policy.",
 };
 
@@ -34,7 +34,7 @@ export default function LegalHubPage() {
               The fine print, made readable.
             </h1>
             <p className="mt-3 max-w-xl text-base text-body">
-              Everything about how Verlab works, what we do with your data, and how billing works — in one place.
+              Everything about how Verlab works, what we do with your data, and how billing works, in one place.
             </p>
 
             <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">

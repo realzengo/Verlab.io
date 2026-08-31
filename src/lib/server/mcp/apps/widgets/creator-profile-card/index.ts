@@ -89,7 +89,7 @@ function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): str
     </div>
     ${
       hasDoc
-        ? `<div class="v-doc-hint">${LOGO_MARK}<span>Full branded report ready — ask Claude to save this as a Google Doc.</span></div>`
+        ? `<div class="v-doc-hint">${LOGO_MARK}<span>Full branded report ready. Ask Claude to save this as a Google Doc.</span></div>`
         : ""
     }
   `;
@@ -103,7 +103,7 @@ function render(data: CreatorProfileData | null) {
   if (data?.error_message) {
     body = `<div class="v-error">${escapeHtml(data.error_message)}</div>`;
   } else if (videos.length) {
-    const peakViews = videos[0]?.views ?? "—";
+    const peakViews = videos[0]?.views ?? "N/A";
     body = `
       <div class="v-stat-row">
         <div class="v-stat-tile"><div class="v-stat-tile-value">${videos.length}</div><div class="v-stat-tile-label">videos analyzed</div></div>

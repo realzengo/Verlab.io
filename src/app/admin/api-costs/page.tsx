@@ -29,7 +29,7 @@ export default async function AdminApiCostsPage() {
       <ApiProvidersTable initialProviders={providers} />
 
       <p className="text-xs text-subtle">
-        Monthly cost is a figure you enter yourself based on each provider&apos;s pricing page or invoice — none of these
+        Monthly cost is a figure you enter yourself based on each provider&apos;s pricing page or invoice. None of these
         providers expose a live billing API, so nothing here is pulled automatically.
       </p>
     </div>

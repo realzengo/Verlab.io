@@ -167,11 +167,11 @@ export function AnimatedFeatureSection() {
 
   return (
     <section className="mt-1 mb-2 md:mt-2">
-      <Reveal className="mx-auto w-[calc(100%-2rem)]">
+      <Reveal className="mx-auto max-w-[1600px] px-6 md:px-12">
         <div
           ref={ref}
           data-inview={inView}
-          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-xl bg-[#010208] sm:h-[487px] sm:rounded-2xl"
+          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-2xl bg-[#010208] sm:h-[487px]"
         >
           {/* Background — z-0: near-black base + an animated starfield texture on top of it */}
           <div
@@ -204,7 +204,7 @@ export function AnimatedFeatureSection() {
               glow reads clearly, matching a card lit by blue light bleeding in from its edges. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 z-[15] rounded-xl sm:rounded-2xl"
+            className="pointer-events-none absolute inset-0 z-[15] rounded-2xl"
             style={{
               boxShadow:
                 "inset 0 0 0 1px rgba(120,155,255,0.35), inset 0 -110px 140px -50px rgba(51,92,255,0.95), inset 0 90px 120px -60px rgba(51,92,255,0.4), inset -90px 0 140px -60px rgba(51,92,255,0.6), inset 90px 0 140px -60px rgba(51,92,255,0.6)",

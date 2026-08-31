@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Check, ChevronRight, Lock, Sparkles, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Portal } from "@/components/ui/Portal";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CODE_MAX, isValidCode } from "@/lib/validation";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
@@ -55,6 +56,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [requiresSubscription, setRequiresSubscription] = useState(false);
 
   useResetOnPageRestore(() => setIsCheckingOut(false));
 
@@ -65,6 +67,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   async function handleCheckout() {
     setIsCheckingOut(true);
     setCheckoutError(null);
+    setRequiresSubscription(false);
     try {
       const res = await fetch("/api/checkout/credits", {
         method: "POST",
@@ -75,6 +78,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
 
       if (!res.ok || !data.url) {
         setCheckoutError(data.error ?? "Could not start checkout");
+        setRequiresSubscription(data.code === "no_active_subscription");
         setIsCheckingOut(false);
         return;
       }
@@ -127,6 +131,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   }
 
   return (
+    <Portal>
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 backdrop-blur-md sm:items-center sm:p-4"
       onClick={onClose}
@@ -287,7 +292,19 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
             <span className="text-lg font-semibold tabular-nums text-heading">{activePack.price}</span>
           </div>
 
-          {checkoutError && <p className="mb-3 text-xs text-danger">{checkoutError}</p>}
+          {checkoutError && (
+            <p className="mb-3 text-xs text-danger">
+              {checkoutError}
+              {requiresSubscription && (
+                <>
+                  {" "}
+                  <a href="/pricing" className="font-semibold underline underline-offset-2">
+                    View plans
+                  </a>
+                </>
+              )}
+            </p>
+          )}
 
           <div className="flex gap-3">
             <button
@@ -303,6 +320,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
               loading={isCheckingOut}
               loadingText="Processing…"
               onClick={handleCheckout}
+              disabled={requiresSubscription}
             />
           </div>
 
@@ -313,5 +331,6 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

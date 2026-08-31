@@ -54,7 +54,7 @@ export function McpConnectSection({ className, compact = false }: { className?: 
             </button>
           </div>
           <p className="mt-2 max-w-md text-xs text-slate-500 dark:text-slate-500">
-            Same link for everyone — you&apos;ll log into Verlab and approve access when you connect.
+            Same link for everyone. You&apos;ll log into Verlab and approve access when you connect.
           </p>
         </div>
 

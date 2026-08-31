@@ -352,7 +352,7 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
           )}
           {!batchRunning && batchProgress && (
             <p className="mt-1 text-xs font-medium text-body">
-              Done — classified {batchProgress.classified}/{batchProgress.total} channels
+              Done. Classified {batchProgress.classified}/{batchProgress.total} channels
               {batchProgress.failed > 0 ? ` (${batchProgress.failed} failed)` : ""}.
             </p>
           )}
@@ -360,14 +360,14 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
           {tiktokSyncRunning && <p className="mt-1 text-xs font-medium text-primary">Syncing TikTok trends…</p>}
           {!tiktokSyncRunning && tiktokSyncProgress && (
             <p className="mt-1 text-xs font-medium text-body">
-              Done — ingested {tiktokSyncProgress.ingestedCount} TikTok channels (raw, unclassified).
+              Done. Ingested {tiktokSyncProgress.ingestedCount} TikTok channels (raw, unclassified).
             </p>
           )}
           {tiktokSyncError && <p className="mt-1 text-xs text-danger">{tiktokSyncError}</p>}
           {youtubeSyncRunning && <p className="mt-1 text-xs font-medium text-primary">Syncing YouTube trends…</p>}
           {!youtubeSyncRunning && youtubeSyncProgress && (
             <p className="mt-1 text-xs font-medium text-body">
-              Done — ingested {youtubeSyncProgress.ingestedCount} YouTube channels (raw, unclassified).
+              Done. Ingested {youtubeSyncProgress.ingestedCount} YouTube channels (raw, unclassified).
             </p>
           )}
           {youtubeSyncError && <p className="mt-1 text-xs text-danger">{youtubeSyncError}</p>}
@@ -441,14 +441,14 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
                       </a>
                     </TableCell>
                     <TableCell className="text-body capitalize">{channel.platform}</TableCell>
-                    <TableCell className="text-body">{channel.niche ?? "—"}</TableCell>
+                    <TableCell className="text-body">{channel.niche ?? "N/A"}</TableCell>
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                       {classifyError?.id === channel.id && <p className="mt-1 text-[11px] text-danger">{classifyError.message}</p>}
                     </TableCell>
-                    <TableCell className="text-body">{channel.complexity ?? "—"}</TableCell>
+                    <TableCell className="text-body">{channel.complexity ?? "N/A"}</TableCell>
                     <TableCell className="tabular-nums text-body">
-                      {channel.viralVelocityScore != null ? `${channel.viralVelocityScore}/100` : "—"}
+                      {channel.viralVelocityScore != null ? `${channel.viralVelocityScore}/100` : "N/A"}
                     </TableCell>
                     <TableCell className="text-body">{formatDate(channel.createdAt)}</TableCell>
                     <TableCell className="text-right">

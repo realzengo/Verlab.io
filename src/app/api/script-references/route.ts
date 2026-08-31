@@ -67,7 +67,7 @@ async function extractText(file: File): Promise<string> {
   }
 
   if (name.endsWith(".doc")) {
-    throw new Error("Legacy .doc files aren't supported — please save it as .docx or .pdf instead.");
+    throw new Error("Legacy .doc files aren't supported. Please save it as .docx or .pdf instead.");
   }
 
   const text = buffer.toString("utf-8");

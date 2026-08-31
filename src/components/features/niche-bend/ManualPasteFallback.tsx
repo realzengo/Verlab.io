@@ -22,14 +22,14 @@ export function ManualPasteFallback({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-body">
-        Paste your top video titles and view counts, one per line — e.g.{" "}
-        <span className="text-heading">The mistake that ended a career — 1.2M views</span>.
+        Paste your top video titles and view counts, one per line, e.g.{" "}
+        <span className="text-heading">The mistake that ended a career, 1.2M views</span>.
       </p>
       <textarea
         rows={10}
         value={raw}
         onChange={(event) => setRaw(event.target.value)}
-        placeholder={"The mistake that ended a career — 1.2M views\nEvery warning sign nobody caught — 890K views"}
+        placeholder={"The mistake that ended a career, 1.2M views\nEvery warning sign nobody caught, 890K views"}
         maxLength={FREE_TEXT_MAX}
         className="w-full rounded-card-sm border border-hairline bg-surface p-3 text-sm text-heading placeholder:text-body focus:outline-none focus:ring-2 focus:ring-primary/30"
       />

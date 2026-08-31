@@ -69,6 +69,7 @@ export function PricingCard({
   onSelect,
   ctaHref,
   compact = false,
+  isCurrentPlan = false,
 }: {
   plan: PricingPlan;
   frequency: PricingFrequency;
@@ -76,6 +77,8 @@ export function PricingCard({
   ctaHref?: string;
   /** Skips the recommended card's scale-up — for narrow containers (e.g. the admin preview) where the 8% scale would overflow and overlap neighboring content. */
   compact?: boolean;
+  /** The plan the signed-in user is already subscribed to — swaps the CTA for a disabled "Current Plan" state so they can't re-purchase it. */
+  isCurrentPlan?: boolean;
 }) {
   const yearlyUnavailable = plan.monthlyOnly && frequency === "yearly";
   const isYearly = frequency === "yearly";
@@ -91,7 +94,12 @@ export function PricingCard({
 
   const priceBlock = (
     <>
-      <h2 className="mb-1.5 text-lg font-semibold text-heading">{plan.name}</h2>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold text-heading">{plan.name}</h2>
+        {isCurrentPlan && (
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Current Plan</span>
+        )}
+      </div>
       <p className="mb-4 text-[13px] text-subtle">{plan.info}</p>
 
       {yearlyUnavailable ? (
@@ -114,7 +122,11 @@ export function PricingCard({
         </>
       )}
 
-      {yearlyUnavailable ? (
+      {isCurrentPlan ? (
+        <button type="button" disabled className={ctaClassName}>
+          Current Plan
+        </button>
+      ) : yearlyUnavailable ? (
         <button type="button" disabled className={ctaClassName}>
           {plan.cta}
         </button>

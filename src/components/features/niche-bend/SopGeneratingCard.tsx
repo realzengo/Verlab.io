@@ -46,7 +46,7 @@ export function SopGeneratingCard({ nicheName }: { nicheName?: string }) {
         </p>
       </div>
 
-      <p className="text-[11px] text-subtle">This can take a couple of minutes — feel free to wait, it&rsquo;ll land here.</p>
+      <p className="text-[11px] text-subtle">This can take a couple of minutes. Feel free to wait, it&rsquo;ll land here.</p>
     </Card>
   );
 }

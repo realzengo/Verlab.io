@@ -1,4 +1,4 @@
-import { AlertTriangle, DollarSign, Percent, UserPlus, Users, Wallet } from "lucide-react";
+import { AlertTriangle, DollarSign, LifeBuoy, Percent, UserPlus, Users, Wallet } from "lucide-react";
 import { getRevenueData } from "@/lib/server/admin-queries";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/admin/StatTile";
@@ -26,6 +26,9 @@ export default async function AdminRevenuePage() {
     dailySeries: DAILY_SERIES,
     recentTransactions: RECENT_TRANSACTIONS,
     webhookConfigured: WEBHOOK_CONFIGURED,
+    cancellationBreakdown: CANCELLATION_BREAKDOWN,
+    retentionOffersShown: RETENTION_OFFERS_SHOWN,
+    retentionOfferAcceptRatePct: RETENTION_OFFER_ACCEPT_RATE_PCT,
   } = await getRevenueData();
 
   return (
@@ -49,7 +52,7 @@ export default async function AdminRevenuePage() {
           <div>
             <p className="text-sm font-semibold text-heading">Whop webhook isn&apos;t registered yet</p>
             <p className="text-xs text-body">
-              Checkout, MRR, and subscriber status only update from Whop&apos;s webhook — everything below stays at
+              Checkout, MRR, and subscriber status only update from Whop&apos;s webhook. Everything below stays at
               zero until <code className="rounded bg-surface px-1 py-0.5 text-[11px]">WHOP_WEBHOOK_SECRET</code> is
               set and <code className="rounded bg-surface px-1 py-0.5 text-[11px]">/api/webhooks/whop</code> is
               registered against a public URL.
@@ -138,6 +141,40 @@ export default async function AdminRevenuePage() {
             <div className="rounded-chip border border-hairline p-4">
               <p className="text-xs text-body">Canceled (30d)</p>
               <p className="mt-1 text-xl font-semibold text-heading">{formatNumber(CHURNED_LAST_30D)}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <h3 className="text-sm font-semibold text-heading">Cancellation reasons</h3>
+          <p className="mb-5 text-xs text-body">Why subscribers who finished the exit survey actually canceled</p>
+          {CANCELLATION_BREAKDOWN.length > 0 ? (
+            <StackedShareBar segments={CANCELLATION_BREAKDOWN.map((r) => ({ label: r.label, value: r.count, tone: r.tone }))} />
+          ) : (
+            <p className="text-sm text-body">No cancellations recorded yet.</p>
+          )}
+        </Card>
+
+        <Card className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-primary">
+              <LifeBuoy className="h-[18px] w-[18px]" />
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold text-heading">Retention offer</h3>
+              <p className="text-xs text-body">7 free days, shown before a cancellation is finalized</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-chip border border-hairline p-4">
+              <p className="text-xs text-body">Shown</p>
+              <p className="mt-1 text-xl font-semibold text-heading">{formatNumber(RETENTION_OFFERS_SHOWN)}</p>
+            </div>
+            <div className="rounded-chip border border-hairline p-4">
+              <p className="text-xs text-body">Accepted</p>
+              <p className="mt-1 text-xl font-semibold text-heading">{RETENTION_OFFER_ACCEPT_RATE_PCT}%</p>
             </div>
           </div>
         </Card>

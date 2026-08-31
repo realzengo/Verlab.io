@@ -199,7 +199,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         }
       }}
       aria-label={`View details for "${video.title}"`}
-      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover"
+      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover dark:bg-black"
     >
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
@@ -270,7 +270,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
           {analysis ? (
             <span
               className="inline-flex items-center gap-1 rounded-full border-2 border-accent-line bg-accent px-2 py-0.5 text-[10px] font-bold leading-none text-primary"
-              title={`AI-verified niche — ${analysis.confidence}% confidence`}
+              title={`AI-verified niche, ${analysis.confidence}% confidence`}
             >
               <BadgeCheck className="h-3 w-3" />
               {analysis.niche}
@@ -578,7 +578,7 @@ function NicheFinderInner({
         setVideos([]);
         setVideosRelaxedFilters(false);
         setVideosError(
-          timedOut ? "Taking too long to load — try again." : "Couldn't load videos. Try again."
+          timedOut ? "Taking too long to load. Try again." : "Couldn't load videos. Try again."
         );
       } finally {
         clearTimeout(timeoutId);
@@ -600,7 +600,7 @@ function NicheFinderInner({
 
   return (
     <section ref={sectionRef}>
-      <div className="-mx-4 bg-surface px-4 pb-4 pt-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <div className="-mx-4 bg-surface px-4 pb-4 pt-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <SegmentedControl ariaLabel="Niche Finder view" items={viewTabs} value={activeView} onChange={setActiveView} />
       </div>
 
@@ -613,6 +613,7 @@ function NicheFinderInner({
             onQueryChange={setQueryDraft}
             onSearchSubmit={() => submitVideoQuery(queryDraft)}
             queryError={queryError}
+            loading={videosLoading}
             platform={videoPlatform}
             onPlatformChange={setVideoPlatform}
             timeWindow={videoTimeWindow}
@@ -627,7 +628,7 @@ function NicheFinderInner({
           <ToolFrame
             className="mt-4"
             title="Niche Finder"
-            description="Non-competitive faceless niches, backed by real transcripts — not vague metadata guesses."
+            description="Non-competitive faceless niches, backed by real transcripts, not vague metadata guesses."
           >
             {/* Priority order: a real error always wins (even if stale videos
                 are still in state), then videos, then the loading spinner —
@@ -642,7 +643,7 @@ function NicheFinderInner({
               <div className="relative">
                 {videosRelaxedFilters && (
                   <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
-                    No videos matched your view-count filter — showing the closest matches instead.
+                    No videos matched your view-count filter, showing the closest matches instead.
                   </div>
                 )}
                 <div
@@ -679,7 +680,7 @@ function NicheFinderInner({
               <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
                 <SearchLoadingLogo size={140} />
                 {activeNiche
-                  ? `Fetching fresh ${activeNiche} videos — first look at a niche can take up to a minute.`
+                  ? `Fetching fresh ${activeNiche} videos, first look at a niche can take up to a minute.`
                   : "Loading videos…"}
               </div>
             ) : (

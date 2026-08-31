@@ -94,11 +94,11 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="flex gap-16 sm:gap-20 lg:gap-24">
+          <div className="flex gap-6 sm:gap-20 lg:gap-24">
             {LINK_GROUPS.map((group) => (
-              <div key={group.heading} className="flex flex-col items-start gap-3">
-                <h3 className="text-[18px] font-medium tracking-[-0.02em] text-black">{group.heading}</h3>
-                <ul className="flex flex-col items-start gap-2.5">
+              <div key={group.heading} className="flex flex-col items-start gap-2 sm:gap-3">
+                <h3 className="text-[15px] font-medium tracking-[-0.02em] text-black sm:text-[18px]">{group.heading}</h3>
+                <ul className="flex flex-col items-start gap-2 sm:gap-2.5">
                   {group.links.map((link) => (
                     <li key={link.label}>
                       {link.external ? (
@@ -106,14 +106,14 @@ export function Footer() {
                           href={link.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[15px] tracking-[-0.02em] text-[#545454] transition-colors hover:text-black"
+                          className="whitespace-nowrap text-[12.5px] tracking-[-0.02em] text-[#545454] transition-colors hover:text-black sm:whitespace-normal sm:text-[15px]"
                         >
                           {link.label}
                         </a>
                       ) : (
                         <Link
                           href={link.href}
-                          className="text-[15px] tracking-[-0.02em] text-[#424242] transition-colors hover:text-black"
+                          className="whitespace-nowrap text-[12.5px] tracking-[-0.02em] text-[#424242] transition-colors hover:text-black sm:whitespace-normal sm:text-[15px]"
                         >
                           {link.label}
                         </Link>

@@ -8,6 +8,7 @@ import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
+import { PlasticButton } from "@/components/ui/plastic-button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -79,15 +80,14 @@ export function TopBar({
   return (
     <div
       className={cn(
-        "relative z-30 flex items-center justify-between gap-2 px-3 pb-2.5 pt-1.5 sm:gap-4 sm:px-6 md:px-8 sm:pb-4 sm:pt-3",
-        // Niche Finder's tabs/search bar are a flat white block -- match it
-        // here so the two don't show a seam before the page is scrolled.
+        "relative z-30 flex items-center justify-between gap-2 px-3 pb-2.5 pt-3 sm:gap-4 sm:px-6 md:px-8 sm:pb-4 sm:pt-5",
+        // Niche Finder's tabs/search bar sit on the app background -- match
+        // it here so the two don't show a seam before the page is scrolled.
         // Scoped to this one route rather than applied globally, since other
         // pages (home, MCP) rely on TopBar staying transparent over their
         // own background effects.
-        pathname.startsWith("/niches") && "bg-surface",
-        isHome && "bg-surface",
-        isHome && "border-b border-hairline"
+        pathname.startsWith("/niches") && "bg-surface dark:bg-[#000000]",
+        isHome && "bg-white dark:bg-[#010204]"
       )}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -101,7 +101,7 @@ export function TopBar({
         </button>
         {isHome ? (
           <div className="min-w-0">
-            <h1 className="truncate text-base font-bold tracking-tight text-black sm:text-xl" suppressHydrationWarning>
+            <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl" suppressHydrationWarning>
               {timeGreeting()}
               {firstName(user) && <>, {firstName(user)}</>}
             </h1>
@@ -123,14 +123,16 @@ export function TopBar({
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {!isPaywalled && (
           <>
-            <button
-              type="button"
+            <PlasticButton
               onClick={() => setIsUpgradeOpen(true)}
-              className="flex h-9 items-center gap-1.5 rounded-full bg-btn-primary pl-3 pr-3.5 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
-            >
-              <Rocket className="h-3.5 w-3.5" fill="currentColor" />
-              <span className="hidden sm:inline-block">Upgrade</span>
-            </button>
+              className="h-9 px-3.5 font-semibold"
+              text={
+                <>
+                  <Rocket className="h-3.5 w-3.5" fill="currentColor" />
+                  <span className="hidden sm:inline-block">Upgrade</span>
+                </>
+              }
+            />
             <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
           </>
         )}

@@ -318,7 +318,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
             <span>
               These numbers update the price shown on <span className="font-medium text-body">/pricing</span> and every upgrade
               prompt as soon as you save. The amount actually charged at checkout is controlled separately by your Whop plan
-              configuration — keep them in sync when you reprice.
+              configuration. Keep them in sync when you reprice.
             </span>
           </div>
         </Card>
@@ -364,7 +364,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
           <div className="flex flex-col gap-2">
             {active.features.length === 0 && (
               <p className="rounded-lg border border-dashed border-hairline py-6 text-center text-sm text-subtle">
-                No features yet — add one above.
+                No features yet. Add one above.
               </p>
             )}
             {active.features.map((feature, i) => (
@@ -476,7 +476,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
         </div>
         <p className="flex items-center gap-1.5 text-[11px] text-subtle">
           <Info className="h-3 w-3 shrink-0" />
-          The marketing site always renders light, so this preview stays light too — it&apos;s showing you exactly what
+          The marketing site always renders light, so this preview stays light too. It&apos;s showing you exactly what
           visitors see.
         </p>
       </div>

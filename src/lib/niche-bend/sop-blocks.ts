@@ -44,7 +44,7 @@ export function getSopBlocks(sop: NicheBendSopResult): SopBlock[] {
 
     { type: "h2", text: "3. Script Structure Blueprint" },
     ...content.scriptStructureBeats.map(
-      (beat): SopBlock => ({ type: "bullet", text: `${beat.beat} (${beat.timing}) — ${beat.function}` })
+      (beat): SopBlock => ({ type: "bullet", text: `${beat.beat} (${beat.timing}), ${beat.function}` })
     ),
 
     { type: "h2", text: "4. Storytelling Frameworks" },
@@ -64,7 +64,7 @@ export function getSopBlocks(sop: NicheBendSopResult): SopBlock[] {
     { type: "h2", text: "5. Retention Mechanics" },
     { type: "h3", text: "Rehook Catalog" },
     ...content.retentionMechanics.rehookCatalog.map(
-      (r): SopBlock => ({ type: "bullet", text: `"${r.phrase}" — ${r.whenToUse}` })
+      (r): SopBlock => ({ type: "bullet", text: `"${r.phrase}", ${r.whenToUse}` })
     ),
     { type: "h3", text: "Pattern Interrupts" },
     ...bullets(content.retentionMechanics.patternInterrupts),
@@ -87,7 +87,7 @@ export function getSopBlocks(sop: NicheBendSopResult): SopBlock[] {
     ...bullets(content.openingClosingPatterns.signatureClosingPhrases),
 
     { type: "h2", text: "7. Quick Reference Card" },
-    { type: "p", text: "Hook formulas — pick one:" },
+    { type: "p", text: "Hook formulas, pick one:" },
     ...bullets(content.quickReferenceCard.hookFormulaPicks),
     { type: "p", text: `Structure: ${content.quickReferenceCard.beatStructureOneLine}` },
     { type: "p", text: "Top rehooks:" },
@@ -103,7 +103,7 @@ export function getSopBlocks(sop: NicheBendSopResult): SopBlock[] {
     { type: "bullet", text: `Format: ${originalChannel.format}` },
     { type: "h3", text: "Top videos" },
     ...originalChannel.topVideos.map(
-      (video): SopBlock => ({ type: "bullet", text: `${video.title} — ${video.views} views` })
+      (video): SopBlock => ({ type: "bullet", text: `${video.title}, ${video.views} views` })
     ),
   ];
 

@@ -22,11 +22,13 @@ export function PricingSectionClient({
   plans,
   comparisonRows,
   authenticated,
+  currentPlanId = null,
   showComparison = true,
 }: {
   plans: PricingPlan[];
   comparisonRows: ComparisonRow[];
   authenticated: boolean;
+  currentPlanId?: string | null;
   showComparison?: boolean;
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -57,7 +59,7 @@ export function PricingSectionClient({
           animationNum={1}
           timelineRef={sectionRef}
           customVariants={revealVariants}
-          className="mt-3.5 font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl"
+          className="mt-3.5 font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl"
         >
           Pricing that pays for
           <br />
@@ -68,14 +70,14 @@ export function PricingSectionClient({
           animationNum={2}
           timelineRef={sectionRef}
           customVariants={revealVariants}
-          className="mt-3 text-base text-body sm:mt-3.5 sm:text-[17px]"
+          className="mt-3 whitespace-nowrap text-[12.5px] text-body sm:mt-3.5 sm:whitespace-normal sm:text-[17px]"
         >
           Reverse-engineer viral videos into your own scripts.
         </TimelineContent>
       </div>
 
       <TimelineContent as="div" animationNum={3} timelineRef={sectionRef} customVariants={revealVariants} className="mt-8 sm:mt-10">
-        <PricingTable plans={plans} ctaHref={APP_URL} authenticated={authenticated} />
+        <PricingTable plans={plans} ctaHref={APP_URL} authenticated={authenticated} currentPlanId={currentPlanId} />
       </TimelineContent>
 
       {showComparison && (

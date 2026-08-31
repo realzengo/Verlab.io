@@ -202,7 +202,7 @@ export default function AccountSettingsPage() {
                 {nameError && <p className="text-sm text-danger">{nameError}</p>}
               </form>
             ) : (
-              <p className="mt-2 text-heading text-sm">{name || "—"}</p>
+              <p className="mt-2 text-heading text-sm">{name || "N/A"}</p>
             )}
           </div>
           {!editingName && (
@@ -259,7 +259,7 @@ export default function AccountSettingsPage() {
               </form>
             ) : (
               <>
-                <p className="mt-2 text-heading text-sm">{email || "—"}</p>
+                <p className="mt-2 text-heading text-sm">{email || "N/A"}</p>
                 {emailNotice && <p className="mt-1 text-xs text-body">{emailNotice}</p>}
               </>
             )}

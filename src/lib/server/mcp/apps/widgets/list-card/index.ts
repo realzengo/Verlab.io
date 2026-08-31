@@ -52,7 +52,7 @@ function parseViews(text: string): number {
 function renderCreatorProfile(sop: SopRow): string {
   const videos = sop.topVideos.slice(0, 8);
   const maxViews = Math.max(1, ...videos.map((video) => parseViews(video.views)));
-  const peakViews = videos[0]?.views ?? "—";
+  const peakViews = videos[0]?.views ?? "N/A";
 
   const bars = videos
     .map((video, index) => {

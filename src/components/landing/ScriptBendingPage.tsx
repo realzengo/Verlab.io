@@ -146,7 +146,7 @@ const BEND_STEPS = [
     icon: Compass,
     title: "Bend the niche, get the framework",
     description:
-      "Run Niche Bending on a competitor channel. It reads their top videos and generates an SOP — a full breakdown with the hook playbook, a beat-by-beat script structure, and the named storytelling frameworks they run on.",
+      "Run Niche Bending on a competitor channel. It reads their top videos and generates an SOP, a full breakdown with the hook playbook, a beat-by-beat script structure, and the named storytelling frameworks they run on.",
     cta: "Open Niche Bending",
     href: `${APP_URL}/bend`,
   },
@@ -162,7 +162,7 @@ const BEND_STEPS = [
     icon: Wand2,
     title: "Feed both into the Script Generator",
     description:
-      "Drop the SOP and the transcript into the Script Generator's two reference slots. It reverse-engineers the formula — hook structure, pacing, beats, tone — then maps your idea onto it for you.",
+      "Drop the SOP and the transcript into the Script Generator's two reference slots. It reverse-engineers the formula, hook structure, pacing, beats, tone. Then it maps your idea onto it for you.",
     cta: "Open Script Generator",
     href: `${APP_URL}/scripts`,
   },
@@ -170,7 +170,7 @@ const BEND_STEPS = [
     icon: Radar,
     title: "Re-run it on every new outlier",
     description:
-      "There's no dashboard to babysit — the moment a competitor posts something that pops, send the link back through Transcript Extractor and Niche Bending and bend it while it's still hot.",
+      "There's no dashboard to babysit. The moment a competitor posts something that pops, send the link back through Transcript Extractor and Niche Bending and bend it while it's still hot.",
   },
 ];
 
@@ -334,7 +334,7 @@ export function ScriptBendingPage() {
           </div>
         </div>
         <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-subtle">
-          The framework gives your idea a fresh shape the audience already responds to — proof of demand. The idea is
+          The framework gives your idea a fresh shape the audience already responds to, proof of demand. The idea is
           what makes it yours.
         </p>
 
@@ -345,21 +345,21 @@ export function ScriptBendingPage() {
             <div className="rounded-card border border-hairline bg-surface p-5 shadow-card">
               <span className="text-[11px] font-bold uppercase tracking-wide text-subtle">Original hook</span>
               <p className="mt-3 text-sm leading-relaxed text-heading">
-                &ldquo;From flying private jets to dying broke — this is every U.S. president&rsquo;s wealth
+                &ldquo;From flying private jets to dying broke, this is every U.S. president&rsquo;s wealth
                 explained.&rdquo;
               </p>
             </div>
             <div className="rounded-card border border-dashed border-hairline bg-app p-5">
               <span className="text-[11px] font-bold uppercase tracking-wide text-subtle">Framework</span>
               <p className="mt-3 text-sm leading-relaxed text-subtle">
-                &ldquo;From {"{extreme A}"} to {"{extreme B}"} — this is every {"{group}"}&rsquo;s {"{topic}"}{" "}
+                &ldquo;From {"{extreme A}"} to {"{extreme B}"}, this is every {"{group}"}&rsquo;s {"{topic}"}{" "}
                 explained.&rdquo;
               </p>
             </div>
             <div className="rounded-card border border-accent-line bg-accent p-5 shadow-card">
               <span className="text-[11px] font-bold uppercase tracking-wide text-primary">Bent hook</span>
               <p className="mt-3 text-sm leading-relaxed text-heading">
-                &ldquo;From sleeping in garages to running trillion-dollar companies — this is every tech
+                &ldquo;From sleeping in garages to running trillion-dollar companies, this is every tech
                 founder&rsquo;s net worth explained.&rdquo;
               </p>
             </div>
@@ -377,7 +377,7 @@ export function ScriptBendingPage() {
         <SectionHeading
           eyebrow="Where To Apply It"
           title="Script Bending happens on 3 levels"
-          description="Before you sit down to write anything, you dissect what's already working — on every level, not just the words."
+          description="Before you sit down to write anything, you dissect what's already working, on every level, not just the words."
         />
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-5">
@@ -482,7 +482,7 @@ export function ScriptBendingPage() {
         <SectionHeading
           eyebrow="Execution"
           title="How to actually script bend"
-          description="Not theory — the four Verlab tools that do each step, in order."
+          description="Not theory. The four Verlab tools that do each step, in order."
         />
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-5">
@@ -543,7 +543,7 @@ export function ScriptBendingPage() {
             Stop reinventing the wheel
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-white/80">
-            Verlab runs this exact system for you — find your niche, break down what&rsquo;s working, and generate
+            Verlab runs this exact system for you. Find your niche, break down what&rsquo;s working, and generate
             scripts bent from proven frameworks in minutes.
           </p>
           <div className="mt-6 flex justify-center">

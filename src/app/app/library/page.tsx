@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, motion } from "framer-motion";
@@ -36,6 +37,47 @@ function formatSeconds(seconds: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Stitched voiceover segments aren't decoded client-side, so there's no real
+// amplitude data to draw -- this renders a stable, per-asset "waveform" look
+// (seeded off the generation id, so it doesn't reshuffle on re-render) rather
+// than a flat progress bar. A light moving-average pass turns raw noise into
+// something that reads as a natural envelope instead of static.
+function generateWaveform(seed: string, count: number): number[] {
+  let state = 0;
+  for (let i = 0; i < seed.length; i++) {
+    state = (state * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  if (state === 0) state = 1;
+  function next(): number {
+    state ^= state << 13;
+    state >>>= 0;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    state >>>= 0;
+    return state / 4294967295;
+  }
+  const raw = Array.from({ length: count }, () => 0.18 + next() * 0.82);
+  return raw.map((value, i) => {
+    const neighbors = [raw[i - 1], value, raw[i + 1]].filter((v): v is number => v !== undefined);
+    return neighbors.reduce((sum, v) => sum + v, 0) / neighbors.length;
+  });
+}
+
+// Sweeps the filled waveform bars from a lighter blue into the brand primary
+// -- a flat fill reads flat, this reads as a premium gradient without
+// needing an actual CSS gradient across dozens of separate bar elements.
+const WAVEFORM_GRADIENT_FROM: [number, number, number] = [125, 176, 255];
+const WAVEFORM_GRADIENT_TO: [number, number, number] = [51, 92, 255];
+
+function waveformFillColor(fraction: number): string {
+  const [r1, g1, b1] = WAVEFORM_GRADIENT_FROM;
+  const [r2, g2, b2] = WAVEFORM_GRADIENT_TO;
+  const r = Math.round(r1 + (r2 - r1) * fraction);
+  const g = Math.round(g1 + (g2 - g1) * fraction);
+  const b = Math.round(b1 + (b2 - b1) * fraction);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 async function fetchVoiceoverSegmentDurations(generationId: string): Promise<number[]> {
@@ -120,6 +162,32 @@ function AssetPlaceholder({ type }: { type: LibraryAssetType }) {
   );
 }
 
+// Voiceover generations have no visual source (no thumbnailUrl, no fileUrl
+// to snapshot), so the grid can't show "the thing" the way image/video cards
+// do -- instead this renders a per-asset waveform silhouette (same seeded
+// generator as VoiceoverPreviewPlayer's waveform, so a given voiceover looks
+// the same in the grid as it does in the preview) over a dark, glowing card
+// so it reads as a deliberate audio treatment rather than a placeholder.
+function VoiceoverThumbnail({ asset }: { asset: LibraryAsset }) {
+  const bars = useMemo(() => generateWaveform(asset.id, 22), [asset.id]);
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-accent dark:bg-[radial-gradient(120%_140%_at_50%_115%,#182556_0%,#0b1230_45%,#05070f_100%)]">
+      <div className="absolute inset-x-0 bottom-0 flex h-[62%] items-end justify-center gap-[3px] px-7 pb-7">
+        {bars.map((value, i) => (
+          <span
+            key={i}
+            className="w-full rounded-full bg-primary dark:bg-gradient-to-t dark:from-primary/50 dark:via-primary dark:to-sky-300"
+            style={{ height: `${10 + value * 90}%`, opacity: 0.5 + value * 0.5 }}
+          />
+        ))}
+      </div>
+      <span className="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-white text-subtle ring-1 ring-hairline dark:bg-white/10 dark:text-white dark:ring-white/15">
+        <Mic2 className="h-3.5 w-3.5" />
+      </span>
+    </div>
+  );
+}
+
 function VideoThumbnail({ src }: { src: string }) {
   // Every card in the grid used to mount its <video> (and start fetching)
   // the moment it rendered, so a page full of videos fired that many
@@ -170,6 +238,10 @@ function VideoThumbnail({ src }: { src: string }) {
 function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }) {
   if (asset.type === "video" && asset.fileUrl) {
     return <VideoThumbnail src={asset.fileUrl} />;
+  }
+
+  if (asset.type === "voiceover") {
+    return <VoiceoverThumbnail asset={asset} />;
   }
 
   if (asset.thumbnailUrl) {
@@ -227,14 +299,18 @@ function PlayIndicator({ icon: Icon }: { icon: LucideIcon }) {
 // its segments back to back through a single hidden <audio> element,
 // advancing on `ended`, same sequencing approach as VoiceoverGenerator's
 // playSequenceFrom/handleAudioEnded.
+const WAVEFORM_BAR_COUNT = 48;
+
 function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
   const generationId = useMemo(() => asset.id.replace(/^voiceover-/, ""), [asset.id]);
+  const waveform = useMemo(() => generateWaveform(generationId, WAVEFORM_BAR_COUNT), [generationId]);
   const [durations, setDurations] = useState<number[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const waveformRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // The library page keys this component on previewAsset.id (see the
@@ -302,6 +378,56 @@ function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
     setCurrentTime(priorDuration + audioRef.current.currentTime);
   }
 
+  // Segments are separate files, so seeking has to land on the right one --
+  // walk the cumulative durations to find which segment `target` falls in,
+  // switch to it if needed, then wait for its metadata to load before
+  // jumping to the in-segment offset (setting currentTime before a new src
+  // has loaded is a no-op in most browsers).
+  function seekToFraction(fraction: number) {
+    if (!durations || !audioRef.current || totalDuration <= 0) return;
+    const target = Math.min(totalDuration - 0.05, Math.max(0, fraction * totalDuration));
+    const audio = audioRef.current;
+    let elapsed = 0;
+    for (let index = 0; index < durations.length; index++) {
+      const segmentEnd = elapsed + durations[index];
+      if (target < segmentEnd || index === durations.length - 1) {
+        const offset = Math.max(0, target - elapsed);
+        setCurrentTime(target);
+        if (playingIndex !== index) {
+          setPlayingIndex(index);
+          audio.src = voiceoverSegmentUrl(generationId, index);
+          const onLoaded = () => {
+            audio.currentTime = offset;
+            audio.removeEventListener("loadedmetadata", onLoaded);
+          };
+          audio.addEventListener("loadedmetadata", onLoaded);
+        } else {
+          audio.currentTime = offset;
+        }
+        if (isPlaying) void audio.play();
+        return;
+      }
+      elapsed = segmentEnd;
+    }
+  }
+
+  function handleWaveformClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (!durations || !waveformRef.current) return;
+    const rect = waveformRef.current.getBoundingClientRect();
+    seekToFraction((event.clientX - rect.left) / rect.width);
+  }
+
+  function handleWaveformKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!durations || totalDuration <= 0) return;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      seekToFraction((currentTime + 5) / totalDuration);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      seekToFraction((currentTime - 5) / totalDuration);
+    }
+  }
+
   return (
     <div className="flex w-full max-w-xs flex-col items-center gap-6 py-4">
       <audio ref={audioRef} onEnded={handleEnded} onTimeUpdate={handleTimeUpdate} className="hidden" />
@@ -311,21 +437,45 @@ function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
         onClick={togglePlayPause}
         disabled={!durations}
         aria-label={isPlaying ? "Pause" : "Play"}
-        className="group relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-cat-2-tint text-cat-2 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] transition-transform active:scale-[0.97] disabled:opacity-40 dark:ring-white/[0.06]"
+        className="group relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-accent to-accent/60 text-primary shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.97] disabled:opacity-40 dark:ring-white/[0.06]"
       >
-        <Mic2 className="h-11 w-11 transition-opacity group-hover:opacity-0" />
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-cat-2/90 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
-          {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 translate-x-0.5" />}
+        <Mic2 className="h-8 w-8 transition-opacity group-hover:opacity-0" />
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-hover text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+          {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 translate-x-0.5" />}
         </span>
       </button>
 
       <div className="flex w-full flex-col gap-2">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-          <div className="h-full rounded-full bg-cat-2 transition-[width] duration-150" style={{ width: `${progress * 100}%` }} />
+        <div
+          ref={waveformRef}
+          onClick={handleWaveformClick}
+          onKeyDown={handleWaveformKeyDown}
+          role="slider"
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(totalDuration)}
+          aria-valuenow={Math.round(currentTime)}
+          tabIndex={durations ? 0 : -1}
+          className={cn(
+            "flex h-14 w-full items-center gap-[3px] rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+            durations ? "cursor-pointer" : "cursor-default"
+          )}
+        >
+          {waveform.map((height, index) => {
+            const barFraction = index / (waveform.length - 1);
+            const filled = durations !== null && barFraction <= progress;
+            return (
+              <span
+                key={index}
+                className={cn("min-w-[2px] flex-1 rounded-full transition-colors duration-150", !filled && "bg-slate-200 dark:bg-white/10")}
+                style={{ height: `${12 + height * 88}%`, backgroundColor: filled ? waveformFillColor(barFraction) : undefined }}
+              />
+            );
+          })}
         </div>
         <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-zinc-500">
           <span>{formatSeconds(currentTime)}</span>
-          <span>{durations ? formatSeconds(totalDuration) : "—:—"}</span>
+          <span>{durations ? formatSeconds(totalDuration) : "--:--"}</span>
         </div>
       </div>
 
@@ -347,6 +497,11 @@ export default function LibraryPage() {
   const categoryMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  // document.body isn't available during SSR -- only portal the preview
+  // modal once mounted (same guard as UpgradeModal.tsx).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const { data: libraryData, error: libraryError } = useSWR<{ assets: LibraryAsset[] }>(
     `/api/library?type=${activeTab}&sort=${sort}`
@@ -717,6 +872,12 @@ export default function LibraryPage() {
         </div>
       )}
 
+      {/* Portaled to <body> so the fixed overlay always covers the full
+          viewport (including the sidebar) -- AppShell's AuroraBackground
+          wraps dashboard content in a positioned, z-indexed container that
+          would otherwise create a stacking context and trap this modal
+          below the sidebar (same fix as UpgradeModal.tsx). */}
+      {mounted && createPortal(
       <AnimatePresence>
         {previewAsset && (
           <motion.div
@@ -812,7 +973,9 @@ export default function LibraryPage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
 
       <ConfirmDialog
         isOpen={pendingDeleteId !== null}

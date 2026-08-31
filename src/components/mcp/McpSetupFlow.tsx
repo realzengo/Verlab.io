@@ -26,16 +26,7 @@ export function McpSetupFlow() {
   };
 
   return (
-    <section className="relative w-full overflow-hidden rounded-[32px] border border-hairline bg-surface p-6 sm:p-10 lg:p-14">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/15"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-24 top-1/3 h-72 w-72 rounded-full bg-primary/[0.06] blur-3xl dark:bg-primary/10"
-      />
-
+    <section className="relative w-full p-6 sm:p-10 lg:p-14">
       <div className="relative">
         <div className="flex flex-col items-center text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
@@ -46,7 +37,7 @@ export function McpSetupFlow() {
             Connect once. Ask for anything.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-body sm:text-base">
-            One connector URL links your whole Verlab account to your AI assistant — no keys, no setup per tool.
+            One connector URL links your whole Verlab account to your AI assistant. No keys, no setup per tool.
           </p>
 
           <div className="mt-6 inline-flex items-center gap-1 rounded-full border border-hairline bg-app p-1">
@@ -95,7 +86,7 @@ export function McpSetupFlow() {
             </span>
             <h3 className="mt-4 text-base font-bold text-heading sm:text-lg">Copy the link</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-body">
-              Every Verlab account gets one connector URL — grab it below.
+              Every Verlab account gets one connector URL. Grab it below.
             </p>
             <button
               type="button"
@@ -143,7 +134,7 @@ export function McpSetupFlow() {
             </span>
             <h3 className="mt-4 text-base font-bold text-heading sm:text-lg">Connect &amp; approve</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-body">
-              You&apos;ll be sent to Verlab to log in and approve access — then it&apos;s ready to use.
+              You&apos;ll be sent to Verlab to log in and approve access. Then it&apos;s ready to use.
             </p>
             <a
               href={settingsHref}

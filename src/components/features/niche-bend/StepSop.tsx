@@ -265,11 +265,11 @@ export function StepSop({
                     {hook.usedInVideos.join(", ")}
                   </p>
                   <p className="mt-2 text-sm text-body">
-                    <span className="font-semibold text-heading">Psychology — </span>
+                    <span className="font-semibold text-heading">Psychology, </span>
                     {hook.psychology}
                   </p>
                   <p className="mt-1 text-sm text-body">
-                    <span className="font-semibold text-heading">When to use — </span>
+                    <span className="font-semibold text-heading">When to use, </span>
                     {hook.whenToUse}
                   </p>
                   <div className="mt-2">
@@ -355,7 +355,7 @@ export function StepSop({
               <ul className="mt-2 flex flex-col gap-2">
                 {content.retentionMechanics.rehookCatalog.map((rehook, i) => (
                   <li key={i} className="text-sm text-body">
-                    <span className="font-semibold text-heading">&ldquo;{rehook.phrase}&rdquo;</span> —{" "}
+                    <span className="font-semibold text-heading">&ldquo;{rehook.phrase}&rdquo;</span>,{" "}
                     {rehook.whenToUse}
                   </li>
                 ))}
@@ -417,7 +417,7 @@ export function StepSop({
             <SectionHeading icon={ClipboardCheck}>7. Quick Reference Card</SectionHeading>
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
-                Hook formulas — pick one
+                Hook formulas. Pick one
               </span>
               <BulletList items={content.quickReferenceCard.hookFormulaPicks} />
             </div>

@@ -558,6 +558,21 @@ body {
     animation: bend-check 6s ease-in-out infinite;
   }
 
+  @keyframes menu-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.96) translateY(-6px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  .animate-menu-pop {
+    animation: menu-pop 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: top right;
+  }
+
   @keyframes line-grow {
     0%, 100% {
       transform: scaleX(1);

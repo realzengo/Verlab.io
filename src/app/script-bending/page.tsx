@@ -4,7 +4,7 @@ import { Footer } from "@/components/landing/Footer";
 import { ScriptBendingPage } from "@/components/landing/ScriptBendingPage";
 
 export const metadata: Metadata = {
-  title: "Niche Bending & Script Bending — Verlab AI",
+  title: "Niche Bending & Script Bending, Verlab AI",
   description:
     "Learn the system behind viral channels: how Niche Bending defines what your channel is about, and how Script Bending turns proven storytelling frameworks into scripts nobody else is running.",
 };

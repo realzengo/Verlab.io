@@ -83,26 +83,26 @@ export function FeaturedTools() {
     <section>
       <h2 className="text-xl font-bold tracking-tight text-heading">Top models</h2>
 
-      <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-4 sm:grid-cols-4">
         {MODELS.map((model) => (
           <Link
             key={model.id}
             href={model.href}
             className={cn(
-              "group flex flex-col rounded-2xl p-5 transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)]",
+              "group flex flex-col rounded-xl p-3 transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] sm:rounded-2xl sm:p-5",
               model.featured
                 ? "bg-gradient-to-br from-[#5CA5FF] to-[#2563EB] text-white shadow-[inset_0_0_14px_1px_#98CCFB] hover:shadow-[inset_0_0_32px_6px_#98CCFB]"
                 : "bg-app text-heading hover:shadow-[2px_3px_3px_rgba(16,24,40,0.18)] dark:border dark:border-hairline dark:bg-surface dark:hover:shadow-[2px_3px_4px_rgba(0,0,0,0.75)]"
             )}
           >
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2">
               <Image
                 src={model.logo}
                 alt=""
                 width={28}
                 height={28}
                 className={cn(
-                  "h-7 w-7 object-contain",
+                  "h-5 w-5 object-contain sm:h-7 sm:w-7",
                   model.featured ? "brightness-0 invert" : "brightness-0 dark:brightness-0 dark:invert"
                 )}
               />
@@ -111,20 +111,31 @@ export function FeaturedTools() {
                   <span
                     key={badge}
                     className={cn(
-                      "inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold",
+                      "inline-flex -skew-x-12 items-center rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1",
                       model.featured
-                        ? "border-white/25 bg-white/10 text-white"
-                        : "border-hairline bg-surface text-subtle dark:bg-white/[0.06]"
+                        ? "bg-white/90"
+                        : "bg-heading bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),rgba(255,255,255,0)_65%)]"
                     )}
                   >
-                    {badge}
+                    <span
+                      className={cn(
+                        "inline-block skew-x-12 text-[9px] font-extrabold italic uppercase tracking-wide sm:text-[11px]",
+                        model.featured ? "text-primary" : "text-app"
+                      )}
+                    >
+                      {badge}
+                    </span>
                   </span>
                 ))}
               </div>
             </div>
 
-            <h3 className={cn("mt-4 text-[15px] font-bold", model.featured ? "text-white" : "text-heading")}>{model.id}</h3>
-            <p className={cn("mt-1 text-sm", model.featured ? "text-white/75" : "text-subtle")}>{model.description}</p>
+            <h3 className={cn("mt-2.5 text-[13px] font-bold sm:mt-4 sm:text-[15px]", model.featured ? "text-white" : "text-heading")}>
+              {model.id}
+            </h3>
+            <p className={cn("mt-0.5 text-[11px] leading-snug sm:mt-1 sm:text-sm", model.featured ? "text-white/75" : "text-subtle")}>
+              {model.description}
+            </p>
           </Link>
         ))}
       </div>

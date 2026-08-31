@@ -7,7 +7,7 @@ export const BEND_RESULTS: BendResult[] = [
     targetNiche: "Corporate Fraud",
     createdAt: "2026-06-02T10:00:00.000Z",
     analysis:
-      "Medical Malpractice works because every video opens on a concrete number (a payout, a body count) before any context is given — the specificity is the hook, not the drama. Corporate Fraud has the same shape: a dollar figure, a coverup, a reveal. Bending it keeps the cold-open structure and swaps hospitals for boardrooms.",
+      "Medical Malpractice works because every video opens on a concrete number (a payout, a body count) before any context is given. The specificity is the hook, not the drama. Corporate Fraud has the same shape: a dollar figure, a coverup, a reveal. Bending it keeps the cold-open structure and swaps hospitals for boardrooms.",
     sop: {
       hookFormula:
         "\"The [dollar amount] [decision] that [company] hoped you'd never find out about\"",
@@ -37,8 +37,8 @@ export const BEND_RESULTS: BendResult[] = [
       "Every red flag the board saw and dismissed",
     ],
     scripts: [
-      "HOOK: The $340M expense report line that took down a CFO.\n\nBODY: In 2019, a routine audit flagged a single line item — $340M in \"consulting fees\" with no invoices attached. The CFO signed off on it personally, three years running. What the audit missed the first two times: the consulting firm didn't exist.\n\nCTA: Follow for part 2 — how they finally caught it.",
-      "HOOK: How one auditor's question unraveled a decade of fraud.\n\nBODY: She asked to see the original vendor contract. It took the finance team four days to produce one — because there wasn't one. That four-day delay is what triggered the internal investigation that ended the company's largest division.\n\nCTA: Save this for the full breakdown next week.",
+      "HOOK: The $340M expense report line that took down a CFO.\n\nBODY: In 2019, a routine audit flagged a single line item, $340M in \"consulting fees\" with no invoices attached. The CFO signed off on it personally, three years running. What the audit missed the first two times: the consulting firm didn't exist.\n\nCTA: Follow for part 2 to see how they finally caught it.",
+      "HOOK: How one auditor's question unraveled a decade of fraud.\n\nBODY: She asked to see the original vendor contract. It took the finance team four days to produce one, because there wasn't one. That four-day delay is what triggered the internal investigation that ended the company's largest division.\n\nCTA: Save this for the full breakdown next week.",
     ],
   },
   {
@@ -66,7 +66,7 @@ export const BEND_RESULTS: BendResult[] = [
       "The risk report nobody read until it was too late",
     ],
     scripts: [
-      "HOOK: Every warning sign before this hedge fund vanished overnight.\n\nBODY: Warning sign one: their returns never varied by more than 0.1% for six straight years — statistically almost impossible. Warning sign two: their auditor was a two-person firm in a strip mall. Warning sign three...\n\nCTA: Which one would you have caught? Comment below.",
+      "HOOK: Every warning sign before this hedge fund vanished overnight.\n\nBODY: Warning sign one: their returns never varied by more than 0.1% for six straight years. Statistically almost impossible. Warning sign two: their auditor was a two-person firm in a strip mall. Warning sign three...\n\nCTA: Which one would you have caught? Comment below.",
     ],
   },
 ];

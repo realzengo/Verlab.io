@@ -364,7 +364,7 @@ const findNicheTool: McpToolDefinition = {
         // The widget polls check_niche_report_status itself and updates in place --
         // telling the calling model to also call it would just spawn duplicate
         // "processing" widget cards in the chat on top of the one already polling.
-        note: "Still researching — the report will appear in the widget above once it's ready, no need to check again.",
+        note: "Still researching. The report will appear in the widget above once it's ready, no need to check again.",
       });
     }
 
@@ -400,7 +400,7 @@ const checkNicheReportStatusTool: McpToolDefinition = {
         stage: "processing",
         id: data.id,
         platform: data.platform,
-        note: "Still researching — the widget polls this automatically and will show the report once it's ready, no need to check again.",
+        note: "Still researching. The widget polls this automatically and will show the report once it's ready, no need to check again.",
       });
     }
     return jsonResult({ stage: "result", id: data.id, platform: data.platform, niches: data.niches, live: data.live });
@@ -518,7 +518,7 @@ const generateImageTool: McpToolDefinition = {
         // The widget polls check_image_status itself and updates in place --
         // telling the calling model to also call it would just spawn duplicate
         // "generating" widget cards in the chat on top of the one already polling.
-        note: "Still generating — the image will appear in the widget above once it's ready, no need to check again.",
+        note: "Still generating. The image will appear in the widget above once it's ready, no need to check again.",
       });
     }
 
@@ -609,7 +609,7 @@ const extractTranscriptTool: McpToolDefinition = {
       return jsonResult({
         id: row.id,
         status: "processing",
-        note: "Still extracting — call check_transcript_status with this id shortly.",
+        note: "Still extracting. Call check_transcript_status with this id shortly.",
       });
     }
 
@@ -710,7 +710,7 @@ const downloadVideoTool: McpToolDefinition = {
       return jsonResult({
         id: row.id,
         status: "processing",
-        note: "Still downloading — call check_download_status with this id shortly.",
+        note: "Still downloading. Call check_download_status with this id shortly.",
       });
     }
 
@@ -846,7 +846,7 @@ const analyzeCreatorTool: McpToolDefinition = {
         transcribed.map(({ video, text }) => ({ title: video.title, views: video.views, text }))
       );
 
-      const docFilename = `${sanitizeFilename(channel.channelName)} — Content Strategy Analysis.docx`;
+      const docFilename = `${sanitizeFilename(channel.channelName)}, Content Strategy Analysis.docx`;
       const docBuffer = await buildCreatorAnalysisDocx(channel.channelName, url, platform, videos, analysis);
       const docBase64 = docBuffer.toString("base64");
 
@@ -872,7 +872,7 @@ const analyzeCreatorTool: McpToolDefinition = {
       return jsonResult({
         id: row.id,
         status: "processing",
-        note: "Still analyzing — call check_creator_analysis_status with this id shortly.",
+        note: "Still analyzing. Call check_creator_analysis_status with this id shortly.",
       });
     }
 
@@ -912,7 +912,7 @@ const checkCreatorAnalysisStatusTool: McpToolDefinition = {
         id: data.id,
         status: data.status,
         error_message: data.error_message ?? undefined,
-        note: data.status === "processing" ? "Still analyzing — try again shortly." : undefined,
+        note: data.status === "processing" ? "Still analyzing. Try again shortly." : undefined,
       });
     }
 

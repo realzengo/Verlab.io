@@ -50,7 +50,7 @@ export function StepChooseBend({
         items={[
           {
             id: "original-channel-analysis",
-            trigger: `${analysis.channelName} — ${analysis.detectedNiche}`,
+            trigger: `${analysis.channelName} for ${analysis.detectedNiche}`,
             content: <ChannelAnalysisSummary analysis={analysis} />,
           },
         ]}

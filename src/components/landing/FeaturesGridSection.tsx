@@ -158,7 +158,7 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
   return (
     <Link
       href={href}
-      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-[#E0E4F2] bg-surface shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
+      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-[#E0E4F2] bg-surface shadow-card transition-all duration-200 sm:hover:-translate-y-0.5 sm:hover:shadow-card-hover"
     >
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm bg-white">
@@ -180,8 +180,8 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
       </div>
       <div className="mt-auto px-2.5 pb-2.5">
         <span className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1E5CFE] py-2 text-sm font-semibold text-white transition-colors lg:py-2.5">
-          <span className="transition-transform duration-200 group-hover:-translate-x-0.5">Try Now</span>
-          <ArrowRight className="h-3 w-3 -translate-x-1 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+          <span className="transition-transform duration-200 sm:group-hover:-translate-x-0.5">Try Now</span>
+          <ArrowRight className="h-3 w-3 translate-x-0 opacity-100 transition-all duration-200 sm:-translate-x-1 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100" />
         </span>
       </div>
     </Link>
@@ -225,7 +225,7 @@ function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconC
             <p className="mt-1 text-xs leading-snug text-slate-500">{description}</p>
           </div>
           <ArrowRight
-            className="mb-0.5 h-3.5 w-3.5 shrink-0 text-slate-300 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+            className="mb-0.5 h-3.5 w-3.5 shrink-0 text-slate-300 opacity-100 transition-opacity duration-150 ease-out sm:opacity-0 sm:group-hover:opacity-100"
             strokeWidth={2}
           />
         </div>
@@ -458,9 +458,9 @@ function McpDemoCard() {
 export function FeaturesGridSection() {
   return (
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
-      <div className="w-full px-5 sm:px-6">
+      <div className="mx-auto max-w-[1600px] px-6 md:px-12">
         <Reveal className="flex flex-col items-center text-center">
-          <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
+          <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Every AI tool, in one place.
           </h2>
           <p className="mt-4 max-w-xl text-base font-medium leading-snug text-slate-500 sm:mt-5 sm:text-lg">

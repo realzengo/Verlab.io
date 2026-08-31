@@ -107,7 +107,7 @@ function StepTwoCard() {
     <CardShell
       step={2}
       title="Extract the Formula"
-      description="Our AI extracts the template — hook and pattern kept, topic stripped out."
+      description="Our AI extracts the template, hook and pattern kept, topic stripped out."
     >
       <FormulaMockup />
     </CardShell>
@@ -128,13 +128,13 @@ function StepThreeCard() {
 
 export function VerlabProcess() {
   return (
-    <section className="w-full pb-14 pt-10 sm:pb-24 sm:pt-16">
+    <section className="w-full pb-14 pt-44 sm:pb-24 sm:pt-16">
       <div className="mx-auto max-w-[88rem] px-5 sm:px-6">
-        <Reveal className="text-center">
-          <h2 className="font-display text-2xl font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
+        <Reveal className="text-center" instantOnMobile>
+          <h2 className="font-display text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-heading sm:text-3xl sm:leading-normal sm:tracking-tight md:text-5xl">
             Go Viral in 3 Simple Steps
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm font-normal text-subtle sm:mt-4 md:text-base">
+          <p className="mx-auto mt-3 max-w-xl text-[15px] font-normal leading-relaxed text-subtle sm:mt-4 sm:text-sm sm:leading-normal md:text-base">
             Discover viral ideas, extract what makes them work, and transform them into unique scripts tailored to your niche.
           </p>
         </Reveal>

@@ -121,17 +121,17 @@ export const PLAN_DISTRIBUTION: PlanDistribution[] = [
 // --- Activity log ----------------------------------------------------------
 
 export const ACTIVITY_LOG: ActivityLogEntry[] = [
-  { id: "act_1", type: "billing", message: "Payment succeeded — Pro plan renewal", actor: "Priya Fontaine", timestamp: isoDaysAgo(0) },
+  { id: "act_1", type: "billing", message: "Payment succeeded, Pro plan renewal", actor: "Priya Fontaine", timestamp: isoDaysAgo(0) },
   { id: "act_2", type: "user", message: "New signup from organic search", actor: "Wren Sørensen", timestamp: isoDaysAgo(0) },
-  { id: "act_3", type: "system", message: "Niche Bend job failed — Anthropic API timeout", actor: "system", timestamp: isoDaysAgo(0) },
-  { id: "act_4", type: "billing", message: "Payment failed — card declined", actor: "Owen Ibrahim", timestamp: isoDaysAgo(1) },
+  { id: "act_3", type: "system", message: "Niche Bend job failed, Anthropic API timeout", actor: "system", timestamp: isoDaysAgo(0) },
+  { id: "act_4", type: "billing", message: "Payment failed, card declined", actor: "Owen Ibrahim", timestamp: isoDaysAgo(1) },
   { id: "act_5", type: "content", message: "New SOP generated: Corporate Fraud Timeline", actor: "Marcus Reyes", timestamp: isoDaysAgo(1) },
   { id: "act_6", type: "user", message: "Upgraded Core → Pro", actor: "Zoe Okafor", timestamp: isoDaysAgo(1) },
   { id: "act_7", type: "system", message: "MCP server deployed v1.4.2", actor: "system", timestamp: isoDaysAgo(2) },
-  { id: "act_8", type: "user", message: "Account suspended — ToS violation", actor: "admin: Zengo", timestamp: isoDaysAgo(2) },
-  { id: "act_9", type: "billing", message: "Refund issued — duplicate charge", actor: "admin: Zengo", timestamp: isoDaysAgo(3) },
+  { id: "act_8", type: "user", message: "Account suspended, ToS violation", actor: "admin: Zengo", timestamp: isoDaysAgo(2) },
+  { id: "act_9", type: "billing", message: "Refund issued, duplicate charge", actor: "admin: Zengo", timestamp: isoDaysAgo(3) },
   { id: "act_10", type: "content", message: "3,200 transcripts extracted (daily total)", actor: "system", timestamp: isoDaysAgo(3) },
-  { id: "act_11", type: "user", message: "Canceled subscription — Scale plan", actor: "Diego Whitfield", timestamp: isoDaysAgo(4) },
+  { id: "act_11", type: "user", message: "Canceled subscription, Scale plan", actor: "Diego Whitfield", timestamp: isoDaysAgo(4) },
   { id: "act_12", type: "system", message: "API rate limit tuning deployed", actor: "system", timestamp: isoDaysAgo(5) },
 ];
 

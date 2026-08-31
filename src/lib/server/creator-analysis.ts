@@ -190,7 +190,7 @@ export async function buildCreatorAnalysisDocx(
             ),
             tableBodyCell([new Paragraph({ children: [new TextRun({ text: video.views, color: BRAND.subtle })] })], 14),
             tableBodyCell(
-              [new Paragraph({ children: [new TextRun({ text: insightByTitle.get(video.title) ?? "—", color: BRAND.body, size: 18 })] })],
+              [new Paragraph({ children: [new TextRun({ text: insightByTitle.get(video.title) ?? "N/A", color: BRAND.body, size: 18 })] })],
               40
             ),
           ],
@@ -214,7 +214,7 @@ export async function buildCreatorAnalysisDocx(
             spacing: { after: 80 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `${channelName} — Content Strategy Analysis`, bold: true, color: BRAND.heading, size: 40 })],
+            children: [new TextRun({ text: `${channelName}, Content Strategy Analysis`, bold: true, color: BRAND.heading, size: 40 })],
             spacing: { after: 80 },
           }),
           new Paragraph({

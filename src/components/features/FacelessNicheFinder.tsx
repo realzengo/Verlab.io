@@ -91,8 +91,8 @@ function deriveTrendingVideos(channels: NicheChannel[]): DerivedVideo[] {
         category: channel.niche ?? channel.facelessCategory ?? "Faceless",
         platform: channel.platform,
         timeAgo: timeAgoLabel(video.postedAt),
-        viewsCount: video.viewsCount ?? "—",
-        likesCount: video.likesCount ?? "—",
+        viewsCount: video.viewsCount ?? "N/A",
+        likesCount: video.likesCount ?? "N/A",
         videoUrl: video.videoUrl,
         rawViewCount: video.viewCount ?? 0,
         rawFollowerCount: channel.subscriberCount,
@@ -363,7 +363,7 @@ export function FacelessNicheFinder() {
               results the other source did return -- surface it as a note
               instead of blanking the grid. */}
           {(channelsError || liveFeedError) && (
-            <p className="text-xs text-red-500">{channelsError || liveFeedError} — showing partial results.</p>
+            <p className="text-xs text-red-500">{channelsError || liveFeedError}, showing partial results.</p>
           )}
           {usingAllTimeFallback && (
             <p className="text-xs text-subtle">

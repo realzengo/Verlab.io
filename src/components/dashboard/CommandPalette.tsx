@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { Portal } from "@/components/ui/Portal";
 import type { LucideIcon } from "lucide-react";
 
 interface SearchResult {
@@ -89,6 +90,7 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
   if (!isOpen) return null;
 
   return (
+    <Portal>
     <div
       className="fixed inset-0 z-[60] flex items-start justify-center bg-black/50 px-4 pt-[12vh] backdrop-blur-sm"
       onClick={onClose}
@@ -155,5 +157,6 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

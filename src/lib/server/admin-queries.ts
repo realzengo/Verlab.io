@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
+import { CANCELLATION_REASONS } from "@/lib/cancellation";
 import type {
   ActivityLogEntry,
   AdminNicheChannel,
@@ -58,6 +59,15 @@ const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
 
 const PLAN_LABEL: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
 const PLAN_TONE: Record<string, ToolTone> = { core: "sky", pro: "blue", scale: "violet" };
+
+const CANCELLATION_REASON_TONE: Record<string, ToolTone> = {
+  switching: "sky",
+  too_expensive: "amber",
+  missing_features: "violet",
+  technical_issues: "rose",
+  bad_experience: "orange",
+  other: "green",
+};
 
 // Subscriptions still collecting revenue (or in the past_due grace window) --
 // see src/proxy.ts's PAST_DUE_GRACE_MS for why past_due keeps counting.
@@ -261,7 +271,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       mrr,
       signupDate: (u.created_at ?? new Date().toISOString()).slice(0, 10),
       lastActiveAt,
-      country: "—",
+      country: "N/A",
       usage,
     };
   });
@@ -320,7 +330,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
     listAllUsers(),
   ]);
 
-  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "—"]));
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
 
   function toDuration(status: string, createdAt: string, updatedAt: string): number | undefined {
     const settled = status === "failed" || status === "success" || status === "ready" || status === "sop_ready" || status === "complete" || status === "completed";
@@ -332,7 +342,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "niche-bend" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
     })),
@@ -340,7 +350,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "transcript" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
     })),
@@ -348,7 +358,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "download" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
     })),
@@ -356,7 +366,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "video-generation" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
       errorMessage: j.raw_error_message,
@@ -365,7 +375,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "image-generation" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       errorMessage: j.raw_error_message,
     })),
@@ -373,7 +383,7 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
       id: j.id,
       type: "voiceover-generation" as SystemJobType,
       status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "—",
+      userEmail: emailById.get(j.user_id) ?? "N/A",
       startedAt: j.created_at,
       durationMs: toDuration(j.status, j.created_at, j.updated_at),
       errorMessage: j.raw_error_message,
@@ -703,7 +713,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
       .gte("created_at", since30.toISOString()),
   ]);
 
-  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "—"]));
+  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
   const profileById = new Map(
     (profiles ?? []).map((p) => [p.id, p as { full_name: string | null; plan: AdminUser["plan"]; credits: number }])
   );
@@ -763,7 +773,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
       return {
         id: userId,
         name: nameFor(userId),
-        email: emailById.get(userId) ?? "—",
+        email: emailById.get(userId) ?? "N/A",
         plan: profile?.plan ?? "core",
         spent30d,
         balance: profile?.credits ?? 0,
@@ -774,7 +784,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
     id: row.id,
     userId: row.user_id,
     userName: nameFor(row.user_id),
-    userEmail: emailById.get(row.user_id) ?? "—",
+    userEmail: emailById.get(row.user_id) ?? "N/A",
     amount: row.amount,
     feature: row.feature,
     actionKey: row.action_key,
@@ -851,7 +861,7 @@ function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction |
       id: row.id,
       type: "order.refunded",
       userName: "Unknown",
-      userEmail: "—",
+      userEmail: "N/A",
       itemLabel: payment?.product?.title ?? "Refund",
       billingReason: null,
       amount: -((data.amount as number | undefined) ?? 0),
@@ -869,7 +879,7 @@ function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction |
     id: row.id,
     type: "order.paid",
     userName: user?.name || user?.email || "Unknown",
-    userEmail: user?.email ?? "—",
+    userEmail: user?.email ?? "N/A",
     itemLabel: product?.title ?? (data.membership ? "Subscription" : "Credits"),
     billingReason: billingReason ? (BILLING_REASON_LABEL[billingReason] ?? billingReason) : null,
     amount: settlementAmount,
@@ -883,9 +893,14 @@ export async function getRevenueData(): Promise<RevenueData> {
   const since30 = new Date();
   since30.setUTCDate(since30.getUTCDate() - 29);
 
-  const [{ data: profiles }, planDefs, { data: eventRows }] = await Promise.all([
+  const [{ data: profiles }, planDefs, { data: cancellationRows }, { data: eventRows }] = await Promise.all([
     admin.from("profiles").select("plan, subscription_status, subscription_period"),
     getPlanDefinitions(admin),
+    admin
+      .from("cancellation_feedback")
+      .select("reason, outcome, offer_shown, offer_accepted")
+      .order("created_at", { ascending: false })
+      .limit(500),
     admin
       .from("whop_webhook_events")
       .select("id, type, payload, created_at")
@@ -947,6 +962,22 @@ export async function getRevenueData(): Promise<RevenueData> {
     .map(parseRevenueTransaction)
     .filter((t): t is RevenueTransaction => t !== null);
 
+  const cancellations = cancellationRows ?? [];
+  const reasonCounts: Record<string, number> = {};
+  for (const row of cancellations) {
+    if (row.outcome !== "canceled") continue;
+    reasonCounts[row.reason] = (reasonCounts[row.reason] ?? 0) + 1;
+  }
+  const cancellationBreakdown = CANCELLATION_REASONS.map((r) => ({
+    reason: r.id,
+    label: r.label,
+    count: reasonCounts[r.id] ?? 0,
+    tone: CANCELLATION_REASON_TONE[r.id],
+  })).filter((entry) => entry.count > 0);
+
+  const retentionOffersShown = cancellations.filter((r) => r.offer_shown).length;
+  const retentionOffersAccepted = cancellations.filter((r) => r.offer_accepted).length;
+
   return {
     mrr: Math.round(mrr),
     arr: Math.round(mrr * 12),
@@ -968,6 +999,9 @@ export async function getRevenueData(): Promise<RevenueData> {
     dailySeries,
     recentTransactions,
     webhookConfigured: !!process.env.WHOP_WEBHOOK_SECRET,
+    cancellationBreakdown,
+    retentionOffersShown,
+    retentionOfferAcceptRatePct: retentionOffersShown ? Number(((retentionOffersAccepted / retentionOffersShown) * 100).toFixed(1)) : 0,
   };
 }
 

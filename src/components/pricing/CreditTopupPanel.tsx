@@ -39,12 +39,12 @@ function FeatureChecklist({ credits, featured }: { credits: number; featured?: b
   const videos = Math.floor(credits / CHEAPEST_VIDEO_CREDITS);
   return (
     <ul className="mt-2 flex flex-col gap-1">
-      <li className={cn("flex items-center gap-2 text-sm", featured ? "text-white/65" : "text-subtle")}>
-        <Check className={cn("h-4 w-4 shrink-0", featured ? "text-white/75" : "text-subtle")} strokeWidth={2.5} />
+      <li className={cn("flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:gap-2 sm:text-sm", featured ? "text-white/65" : "text-subtle")}>
+        <Check className={cn("h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4", featured ? "text-white/75" : "text-subtle")} strokeWidth={2.5} />
         Up to {images.toLocaleString()} Nano Banana Pro image generations
       </li>
-      <li className={cn("flex items-center gap-2 text-sm", featured ? "text-white/65" : "text-subtle")}>
-        <Check className={cn("h-4 w-4 shrink-0", featured ? "text-white/75" : "text-subtle")} strokeWidth={2.5} />
+      <li className={cn("flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:gap-2 sm:text-sm", featured ? "text-white/65" : "text-subtle")}>
+        <Check className={cn("h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4", featured ? "text-white/75" : "text-subtle")} strokeWidth={2.5} />
         Up to {videos.toLocaleString()} Seedance 2.0 720p, 5s video generations
       </li>
     </ul>
@@ -104,7 +104,7 @@ function PackRow({
   const content = (
     <div
       className={cn(
-        "relative flex flex-col gap-4 rounded-[1.75rem] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6",
+        "relative flex flex-col gap-3.5 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between sm:rounded-[1.75rem] sm:p-6",
         featured ? "topup-neon-card" : "border border-hairline bg-gray-100 dark:bg-surface"
       )}
       style={!featured ? { boxShadow: "inset 0 2px 6px rgba(0, 0, 0, 0.08), var(--shadow-card)" } : undefined}
@@ -124,27 +124,27 @@ function PackRow({
               </span>
             )
           )}
-          <SaveBadge percent={percent} />
         </div>
         <FeatureChecklist credits={pack.creditsNum} featured={featured} />
       </div>
 
-      <div className="flex shrink-0 items-center justify-between gap-6 sm:flex-col sm:items-end sm:justify-center sm:gap-4">
-        <div className="flex items-baseline gap-2.5">
+      <div className="flex flex-col gap-3 sm:shrink-0 sm:items-end sm:justify-center sm:gap-4">
+        <div className="flex flex-wrap items-baseline gap-2 sm:justify-end sm:gap-2.5">
+          <span className={cn("text-2xl font-extrabold tabular-nums sm:text-3xl", featured ? "text-white" : "text-heading")}>
+            {formatUsd(pack.priceUsd)}
+          </span>
           {percent > 0 && (
-            <span className={cn("text-3xl font-extrabold line-through", featured ? "text-pink-500" : "text-pink-600")}>
+            <span className={cn("text-lg font-bold line-through sm:text-xl", featured ? "text-pink-400" : "text-pink-600")}>
               {formatUsd(list)}
             </span>
           )}
-          <span className={cn("text-3xl font-extrabold tabular-nums", featured ? "text-white" : "text-heading")}>
-            {formatUsd(pack.priceUsd)}
-          </span>
+          <SaveBadge percent={percent} />
         </div>
         <button
           type="button"
           onClick={() => onCheckout(pack.id)}
           disabled={disabled}
-          className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-white px-16 py-3.5 text-base font-bold text-black transition-colors duration-150 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-white px-6 py-3 text-base font-bold text-black transition-colors duration-150 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:px-16 sm:py-3.5"
           style={{ boxShadow: "0 4px 0 0 #d4d4d8, 0 10px 20px -6px rgba(0, 0, 0, 0.22)" }}
         >
           {loading ? (
@@ -160,9 +160,7 @@ function PackRow({
     </div>
   );
 
-  if (!featured) return content;
-
-  return <div className="topup-neon-frame rounded-[1.9rem]">{content}</div>;
+  return content;
 }
 
 export function CreditTopupPanel({

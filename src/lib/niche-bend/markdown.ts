@@ -30,7 +30,7 @@ export function formatSopAsMarkdown(sop: NicheBendSopResult): string {
       "",
     ]),
     "## 3. Script Structure Blueprint",
-    ...content.scriptStructureBeats.map((beat) => `- **${beat.beat}** (${beat.timing}) — ${beat.function}`),
+    ...content.scriptStructureBeats.map((beat) => `- **${beat.beat}** (${beat.timing}): ${beat.function}`),
     "",
     "## 4. Storytelling Frameworks",
     ...content.storytellingFrameworks.flatMap((framework) => [
@@ -46,7 +46,7 @@ export function formatSopAsMarkdown(sop: NicheBendSopResult): string {
     ]),
     "## 5. Retention Mechanics",
     "### Rehook Catalog",
-    ...content.retentionMechanics.rehookCatalog.map((r) => `- "${r.phrase}" — ${r.whenToUse}`),
+    ...content.retentionMechanics.rehookCatalog.map((r) => `- "${r.phrase}": ${r.whenToUse}`),
     "### Pattern Interrupts",
     ...content.retentionMechanics.patternInterrupts.map((item) => `- ${item}`),
     `### Open Loops\n${content.retentionMechanics.openLoopsRule}`,
@@ -79,7 +79,7 @@ export function formatSopAsMarkdown(sop: NicheBendSopResult): string {
     `- Format: ${originalChannel.format}`,
     "",
     "### Top videos",
-    ...originalChannel.topVideos.map((video) => `- ${video.title} — ${video.views} views`),
+    ...originalChannel.topVideos.map((video) => `- ${video.title}, ${video.views} views`),
   ];
 
   return lines.join("\n");

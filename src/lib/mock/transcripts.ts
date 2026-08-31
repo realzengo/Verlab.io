@@ -14,7 +14,7 @@ export const TRANSCRIPTS: Transcript[] = [
       { timestamp: "0:09", text: "Here's what actually happened in that operating room." },
       { timestamp: "0:15", text: "The surgeon had done this exact procedure over 400 times." },
       { timestamp: "0:21", text: "But this time, a resident swapped one instrument tray." },
-      { timestamp: "0:29", text: "Nobody double-checked it — because nobody ever had to before." },
+      { timestamp: "0:29", text: "Nobody double-checked it, because nobody ever had to before." },
       { timestamp: "0:38", text: "The mistake wasn't caught until the patient was already in recovery." },
       { timestamp: "0:47", text: "What happened next is why hospitals changed their checklist policy nationwide." },
       { timestamp: "0:54", text: "Follow for part two." },

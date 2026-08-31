@@ -139,7 +139,7 @@ export default async function OAuthAuthorizePage({
         <p className="mt-5 flex items-start justify-center gap-1.5 text-center text-xs text-subtle">
           <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0 text-subtle" />
           <span>
-            Make sure you trust {clientLabel} ({requestedHost}) — you may be sharing sensitive data with this app.
+            Make sure you trust {clientLabel} ({requestedHost}). You may be sharing sensitive data with this app.
           </span>
         </p>
 

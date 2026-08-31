@@ -5,7 +5,7 @@ import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPage
 import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Verlab AI",
+  title: "Privacy Policy, Verlab AI",
   description: "How Verlab collects, uses, and protects your data.",
 };
 
@@ -32,7 +32,7 @@ const SECTIONS: LegalSection[] = [
         <p className="font-semibold text-heading">2.2 Billing Information</p>
         <p>
           Subscription plan, billing history, and payment details. Card and payment information is collected and
-          processed directly by our payment processor — Verlab does not store full card numbers on its own servers.
+          processed directly by our payment processor. Verlab does not store full card numbers on its own servers.
         </p>
         <p className="font-semibold text-heading">2.3 Content You Provide</p>
         <p>Topics, niches, transcripts, uploads, and any other content you submit to generate scripts or SOPs.</p>
@@ -122,8 +122,8 @@ const SECTIONS: LegalSection[] = [
     title: "Data Security",
     body: (
       <p>
-        We use industry-standard technical and organizational measures — including encryption in transit,
-        access controls, and hashed passwords — to protect your information. No method of transmission or storage is
+        We use industry-standard technical and organizational measures, including encryption in transit,
+        access controls, and hashed passwords, to protect your information. No method of transmission or storage is
         completely secure, and we cannot guarantee absolute security.
       </p>
     ),

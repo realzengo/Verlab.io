@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Copy, Eye, FileText, Heart, Loader2, Sparkles, Users, X } from "lucide-react";
 import {
   PLATFORM_BADGE,
@@ -228,9 +229,9 @@ export function VideoDetailModal({
   const relatedPool = fetchedRelated ?? relatedVideos;
   const related = relatedPool.filter((v) => v.niche === video.niche && v.id !== video.id).slice(0, 12);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-md"
       onClick={onClose}
     >
       <div
@@ -428,7 +429,7 @@ export function VideoDetailModal({
                           <p className="text-[11px] text-subtle">{insights.niche.engagementVsAvg.toFixed(2)}x avg engagement</p>
                         </>
                       ) : insightsError ? (
-                        <p className="mt-1 text-sm font-medium text-subtle">—</p>
+                        <p className="mt-1 text-sm font-medium text-subtle">N/A</p>
                       ) : (
                         <div className="mt-1 h-6 w-16 animate-pulse rounded bg-hairline" />
                       )}
@@ -438,7 +439,7 @@ export function VideoDetailModal({
                       {insights ? (
                         <p className="text-base font-bold tabular-nums text-heading">{(insights.engagementRate * 100).toFixed(1)}%</p>
                       ) : insightsError ? (
-                        <p className="mt-1 text-sm font-medium text-subtle">—</p>
+                        <p className="mt-1 text-sm font-medium text-subtle">N/A</p>
                       ) : (
                         <div className="mt-1 h-6 w-16 animate-pulse rounded bg-hairline" />
                       )}
@@ -565,13 +566,7 @@ export function VideoDetailModal({
             {related.length > 0 && (
               <div>
                 <p className="mb-3.5 text-sm font-bold text-heading">Videos in the same niche</p>
-                {/* A fixed max card width (not 1fr) keeps cards a normal,
-                    consistent size regardless of how many results come
-                    back -- with auto-fit + minmax(_, 1fr) a niche with only
-                    one or two matches would stretch those cards to fill
-                    the whole row; with minmax(_, 220px) they just stay
-                    card-sized and leave the leftover space empty. */}
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,220px))] gap-4">
+                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
                   {related.map((v) => (
                     <TrendingVideoCard key={v.id} video={v} onOpen={onSelectVideo} />
                   ))}
@@ -582,6 +577,7 @@ export function VideoDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

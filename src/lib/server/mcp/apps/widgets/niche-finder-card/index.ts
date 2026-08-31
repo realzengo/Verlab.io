@@ -121,7 +121,7 @@ function renderForm() {
         <div class="vf-q-num">2</div>
         <div class="vf-q-body">
           <div class="vf-q-title">Channels you already love or watch?</div>
-          <div class="vf-q-help">Names or @handles — even ones outside the niche you're chasing.</div>
+          <div class="vf-q-help">Names or @handles, even ones outside the niche you're chasing.</div>
           <textarea class="vf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel...">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
           <div class="vf-error" id="nf-error" hidden></div>
         </div>
@@ -158,7 +158,7 @@ function renderForm() {
         <div class="vf-q-num">6</div>
         <div class="vf-q-body">
           <div class="vf-q-title">Any job, background, or skill to pull from?</div>
-          <div class="vf-q-help">Unfair advantages hide here — a trade, a degree, a hobby you're good at.</div>
+          <div class="vf-q-help">Unfair advantages hide here, a trade, a degree, a hobby you're good at.</div>
           <textarea class="vf-input" id="nf-background" rows="2" placeholder="e.g. ex-teacher, gym coach, coder, editor, sales, gamer since forever...">${escapeHtml(lastAnswers.background)}</textarea>
         </div>
       </div>
@@ -277,7 +277,7 @@ function renderReport(platform: Platform, niches: NicheReportEntry[], live: bool
         <span class="vf-meta-pill">${niches.length} niches</span>
         <span class="vf-meta-pill">${escapeHtml(PLATFORM_LABEL[platform])}</span>
       </div>
-      ${live ? "" : `<div class="vf-notice">Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results — momentum and view counts here are approximate.</div>`}
+      ${live ? "" : `<div class="vf-notice">Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results. Momentum and view counts here are approximate.</div>`}
       <hr class="vf-divider">
       ${blocks}
       <button type="button" class="vf-restart" id="nf-restart">Start over</button>
@@ -351,7 +351,7 @@ async function pollReport(id: string) {
       // transient -- keep polling.
     }
   }
-  failResearch("This is taking longer than expected — try again in a moment.");
+  failResearch("This is taking longer than expected. Try again in a moment.");
 }
 
 renderForm();
@@ -410,7 +410,7 @@ root.addEventListener("click", async (event) => {
   lastAnswers.budget = (document.getElementById("nf-budget") as HTMLInputElement | null)?.value ?? "";
 
   if (!lastAnswers.interests && !lastAnswers.channelsTheyLike) {
-    showFormError("Answer at least the first two questions — that's what actually drives the report.");
+    showFormError("Answer at least the first two questions, that's what actually drives the report.");
     return;
   }
 

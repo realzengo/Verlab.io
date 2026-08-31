@@ -4,7 +4,7 @@ import { OPENROUTER_MAX_OUTPUT_TOKENS, nicheTrendResearchModel, openrouterInstru
 
 export class NicheTrendAiError extends Error {}
 
-const SYSTEM_PROMPT = `You are Verlab's trend research analyst. You track currently-trending faceless short-form video niches across TikTok, YouTube Shorts, and Instagram Reels — channels that never show a real on-camera host, spanning every faceless production style: narrated/voiceover-over-footage (true crime breakdowns, business post-mortems, history deep-dives), AI-generated content (AI voiceover with AI-generated visuals or avatars, AI storytelling series), and 2D animation (animated explainers, animated storytime, animated comics). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics.`;
+const SYSTEM_PROMPT = `You are Verlab's trend research analyst. You track currently-trending faceless short-form video niches across TikTok, YouTube Shorts, and Instagram Reels, channels that never show a real on-camera host, spanning every faceless production style: narrated/voiceover-over-footage (true crime breakdowns, business post-mortems, history deep-dives), AI-generated content (AI voiceover with AI-generated visuals or avatars, AI storytelling series), and 2D animation (animated explainers, animated storytime, animated comics). You are evidence-based: every niche you report must be grounded in real, currently-visible videos you found via web search, and you cite real example titles and view counts. No hype, no invented statistics.`;
 
 const SampleVideoSchema = z.object({
   title: z.string(),
@@ -54,7 +54,7 @@ export async function discoverTrendingNiches(): Promise<NicheTrend[]> {
   // research text into the schema instead.
   const researchPrompt = `Research currently-trending FACELESS short-form video niches right now across TikTok, YouTube Shorts, and Instagram Reels. Use web search to ground every claim in real, currently-circulating videos.
 
-Find 7-10 distinct niches, and make sure the set you return is NOT all narration-over-footage — deliberately include a mix across all three faceless production styles:
+Find 7-10 distinct niches, and make sure the set you return is NOT all narration-over-footage. Deliberately include a mix across all three faceless production styles:
 - Narrated/voiceover niches (true crime breakdowns, business post-mortems, history deep-dives, etc.)
 - AI-generated niches (AI voiceover paired with AI-generated visuals or AI avatars, AI storytime/story series)
 - 2D animation niches (animated explainers, animated storytime, animated comics)
@@ -67,7 +67,7 @@ Aim for at least 1-2 real niches from each of the AI-generated and 2D-animation 
 - how much view/growth momentum this niche has right now relative to the others, and whether it's accelerating, fading, or steady
 - 2-3 REAL example videos you found via search, with their actual titles and view counts (mark clearly estimated counts, don't fabricate precision)
 
-Use at most 8 searches. Do not invent video titles or view counts — if you can't confirm real examples for a niche, drop that niche rather than making one up. End with a clear plain-text summary covering every niche you found.`;
+Use at most 8 searches. Do not invent video titles or view counts. If you can't confirm real examples for a niche, drop that niche rather than making one up. End with a clear plain-text summary covering every niche you found.`;
 
   const messages: ModelMessage[] = [{ role: "user", content: researchPrompt }];
 
@@ -89,7 +89,7 @@ Use at most 8 searches. Do not invent video titles or view counts — if you can
 
   // Pass 2: no grounding tool, just shape the research summary above into
   // the Zod schema.
-  const extractionPrompt = `Based on your research above, structure every niche you found into the required format: a stable slug (lowercase, hyphenated, e.g. "medical-malpractice"), name, category, description (one sentence), faceless, tags (2-4 short tags — always include one of "narrated", "ai-generated", or "2d-animation" to mark its production style), platform, momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
+  const extractionPrompt = `Based on your research above, structure every niche you found into the required format: a stable slug (lowercase, hyphenated, e.g. "medical-malpractice"), name, category, description (one sentence), faceless, tags (2-4 short tags, always include one of "narrated", "ai-generated", or "2d-animation" to mark its production style), platform, momentumScore (0-100, relative to the others you found), momentumTrend, and sampleVideos (the real titles/view counts you found, as strings like "4.2M"). Respond only in the required structured format.`;
 
   const messagesWithExtraction: ModelMessage[] = [
     ...messages,

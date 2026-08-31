@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Portal } from "@/components/ui/Portal";
 import { writeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import {
@@ -247,7 +248,8 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex h-[100dvh] bg-black/40 md:backdrop-blur-sm" onClick={onClose}>
+    <Portal>
+    <div className="fixed inset-0 z-[60] flex h-[100dvh] bg-black/40 md:backdrop-blur-sm" onClick={onClose}>
       <div
         className="m-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-zinc-950 md:h-[85vh] md:max-h-[92vh] md:max-w-6xl md:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
@@ -499,7 +501,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                 <div className="space-y-1.5">
                   <p className="text-sm font-semibold text-heading">Edit with AI</p>
                   <p className="max-w-[240px] text-sm text-body/70">
-                    Ask to tighten the hook, shorten a line, or change the tone — it&apos;ll rewrite the script for you.
+                    Ask to tighten the hook, shorten a line, or change the tone. It&apos;ll rewrite the script for you.
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-1.5">
@@ -609,6 +611,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

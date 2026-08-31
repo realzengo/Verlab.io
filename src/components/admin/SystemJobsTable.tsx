@@ -60,11 +60,11 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
               </TableCell>
               <TableCell className="max-w-[280px] text-xs text-body">
                 <span className="block truncate" title={job.errorMessage ?? undefined}>
-                  {job.status === "failed" ? job.errorMessage || "—" : "—"}
+                  {job.status === "failed" ? job.errorMessage || "N/A" : "N/A"}
                 </span>
               </TableCell>
               <TableCell className="text-right tabular-nums text-body">
-                {job.durationMs ? `${(job.durationMs / 1000).toFixed(1)}s` : "—"}
+                {job.durationMs ? `${(job.durationMs / 1000).toFixed(1)}s` : "N/A"}
               </TableCell>
             </TableRow>
           ))}

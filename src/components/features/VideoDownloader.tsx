@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Check, CloudDownload, Download, Eye, Link2, Loader2, RotateCcw, X } from "lucide-react";
 import { BorderTrail } from "@/components/ui/BorderTrail";
+import { Portal } from "@/components/ui/Portal";
 import type { DownloadFormat } from "@/lib/types";
 import { isValidUrl } from "@/lib/validation";
 
@@ -182,8 +183,11 @@ export function VideoDownloader() {
   return (
     <div className="mx-auto flex w-full max-w-2xl min-h-[calc(100dvh-4.5rem)] flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24">
       <div className="relative text-center">
-        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-[2.75rem]">
-          Video Downloader
+        <h1 className="text-4xl font-extrabold tracking-tight sm:text-[3.5rem]">
+          <span className="text-heading">Video </span>
+          <span className="relative inline-block -skew-x-12 rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-3 py-0.5 align-middle">
+            <span className="inline-block skew-x-12 text-white">Downloader</span>
+          </span>
         </h1>
         <p className="mt-2.5 text-sm font-medium text-body/60 sm:text-base">
           Download videos from YouTube, TikTok, and Facebook
@@ -191,17 +195,27 @@ export function VideoDownloader() {
       </div>
 
       <div className="relative mt-6 sm:mt-12">
-        <div className="relative rounded-3xl border border-slate-200/80 shadow-sm dark:border-white/10 dark:shadow-[0_1px_0_rgba(255,255,255,0.04)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-8 -top-8 h-36 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20"
+        />
+
+        <div className="relative rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_60px_-24px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_1px_0_rgba(255,255,255,0.04)]">
           <BorderTrail
             size={130}
             className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-60 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
             transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
           />
 
-          <div className="relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white/70 p-5 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)] sm:p-10">
-            <div className="flex items-stretch gap-2.5 sm:gap-3">
-              <div className="relative min-w-0 flex-1">
-                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500 sm:left-4.5" />
+          <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-white/70 p-5 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 sm:p-9">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)]"
+            />
+
+            <div className="relative flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 focus-within:border-primary/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10 dark:border-white/10 dark:bg-black/30 dark:focus-within:bg-black/40 sm:gap-1.5 sm:p-2">
+              <Link2 className="ml-2.5 h-4 w-4 shrink-0 text-slate-400 dark:text-zinc-500 sm:ml-3" />
+              <div className="min-w-0 flex-1">
                 <input
                   type="url"
                   inputMode="url"
@@ -213,7 +227,7 @@ export function VideoDownloader() {
                     setUrl(event.target.value);
                   }}
                   placeholder="Paste video URL"
-                  className="w-full min-w-0 rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-3 text-base font-medium text-slate-900 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-all duration-200 placeholder:font-normal placeholder:text-slate-400 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:border-white/10 dark:bg-black/40 dark:text-white dark:placeholder:text-zinc-500 sm:py-4 sm:pl-12 sm:pr-4"
+                  className="w-full min-w-0 bg-transparent py-2.5 pl-2 pr-2 text-base font-medium text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500 sm:py-3"
                 />
               </div>
 
@@ -224,7 +238,7 @@ export function VideoDownloader() {
                 aria-label={
                   state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
                 }
-                className="relative flex w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:w-16"
+                className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12"
                 style={{
                   background:
                     state === "ready"
@@ -259,7 +273,7 @@ export function VideoDownloader() {
             </div>
 
             {detectedPlatform && (
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
+              <div className="relative mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
                 <Image
                   src={detectedPlatform.logo}
                   alt=""
@@ -272,20 +286,22 @@ export function VideoDownloader() {
             )}
 
             {state === "error" && error && (
-              <p className="mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
+              <p className="relative mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
             )}
 
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-2 sm:mt-9">
+            <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2 sm:mt-9">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                 Supports
               </span>
               {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
                 <span
                   key={id}
-                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 p-2 text-xs font-semibold text-slate-600 shadow-sm transition-colors duration-200 hover:border-primary/30 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:border-primary/30 dark:hover:bg-white/10 sm:px-3.5 sm:py-1.5"
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 py-1.5 pl-1.5 pr-3.5 text-xs font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
                 >
-                  <Image src={logo} alt={label} width={14} height={14} className="h-3.5 w-3.5 object-contain" />
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10">
+                    <Image src={logo} alt="" width={13} height={13} className="h-3.5 w-3.5 object-contain" />
+                  </span>
+                  {label}
                 </span>
               ))}
             </div>
@@ -294,6 +310,7 @@ export function VideoDownloader() {
       </div>
 
       {(state === "preparing" || state === "ready") && !popupDismissed && (
+        <Portal>
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
           onClick={() => setPopupDismissed(true)}
@@ -415,6 +432,7 @@ export function VideoDownloader() {
             )}
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

@@ -67,8 +67,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (insertError.code === "23505") {
       return NextResponse.json({ received: true, deduped: true });
     }
-    console.error("[whop webhook] Failed to log event:", insertError);
-    return NextResponse.json({ error: "Failed to log event" }, { status: 500 });
+    // Any other insert failure (e.g. a transient Supabase timeout) still
+    // acks with 200 -- a non-2xx here is what got this endpoint disabled by
+    // Whop after 72h of continuous failures. The raw payload is only in this
+    // console.error, not the DB, since the insert itself is what failed.
+    console.error("[whop webhook] Failed to log event:", insertError, JSON.stringify(event));
+    return NextResponse.json({ received: true, logged: false });
   }
 
   try {
@@ -95,8 +99,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         break;
     }
   } catch (error) {
+    // Ack with 200 even though processing failed -- the raw payload is
+    // already durably stored in whop_webhook_events (inserted above, before
+    // processing), so nothing is lost. processed_at is left null, which
+    // marks this row for manual/backfill reprocessing. Returning non-2xx
+    // here is what got this endpoint disabled by Whop after 72h of
+    // continuous failures.
     console.error(`[whop webhook] Failed to process ${event.type}:`, error);
-    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
+    return NextResponse.json({ received: true, processed: false });
   }
 
   await admin.from("whop_webhook_events").update({ processed_at: new Date().toISOString() }).eq("id", event.id);

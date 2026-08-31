@@ -88,7 +88,7 @@ function derivePlaceholderMeta(row: TranscriptRow): PlaceholderMeta {
 }
 
 function formatDuration(seconds: number | null): string {
-  if (!seconds) return "—";
+  if (!seconds) return "--:--";
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return `${minutes}:${String(remainder).padStart(2, "0")}`;

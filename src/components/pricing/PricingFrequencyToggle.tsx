@@ -16,7 +16,7 @@ export function PricingFrequencyToggle({
   const isYearly = frequency === "yearly";
 
   return (
-    <div className="mb-20 flex justify-center">
+    <div className="mb-4 flex justify-center sm:mb-20">
       <div className="inline-flex items-center gap-2.5 rounded-full border border-hairline bg-surface px-4 py-2 shadow-card">
         <button
           type="button"

@@ -65,9 +65,9 @@ function humanizeVideoProviderError(error: unknown): string {
       case "unsupported_url":
         return "We couldn't recognize that link. Double-check the URL and try again.";
       case "rate_limited":
-        return "We're processing a lot of requests right now — try again in a moment.";
+        return "We're processing a lot of requests right now. Try again in a moment.";
       case "not_found":
-        return "That video couldn't be found — it may be private or deleted.";
+        return "That video couldn't be found. It may be private or deleted.";
       case "no_captions":
         return "That video doesn't have any captions or subtitles available to extract.";
       case "not_configured":
@@ -502,7 +502,7 @@ async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: numb
     if (!data.download_url && (data.progress ?? 0) >= 1000) {
       throw new VideoProviderError(
         "not_found",
-        "That video couldn't be downloaded — it may be private, deleted, or unsupported."
+        "That video couldn't be downloaded. It may be private, deleted, or unsupported."
       );
     }
     if (data.progress !== undefined) {

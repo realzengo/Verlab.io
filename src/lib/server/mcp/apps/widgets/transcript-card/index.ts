@@ -161,9 +161,9 @@ async function exportTranscript(kind: "srt" | "vtt" | "txt") {
     // the next best thing so the export button never dead-ends silently.
     try {
       await navigator.clipboard.writeText(content);
-      showExportStatus(`Host can't download files here — copied ${kind.toUpperCase()} to clipboard instead.`);
+      showExportStatus(`Host can't download files here. Copied ${kind.toUpperCase()} to clipboard instead.`);
     } catch {
-      showExportStatus(`Couldn't export ${kind.toUpperCase()} — this host doesn't support downloads or clipboard access.`);
+      showExportStatus(`Couldn't export ${kind.toUpperCase()}. This host doesn't support downloads or clipboard access.`);
     }
   }
 }

@@ -52,7 +52,7 @@ export function Button(props: ButtonProps | LinkProps) {
     size = "md",
     icon: Icon,
     iconPosition = "left",
-    bevel = true,
+    bevel = false,
     eyebrow,
     iconClassName,
     children,

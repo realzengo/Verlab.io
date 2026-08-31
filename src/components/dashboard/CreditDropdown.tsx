@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUpCircle, ChevronDown, Database, Download, FileText, Image as ImageIcon, Wand2 } from "lucide-react";
 import { CREDITS_CHANGED_EVENT } from "@/lib/client/credits-bus";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { PlasticButton } from "@/components/ui/plastic-button";
 import { cn } from "@/lib/utils";
 
 interface CreditsSummary {
@@ -124,17 +125,19 @@ export function CreditDropdown({ onUpgradeClick }: { onUpgradeClick: () => void 
           </div>
 
           <div className="p-3.5 pt-2.5">
-            <button
-              type="button"
+            <PlasticButton
               onClick={() => {
                 setIsOpen(false);
                 onUpgradeClick();
               }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-md bg-btn-primary py-2 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover"
-            >
-              <ArrowUpCircle className="h-3.5 w-3.5" />
-              Upgrade
-            </button>
+              className="w-full py-2 font-semibold"
+              text={
+                <>
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                  Upgrade
+                </>
+              }
+            />
           </div>
         </div>
       )}

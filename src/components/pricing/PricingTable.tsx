@@ -18,12 +18,15 @@ export function PricingTable({
   plans,
   ctaHref,
   authenticated,
+  currentPlanId = null,
 }: {
   plans: PricingPlan[];
   /** Where logged-out visitors are sent instead of straight to checkout. */
   ctaHref?: string;
   /** When true, ignores ctaHref and starts a Whop checkout for the signed-in user instead. */
   authenticated?: boolean;
+  /** The signed-in user's active plan id -- marks that card as current and disables its CTA. */
+  currentPlanId?: string | null;
 }) {
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export function PricingTable({
               plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}
               frequency={frequency}
               onSelect={handleSelect}
+              isCurrentPlan={plan.id === currentPlanId}
             />
           ) : (
             <PricingCard key={plan.id} plan={plan} frequency={frequency} ctaHref={ctaHref} />

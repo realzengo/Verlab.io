@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, ClipboardPaste, Loader2, Wand2 } from "lucide-react";
+import { AlertTriangle, Check, ClipboardPaste, Loader2 } from "lucide-react";
 import type { NicheBendJobStatus, NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -62,15 +62,15 @@ export function StepAnalyze({
   return (
     <div className="animate-bend-in relative mx-auto flex max-w-3xl flex-col items-center gap-7 pb-10 pt-4 text-center sm:pt-8">
       <div>
-        <span className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface py-1 pl-1 pr-3.5 shadow-card">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#6d93ff] to-primary text-white">
-            <Wand2 className="h-2.5 w-2.5" strokeWidth={2.5} />
+        <span className="mx-auto mb-6 inline-flex -skew-x-12 items-center justify-center rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-2.5 py-0.5">
+          <span className="inline-block skew-x-12 text-center text-[11px] font-extrabold italic uppercase tracking-wide text-white">
+            Format Intelligence
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Format Intelligence</span>
         </span>
 
-        <h1 className="text-balance bg-gradient-to-b from-heading to-heading/70 bg-clip-text pb-1 text-4xl font-semibold leading-[1.15] tracking-tighter text-transparent sm:text-5xl lg:text-[3.25rem]">
-          Reverse-engineer any{" "}
+        <h1 className="bg-gradient-to-b from-heading to-heading/70 bg-clip-text pb-1 text-4xl font-semibold leading-[1.15] tracking-tighter text-transparent sm:text-5xl lg:text-[3.25rem]">
+          Reverse-engineer any
+          <br />
           <span className="bg-gradient-to-br from-[#6d93ff] to-primary bg-clip-text text-transparent">
             viral format
           </span>

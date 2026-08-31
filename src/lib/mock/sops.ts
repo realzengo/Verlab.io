@@ -9,10 +9,10 @@ export const SOPS: Sop[] = [
     hookFormula:
       "\"The [dollar amount] [mistake/decision] that [company/institution] hoped you'd never find out about\"",
     structure: [
-      "0-3s: Cold open on the number — the payout, the loss, the body count",
-      "3-10s: Set the scene — who, where, what looked normal at first",
+      "0-3s: Cold open on the number, the payout, the loss, the body count",
+      "3-10s: Set the scene, who, where, what looked normal at first",
       "10-35s: The mistake or decision, told in chronological beats",
-      "35-50s: The coverup — what they tried to hide and how it surfaced",
+      "35-50s: The coverup, what they tried to hide and how it surfaced",
       "50-60s: The consequence, then a hook for part 2",
     ],
     pacing: "Cut every 2-3s on the reveal beats, hold 4-5s on the emotional turn.",
@@ -22,9 +22,9 @@ export const SOPS: Sop[] = [
       "End on an unresolved thread to justify a part 2",
     ],
     donts: [
-      "Don't editorialize in the first 10 seconds — let the facts hook",
+      "Don't editorialize in the first 10 seconds. Let the facts hook",
       "Don't bury the twist past the 40s mark",
-      "Don't use stock true-crime music beds — feels generic",
+      "Don't use stock true-crime music beds. Feels generic",
     ],
     createdAt: "2026-06-02T10:00:00.000Z",
     savedByUser: true,
@@ -36,7 +36,7 @@ export const SOPS: Sop[] = [
     targetNicheId: "financial-collapse",
     hookFormula: "\"Every warning sign [institution] chose to ignore before [disaster]\"",
     structure: [
-      "0-3s: State the outcome up front — the collapse, the number",
+      "0-3s: State the outcome up front, the collapse, the number",
       "3-15s: Rewind to the first warning sign",
       "15-40s: Stack 3-4 more warning signs, escalating",
       "40-55s: The final decision that sealed it",
@@ -44,7 +44,7 @@ export const SOPS: Sop[] = [
     ],
     pacing: "Fast list-style cuts (1.5-2s) on the warning-sign stack, slow down for the ending.",
     dos: ["Use a running counter overlay for each warning sign", "Cite a real source or article"],
-    donts: ["Don't stack more than 5 warning signs — attention drops"],
+    donts: ["Don't stack more than 5 warning signs. Attention drops"],
     createdAt: "2026-06-10T14:30:00.000Z",
     savedByUser: true,
   },
@@ -63,7 +63,7 @@ export const SOPS: Sop[] = [
     ],
     pacing: "Match cut aftermath-to-cause, then steady 3s beats through the explanation.",
     dos: ["Use simple diagrams/overlays to explain technical causes"],
-    donts: ["Don't over-explain the physics — keep it accessible"],
+    donts: ["Don't over-explain the physics. Keep it accessible"],
     createdAt: "2026-06-18T09:15:00.000Z",
   },
 ];

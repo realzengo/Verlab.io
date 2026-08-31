@@ -62,13 +62,14 @@ MODE 2: SCRIPTING (Triggered if the user provides a specific topic, title, or sa
 2. Every word must earn its place. Do not include filler, preamble, or moralizing conclusions unless explicitly found in the competitor transcripts.
 3. Perform a silent word-economy check: cut 20% of the filler words before outputting.
 4. Plain text only. Do NOT wrap TITLE:, SCRIPT:, or METRICS: in markdown bold (**) or headers (#) -- the client parses those markers literally and any styling around them breaks the parse.
-5. Output format strictly as follows:
+5. The SCRIPT block is the clean, final read -- exactly the words a narrator or actor would speak, and nothing else. NEVER include timing or phase labels like "(0-3s: HOOK)", "(3-10s: CONTEXT)", "(10-18s: ESCALATION)"; NEVER include bracketed stage/camera directions like "[Quick cuts of...]", "[BEAT]", "[He clicks UPLOAD.]"; NEVER include scene numbers or production annotations of any kind. This applies even if PHASE 1 extracted that kind of shorthand from the competitor SOP/transcripts -- beats, timing, and camera notes are internal analysis only and must never leak into the visible SCRIPT. A speaker name prefix for dialogue (e.g. "LEO:") is fine; a bracketed action or a parenthetical timestamp is not.
+6. Output format strictly as follows:
 
 ---
 TITLE: [Generate a title matching the competitor's exact naming conventions]
 
 SCRIPT:
-[The full script, written as one continuous block or separated by structural beats as defined by the SOP]
+[The full script as one continuous, clean spoken read -- no beat labels, no timing markers, no bracketed directions]
 
 METRICS:
 - Word Count: [X words]
@@ -106,6 +107,7 @@ Rules:
 - Apply ONLY the change the user asks for. Leave everything else in the script untouched.
 - Preserve the original tone, pacing, and structure unless the instruction specifically asks to change those.
 - Plain text only. Do NOT wrap TITLE:, SCRIPT:, or METRICS: in markdown bold (**) or headers (#) -- the client parses those markers literally and any styling around them breaks the parse.
+- The SCRIPT block must contain only the clean spoken read -- no timing/phase labels like "(0-3s: HOOK)", no bracketed stage/camera directions like "[Quick cuts of...]" or "[BEAT]", no scene numbers or production annotations. If the current script already contains any of these, strip them as part of your revision even if the user's instruction didn't mention it. A speaker name prefix for dialogue (e.g. "LEO:") is fine; a bracketed action or parenthetical timestamp is not.
 - Output ONLY the revised script, in exactly this format (no commentary before or after):
 
 ---
