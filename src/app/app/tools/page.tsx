@@ -1,6 +1,10 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
+import { useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
+import { cn } from "@/lib/utils";
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
 // `thumbnail` below to "/tools/<slug>.png" -- cards fall back to a tinted
@@ -13,11 +17,7 @@ const TOOLS: {
   tone: ToolTone;
   badge?: string;
   thumbnail?: string;
-  video?: string;
-  videoPoster?: string;
-  videoDark?: string;
-  videoPosterDark?: string;
-  videoScale?: number;
+  thumbnailDark?: string;
 }[] = [
   {
     title: "Niche Bending",
@@ -25,10 +25,8 @@ const TOOLS: {
     href: "/bend",
     icon: Wand2,
     tone: "cat-7",
-    video: "/videos/niche-bender.mp4",
-    videoPoster: "/videos/niche-bender-poster.jpg",
-    videoDark: "/videos/niche-bender-dark.mp4",
-    videoPosterDark: "/videos/niche-bender-dark-poster.jpg",
+    thumbnail: "/tools/niche-bending.svg",
+    thumbnailDark: "/tools/niche-bending-dark.svg",
   },
   {
     title: "Image Generator",
@@ -36,10 +34,8 @@ const TOOLS: {
     href: "/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
-    video: "/videos/image-generator-marquee.mp4",
-    videoPoster: "/videos/image-generator-marquee-poster.jpg",
-    videoDark: "/videos/image-generator-dark.mp4",
-    videoPosterDark: "/videos/image-generator-dark-poster.jpg",
+    thumbnail: "/tools/image-generator.svg",
+    thumbnailDark: "/tools/image-generator-dark.svg",
   },
   {
     title: "Video Generator",
@@ -47,11 +43,8 @@ const TOOLS: {
     href: "/video-generator",
     icon: Clapperboard,
     tone: "cat-4",
-    video: "/videos/video-generator-marquee.mp4",
-    videoPoster: "/videos/video-generator-marquee-poster.jpg",
-    videoDark: "/videos/video-generator-dark.mp4",
-    videoPosterDark: "/videos/video-generator-dark-poster.jpg",
-    videoScale: 1.1,
+    thumbnail: "/tools/video-generator.svg",
+    thumbnailDark: "/tools/video-generator-dark.svg",
   },
   {
     title: "Scriptwriter",
@@ -59,11 +52,8 @@ const TOOLS: {
     href: "/scripts",
     icon: PenLine,
     tone: "cat-6",
-    video: "/videos/scriptwriter.mp4",
-    videoPoster: "/videos/scriptwriter-poster.jpg",
-    videoDark: "/videos/scriptwriter-dark.mp4",
-    videoPosterDark: "/videos/scriptwriter-dark-poster.jpg",
-    videoScale: 1.15,
+    thumbnail: "/tools/scriptwriter.svg",
+    thumbnailDark: "/tools/scriptwriter-dark.svg",
   },
   {
     title: "Transcript Extractor",
@@ -71,10 +61,8 @@ const TOOLS: {
     href: "/transcripts",
     icon: Captions,
     tone: "cat-5",
-    video: "/videos/transcript-extractor.mp4",
-    videoPoster: "/videos/transcript-extractor-poster.jpg",
-    videoDark: "/videos/transcript-extractor-dark.mp4",
-    videoPosterDark: "/videos/transcript-extractor-dark-poster.jpg",
+    thumbnail: "/tools/transcript-extractor.svg",
+    thumbnailDark: "/tools/transcript-extractor-dark.svg",
   },
   {
     title: "Downloader",
@@ -82,11 +70,8 @@ const TOOLS: {
     href: "/downloads",
     icon: Download,
     tone: "cat-1",
-    video: "/videos/downloader-marquee.mp4",
-    videoPoster: "/videos/downloader-marquee-poster.jpg",
-    videoDark: "/videos/downloader-dark.mp4",
-    videoPosterDark: "/videos/downloader-dark-poster.jpg",
-    videoScale: 1.35,
+    thumbnail: "/tools/downloader.svg",
+    thumbnailDark: "/tools/downloader-dark.svg",
   },
   {
     title: "Voiceover",
@@ -94,16 +79,21 @@ const TOOLS: {
     href: "/voiceover-generator",
     icon: Mic2,
     tone: "cat-2",
-    video: "/videos/voiceover-generator.mp4",
-    videoPoster: "/videos/voiceover-generator-poster.jpg",
-    videoDark: "/videos/voiceover-generator-dark.mp4",
-    videoPosterDark: "/videos/voiceover-generator-dark-poster.jpg",
+    thumbnail: "/tools/voiceover.svg",
+    thumbnailDark: "/tools/voiceover-dark.svg",
   },
 ];
 
 export default function ToolsPage() {
+  const { collapsed } = useSidebarCollapsed();
+
   return (
-    <div className="flex flex-col items-center gap-2 pt-2 lg:mx-auto lg:max-w-[1270px]">
+    <div
+      className={cn(
+        "flex flex-col items-center gap-2 pt-2 lg:mx-auto",
+        collapsed ? "lg:max-w-[1620px]" : "lg:max-w-[1270px]"
+      )}
+    >
       <div className="w-full text-left">
         <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
           Tools
@@ -115,7 +105,12 @@ export default function ToolsPage() {
 
       <div className="mt-6 w-full">
         <div className="-m-6 overflow-x-auto p-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(3,410px)] lg:justify-start lg:gap-5">
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:justify-start lg:gap-5",
+              collapsed ? "lg:grid-cols-[repeat(4,390px)]" : "lg:grid-cols-[repeat(3,410px)]"
+            )}
+          >
             {TOOLS.map((tool) => (
               <ToolGridCard
                 key={tool.title}
@@ -126,11 +121,7 @@ export default function ToolsPage() {
                 tone={tool.tone}
                 badge={tool.badge}
                 thumbnail={tool.thumbnail}
-                video={tool.video}
-                videoPoster={tool.videoPoster}
-                videoDark={tool.videoDark}
-                videoPosterDark={tool.videoPosterDark}
-                videoScale={tool.videoScale}
+                thumbnailDark={tool.thumbnailDark}
               />
             ))}
           </div>

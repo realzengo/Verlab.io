@@ -5,6 +5,7 @@ import { SWRConfig } from "swr";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
+import { SidebarCollapsedProvider } from "@/components/dashboard/SidebarCollapsedContext";
 import { PaywallPricing } from "@/components/dashboard/PaywallPricing";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { fetcher } from "@/lib/client/fetcher";
@@ -56,24 +57,26 @@ export function AppShell({
     // fetcher and a dedup window so rapid remounts/StrictMode double-invokes
     // don't double-fire the same request.
     <SWRConfig value={{ fetcher, dedupingInterval: 5000, revalidateOnFocus: true }}>
-      <NicheSidebarProvider>
-        <div className="flex min-h-screen w-full bg-app">
-          <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
+      <SidebarCollapsedProvider>
+        <NicheSidebarProvider>
+          <div className="flex min-h-screen w-full bg-app">
+            <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
-          {showBackdrop && (
-            <div
-              aria-hidden="true"
-              onClick={() => setMobileNavOpen(false)}
-              className={cn(
-                "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ease-in-out lg:hidden",
-                mobileNavOpen ? "opacity-100" : "opacity-0"
-              )}
-            />
-          )}
+            {showBackdrop && (
+              <div
+                aria-hidden="true"
+                onClick={() => setMobileNavOpen(false)}
+                className={cn(
+                  "fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ease-in-out lg:hidden",
+                  mobileNavOpen ? "opacity-100" : "opacity-0"
+                )}
+              />
+            )}
 
-          <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
-        </div>
-      </NicheSidebarProvider>
+            <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
+          </div>
+        </NicheSidebarProvider>
+      </SidebarCollapsedProvider>
     </SWRConfig>
   );
 }

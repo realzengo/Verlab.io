@@ -36,13 +36,13 @@ const FEATURED: FeaturedTool[] = [
     videoPosterDark: "/videos/image-generator-dark-poster.jpg",
   },
   {
-    title: "Niche Bender",
-    caption: "Steal the format, swap the topic",
-    href: "/bend",
-    video: "/videos/niche-bender.mp4",
-    videoPoster: "/videos/niche-bender-poster.jpg",
-    videoDark: "/videos/niche-bender-dark.mp4",
-    videoPosterDark: "/videos/niche-bender-dark-poster.jpg",
+    title: "Voiceover Generator",
+    caption: "Natural-sounding AI voices in seconds",
+    href: "/voiceover-generator",
+    video: "/videos/voiceover-generator.mp4",
+    videoPoster: "/videos/voiceover-generator-poster.jpg",
+    videoDark: "/videos/voiceover-generator-dark.mp4",
+    videoPosterDark: "/videos/voiceover-generator-dark-poster.jpg",
   },
 ];
 

@@ -9,6 +9,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
+import { useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({
@@ -20,7 +21,7 @@ export function Sidebar({
   onCloseMobile: () => void;
   isAdmin: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebarCollapsed();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
   const [popoverGroup, setPopoverGroup] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
@@ -245,7 +246,7 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
+                  "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
                     ? "border-[#E0E4F2] bg-surface font-semibold text-heading shadow-card dark:border-transparent"
@@ -287,7 +288,7 @@ export function Sidebar({
                 onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
-                  "font-ui group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm font-semibold transition-all duration-150",
+                  "font-ui group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-[15px] font-semibold transition-all duration-150",
                   collapsed && "lg:justify-center lg:px-0",
                   groupActive
                     ? "text-heading"

@@ -367,6 +367,7 @@ function HistoryTile({
           alt=""
           loading="lazy"
           decoding="async"
+          draggable={false}
           className="h-full w-full object-cover"
         />
         {loading && (
@@ -392,7 +393,7 @@ function HistoryTile({
           </span>
         </div>
 
-        <div className="pointer-events-auto absolute right-2.5 top-2.5 flex flex-col gap-1.5">
+        <div className="absolute right-2.5 top-2.5 flex flex-col gap-1.5">
           <button
             type="button"
             onClick={(event) => {
@@ -401,7 +402,7 @@ function HistoryTile({
             }}
             disabled={busyAction !== null}
             aria-label="Download"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80 disabled:opacity-60"
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80 disabled:opacity-60"
           >
             {busyAction === "download" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           </button>
@@ -414,7 +415,7 @@ function HistoryTile({
               setTimeout(() => setCopied(false), 1500);
             }}
             aria-label="Copy prompt"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Clipboard className="h-3.5 w-3.5" />}
           </button>
@@ -425,7 +426,7 @@ function HistoryTile({
             aria-label="More options"
             aria-expanded={menuOpen}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80",
+              "pointer-events-auto flex h-8 w-8 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80",
               menuOpen && "bg-black/80"
             )}
           >
@@ -433,7 +434,7 @@ function HistoryTile({
           </button>
         </div>
 
-        <div className="pointer-events-auto absolute inset-x-0 bottom-0 p-2.5">
+        <div className="absolute inset-x-0 bottom-0 p-2.5">
           <p className="mb-2 line-clamp-2 text-xs font-medium leading-snug text-white/90">{item.prompt}</p>
           <div className="flex items-center gap-1.5">
             <button
@@ -443,7 +444,7 @@ function HistoryTile({
                 void runAction("remix", onRemix);
               }}
               disabled={busyAction !== null}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
+              className="pointer-events-auto flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
             >
               {busyAction === "remix" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               Remix
@@ -455,7 +456,7 @@ function HistoryTile({
                 void runAction("animate", onAnimate);
               }}
               disabled={busyAction !== null}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
+              className="pointer-events-auto flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 disabled:opacity-60"
             >
               {busyAction === "animate" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5" />}
               Animate
@@ -1228,7 +1229,7 @@ export function ImageGenerator() {
           above the sidebar, which sits in the page's root stacking context. */}
       <div className="relative isolate">
       <div className="relative w-full px-0 pt-8 pb-20 sm:px-6 sm:pt-12">
-        <div className="mx-auto w-full max-w-4xl md:w-fit md:max-w-full">
+        <div className="mx-auto w-full max-w-4xl md:max-w-[960px]">
         <div>
           <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
             AI Image Generator
@@ -1509,10 +1510,10 @@ export function ImageGenerator() {
                           createdAt: new Date().toISOString(),
                         })
                       }
-                      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                      className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-inset ring-slate-200 dark:bg-zinc-950 dark:ring-surface"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- generated images arrive as data URLs, not static assets */}
-                      <img src={src} alt={`Generated image ${index + 1}`} className="h-full w-full object-cover" />
+                      <img src={src} alt={`Generated image ${index + 1}`} draggable={false} className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -1546,6 +1547,7 @@ export function ImageGenerator() {
                           alt=""
                           loading="lazy"
                           decoding="async"
+                          draggable={false}
                           className="h-full w-full object-cover"
                         />
                         {loadingPreviewId === item.id && (
@@ -1742,7 +1744,7 @@ export function ImageGenerator() {
                 disabled={!canSubmit}
                 onClick={handleGenerate}
                 trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                className="ml-12 shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                className="ml-auto shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
               />
             </div>
               </div>

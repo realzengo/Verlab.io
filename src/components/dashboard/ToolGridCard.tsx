@@ -29,6 +29,8 @@ interface ToolGridCardProps {
   badge?: string;
   /** Drop a screenshot/mockup into /public/tools and pass its path here -- falls back to a tinted icon tile until then. Ignored when `video` is set. */
   thumbnail?: string;
+  /** Dark-mode variant of `thumbnail`, swapped in via the `.dark` class. Falls back to `thumbnail` when omitted. */
+  thumbnailDark?: string;
   /** Drop a short looping clip into /public/videos and pass its path here -- takes priority over `thumbnail`. */
   video?: string;
   /** Poster frame shown while `video` loads. */
@@ -54,6 +56,7 @@ export function ToolGridCard({
   cta = "Try Now",
   badge,
   thumbnail,
+  thumbnailDark,
   video,
   videoPoster,
   videoDark,
@@ -84,13 +87,35 @@ export function ToolGridCard({
               skipRanges={videoSkipRanges}
             />
           ) : thumbnail ? (
-            <Image
-              src={thumbnail}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
-            />
+            thumbnailDark ? (
+              <>
+                <Image
+                  src={thumbnail}
+                  alt=""
+                  fill
+                  className="object-cover dark:hidden"
+                  sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
+                />
+                <Image
+                  src={thumbnailDark}
+                  alt=""
+                  fill
+                  // The source art's neon edge glow anti-aliases into a near-white
+                  // highlight at tight corners against a pure-black frame. Mute it
+                  // so it reads as a soft border instead of a bright halo.
+                  className="hidden object-cover dark:block [filter:saturate(.65)_brightness(.9)]"
+                  sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
+                />
+              </>
+            ) : (
+              <Image
+                src={thumbnail}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
+              />
+            )
           ) : (
             <div
               className={cn(

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   Captions,
+  ChevronRight,
   Clapperboard,
   Compass,
   Download,
@@ -70,13 +71,26 @@ const TOOLS: { title: string; description: string; href: string; icon: LucideIco
 ];
 
 export function ToolsGrid() {
+  const featured = TOOLS.slice(0, 5);
+
   return (
     <section>
-      <h2 className="text-lg font-bold tracking-tight text-heading sm:text-xl">Browse our tools</h2>
-      <p className="mt-1 text-sm text-subtle">A step-by-step guide to using our tools</p>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-heading sm:text-xl">Browse our tools</h2>
+          <p className="mt-1 text-sm text-subtle">A step-by-step guide to using our tools</p>
+        </div>
+        <Link
+          href="/app/tools"
+          className="mb-1 flex shrink-0 items-center gap-0.5 text-sm font-bold text-heading transition-colors hover:text-primary"
+        >
+          View all tools
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {TOOLS.map((tool) => (
+        {featured.map((tool) => (
           <div
             key={tool.title}
             className="group flex flex-col rounded-2xl border border-hairline bg-surface p-5"
@@ -92,7 +106,7 @@ export function ToolsGrid() {
             <p className="mt-1 flex-1 text-xs leading-relaxed text-subtle">{tool.description}</p>
             <Link
               href={tool.href}
-              className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:border-primary group-hover:bg-primary group-hover:text-white"
+              className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:bg-btn-secondary-hover"
             >
               Try this out
             </Link>
