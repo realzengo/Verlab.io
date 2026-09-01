@@ -77,17 +77,18 @@ export function TopBar({
   }, [isHome]);
 
   const hideHeading =
-    isHome ||
-    pathname.startsWith("/scripts") ||
-    pathname.startsWith("/library") ||
-    pathname.startsWith("/transcripts") ||
-    pathname.startsWith("/mcp") ||
-    pathname.startsWith("/image-generator") ||
-    pathname.startsWith("/video-generator") ||
-    pathname.startsWith("/voiceover-generator") ||
-    pathname.startsWith("/downloads") ||
-    pathname.startsWith("/tools") ||
-    pathname.startsWith("/settings");
+    !isPaywalled &&
+    (isHome ||
+      pathname.startsWith("/scripts") ||
+      pathname.startsWith("/library") ||
+      pathname.startsWith("/transcripts") ||
+      pathname.startsWith("/mcp") ||
+      pathname.startsWith("/image-generator") ||
+      pathname.startsWith("/video-generator") ||
+      pathname.startsWith("/voiceover-generator") ||
+      pathname.startsWith("/downloads") ||
+      pathname.startsWith("/tools") ||
+      pathname.startsWith("/settings"));
 
   return (
     <div
@@ -111,7 +112,7 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {isHome ? (
+        {isHome && !isPaywalled ? (
           <div className="min-w-0">
             <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl" suppressHydrationWarning>
               {greeting(justSignedIn)}
@@ -148,7 +149,7 @@ export function TopBar({
             <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
           </>
         )}
-        <ProfileDropdown />
+        <ProfileDropdown isPaywalled={isPaywalled} />
       </div>
 
       {!isPaywalled && <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />}

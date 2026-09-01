@@ -21,6 +21,7 @@ import {
   AUTH_SIGNIN_BUTTON_CLASSES,
 } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
+import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 import { EMAIL_MAX, isValidEmail } from "@/lib/validation";
 
 const FADE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
@@ -30,7 +31,7 @@ type View = "login" | "forgot" | "forgot-sent";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/app";
 
   const [view, setView] = useState<View>("login");
   const [email, setEmail] = useState("");
@@ -40,6 +41,11 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const posthog = usePostHog();
+
+  useResetOnPageRestore(() => {
+    setIsSubmitting(false);
+    setIsGoogleLoading(false);
+  });
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

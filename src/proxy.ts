@@ -293,9 +293,9 @@ export async function proxy(request: NextRequest) {
 
       // No redirect: the dashboard itself still renders, sidebar and all,
       // with the main content area swapped for an inline pricing view (see
-      // AppShell.tsx / PaywallPricing.tsx) instead of bouncing straight to
-      // /pricing. This header is how that server-rendered layout finds out,
-      // since middleware and the layout run in separate contexts.
+      // app/(protected)/layout.tsx / PaywallPricing.tsx) instead of bouncing
+      // straight to /pricing. This header is how that server-rendered layout
+      // finds out, since middleware and the layout run in separate contexts.
       //
       // Gated on !profileFetchFailed -- see the comment above profile's
       // declaration. Without it, hasActiveSubscription/hasCredits are both

@@ -29,7 +29,7 @@ const NAV_LINKS = [
   { label: "Earn with Verlab", href: "/affiliates", icon: CircleDollarSign },
 ];
 
-export function ProfileDropdown() {
+export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -100,20 +100,22 @@ export function ProfileDropdown() {
           </div>
 
           <div className="p-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                setIsUpgradeOpen(true);
-              }}
-              className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-heading transition-colors hover:bg-accent"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-primary transition-colors group-hover:bg-accent-line">
-                <ArrowUpCircle className="h-4 w-4" />
-              </span>
-              Upgrade
-            </button>
-            {NAV_LINKS.map(({ label, href, icon: Icon }) => (
+            {!isPaywalled && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsUpgradeOpen(true);
+                }}
+                className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-heading transition-colors hover:bg-accent"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-primary transition-colors group-hover:bg-accent-line">
+                  <ArrowUpCircle className="h-4 w-4" />
+                </span>
+                Upgrade
+              </button>
+            )}
+            {NAV_LINKS.filter(({ href }) => !isPaywalled || href !== "/affiliates").map(({ label, href, icon: Icon }) => (
               <Link
                 key={label}
                 href={href}
@@ -171,7 +173,7 @@ export function ProfileDropdown() {
         </div>
       )}
 
-      <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />
+      {!isPaywalled && <UpgradeModal isOpen={isUpgradeOpen} onClose={() => setIsUpgradeOpen(false)} />}
     </div>
   );
 }

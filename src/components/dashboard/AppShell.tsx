@@ -6,7 +6,6 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { SidebarCollapsedProvider } from "@/components/dashboard/SidebarCollapsedContext";
-import { PaywallPricing } from "@/components/dashboard/PaywallPricing";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { fetcher } from "@/lib/client/fetcher";
 import { cn } from "@/lib/utils";
@@ -18,12 +17,10 @@ const SIDEBAR_TRANSITION_MS = 300;
 export function AppShell({
   children,
   isPaywalled,
-  hasNeverPaid,
   isAdmin,
 }: {
   children: React.ReactNode;
   isPaywalled: boolean;
-  hasNeverPaid: boolean;
   isAdmin: boolean;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -41,9 +38,7 @@ export function AppShell({
   const topBarAndMain = (
     <>
       <TopBar onMenuClick={() => setMobileNavOpen(true)} heading={isPaywalled ? "Pricing" : undefined} isPaywalled={isPaywalled} />
-      <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">
-        {isPaywalled ? <PaywallPricing hasNeverPaid={hasNeverPaid} /> : children}
-      </main>
+      <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">{children}</main>
     </>
   );
 

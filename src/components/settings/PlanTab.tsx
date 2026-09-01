@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { hasActiveSubscription } from "@/lib/server/subscription";
+import { Badge } from "@/components/ui/Badge";
 
 interface PlanDefinition {
   id: string;
@@ -14,6 +16,7 @@ interface PlanDefinition {
 
 export function PlanTab() {
   const [currentPlan, setCurrentPlan] = useState<PlanDefinition | null>(null);
+  const [isEnding, setIsEnding] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -25,9 +28,22 @@ export function PlanTab() {
       } = await supabase.auth.getUser();
 
       if (authUser) {
-        const { data: profile } = await supabase.from("profiles").select("plan").eq("id", authUser.id).single();
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("plan, subscription_status, subscription_current_period_end")
+          .eq("id", authUser.id)
+          .single();
 
-        if (profile?.plan) {
+        // "canceling" is Whop's status for "cancellation requested, access
+        // continues until the period ends" -- see the same distinction in
+        // SubscriptionTab.tsx.
+        setIsEnding(profile?.subscription_status === "canceling");
+
+        // `profile.plan` alone isn't enough -- it can still hold the last
+        // plan id after a subscription lapses. Gate on the same
+        // hasActiveSubscription() the /app paywall itself uses (proxy.ts),
+        // so this never shows a plan the paywall would disagree with.
+        if (profile?.plan && hasActiveSubscription(profile)) {
           const { data: planDef } = await supabase
             .from("plan_definitions")
             .select("id, name, info, price_monthly")
@@ -49,7 +65,15 @@ export function PlanTab() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
         <div>
-          <p className="font-medium text-heading text-sm sm:text-base">Current plan</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-heading text-sm sm:text-base">Current plan</p>
+            {loaded && isEnding && (
+              <Badge variant="warning">
+                <Clock className="h-3 w-3" />
+                Ending soon
+              </Badge>
+            )}
+          </div>
           <p className="text-body text-xs sm:text-sm mt-0.5">{currentPlan?.info ?? "Your plan and usage at a glance."}</p>
           <p className="mt-2 text-heading text-sm">
             {!loaded ? (

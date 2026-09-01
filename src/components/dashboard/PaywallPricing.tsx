@@ -105,13 +105,20 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   const savePercent = maxYearlyPercentOff(plans);
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col items-center pb-8 pt-4 text-center sm:pt-10">
-      <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-heading sm:text-4xl">
-        {hasNeverPaid ? "Choose the plan that fits how you plan to use Verlab" : "Pick up where you left off"}
+    <div className="mx-auto flex max-w-6xl flex-col items-center pb-8 pt-4 sm:pt-10">
+      {hasNeverPaid && (
+        <span className="mb-7 inline-flex -skew-x-12 items-center justify-center rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-3.5 py-1.5">
+          <span className="inline-block skew-x-12 text-center text-sm font-extrabold italic uppercase tracking-wide text-white">
+            Powerful Tools. Predictable Prices.
+          </span>
+        </span>
+      )}
+      <h1 className="max-w-2xl text-center text-3xl font-bold tracking-tight text-heading sm:text-4xl">
+        {hasNeverPaid ? "You Need a Plan to Go Viral" : "Pick up where you left off"}
       </h1>
-      <p className="mt-3 max-w-lg text-sm text-body sm:text-base">
+      <p className="mt-3 max-w-lg text-center text-sm text-body sm:text-base">
         {hasNeverPaid
-          ? "Every plan unlocks the full toolset. Cancel anytime."
+          ? "From your first upload to millions of views, we've got you covered. Cancel anytime, no questions asked."
           : "Your subscription has ended -- resubscribe to get back into your dashboard."}
       </p>
 
