@@ -45,6 +45,8 @@ interface ToolGridCardProps {
   videoSkipRanges?: [number, number][];
   /** Not yet released -- still linked (the destination shows a "coming soon" placeholder), just visibly marked unavailable here. */
   comingSoon?: boolean;
+  /** Skips lazy-loading and preloads the thumbnail -- set for above-the-fold cards (e.g. the first row). */
+  priority?: boolean;
 }
 
 export function ToolGridCard({
@@ -64,6 +66,7 @@ export function ToolGridCard({
   videoScale = 1,
   videoSkipRanges,
   comingSoon,
+  priority,
 }: ToolGridCardProps) {
   const toneClasses = TONE_CLASSES[tone];
   return (
@@ -93,6 +96,7 @@ export function ToolGridCard({
                   src={thumbnail}
                   alt=""
                   fill
+                  priority={priority}
                   className="object-cover dark:hidden"
                   sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
                 />
@@ -100,10 +104,12 @@ export function ToolGridCard({
                   src={thumbnailDark}
                   alt=""
                   fill
+                  priority={priority}
                   // The source art's neon edge glow anti-aliases into a near-white
                   // highlight at tight corners against a pure-black frame. Mute it
-                  // so it reads as a soft border instead of a bright halo.
-                  className="hidden object-cover dark:block [filter:saturate(.65)_brightness(.9)]"
+                  // so it reads as a soft border instead of a bright halo. A hair
+                  // of extra scale hides the frame's own edge from peeking in.
+                  className="hidden object-cover dark:block dark:scale-[1.02] [filter:saturate(.65)_brightness(.9)]"
                   sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
                 />
               </>
@@ -112,6 +118,7 @@ export function ToolGridCard({
                 src={thumbnail}
                 alt=""
                 fill
+                priority={priority}
                 className="object-cover"
                 sizes="(min-width: 1024px) 410px, (min-width: 640px) 50vw, 100vw"
               />

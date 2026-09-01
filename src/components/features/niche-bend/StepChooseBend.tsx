@@ -9,7 +9,6 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { BendCandidateCard } from "./BendCandidateCard";
 import { BendCandidateSkeleton } from "./BendCandidateSkeleton";
 import { ChannelAnalysisSummary } from "./ChannelAnalysisSummary";
-import { SopGeneratingCard } from "./SopGeneratingCard";
 
 interface StepChooseBendProps {
   analysis: NicheBendChannelAnalysis;
@@ -42,8 +41,6 @@ export function StepChooseBend({
   sopSubmitting,
   sopError,
 }: StepChooseBendProps) {
-  const selectedCandidate = candidates?.find((candidate) => candidate.id === selectedCandidateId) ?? null;
-
   return (
     <div className="animate-bend-in flex flex-col gap-8 pb-8">
       <Accordion
@@ -64,27 +61,25 @@ export function StepChooseBend({
         </Button>
       </div>
 
-      {sopSubmitting ? (
-        <SopGeneratingCard nicheName={selectedCandidate?.nicheName} />
-      ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {candidatesRegenerating || !candidates
-            ? [0, 1, 2].map((i) => <BendCandidateSkeleton key={i} />)
-            : candidates.map((candidate) => (
-                <BendCandidateCard
-                  key={candidate.id}
-                  candidate={candidate}
-                  selected={selectedCandidateId === candidate.id}
-                  saved={savedCandidateIds.includes(candidate.id)}
-                  regenerating={regeneratingCandidateId === candidate.id}
-                  onSelect={() => onSelect(candidate.id)}
-                  onToggleSaved={() => onToggleSaved(candidate.id)}
-                  onRegenerate={() => onRegenerateOne(candidate.id)}
-                  onUseNow={() => onGenerateSopFor(candidate.id)}
-                />
-              ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {candidatesRegenerating || !candidates
+          ? [0, 1, 2].map((i) => <BendCandidateSkeleton key={i} />)
+          : candidates.map((candidate) => (
+              <BendCandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                selected={selectedCandidateId === candidate.id}
+                saved={savedCandidateIds.includes(candidate.id)}
+                regenerating={regeneratingCandidateId === candidate.id}
+                generatingSop={sopSubmitting && selectedCandidateId === candidate.id}
+                locked={sopSubmitting && selectedCandidateId !== candidate.id}
+                onSelect={() => onSelect(candidate.id)}
+                onToggleSaved={() => onToggleSaved(candidate.id)}
+                onRegenerate={() => onRegenerateOne(candidate.id)}
+                onUseNow={() => onGenerateSopFor(candidate.id)}
+              />
+            ))}
+      </div>
 
       {sopError && (
         <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">

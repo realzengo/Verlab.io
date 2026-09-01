@@ -25,8 +25,8 @@ const TOOLS: {
     href: "/bend",
     icon: Wand2,
     tone: "cat-7",
-    thumbnail: "/tools/niche-bending.svg",
-    thumbnailDark: "/tools/niche-bending-dark.svg",
+    thumbnail: "/tools/niche-bending.webp",
+    thumbnailDark: "/tools/niche-bending-dark.webp",
   },
   {
     title: "Image Generator",
@@ -34,8 +34,8 @@ const TOOLS: {
     href: "/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
-    thumbnail: "/tools/image-generator.svg",
-    thumbnailDark: "/tools/image-generator-dark.svg",
+    thumbnail: "/tools/image-generator.webp",
+    thumbnailDark: "/tools/image-generator-dark.webp",
   },
   {
     title: "Video Generator",
@@ -43,8 +43,8 @@ const TOOLS: {
     href: "/video-generator",
     icon: Clapperboard,
     tone: "cat-4",
-    thumbnail: "/tools/video-generator.svg",
-    thumbnailDark: "/tools/video-generator-dark.svg",
+    thumbnail: "/tools/video-generator.webp",
+    thumbnailDark: "/tools/video-generator-dark.webp",
   },
   {
     title: "Scriptwriter",
@@ -52,8 +52,8 @@ const TOOLS: {
     href: "/scripts",
     icon: PenLine,
     tone: "cat-6",
-    thumbnail: "/tools/scriptwriter.svg",
-    thumbnailDark: "/tools/scriptwriter-dark.svg",
+    thumbnail: "/tools/scriptwriter.webp",
+    thumbnailDark: "/tools/scriptwriter-dark.webp",
   },
   {
     title: "Transcript Extractor",
@@ -61,8 +61,8 @@ const TOOLS: {
     href: "/transcripts",
     icon: Captions,
     tone: "cat-5",
-    thumbnail: "/tools/transcript-extractor.svg",
-    thumbnailDark: "/tools/transcript-extractor-dark.svg",
+    thumbnail: "/tools/transcript-extractor.webp",
+    thumbnailDark: "/tools/transcript-extractor-dark.webp",
   },
   {
     title: "Downloader",
@@ -70,8 +70,8 @@ const TOOLS: {
     href: "/downloads",
     icon: Download,
     tone: "cat-1",
-    thumbnail: "/tools/downloader.svg",
-    thumbnailDark: "/tools/downloader-dark.svg",
+    thumbnail: "/tools/downloader.webp",
+    thumbnailDark: "/tools/downloader-dark.webp",
   },
   {
     title: "Voiceover",
@@ -79,8 +79,8 @@ const TOOLS: {
     href: "/voiceover-generator",
     icon: Mic2,
     tone: "cat-2",
-    thumbnail: "/tools/voiceover.svg",
-    thumbnailDark: "/tools/voiceover-dark.svg",
+    thumbnail: "/tools/voiceover.webp",
+    thumbnailDark: "/tools/voiceover-dark.webp",
   },
 ];
 
@@ -111,7 +111,7 @@ export default function ToolsPage() {
               collapsed ? "lg:grid-cols-[repeat(4,390px)]" : "lg:grid-cols-[repeat(3,410px)]"
             )}
           >
-            {TOOLS.map((tool) => (
+            {TOOLS.map((tool, index) => (
               <ToolGridCard
                 key={tool.title}
                 title={tool.title}
@@ -122,6 +122,7 @@ export default function ToolsPage() {
                 badge={tool.badge}
                 thumbnail={tool.thumbnail}
                 thumbnailDark={tool.thumbnailDark}
+                priority={index < 3}
               />
             ))}
           </div>

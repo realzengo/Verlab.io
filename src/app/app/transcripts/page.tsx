@@ -6,19 +6,19 @@ import useSWR from "swr";
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
   Copy,
   Download,
   FileText,
-  Languages,
   Link2,
   Loader2,
+  Pause,
+  Play,
   PlayCircle,
   Sparkles,
   X,
   XCircle,
 } from "lucide-react";
-import type { TranscriptLine, TranscriptRow } from "@/lib/types";
+import type { TranscriptRow } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -48,8 +48,6 @@ const VIDEO_REFERRER_POLICY: { referrerPolicy: React.HTMLAttributeReferrerPolicy
   referrerPolicy: "no-referrer",
 };
 
-const LANGUAGES = ["Original", "English", "Spanish", "Portuguese", "French"];
-
 // Simulated progress for the extraction popup: jumps quickly at first, then
 // eases off — never reaching the cap on its own so it doesn't look "done"
 // before the real job actually finishes (which snaps it to 100 immediately).
@@ -57,55 +55,6 @@ const POPUP_PROGRESS_CAP = 92;
 const POPUP_PROGRESS_TIME_CONSTANT_MS = 3_500;
 const POPUP_PROGRESS_TICK_MS = 150;
 const POPUP_PROGRESS_SEGMENTS = 28;
-
-function Dropdown({
-  label,
-  icon: Icon,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  icon: typeof Languages;
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-3.5 py-1.5 text-xs font-medium text-heading hover:bg-app disabled:opacity-50 disabled:pointer-events-none"
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        {label}: {value}
-        <ChevronDown className="h-3.5 w-3.5" />
-      </button>
-      {open && !disabled && (
-        <div className="absolute left-0 z-10 mt-2 w-44 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
-          {LANGUAGES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => {
-                onChange(option);
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
-            >
-              {option}
-              {option === value && <Check className="h-3.5 w-3.5 text-primary" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function IconButton({
   icon: Icon,
@@ -133,6 +82,12 @@ function IconButton({
   );
 }
 
+// Timestamps come as "m:ss" or "h:mm:ss" -- convert to seconds for video.currentTime.
+function timestampToSeconds(timestamp: string): number {
+  const parts = timestamp.split(":").map((part) => Number(part) || 0);
+  return parts.reduce((seconds, part) => seconds * 60 + part, 0);
+}
+
 function firstUrl(input: string): string | null {
   const line = input
     .split(/\s+/)
@@ -153,7 +108,6 @@ export default function TranscriptsPage() {
   } = useSWR<TranscriptsResponse>("/api/transcripts");
   const rows = transcriptsData?.transcripts ?? [];
   const [bulkInput, setBulkInput] = useState("");
-  const [retranslateTo, setRetranslateTo] = useState("Original");
   const [activeRow, setActiveRow] = useState<TranscriptRow | null>(null);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -161,13 +115,12 @@ export default function TranscriptsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [translatedLines, setTranslatedLines] = useState<TranscriptLine[] | null>(null);
-  const [translating, setTranslating] = useState(false);
-  const [translateError, setTranslateError] = useState<string | null>(null);
   const [coverFailed, setCoverFailed] = useState(false);
   const [popupOpen, setPopupOpen] = useState(false);
   const [popupProgress, setPopupProgress] = useState(0);
   const pollCancelRef = useRef<(() => void) | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoPlaying, setVideoPlaying] = useState(false);
 
   useEffect(() => {
     return () => pollCancelRef.current?.();
@@ -193,9 +146,6 @@ export default function TranscriptsPage() {
 
   function openRow(row: TranscriptRow) {
     setActiveRow(row);
-    setTranslatedLines(null);
-    setRetranslateTo("Original");
-    setTranslateError(null);
     setCoverFailed(false);
     setPopupOpen(false);
   }
@@ -229,18 +179,7 @@ export default function TranscriptsPage() {
     }
   }
 
-  async function translateLinesRequest(lines: TranscriptLine[], language: string): Promise<TranscriptLine[]> {
-    const res = await fetch("/api/transcripts/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines, targetLanguage: language }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Translation failed");
-    return data.lines;
-  }
-
-  function startPolling(id: string, autoTranslateTo: string) {
+  function startPolling(id: string) {
     pollCancelRef.current?.();
     pollCancelRef.current = pollUntilSettled(
       async () => {
@@ -259,17 +198,6 @@ export default function TranscriptsPage() {
         setActiveRow((prev) => (prev?.id === id ? transcript : prev));
         if (transcript.status === "complete") {
           setPopupProgress(100);
-          if (autoTranslateTo !== "Original" && transcript.lines?.length) {
-            setRetranslateTo(autoTranslateTo);
-            setTranslating(true);
-            translateLinesRequest(transcript.lines, autoTranslateTo)
-              .then(setTranslatedLines)
-              .catch(() => {
-                setTranslateError("Translation failed");
-                setRetranslateTo("Original");
-              })
-              .finally(() => setTranslating(false));
-          }
         }
       },
       { intervalMs: 1500 }
@@ -303,9 +231,6 @@ export default function TranscriptsPage() {
 
     setBulkInput("");
     setShowTimestamps(true);
-    setTranslatedLines(null);
-    setRetranslateTo("Original");
-    setTranslateError(null);
     setPopupProgress(0);
     const placeholderRow: TranscriptRow = {
       id: data.id,
@@ -324,7 +249,7 @@ export default function TranscriptsPage() {
     setActiveRow(placeholderRow);
     setPopupOpen(true);
     setView("result");
-    startPolling(data.id, "Original");
+    startPolling(data.id);
     // Prepend locally instead of refetching the whole list -- the server
     // already agrees on the shape (this is exactly what it just created),
     // and startPolling's mutateRows call above will replace it with the
@@ -336,7 +261,7 @@ export default function TranscriptsPage() {
   };
 
   const handleCopy = async () => {
-    const lines = translatedLines ?? activeRow?.lines;
+    const lines = activeRow?.lines;
     if (!lines) return;
     const fullText = lines
       .map((line) => (showTimestamps ? `[${line.timestamp}] ${line.text}` : line.text))
@@ -347,7 +272,7 @@ export default function TranscriptsPage() {
   };
 
   const handleDownloadTxt = () => {
-    const lines = translatedLines ?? activeRow?.lines;
+    const lines = activeRow?.lines;
     if (!lines) return;
     const fullText = lines
       .map((line) => (showTimestamps ? `[${line.timestamp}] ${line.text}` : line.text))
@@ -364,26 +289,11 @@ export default function TranscriptsPage() {
     setTimeout(() => setDownloaded(false), 1200);
   };
 
-  const handleRetranslate = async (language: string) => {
-    setRetranslateTo(language);
-    setTranslateError(null);
-
-    if (language === "Original") {
-      setTranslatedLines(null);
-      return;
-    }
-
-    if (!activeRow?.lines?.length) return;
-
-    setTranslating(true);
-    try {
-      setTranslatedLines(await translateLinesRequest(activeRow.lines, language));
-    } catch {
-      setTranslateError("Translation failed");
-      setRetranslateTo("Original");
-    } finally {
-      setTranslating(false);
-    }
+  const handleSeekTo = (timestamp: string) => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.currentTime = timestampToSeconds(timestamp);
+    el.play();
   };
 
   return (
@@ -533,15 +443,41 @@ export default function TranscriptsPage() {
                 <div className="flex flex-col gap-3">
                   <div className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-card border border-hairline bg-ink">
                     {activeRow.video_url ? (
-                      <video
-                        key={activeRow.video_url}
-                        src={activeRow.video_url}
-                        poster={activeRow.cover_url || undefined}
-                        controls
-                        playsInline
-                        className="h-full w-full object-cover"
-                        {...VIDEO_REFERRER_POLICY}
-                      />
+                      <div className="relative h-full w-full">
+                        <video
+                          ref={videoRef}
+                          key={activeRow.video_url}
+                          src={activeRow.video_url}
+                          poster={activeRow.cover_url || undefined}
+                          playsInline
+                          onPlay={() => setVideoPlaying(true)}
+                          onPause={() => setVideoPlaying(false)}
+                          className="h-full w-full object-cover"
+                          {...VIDEO_REFERRER_POLICY}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const el = videoRef.current;
+                            if (!el) return;
+                            if (el.paused) el.play();
+                            else el.pause();
+                          }}
+                          aria-label={videoPlaying ? "Pause video" : "Play video"}
+                          className={cn(
+                            "absolute inset-0 flex items-center justify-center transition-opacity",
+                            videoPlaying ? "opacity-0 hover:opacity-100" : "opacity-100 bg-black/10"
+                          )}
+                        >
+                          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 shadow-card-hover ring-1 ring-inset ring-black/5 transition-transform duration-200 hover:scale-110">
+                            {videoPlaying ? (
+                              <Pause className="h-5 w-5 fill-ink text-ink" />
+                            ) : (
+                              <Play className="h-5 w-5 translate-x-0.5 fill-ink text-ink" />
+                            )}
+                          </span>
+                        </button>
+                      </div>
                     ) : activeRow.embed_url ? (
                       <iframe
                         key={activeRow.embed_url}
@@ -602,13 +538,6 @@ export default function TranscriptsPage() {
                     </button>
 
                     <div className="flex items-center gap-2">
-                      <Dropdown
-                        label="Retranslate"
-                        icon={translating ? Loader2 : Languages}
-                        value={translating ? "Translating…" : retranslateTo}
-                        onChange={handleRetranslate}
-                        disabled={translating}
-                      />
                       <IconButton icon={copied ? Check : Copy} label="Copy transcript" onClick={handleCopy} active={copied} />
                       <IconButton
                         icon={downloaded ? Check : Download}
@@ -619,16 +548,20 @@ export default function TranscriptsPage() {
                     </div>
                   </div>
 
-                  {translateError && <p className="text-sm text-danger">{translateError}</p>}
-
                   <div className="flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
-                    {(translatedLines ?? activeRow.lines ?? []).map((line, i) => (
-                      <div key={i} className="flex gap-3 text-sm">
+                    {(activeRow.lines ?? []).map((line, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={!activeRow.video_url}
+                        onClick={() => handleSeekTo(line.timestamp)}
+                        className="flex gap-3 rounded-lg px-1 py-0.5 text-left text-sm transition-colors enabled:hover:bg-app disabled:cursor-default"
+                      >
                         {showTimestamps && (
                           <span className="w-10 shrink-0 font-mono text-xs text-body">{line.timestamp}</span>
                         )}
                         <p className="leading-relaxed text-heading">{line.text}</p>
-                      </div>
+                      </button>
                     ))}
                     {activeRow.lines?.length === 0 && (
                       <p className="text-sm text-body">No captions were found for this video.</p>

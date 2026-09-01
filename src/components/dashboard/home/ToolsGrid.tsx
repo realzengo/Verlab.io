@@ -1,48 +1,38 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import {
-  Captions,
-  ChevronRight,
-  Clapperboard,
-  Compass,
-  Download,
-  Image as ImageIcon,
-  Mic2,
-  PenLine,
-  Plug,
-  Wand2,
-} from "lucide-react";
+import { Captions, ChevronRight, Compass, Download, Plug } from "lucide-react";
 
-const TOOLS: { title: string; description: string; href: string; icon: LucideIcon }[] = [
+const TOOLS: { title: string; description: string; href: string; icon: LucideIcon | string }[] = [
   {
     title: "Niche Bender",
     description: "Reverse-engineer a winning format and bend it into a fresh, non-competing niche.",
     href: "/bend",
-    icon: Wand2,
+    icon: "/icons/tools/niche-bender.png",
   },
   {
     title: "Video Generator",
     description: "Create, edit, and animate watermark-free AI videos from a prompt or image.",
     href: "/video-generator",
-    icon: Clapperboard,
+    icon: "/icons/tools/video-generator.png",
   },
   {
     title: "Image Generator",
     description: "Generate scroll-stopping thumbnails and cover images with AI.",
     href: "/image-generator",
-    icon: ImageIcon,
+    icon: "/icons/tools/image-generator.png",
   },
   {
     title: "Scriptwriter",
     description: "Write engaging video scripts with AI-powered writing assistance.",
     href: "/scripts",
-    icon: PenLine,
+    icon: "/icons/tools/scriptwriter.png",
   },
   {
     title: "Voiceover",
     description: "Turn scripts into natural-sounding AI voiceovers in seconds.",
     href: "/voiceover-generator",
-    icon: Mic2,
+    icon: "/icons/tools/voiceover.png",
   },
   {
     title: "Transcript Extractor",
@@ -82,7 +72,7 @@ export function ToolsGrid() {
         </div>
         <Link
           href="/app/tools"
-          className="mb-1 flex shrink-0 items-center gap-0.5 text-sm font-bold text-heading transition-colors hover:text-primary"
+          className="mb-1 flex shrink-0 items-center gap-0.5 text-sm font-bold text-subtle transition-colors hover:text-primary"
         >
           View all tools
           <ChevronRight className="h-4 w-4" />
@@ -100,7 +90,11 @@ export function ToolsGrid() {
                 aria-hidden
                 className="absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/45 to-transparent"
               />
-              <tool.icon className="relative h-5 w-5 text-white" strokeWidth={1.8} />
+              {typeof tool.icon === "string" ? (
+                <Image src={tool.icon} alt="" width={40} height={40} className="relative h-10 w-10 object-contain" />
+              ) : (
+                <tool.icon className="relative h-5 w-5 text-white" strokeWidth={1.8} />
+              )}
             </span>
             <h3 className="mt-4 text-sm font-bold text-heading">{tool.title}</h3>
             <p className="mt-1 flex-1 text-xs leading-relaxed text-subtle">{tool.description}</p>

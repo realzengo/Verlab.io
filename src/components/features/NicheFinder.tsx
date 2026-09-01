@@ -119,7 +119,7 @@ const CARD_GRADIENTS = [
   "from-emerald-800 to-slate-900",
 ];
 
-function gradientForId(id: string): string {
+export function gradientForId(id: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
   return CARD_GRADIENTS[hash % CARD_GRADIENTS.length];

@@ -26,11 +26,13 @@ function firstName(user: User | null): string {
   return first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
 }
 
-function timeGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+// "Welcome back" only for the session right after an explicit sign-in
+// (Supabase's SIGNED_IN event) -- a plain page reload with a persisted
+// session fires INITIAL_SESSION instead, so that stays a plain "Hey".
+const FRESH_LOGIN_KEY = "verlab-fresh-login";
+
+function greeting(justSignedIn: boolean): string {
+  return justSignedIn ? "Welcome back" : "Hey";
 }
 
 export function TopBar({
@@ -48,6 +50,9 @@ export function TopBar({
   const resolvedHeading = heading ?? defaultHeading(pathname);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [justSignedIn, setJustSignedIn] = useState(
+    () => typeof window !== "undefined" && sessionStorage.getItem(FRESH_LOGIN_KEY) === "1"
+  );
   const today = isHome
     ? new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
     : "";
@@ -57,8 +62,15 @@ export function TopBar({
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === "SIGNED_IN") {
+        sessionStorage.setItem(FRESH_LOGIN_KEY, "1");
+        setJustSignedIn(true);
+      } else if (event === "SIGNED_OUT") {
+        sessionStorage.removeItem(FRESH_LOGIN_KEY);
+        setJustSignedIn(false);
+      }
     });
 
     return () => subscription.subscription.unsubscribe();
@@ -102,7 +114,7 @@ export function TopBar({
         {isHome ? (
           <div className="min-w-0">
             <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl" suppressHydrationWarning>
-              {timeGreeting()}
+              {greeting(justSignedIn)}
               {firstName(user) && <>, {firstName(user)}</>}
             </h1>
             {today && (

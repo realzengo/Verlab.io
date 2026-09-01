@@ -450,16 +450,50 @@ export async function fetchVideoPreview(url: string): Promise<VideoPreviewResult
   }
 }
 
-// --- video-download-api.com (p.savenow.to) — file downloads for every
-// supported platform (YouTube, TikTok, Facebook). Async job API: submit to
-// /ajax/download.php, then poll /ajax/progress.php (progress is in
-// thousandths, 1000 = done) until download_url appears. See
-// https://video-download-api.com/api/docs.
+// --- Scrape Creators — TikTok file downloads. video-download-api.com's
+// TikTok scraping has been observed failing on every TikTok video (real and
+// nonexistent alike) while working fine for YouTube, so TikTok downloads are
+// routed here instead — the same endpoint (and API key) already used for
+// TikTok previews/transcripts above, which reliably returns a direct
+// no-watermark file URL per video.
+// TikTok share links (vm.tiktok.com/XXXX, vt.tiktok.com/XXXX) are short
+// redirect links, not the canonical video URL — resolving them here, before
+// handing off to the provider, avoids depending on the provider to follow
+// TikTok's own redirect/anti-bot chain correctly.
+async function resolveTikTokShortLink(url: string): Promise<string> {
+  if (!/^https?:\/\/(vm|vt)\.tiktok\.com\//i.test(url.trim())) {
+    return url;
+  }
+  try {
+    const response = await fetchWithRetry(url, { method: "HEAD", signal: AbortSignal.timeout(10_000) });
+    return response.url || url;
+  } catch {
+    return url;
+  }
+}
+
+async function scrapeCreatorsFetchTikTokDownload(url: string): Promise<DownloadResult> {
+  const resolvedUrl = await resolveTikTokShortLink(url);
+  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url: resolvedUrl });
+  const detail = videoRes.aweme_detail;
+  const video = detail?.video;
+  const directUrl = video?.download_no_watermark_addr?.url_list?.[0] ?? video?.play_addr?.url_list?.[0];
+  if (!directUrl) {
+    throw new VideoProviderError("not_found", "That video couldn't be found. It may be private or deleted.");
+  }
+  return { title: detail?.desc?.trim() || "Untitled video", directUrl };
+}
+
+// --- video-download-api.com (p.savenow.to) — file downloads for YouTube and
+// Facebook. Async job API: submit to /ajax/download.php, then poll
+// /ajax/progress.php (progress is in thousandths, 1000 = done) until
+// download_url appears. See https://video-download-api.com/api/docs.
 //
-// Instagram is deliberately not routed here — verified against this
-// provider directly and it consistently fails ("text":"Failed") for real
-// Instagram post/reel URLs, unlike YouTube/TikTok/Facebook which return
-// working files.
+// Neither Instagram nor TikTok is routed here — verified against this
+// provider directly and both consistently fail ("text":"Failed") for real
+// URLs, unlike YouTube/Facebook which return working files. TikTok goes
+// through Scrape Creators instead (above); Instagram downloads aren't
+// currently supported.
 
 const SAVENOW_BASE_URL = "https://p.savenow.to";
 const SAVENOW_POLL_INTERVAL_MS = 2_000;
@@ -477,6 +511,16 @@ interface SavenowProgressResponse {
   download_url?: string;
   text?: string;
 }
+
+// A terminal job with no download_url is ambiguous by itself — it can mean a
+// genuinely dead video, but just as often means an anti-bot block, a
+// transient scrape hiccup, or an unresolved short link on the provider's
+// side. The provider's own `text` field (e.g. "Failed", "Video not found",
+// "This video is private") is the only signal that distinguishes those, so
+// only trust an explicit not-found/private/removed phrase before telling the
+// user the video itself is gone — anything else (including no text at all)
+// is treated as a retryable provider error instead of a false confirmation.
+const NOT_FOUND_REASON_PATTERN = /not found|private|remov|delet|unavailable|no longer exists|restrict/i;
 
 async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: number) => void): Promise<string> {
   const deadline = Date.now() + SAVENOW_POLL_TIMEOUT_MS;
@@ -500,9 +544,16 @@ async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: numb
     // download_url — without this check it would spin here until the
     // timeout below instead of surfacing the real failure.
     if (!data.download_url && (data.progress ?? 0) >= 1000) {
+      const reason = data.text?.trim();
+      if (reason && NOT_FOUND_REASON_PATTERN.test(reason)) {
+        throw new VideoProviderError(
+          "not_found",
+          "That video couldn't be downloaded. It may be private, deleted, or unsupported."
+        );
+      }
       throw new VideoProviderError(
-        "not_found",
-        "That video couldn't be downloaded. It may be private, deleted, or unsupported."
+        "provider_error",
+        reason ? `Video Download API job failed: ${reason}` : "Video Download API job failed with no download_url"
       );
     }
     if (data.progress !== undefined) {
@@ -511,19 +562,15 @@ async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: numb
 
     await new Promise((resolve) => setTimeout(resolve, SAVENOW_POLL_INTERVAL_MS));
   }
-  throw new VideoProviderError("provider_error", "Timed out waiting for the video to be ready");
+  throw new VideoProviderError("provider_error", "download_timed_out");
 }
 
-async function savenowFetchDownloadLink(
+async function savenowSubmitAndPoll(
   url: string,
   format: DownloadFormat,
+  apiKey: string,
   onProgress?: (percent: number) => void
 ): Promise<DownloadResult> {
-  const apiKey = process.env.SAVENOW_API_KEY;
-  if (!apiKey) {
-    throw new VideoProviderError("not_configured", "Missing SAVENOW_API_KEY");
-  }
-
   const endpoint = new URL("/ajax/download.php", SAVENOW_BASE_URL);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("format", format);
@@ -549,6 +596,38 @@ async function savenowFetchDownloadLink(
 
   const directUrl = await savenowPollForDownloadUrl(data.id, onProgress);
   return { title: data.info?.title?.trim() || "Untitled video", directUrl };
+}
+
+const SAVENOW_JOB_ATTEMPTS = 2;
+const SAVENOW_JOB_RETRY_DELAY_MS = 1_500;
+
+async function savenowFetchDownloadLink(
+  url: string,
+  format: DownloadFormat,
+  onProgress?: (percent: number) => void
+): Promise<DownloadResult> {
+  const apiKey = process.env.SAVENOW_API_KEY;
+  if (!apiKey) {
+    throw new VideoProviderError("not_configured", "Missing SAVENOW_API_KEY");
+  }
+
+  for (let attempt = 1; attempt <= SAVENOW_JOB_ATTEMPTS; attempt++) {
+    try {
+      return await savenowSubmitAndPoll(url, format, apiKey, onProgress);
+    } catch (error) {
+      const isAmbiguousFailure =
+        error instanceof VideoProviderError && error.code === "provider_error" && error.message !== "download_timed_out";
+      // Only retry the whole job for ambiguous, likely-transient provider
+      // failures (anti-bot block, scrape hiccup, missing job id) — a
+      // confirmed not_found, rate limit, misconfiguration, or a poll that
+      // already ran the full timeout won't succeed on a second attempt.
+      if (!isAmbiguousFailure || attempt === SAVENOW_JOB_ATTEMPTS) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, SAVENOW_JOB_RETRY_DELAY_MS));
+    }
+  }
+  throw new VideoProviderError("provider_error", "Video Download API did not return a job id");
 }
 
 export function detectTranscriptPlatform(rawUrl: string): TranscriptPlatform | null {
@@ -594,6 +673,12 @@ export async function fetchDownloadLink(
   const platform = detectDownloadPlatform(url);
   if (!platform) {
     throw new VideoProviderError("unsupported_url", "Unsupported video URL");
+  }
+  if (platform === "tiktok") {
+    onProgress?.(50);
+    const result = await scrapeCreatorsFetchTikTokDownload(url);
+    onProgress?.(100);
+    return result;
   }
   return savenowFetchDownloadLink(url, format, onProgress);
 }

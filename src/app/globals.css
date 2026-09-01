@@ -247,7 +247,13 @@ body {
     }
     100% {
       opacity: 1;
-      transform: perspective(1000px) rotateX(0deg) translateY(0);
+      /* Literal "none" (not the equivalent perspective/rotateX/translateY(0))
+         so the animation's fill-mode: both doesn't leave a lingering
+         non-none `transform` on the element once it settles -- any such
+         transform turns the element into a new containing block, which
+         silently breaks `position: sticky` on descendants (e.g. StepSop's
+         "On this page" nav). */
+      transform: none;
     }
   }
   .animate-bend-in {

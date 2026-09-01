@@ -159,18 +159,31 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
         {visible.map((item) => {
           const finalNiche = item.chosenBend?.nicheName;
           const nicheLabel = finalNiche ?? item.detectedNiche ?? "Analyzing channel…";
+          const openItem = () => (item.status === "sop_ready" ? setPreviewJobId(item.jobId) : onResume(item));
 
           return (
             <li
               key={item.jobId}
-              className="group relative flex flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 hover:border-primary/20 hover:shadow-card-hover"
+              role="button"
+              tabIndex={0}
+              onClick={openItem}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openItem();
+                }
+              }}
+              className="group relative flex cursor-pointer flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card outline-none"
             >
               {/* Corner action -- revealed on hover so the identity block below
                   is the only thing competing for attention at rest, instead of
                   a permanent row of chrome above it. */}
               <button
                 type="button"
-                onClick={() => setPendingDeleteId(item.jobId)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPendingDeleteId(item.jobId);
+                }}
                 aria-label="Delete this bend"
                 className="absolute right-3 top-3 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/80 text-subtle opacity-0 backdrop-blur-sm transition-colors duration-200 ease-out hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
               >
@@ -181,7 +194,7 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                   badge (see ChannelAvatar) already says TikTok/YouTube, so a
                   second "TIKTOK" label up top would just repeat it. */}
               <div className="relative flex min-w-0 items-start gap-3.5 pr-7">
-                <div className="shrink-0 rounded-full ring-2 ring-app transition-colors duration-300 ease-out group-hover:ring-primary/15">
+                <div className="shrink-0 rounded-full ring-2 ring-app">
                   <ChannelAvatar
                     name={item.channelName ?? item.sourceUrl ?? "?"}
                     avatarUrl={item.avatarUrl ?? undefined}
@@ -208,7 +221,10 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
                 </div>
                 <button
                   type="button"
-                  onClick={() => (item.status === "sop_ready" ? setPreviewJobId(item.jobId) : onResume(item))}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openItem();
+                  }}
                   aria-label={
                     item.status === "sop_ready"
                       ? `View SOP for ${item.channelName ?? item.sourceUrl ?? "channel"}`
