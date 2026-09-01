@@ -3,37 +3,21 @@
 import { useEffect } from "react";
 import { usePostHog } from "posthog-js/react";
 import { createClient } from "@/lib/supabase/client";
-import { trackWhopEvent } from "@/lib/analytics/whop";
+import { consumeSignupSignal, trackWhopEvent } from "@/lib/analytics/whop";
 
-type IdentifiableUser = { id: string; email?: string | null; created_at: string; last_sign_in_at?: string | null };
+type IdentifiableUser = { id: string; email?: string | null };
 
-// Supabase sets created_at and last_sign_in_at within milliseconds of each
-// other on a brand-new account -- a wider gap means this is a returning
-// user's session, not a signup. Padded generously since the two paths that
-// land here (OAuth's server-side code exchange, email confirmation's
-// client-side link processing) both add their own latency.
-const SIGNUP_DETECTION_WINDOW_MS = 60_000;
-
-// Fires the Whop "complete_registration" event exactly once per account,
-// however the session was established: immediate-session email/password
-// signup and Google OAuth both raise SIGNED_IN client-side (the OAuth
-// redirect's session is already set by the time this mounts, so it's caught
-// by the initial getUser() call below instead); email-confirmation lands on
-// this page with tokens in the URL, which the client SDK turns into a
-// SIGNED_IN transition after mount. Covering both triggers, deduped via
-// localStorage, catches all three paths without tracking every login too.
-function trackSignupIfFresh(user: IdentifiableUser) {
-  if (!user.last_sign_in_at) return;
-  const gapMs = Math.abs(new Date(user.last_sign_in_at).getTime() - new Date(user.created_at).getTime());
-  if (gapMs > SIGNUP_DETECTION_WINDOW_MS) return;
-
-  const dedupeKey = `whop-signup-tracked:${user.id}`;
-  try {
-    if (localStorage.getItem(dedupeKey)) return;
-    localStorage.setItem(dedupeKey, "1");
-  } catch {
-    // localStorage unavailable -- fire anyway, a rare duplicate beats a lost event.
-  }
+// Fires the Whop "complete_registration" event exactly once per signup,
+// however the session was established. Relies on an explicit signal set by
+// the signup page (markPendingSignup / a `?signup=1` redirect param) rather
+// than inferring "is this new?" from Supabase's timestamps -- covers
+// immediate-session email/password signup and Google OAuth (session already
+// set by the time this mounts, caught by the initial getUser() call below)
+// and email-confirmation links (land here via a SIGNED_IN transition after
+// mount, caught by the listener instead). consumeSignupSignal() clears the
+// signal on read, so this is safe to call from both triggers.
+function trackSignupIfMarked(user: IdentifiableUser) {
+  if (!consumeSignupSignal()) return;
   trackWhopEvent("complete_registration", { email: user.email ?? undefined, external_id: user.id });
 }
 
@@ -52,7 +36,7 @@ export function IdentifyUser() {
       if (posthog && posthog.get_distinct_id() !== user.id) {
         posthog.identify(user.id, { email: user.email });
       }
-      trackSignupIfFresh(user);
+      trackSignupIfMarked(user);
     });
 
     const {
@@ -60,7 +44,7 @@ export function IdentifyUser() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         posthog?.identify(session.user.id, { email: session.user.email });
-        trackSignupIfFresh(session.user);
+        trackSignupIfMarked(session.user);
       } else if (event === "SIGNED_OUT") {
         posthog?.reset();
       }

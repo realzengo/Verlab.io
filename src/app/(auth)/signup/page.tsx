@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 import { EMAIL_MAX, isValidEmail } from "@/lib/validation";
+import { markPendingSignup, trackWhopEvent } from "@/lib/analytics/whop";
 
 const FADE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 
@@ -47,6 +48,7 @@ function SignupForm() {
     setError(null);
     setIsGoogleLoading(true);
     posthog?.capture("google_auth_started", { context: "signup" });
+    markPendingSignup();
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -74,11 +76,17 @@ function SignupForm() {
     setIsSubmitting(true);
 
     const supabase = createClient();
+    // Tags the confirmation-link redirect so IdentifyUser can tell a fresh
+    // signup from a login once the link is clicked -- possibly in a
+    // different tab/browser than this one, so sessionStorage (used for the
+    // OAuth path) can't reach it; see markPendingSignup/consumeSignupSignal.
+    const redirectUrl = new URL(next, window.location.origin);
+    redirectUrl.searchParams.set("signup", "1");
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}${next}`,
+        emailRedirectTo: redirectUrl.toString(),
       },
     });
 
@@ -90,8 +98,11 @@ function SignupForm() {
 
     posthog?.capture("sign_up_submitted", { method: "email" });
 
-    // If email confirmation is off, Supabase returns a session immediately.
+    // If email confirmation is off, Supabase returns a session immediately
+    // -- this is unambiguously a fresh signup, so track it directly here
+    // rather than routing it through IdentifyUser's generic signal.
     if (data.session) {
+      trackWhopEvent("complete_registration", { email, external_id: data.session.user.id });
       router.push(next);
       router.refresh();
       return;
