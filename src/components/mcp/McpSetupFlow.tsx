@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Copy, ExternalLink, Sparkles } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
 import { MCP_PATH } from "@/components/mcp/McpConnectSection";
 import { cn } from "@/lib/utils";
@@ -29,9 +29,10 @@ export function McpSetupFlow() {
     <section className="relative w-full p-6 sm:p-10 lg:p-14">
       <div className="relative">
         <div className="flex flex-col items-center text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
-            <Sparkles className="h-3 w-3" />
-            How it works
+          <span className="inline-flex -skew-x-12 items-center justify-center rounded-md bg-[radial-gradient(circle_at_35%_30%,#7ea6ff,#3d5fff_70%)] px-4 py-1.5">
+            <span className="flex skew-x-12 items-center justify-center text-xs font-bold italic uppercase tracking-wide text-white">
+              How it works
+            </span>
           </span>
           <h2 className="mt-4 text-2xl font-black tracking-[-1px] text-heading sm:text-[32px] lg:text-[36px]">
             Connect once. Ask for anything.

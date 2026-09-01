@@ -409,13 +409,13 @@ export interface NicheBendHistoryItem {
 // Admin dashboard
 // ---------------------------------------------------------------------------
 
-export type AdminUserStatus = "active" | "trialing" | "past_due" | "canceled" | "suspended";
+export type AdminUserStatus = "active" | "trialing" | "past_due" | "canceled" | "suspended" | "free";
 
 export interface AdminUser {
   id: string;
   name: string;
   email: string;
-  plan: "core" | "pro" | "scale";
+  plan: "core" | "pro" | "scale" | "free";
   status: AdminUserStatus;
   mrr: number;
   signupDate: string;
@@ -612,7 +612,7 @@ export interface CreditTopSpender {
   id: string;
   name: string;
   email: string;
-  plan: "core" | "pro" | "scale";
+  plan: "core" | "pro" | "scale" | "free";
   spent30d: number;
   balance: number;
 }
@@ -644,7 +644,7 @@ export interface CreditsAdminUser {
   id: string;
   name: string;
   email: string;
-  plan: "core" | "pro" | "scale";
+  plan: "core" | "pro" | "scale" | "free";
   credits: number;
 }
 

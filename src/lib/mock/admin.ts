@@ -83,9 +83,9 @@ const LAST_NAMES = [
   "Chu", "Delgado", "Vance", "Osei", "Bianchi", "Novak", "Sørensen", "Marsh",
 ];
 const COUNTRIES = ["US", "UK", "CA", "DE", "AU", "BR", "IN", "NL", "SE", "PH"];
-const PLANS: AdminUser["plan"][] = ["core", "pro", "scale"];
+const PLANS: ("core" | "pro" | "scale")[] = ["core", "pro", "scale"];
 const STATUSES: AdminUser["status"][] = ["active", "active", "active", "trialing", "past_due", "canceled", "suspended"];
-export const PLAN_MRR: Record<AdminUser["plan"], number> = { core: 19, pro: 49, scale: 129 };
+export const PLAN_MRR: Record<"core" | "pro" | "scale", number> = { core: 19, pro: 49, scale: 129 };
 
 export const ADMIN_USERS: AdminUser[] = FIRST_NAMES.map((first, i) => {
   const last = LAST_NAMES[i];

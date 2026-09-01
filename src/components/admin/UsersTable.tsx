@@ -15,6 +15,7 @@ const STATUS_VARIANT: Record<AdminUserStatus, "success" | "warning" | "danger" |
   past_due: "warning",
   canceled: "default",
   suspended: "danger",
+  free: "default",
 };
 
 const STATUS_LABEL: Record<AdminUserStatus, string> = {
@@ -23,6 +24,7 @@ const STATUS_LABEL: Record<AdminUserStatus, string> = {
   past_due: "Past due",
   canceled: "Canceled",
   suspended: "Suspended",
+  free: "Free",
 };
 
 type SortKey = "name" | "mrr" | "signupDate" | "lastActiveAt";
@@ -98,6 +100,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             className="rounded-full border border-hairline bg-surface px-3.5 py-2 text-sm text-heading outline-none focus:border-primary"
           >
             <option value="all">All plans</option>
+            <option value="free">Free</option>
             <option value="core">Core</option>
             <option value="pro">Pro</option>
             <option value="scale">Scale</option>
@@ -108,6 +111,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             className="rounded-full border border-hairline bg-surface px-3.5 py-2 text-sm text-heading outline-none focus:border-primary"
           >
             <option value="all">All statuses</option>
+            <option value="free">Free</option>
             <option value="active">Active</option>
             <option value="trialing">Trialing</option>
             <option value="past_due">Past due</option>

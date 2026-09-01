@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import type { Variants } from "framer-motion";
-import type { ComparisonRow, PricingPlan } from "@/lib/types";
+import type { ComparisonRow, PricingFrequency, PricingPlan } from "@/lib/types";
 import { TimelineContent } from "@/components/ui/timeline-animation";
 import { PricingTable } from "@/components/pricing/PricingTable";
 import { PricingComparisonTable } from "@/components/pricing/PricingComparisonTable";
@@ -24,6 +24,7 @@ export function PricingSectionClient({
   authenticated,
   currentPlanId = null,
   subscriptionStatus = null,
+  subscriptionPeriod = null,
   showComparison = true,
 }: {
   plans: PricingPlan[];
@@ -31,6 +32,7 @@ export function PricingSectionClient({
   authenticated: boolean;
   currentPlanId?: string | null;
   subscriptionStatus?: string | null;
+  subscriptionPeriod?: PricingFrequency | null;
   showComparison?: boolean;
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -85,6 +87,7 @@ export function PricingSectionClient({
           authenticated={authenticated}
           currentPlanId={currentPlanId}
           subscriptionStatus={subscriptionStatus}
+          subscriptionPeriod={subscriptionPeriod}
         />
       </TimelineContent>
 

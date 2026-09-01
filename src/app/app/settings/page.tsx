@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PlanTab } from "@/components/settings/PlanTab";
+import { RedeemCodeSection } from "@/components/settings/RedeemCodeSection";
 import { EMAIL_MAX, NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
 
 function initials(name: string): string {
@@ -281,6 +282,8 @@ export default function AccountSettingsPage() {
       </div>
 
       <PlanTab />
+
+      <RedeemCodeSection />
 
       {/* Account actions section */}
       <div>

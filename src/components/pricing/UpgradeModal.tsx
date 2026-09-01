@@ -9,6 +9,7 @@ import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTop
 import { CreditTopupPanel } from "@/components/pricing/CreditTopupPanel";
 import type { PackId } from "@/components/TopUpModal";
 import { createClient } from "@/lib/supabase/client";
+import { hasActiveSubscription } from "@/lib/server/subscription";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
@@ -76,6 +77,12 @@ export function UpgradeModal({
   const [plans, setPlans] = useState<PricingPlan[]>(PRICING_PLANS);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [subscriptionPeriodEnd, setSubscriptionPeriodEnd] = useState<string | null>(null);
+  const [subscriptionPeriod, setSubscriptionPeriod] = useState<PricingFrequency | null>(null);
+  // Defaults to "yearly" to nudge new subscribers toward the better-value
+  // plan -- once we know an existing subscriber's actual billing cycle (see
+  // the profile fetch below), this is corrected to match it, so the toggle
+  // never opens on a cycle that contradicts their real "Current Plan" badge.
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -115,15 +122,34 @@ export function UpgradeModal({
       const [{ data }, profileResult] = await Promise.all([
         supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order"),
         authUser
-          ? supabase.from("profiles").select("plan, subscription_status").eq("id", authUser.id).single()
+          ? supabase
+              .from("profiles")
+              .select("plan, subscription_status, subscription_period, subscription_current_period_end")
+              .eq("id", authUser.id)
+              .single()
           : Promise.resolve({ data: null }),
       ]);
       if (cancelled) return;
       if (data && data.length > 0) {
         setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
       }
-      setCurrentPlanId(profileResult.data?.plan ?? null);
+      // profiles.plan defaults to "core" and keeps its last paid value after
+      // a subscription lapses -- only mark a card "Current Plan" when
+      // there's an actual active subscription behind it (same check the
+      // /app paywall and topup checkout use), not just a leftover plan id.
+      const isActive = hasActiveSubscription(profileResult.data);
+      setCurrentPlanId(isActive ? (profileResult.data?.plan ?? null) : null);
       setSubscriptionStatus(profileResult.data?.subscription_status ?? null);
+      setSubscriptionPeriodEnd(profileResult.data?.subscription_current_period_end ?? null);
+      const period = (profileResult.data as { subscription_period?: string } | null)?.subscription_period ?? null;
+      setSubscriptionPeriod(period === "monthly" || period === "yearly" ? period : null);
+      // Open the toggle on whichever cycle the subscriber is actually paying
+      // for -- otherwise a monthly subscriber lands on the default Annual
+      // view and sees their plan marked "Current Plan" next to yearly
+      // pricing they never agreed to.
+      if (isActive && (period === "monthly" || period === "yearly")) {
+        setFrequency(period);
+      }
     })();
     return () => {
       cancelled = true;
@@ -140,6 +166,18 @@ export function UpgradeModal({
   }, [isOpen, onClose]);
 
   if (!isOpen || !mounted) return null;
+
+  // Topping up is only ever meaningful on top of a plan that's actually
+  // being paid for (see /api/checkout/credits, which 403s otherwise) --
+  // credits from an admin grant or a lapsed subscription's leftover balance
+  // don't count. Falling back to "plan" here (rather than just hiding the
+  // tab) also covers the moment right after open, before the profile fetch
+  // above has resolved.
+  const userHasActiveSubscription = hasActiveSubscription({
+    subscription_status: subscriptionStatus,
+    subscription_current_period_end: subscriptionPeriodEnd,
+  });
+  const effectiveTab: Tab = tab === "topup" && !userHasActiveSubscription ? "plan" : tab;
 
   async function handleSelectPlan(plan: PricingPlan) {
     setPlanError(null);
@@ -267,19 +305,22 @@ export function UpgradeModal({
               toggle. The taller tab (plan) still just grows past min-h-full
               and scrolls normally. */}
           <div className="relative mx-auto flex min-h-full w-full flex-col">
-            <PlanTopupToggle activeTab={tab} onChange={setTab} />
+            {/* Nothing to toggle without a paid plan to top up on top of --
+                see the topup-checkout 403 comment above -- so a non-subscriber
+                only ever sees the plan view, with no lone single-tab bar. */}
+            {userHasActiveSubscription && <PlanTopupToggle activeTab={effectiveTab} onChange={setTab} />}
 
           <div className="mt-4 text-center sm:mt-6">
             <h2 className="text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-              {tab === "plan" ? "Upgrade your plan" : "Top up your credits"}
+              {effectiveTab === "plan" ? "Upgrade your plan" : "Top up your credits"}
             </h2>
             <p
               className={cn(
                 "mx-auto mt-1 text-sm text-body sm:mt-2",
-                tab === "plan" ? "max-w-md" : "max-w-md sm:max-w-none sm:whitespace-nowrap"
+                effectiveTab === "plan" ? "max-w-md" : "max-w-md sm:max-w-none sm:whitespace-nowrap"
               )}
             >
-              {tab === "plan"
+              {effectiveTab === "plan"
                 ? "Move to a higher plan for more monthly credits and features."
                 : "Add extra credits any time. They never expire while your plan is active."}
             </p>
@@ -288,7 +329,7 @@ export function UpgradeModal({
           {/* Centers the shorter tab's body (topup) in the space left below
               the toggle/heading, without those two moving. */}
           <div className="flex flex-1 flex-col justify-start sm:justify-center">
-          {tab === "plan" ? (
+          {effectiveTab === "plan" ? (
             <>
               <div className="mt-4 sm:mt-7">
                 <PricingFrequencyToggle frequency={frequency} onChange={setFrequency} savePercent={savePercent || undefined} />
@@ -303,7 +344,12 @@ export function UpgradeModal({
                     plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}
                     frequency={frequency}
                     onSelect={handleSelectPlan}
-                    isCurrentPlan={plan.id === currentPlanId}
+                    // Only badge the card "Current Plan" when the toggle is
+                    // actually showing the cycle they're billed on -- a
+                    // monthly subscriber viewing the Annual toggle should see
+                    // Pro as a purchasable upgrade, not a mislabeled
+                    // "Current Plan" at a price they never agreed to.
+                    isCurrentPlan={plan.id === currentPlanId && frequency === (subscriptionPeriod ?? "monthly")}
                     subscriptionStatus={subscriptionStatus}
                   />
                 ))}

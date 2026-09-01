@@ -55,7 +55,12 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
   }
 
   const statusCopy = (() => {
-    if (!hasBilling) return `You're on the ${PLAN_LABELS[plan] ?? plan} plan.`;
+    // `plan` alone isn't trustworthy here -- it defaults to "core" for an
+    // account that's never subscribed, and keeps its last paid value after a
+    // subscription lapses (see handleMembershipDeactivated). hasBilling is
+    // the real signal, so a non-subscriber reads as exactly that instead of
+    // "on the Core plan".
+    if (!hasBilling) return "You're not on a paid plan.";
     if (isEnding && currentPeriodEnd) {
       return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}) — access ends ${formatDate(currentPeriodEnd)}.`;
     }

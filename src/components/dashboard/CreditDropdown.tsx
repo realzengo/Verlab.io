@@ -74,57 +74,74 @@ export function CreditDropdown({ onUpgradeClick }: { onUpgradeClick: () => void 
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 z-50 mt-2 w-72 overflow-hidden rounded-lg border border-hairline bg-surface shadow-lg">
-          <div className="flex items-center gap-2 border-b border-hairline px-3.5 py-2.5">
-            <Database className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-semibold tracking-wide text-heading uppercase">Your Credits</span>
+        <div className="absolute top-full right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-hairline bg-surface shadow-xl">
+          <div className="flex items-center gap-2.5 px-4 py-3.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Database className="h-3.5 w-3.5 text-primary" />
+            </span>
+            <span className="text-sm font-semibold text-heading">Your Credits</span>
           </div>
 
-          <div className="border-b border-hairline px-3.5 py-1">
-            <div className="flex items-center justify-between border-b border-hairline py-2 text-sm">
-              <span className="text-subtle">Allocated</span>
-              {summary == null ? (
-                <Skeleton className="h-4 w-8 rounded" />
-              ) : (
-                <span className="font-mono font-medium tabular-nums text-heading">{summary.allocated.toLocaleString()}</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between border-b border-hairline py-2 text-sm">
-              <span className="text-subtle">Used</span>
-              {summary == null ? (
-                <Skeleton className="h-4 w-8 rounded" />
-              ) : (
-                <span className="font-mono font-medium tabular-nums text-danger">{summary.used.toLocaleString()}</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between py-2 text-sm">
-              <span className="text-subtle">Balance</span>
-              {summary == null ? (
-                <Skeleton className="h-4 w-8 rounded" />
-              ) : (
-                <span className="font-mono font-medium tabular-nums text-success">{summary.balance.toLocaleString()}</span>
-              )}
+          <div className="px-4 pb-4">
+            <div className="rounded-lg bg-accent/50 p-3.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs font-medium tracking-wide text-subtle uppercase">Balance</span>
+                {summary == null ? (
+                  <Skeleton className="h-6 w-20 rounded" />
+                ) : (
+                  <span className="font-mono text-xl font-bold tabular-nums text-success">{summary.balance.toLocaleString()}</span>
+                )}
+              </div>
+
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-hairline">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width]"
+                  style={{
+                    width: summary && summary.allocated > 0 ? `${Math.min(100, (summary.used / summary.allocated) * 100)}%` : "0%",
+                  }}
+                />
+              </div>
+
+              <div className="mt-2 flex items-center justify-between text-xs text-subtle">
+                {summary == null ? (
+                  <>
+                    <Skeleton className="h-3.5 w-16 rounded" />
+                    <Skeleton className="h-3.5 w-20 rounded" />
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <span className="font-mono font-medium tabular-nums text-danger">{summary.used.toLocaleString()}</span> used
+                    </span>
+                    <span>
+                      <span className="font-mono font-medium tabular-nums text-heading">{summary.allocated.toLocaleString()}</span> allocated
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="px-3.5 py-1">
+          <div className="border-t border-hairline px-4 py-1">
             {USAGE_ROWS.map(({ key, label, icon: Icon }, i) => (
               <div
                 key={key}
-                className={cn("flex items-center justify-between py-2", i < USAGE_ROWS.length - 1 && "border-b border-hairline")}
+                className={cn("flex items-center justify-between py-2.5", i < USAGE_ROWS.length - 1 && "border-b border-hairline")}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-subtle" />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-app">
+                    <Icon className="h-3.5 w-3.5 text-subtle" />
+                  </span>
                   <span className="text-sm text-heading">{label}</span>
                 </div>
-                <span className="font-mono text-xs tabular-nums text-subtle">
+                <span className="font-mono text-xs font-medium tabular-nums text-subtle">
                   {summary == null ? "..." : summary[key].toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="p-3.5 pt-2.5">
+          <div className="p-4 pt-3">
             <PlasticButton
               onClick={() => {
                 setIsOpen(false);

@@ -20,6 +20,7 @@ export function PricingTable({
   authenticated,
   currentPlanId = null,
   subscriptionStatus = null,
+  subscriptionPeriod = null,
 }: {
   plans: PricingPlan[];
   /** Where logged-out visitors are sent instead of straight to checkout. */
@@ -30,8 +31,15 @@ export function PricingTable({
   currentPlanId?: string | null;
   /** Whop's status for the current plan's membership -- recolors/relabels that card's badge. */
   subscriptionStatus?: string | null;
+  /** The cycle the signed-in user is actually billed on -- opens the toggle on that cycle and gates the "Current Plan" badge so it never shows next to a price they didn't agree to. */
+  subscriptionPeriod?: PricingFrequency | null;
 }) {
-  const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
+  // Opens on the subscriber's actual billing cycle so "Current Plan" never
+  // shows next to a price they didn't agree to; defaults to "yearly" to
+  // nudge everyone else toward the better-value plan. subscriptionPeriod is
+  // server-fetched and fixed for the page's lifetime, so a lazy initializer
+  // (rather than an effect) is enough to pick it up.
+  const [frequency, setFrequency] = useState<PricingFrequency>(() => subscriptionPeriod ?? "yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +82,7 @@ export function PricingTable({
               plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}
               frequency={frequency}
               onSelect={handleSelect}
-              isCurrentPlan={plan.id === currentPlanId}
+              isCurrentPlan={plan.id === currentPlanId && frequency === (subscriptionPeriod ?? "monthly")}
               subscriptionStatus={subscriptionStatus}
             />
           ) : (

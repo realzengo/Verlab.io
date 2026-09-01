@@ -188,9 +188,23 @@ function mapSubscriptionStatus(status: string | null): AdminUserStatus {
   if (status === "active") return "active";
   if (status === "trialing") return "trialing";
   if (status === "past_due") return "past_due";
-  // canceled, incomplete, incomplete_expired, unpaid, paused, or no
-  // subscription at all (still on the free-by-default core plan).
-  return status ? "canceled" : "active";
+  // canceled, incomplete, incomplete_expired, unpaid, paused all mean a
+  // subscription existed once; no status at all means the account has never
+  // subscribed -- an admin credit grant doesn't change that, so it must not
+  // read as "active" (see displayPlan() below for the matching plan-id fix).
+  return status ? "canceled" : "free";
+}
+
+// profiles.plan defaults to "core" at signup and keeps its last paid value
+// after a subscription lapses (see migrations/20260716120001_profiles.sql
+// and whop-sync.ts's cancellation handler) -- it does NOT mean the account
+// is or ever was actually paying. An account with no subscription_status at
+// all has never subscribed, including one that only ever received an admin
+// credit grant (adjustCreditsAsAdmin only touches profiles.credits), so it
+// must display as having no plan rather than the default "core" id.
+function displayPlan(profile: { plan: string | null; subscription_status: string | null } | null | undefined): AdminUser["plan"] {
+  if (!profile?.subscription_status) return "free";
+  return (profile.plan as AdminUser["plan"] | null) ?? "core";
 }
 
 // Window for "active right now" -- there's no websocket presence channel in
@@ -235,7 +249,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
 
   const users: AdminUser[] = authUsers.map((u) => {
     const profile = profileById.get(u.id) as
-      | { full_name: string | null; plan: AdminUser["plan"]; subscription_status: string | null; subscription_period: string | null }
+      | { full_name: string | null; plan: string | null; subscription_status: string | null; subscription_period: string | null }
       | undefined;
     const usageEntry = usageByUser.get(u.id);
     const usage = {
@@ -245,7 +259,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       apiCalls: usageEntry?.apiCalls ?? 0,
     };
     const status = mapSubscriptionStatus(profile?.subscription_status ?? null);
-    const price = priceByPlan.get(profile?.plan ?? "core");
+    const price = priceByPlan.get((profile?.plan as "core" | "pro" | "scale" | null) ?? "core");
     // Gate on the raw subscription status, not the display status above -- a
     // profile with no subscription at all also *displays* as "active" (free
     // access, nothing billed) and must not be counted as paying revenue.
@@ -266,7 +280,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
       email: u.email ?? "",
-      plan: profile?.plan ?? "core",
+      plan: displayPlan(profile),
       status,
       mrr,
       signupDate: (u.created_at ?? new Date().toISOString()).slice(0, 10),
@@ -701,7 +715,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 
   const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan, credits"),
+    admin.from("profiles").select("id, full_name, plan, subscription_status, credits"),
     admin
       .from("credit_transactions")
       .select("id, user_id, amount, feature, action_key, granted_by, created_at")
@@ -715,7 +729,10 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 
   const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
   const profileById = new Map(
-    (profiles ?? []).map((p) => [p.id, p as { full_name: string | null; plan: AdminUser["plan"]; credits: number }])
+    (profiles ?? []).map((p) => [
+      p.id,
+      p as { full_name: string | null; plan: string | null; subscription_status: string | null; credits: number },
+    ])
   );
   const nameFor = (userId: string) =>
     profileById.get(userId)?.full_name || emailById.get(userId)?.split("@")[0] || "Unknown";
@@ -774,7 +791,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
         id: userId,
         name: nameFor(userId),
         email: emailById.get(userId) ?? "N/A",
-        plan: profile?.plan ?? "core",
+        plan: displayPlan(profile),
         spent30d,
         balance: profile?.credits ?? 0,
       };
@@ -808,11 +825,14 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
   const admin = createAdminClient();
   const [authUsers, { data: profiles }] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan, credits"),
+    admin.from("profiles").select("id, full_name, plan, subscription_status, credits"),
   ]);
 
   const profileById = new Map(
-    (profiles ?? []).map((p) => [p.id, p as { full_name: string | null; plan: AdminUser["plan"]; credits: number }])
+    (profiles ?? []).map((p) => [
+      p.id,
+      p as { full_name: string | null; plan: string | null; subscription_status: string | null; credits: number },
+    ])
   );
 
   return authUsers.map((u) => {
@@ -821,7 +841,7 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
       email: u.email ?? "",
-      plan: profile?.plan ?? "core",
+      plan: displayPlan(profile),
       credits: profile?.credits ?? 0,
     };
   });

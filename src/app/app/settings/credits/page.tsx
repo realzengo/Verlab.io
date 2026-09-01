@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight, Coins, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { hasActiveSubscription } from "@/lib/server/subscription";
 import { RefreshHistoryButton } from "./RefreshHistoryButton";
 import { TopUpButton } from "./TopUpButton";
 
@@ -14,7 +15,7 @@ interface CreditTransaction {
   created_at: string;
 }
 
-const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
+const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale", free: "Free" };
 
 function formatTransactionDate(iso: string): string {
   const date = new Date(iso);
@@ -71,7 +72,11 @@ export default async function CreditHistorySettingsPage() {
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: transactions }] = await Promise.all([
-    supabase.from("profiles").select("credits, plan").eq("id", user.id).single(),
+    supabase
+      .from("profiles")
+      .select("credits, plan, subscription_status, subscription_current_period_end")
+      .eq("id", user.id)
+      .single(),
     supabase
       .from("credit_transactions")
       .select("id, amount, feature, created_at")
@@ -81,7 +86,14 @@ export default async function CreditHistorySettingsPage() {
   ]);
 
   const credits = profile?.credits ?? 0;
-  const plan = profile?.plan ?? "core";
+  // profiles.plan defaults to "core" and keeps its last paid value after a
+  // subscription lapses -- it does not mean the account is actually paying
+  // (see displayPlan() in admin-queries.ts for the same fix on the admin
+  // side). Gate on hasActiveSubscription, the same check the /app paywall
+  // and the topup checkout use, so this page never claims a plan the account
+  // hasn't actually paid for.
+  const userHasActiveSubscription = hasActiveSubscription(profile);
+  const plan = userHasActiveSubscription ? profile?.plan ?? "core" : "free";
   const history = (transactions ?? []) as CreditTransaction[];
 
   return (
@@ -95,7 +107,10 @@ export default async function CreditHistorySettingsPage() {
             icon={<Coins className="h-4 w-4" />}
             label="Available credits"
             value={credits.toLocaleString()}
-            action={<TopUpButton />}
+            // Topping up only makes sense on top of a plan that's actually
+            // being paid for -- /api/checkout/credits 403s otherwise, so a
+            // non-subscriber gets no button to bounce off instead of one.
+            action={userHasActiveSubscription ? <TopUpButton /> : null}
           />
           <StatCard
             icon={<CreditCard className="h-4 w-4" />}

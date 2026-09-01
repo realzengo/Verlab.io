@@ -45,14 +45,14 @@ function ToolCard({ title, icon: Icon }: MarqueeTool) {
             backgroundSize: "14px 14px",
           }}
         />
-        <span
-          className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-[22%] bg-gradient-to-b from-[#6EA8FF] to-[#2258E8] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-8px_12px_-2px_rgba(10,30,120,0.45)] sm:h-11 sm:w-11 md:h-12 md:w-12"
-        >
-          <span
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/45 to-transparent"
-          />
-          <Icon className="relative h-4 w-4 text-white sm:h-5 sm:w-5 md:h-6 md:w-6" strokeWidth={2} />
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-[26%] bg-gradient-to-b from-blue-100 to-blue-200/80 p-[3px] shadow-[0_10px_20px_-8px_rgba(37,99,235,0.45),0_0_0_1px_rgba(255,255,255,0.6)_inset] sm:h-11 sm:w-11 sm:p-1 md:h-12 md:w-12">
+          <span className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[22%] bg-gradient-to-b from-[#6EA8FF] to-[#2258E8] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-8px_12px_-2px_rgba(10,30,120,0.45)]">
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/45 to-transparent"
+            />
+            <Icon className="relative h-4 w-4 text-white sm:h-5 sm:w-5 md:h-6 md:w-6" strokeWidth={2} />
+          </span>
         </span>
       </div>
       <div className="flex items-center justify-between gap-1">
