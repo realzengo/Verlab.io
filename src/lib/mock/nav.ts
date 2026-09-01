@@ -17,6 +17,7 @@ import {
   Wand2,
   Wrench,
 } from "lucide-react";
+import { DiscordIcon } from "@/components/icons/DiscordIcon";
 import type { NavItem } from "@/lib/types";
 
 export const SIDEBAR_NAV: NavItem[] = [
@@ -26,6 +27,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Niche Bending", href: "/bend", icon: Wand2 },
   { label: "Tools", href: "/tools", icon: Wrench },
   { label: "MCP", href: "/mcp", icon: Plug },
+  { label: "Discord", href: "/discord", icon: DiscordIcon },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

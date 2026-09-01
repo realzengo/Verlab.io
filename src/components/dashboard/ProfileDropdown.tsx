@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { ArrowUpCircle, ChevronDown, CircleDollarSign, LifeBuoy, LogOut, Moon, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { CREDITS_CHANGED_EVENT } from "@/lib/client/credits-bus";
 import { Avatar } from "@/components/ui/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 import { cn } from "@/lib/utils";
+
+interface CreditsSummary {
+  allocated: number;
+  used: number;
+  balance: number;
+}
 
 function displayName(user: User | null): string {
   const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
@@ -33,6 +41,7 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
   const [isOpen, setIsOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [summary, setSummary] = useState<CreditsSummary | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -40,6 +49,17 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
 
   const name = displayName(user);
   const email = user?.email ?? "";
+
+  const refreshSummary = useCallback(() => {
+    fetch("/api/credits/summary")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setSummary(data);
+      })
+      .catch(() => {
+        // Keep showing the last known summary rather than blanking it.
+      });
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,7 +73,15 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
   }, []);
 
   useEffect(() => {
+    if (isPaywalled) return;
+    refreshSummary();
+    window.addEventListener(CREDITS_CHANGED_EVENT, refreshSummary);
+    return () => window.removeEventListener(CREDITS_CHANGED_EVENT, refreshSummary);
+  }, [isPaywalled, refreshSummary]);
+
+  useEffect(() => {
     if (!isOpen) return;
+    if (!isPaywalled) refreshSummary();
 
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -63,7 +91,7 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
+  }, [isOpen, isPaywalled, refreshSummary]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -98,6 +126,48 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
               </div>
             </div>
           </div>
+
+          {!isPaywalled && (
+            <div className="border-b border-hairline px-4 py-3.5">
+              <div className="rounded-lg bg-accent/50 p-3.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs font-medium tracking-wide text-subtle uppercase">Balance</span>
+                  {summary == null ? (
+                    <Skeleton className="h-6 w-20 rounded" />
+                  ) : (
+                    <span className="font-mono text-xl font-bold tabular-nums text-success">{summary.balance.toLocaleString()}</span>
+                  )}
+                </div>
+
+                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-hairline">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width]"
+                    style={{
+                      width: summary && summary.allocated > 0 ? `${Math.min(100, (summary.used / summary.allocated) * 100)}%` : "0%",
+                    }}
+                  />
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs text-subtle">
+                  {summary == null ? (
+                    <>
+                      <Skeleton className="h-3.5 w-16 rounded" />
+                      <Skeleton className="h-3.5 w-20 rounded" />
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        <span className="font-mono font-medium tabular-nums text-danger">{summary.used.toLocaleString()}</span> used
+                      </span>
+                      <span>
+                        <span className="font-mono font-medium tabular-nums text-heading">{summary.allocated.toLocaleString()}</span> allocated
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="p-1.5">
             {!isPaywalled && (

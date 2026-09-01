@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Menu, Rocket } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
-import { CreditDropdown } from "@/components/dashboard/CreditDropdown";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
 import { PlasticButton } from "@/components/ui/plastic-button";
@@ -53,10 +52,6 @@ export function TopBar({
   const [justSignedIn, setJustSignedIn] = useState(
     () => typeof window !== "undefined" && sessionStorage.getItem(FRESH_LOGIN_KEY) === "1"
   );
-  const today = isHome
-    ? new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-    : "";
-
   useEffect(() => {
     if (!isHome) return;
     const supabase = createClient();
@@ -118,11 +113,7 @@ export function TopBar({
               {greeting(justSignedIn)}
               {firstName(user) && <>, {firstName(user)}</>}
             </h1>
-            {today && (
-              <p className="hidden truncate text-xs text-subtle sm:block" suppressHydrationWarning>
-                {today}
-              </p>
-            )}
+            <p className="truncate text-xs text-subtle sm:text-sm">What will you create?</p>
           </div>
         ) : (
           !hideHeading && (
@@ -135,19 +126,16 @@ export function TopBar({
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {!isPaywalled && (
-          <>
-            <PlasticButton
-              onClick={() => setIsUpgradeOpen(true)}
-              className="h-9 px-3.5 font-semibold"
-              text={
-                <>
-                  <Rocket className="h-3.5 w-3.5" fill="currentColor" />
-                  <span className="hidden sm:inline-block">Upgrade</span>
-                </>
-              }
-            />
-            <CreditDropdown onUpgradeClick={() => setIsUpgradeOpen(true)} />
-          </>
+          <PlasticButton
+            onClick={() => setIsUpgradeOpen(true)}
+            className="h-9 px-3.5 font-semibold"
+            text={
+              <>
+                <Rocket className="h-3.5 w-3.5" fill="currentColor" />
+                <span className="hidden sm:inline-block">Upgrade</span>
+              </>
+            }
+          />
         )}
         <ProfileDropdown isPaywalled={isPaywalled} />
       </div>
