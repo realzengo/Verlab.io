@@ -107,8 +107,8 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   return (
     <div className="mx-auto flex max-w-6xl flex-col items-center pb-8 pt-4 sm:pt-10">
       {hasNeverPaid && (
-        <span className="mb-7 inline-flex -skew-x-12 items-center justify-center rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-3.5 py-1.5">
-          <span className="inline-block skew-x-12 text-center text-sm font-extrabold italic uppercase tracking-wide text-white">
+        <span className="mb-7 inline-flex -skew-x-12 items-center justify-center rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-2.5 py-1 sm:px-3.5 sm:py-1.5">
+          <span className="inline-block skew-x-12 text-center text-xs font-extrabold italic uppercase tracking-wide text-white sm:text-sm">
             Powerful Tools. Predictable Prices.
           </span>
         </span>
