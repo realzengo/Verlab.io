@@ -10,8 +10,8 @@ export async function PricingSection({ showComparison = true }: { showComparison
     supabase.auth.getUser(),
   ]);
 
-  const currentPlanId = user
-    ? (await supabase.from("profiles").select("plan").eq("id", user.id).single()).data?.plan ?? null
+  const profile = user
+    ? (await supabase.from("profiles").select("plan, subscription_status").eq("id", user.id).single()).data
     : null;
 
   return (
@@ -20,7 +20,8 @@ export async function PricingSection({ showComparison = true }: { showComparison
         plans={plans}
         comparisonRows={COMPARISON_ROWS}
         authenticated={!!user}
-        currentPlanId={currentPlanId}
+        currentPlanId={profile?.plan ?? null}
+        subscriptionStatus={profile?.subscription_status ?? null}
         showComparison={showComparison}
       />
     </section>

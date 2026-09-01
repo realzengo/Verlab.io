@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { CancelSubscriptionModal } from "@/components/settings/CancelSubscriptionModal";
+import { Clock } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
 const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
 
@@ -18,12 +19,20 @@ function formatDate(iso: string): string {
 }
 
 export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, currentPeriodEnd }: SubscriptionTabProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCancelFlow, setShowCancelFlow] = useState(false);
 
-  const hasBilling = subscriptionStatus !== null;
+  // Whop's own status vocabulary distinguishes "canceling" (cancellation
+  // requested, access continues until the period ends) from "canceled"
+  // (access has already ended -- see handleMembershipDeactivated, which also
+  // reverts `plan` to "core" at that point). Once truly ended there's no
+  // active billing left to manage, so it should read exactly like a plain
+  // free-tier account rather than showing a stale cancellation date forever.
+  const isEnding = subscriptionStatus === "canceling";
+  const hasEnded = subscriptionStatus === "canceled" || subscriptionStatus === "expired";
+  const hasBilling = subscriptionStatus !== null && !hasEnded;
+
+  useResetOnPageRestore(() => setLoading(false));
 
   async function openPortal() {
     setLoading(true);
@@ -47,8 +56,8 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
 
   const statusCopy = (() => {
     if (!hasBilling) return `You're on the ${PLAN_LABELS[plan] ?? plan} plan.`;
-    if (subscriptionStatus === "canceled" && currentPeriodEnd) {
-      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}), cancels on ${formatDate(currentPeriodEnd)}.`;
+    if (isEnding && currentPeriodEnd) {
+      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}) — access ends ${formatDate(currentPeriodEnd)}.`;
     }
     if (currentPeriodEnd) {
       return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}), renews on ${formatDate(currentPeriodEnd)}.`;
@@ -62,7 +71,15 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
         <div>
-          <p className="font-medium text-heading text-sm sm:text-base">Manage billing</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-heading text-sm sm:text-base">Manage billing</p>
+            {isEnding && (
+              <Badge variant="warning">
+                <Clock className="h-3 w-3" />
+                Ending soon
+              </Badge>
+            )}
+          </div>
           <p className="text-body text-xs sm:text-sm mt-0.5">{statusCopy}</p>
         </div>
         <button
@@ -75,7 +92,7 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
         </button>
       </div>
 
-      {hasBilling && (
+      {hasBilling && !isEnding && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
           <div>
             <p className="font-medium text-heading text-sm sm:text-base">Cancel subscription</p>
@@ -86,7 +103,7 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
           <button
             type="button"
             disabled={loading}
-            onClick={() => setShowCancelFlow(true)}
+            onClick={openPortal}
             className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:pointer-events-none disabled:opacity-40"
           >
             Cancel subscription
@@ -95,12 +112,6 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
       )}
 
       {error && <p className="mt-4 text-xs text-danger">{error}</p>}
-
-      <CancelSubscriptionModal
-        isOpen={showCancelFlow}
-        onClose={() => setShowCancelFlow(false)}
-        onCanceled={() => router.refresh()}
-      />
     </div>
   );
 }

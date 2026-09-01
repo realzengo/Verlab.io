@@ -75,6 +75,7 @@ export function UpgradeModal({
   const [tab, setTab] = useState<Tab>(initialTab);
   const [plans, setPlans] = useState<PricingPlan[]>(PRICING_PLANS);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -113,13 +114,16 @@ export function UpgradeModal({
       } = await supabase.auth.getUser();
       const [{ data }, profileResult] = await Promise.all([
         supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order"),
-        authUser ? supabase.from("profiles").select("plan").eq("id", authUser.id).single() : Promise.resolve({ data: null }),
+        authUser
+          ? supabase.from("profiles").select("plan, subscription_status").eq("id", authUser.id).single()
+          : Promise.resolve({ data: null }),
       ]);
       if (cancelled) return;
       if (data && data.length > 0) {
         setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
       }
       setCurrentPlanId(profileResult.data?.plan ?? null);
+      setSubscriptionStatus(profileResult.data?.subscription_status ?? null);
     })();
     return () => {
       cancelled = true;
@@ -300,6 +304,7 @@ export function UpgradeModal({
                     frequency={frequency}
                     onSelect={handleSelectPlan}
                     isCurrentPlan={plan.id === currentPlanId}
+                    subscriptionStatus={subscriptionStatus}
                   />
                 ))}
               </div>

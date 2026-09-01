@@ -1,5 +1,7 @@
 import NumberFlow from "@number-flow/react";
+import { AlertTriangle, Clock } from "lucide-react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
 function FireIcon(props: { className?: string }) {
@@ -70,6 +72,7 @@ export function PricingCard({
   ctaHref,
   compact = false,
   isCurrentPlan = false,
+  subscriptionStatus = null,
 }: {
   plan: PricingPlan;
   frequency: PricingFrequency;
@@ -79,6 +82,8 @@ export function PricingCard({
   compact?: boolean;
   /** The plan the signed-in user is already subscribed to — swaps the CTA for a disabled "Current Plan" state so they can't re-purchase it. */
   isCurrentPlan?: boolean;
+  /** Whop's status for the current plan's membership -- only meaningful when isCurrentPlan, recolors/relabels the badge for "canceling" (still active, ending at period end) and "past_due" (payment failed). */
+  subscriptionStatus?: string | null;
 }) {
   const yearlyUnavailable = plan.monthlyOnly && frequency === "yearly";
   const isYearly = frequency === "yearly";
@@ -96,9 +101,20 @@ export function PricingCard({
     <>
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold text-heading">{plan.name}</h2>
-        {isCurrentPlan && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Current Plan</span>
-        )}
+        {isCurrentPlan &&
+          (subscriptionStatus === "canceling" ? (
+            <Badge variant="warning">
+              <Clock className="h-3 w-3" />
+              Ending soon
+            </Badge>
+          ) : subscriptionStatus === "past_due" ? (
+            <Badge variant="danger">
+              <AlertTriangle className="h-3 w-3" />
+              Past due
+            </Badge>
+          ) : (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Current Plan</span>
+          ))}
       </div>
       <p className="mb-4 text-[13px] text-subtle">{plan.info}</p>
 

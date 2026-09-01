@@ -23,12 +23,14 @@ export function PricingSectionClient({
   comparisonRows,
   authenticated,
   currentPlanId = null,
+  subscriptionStatus = null,
   showComparison = true,
 }: {
   plans: PricingPlan[];
   comparisonRows: ComparisonRow[];
   authenticated: boolean;
   currentPlanId?: string | null;
+  subscriptionStatus?: string | null;
   showComparison?: boolean;
 }) {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -77,7 +79,13 @@ export function PricingSectionClient({
       </div>
 
       <TimelineContent as="div" animationNum={3} timelineRef={sectionRef} customVariants={revealVariants} className="mt-8 sm:mt-10">
-        <PricingTable plans={plans} ctaHref={APP_URL} authenticated={authenticated} currentPlanId={currentPlanId} />
+        <PricingTable
+          plans={plans}
+          ctaHref={APP_URL}
+          authenticated={authenticated}
+          currentPlanId={currentPlanId}
+          subscriptionStatus={subscriptionStatus}
+        />
       </TimelineContent>
 
       {showComparison && (
