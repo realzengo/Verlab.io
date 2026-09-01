@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/niche-bend";
 import { detectPlatform } from "@/lib/niche-bend/platform";
 import { clearPersistedWizardRef, readPersistedWizardRef, writePersistedWizardRef } from "@/lib/niche-bend/storage";
+import { trackWhopEvent } from "@/lib/analytics/whop";
 import type {
   NicheBendCandidate,
   NicheBendChannelAnalysis,
@@ -356,6 +357,21 @@ export function NicheBendWizard() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [state.step]);
+
+  // Whop "activated" signal: the first time this browser completes an SOP
+  // generation (immediate SOP_READY or the poll-driven path both land here
+  // via state.status), not every generation -- gated on a one-time
+  // localStorage flag rather than per-jobId so repeat SOPs don't re-fire.
+  useEffect(() => {
+    if (state.status !== "sop_ready") return;
+    try {
+      if (localStorage.getItem("whop-activated")) return;
+      localStorage.setItem("whop-activated", "1");
+    } catch {
+      // localStorage unavailable -- fire anyway, a rare duplicate beats a lost event.
+    }
+    trackWhopEvent("activated", { tool: "niche_bend" });
+  }, [state.status]);
 
   const startAnalyze = async (manualVideos?: NicheBendVideo[]) => {
     if (!manualVideos && !state.platform) return;

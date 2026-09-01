@@ -8,6 +8,7 @@ import { Portal } from "@/components/ui/Portal";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CODE_MAX, isValidCode } from "@/lib/validation";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
+import { stashPendingPurchase } from "@/lib/analytics/whop";
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -83,6 +84,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
         return;
       }
 
+      stashPendingPurchase({ value: activePack.priceUsd, currency: "USD", pack: activePack.id, type: "credits" });
       window.location.href = data.url;
     } catch {
       setCheckoutError("Could not start checkout. Please try again.");
