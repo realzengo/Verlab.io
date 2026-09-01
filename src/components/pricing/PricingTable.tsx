@@ -5,7 +5,6 @@ import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
-import { stashPendingPurchase } from "@/lib/analytics/whop";
 
 function maxYearlyPercentOff(plans: PricingPlan[]): number {
   return plans.reduce((max, plan) => {
@@ -63,7 +62,6 @@ export function PricingTable({
         return;
       }
 
-      stashPendingPurchase({ value: plan.price[frequency], currency: "USD", plan: plan.id, period: frequency });
       window.location.href = data.url;
     } catch {
       setError("Could not start checkout. Please try again.");

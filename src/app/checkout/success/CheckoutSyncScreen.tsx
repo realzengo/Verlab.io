@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { pollUntilSettled } from "@/lib/polling";
-import { consumePendingPurchase, trackWhopEvent } from "@/lib/analytics/whop";
 
 interface ProfileSnapshot {
   credits: number;
@@ -49,24 +48,10 @@ export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
       return (await res.json()) as ProfileSnapshot;
     };
 
-    // The Whop Pixel "purchase" event needs a dollar value, which only the
-    // page that started checkout knew (see stashPendingPurchase call sites)
-    // -- read it back here, once, now that the change confirms the purchase
-    // actually went through. consumePendingPurchase clears the stash on
-    // read, so it's a no-op (and thus safe) if both success paths below
-    // somehow ran.
-    const trackPurchase = () => {
-      const pending = consumePendingPurchase();
-      if (pending) trackWhopEvent("purchase", pending);
-    };
-
     reconcile();
 
     const cancelPoll = pollUntilSettled(fetchStatus, hasChanged, (current) => {
-      if (hasChanged(current)) {
-        trackPurchase();
-        router.push("/settings/credits");
-      }
+      if (hasChanged(current)) router.push("/settings/credits");
     }, {
       intervalMs: POLL_INTERVAL_MS,
       timeoutMs: TIMEOUT_MS,
@@ -77,10 +62,8 @@ export function CheckoutSyncScreen({ initial }: { initial: ProfileSnapshot }) {
           .then(fetchStatus)
           .then((current) => {
             if (cancelled) return;
-            if (hasChanged(current)) {
-              trackPurchase();
-              router.push("/settings/credits");
-            } else setTimedOut(true);
+            if (hasChanged(current)) router.push("/settings/credits");
+            else setTimedOut(true);
           })
           .catch(() => {
             if (!cancelled) setTimedOut(true);

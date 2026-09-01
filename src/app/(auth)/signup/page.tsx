@@ -102,7 +102,7 @@ function SignupForm() {
     // -- this is unambiguously a fresh signup, so track it directly here
     // rather than routing it through IdentifyUser's generic signal.
     if (data.session) {
-      trackWhopEvent("complete_registration", { email, external_id: data.session.user.id });
+      trackWhopEvent("complete_registration", { email, external_id: data.session.user.id, event_id: data.session.user.id });
       router.push(next);
       router.refresh();
       return;

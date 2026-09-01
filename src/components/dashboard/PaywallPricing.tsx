@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
-import { stashPendingPurchase } from "@/lib/analytics/whop";
 
 // Mirrors planRowToPricingPlan in UpgradeModal.tsx -- kept in sync there since
 // it can't be shared without pulling the service-role client into a bundle.
@@ -96,7 +95,6 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
         return;
       }
 
-      stashPendingPurchase({ value: plan.price[frequency], currency: "USD", plan: plan.id, period: frequency });
       window.location.href = data.url;
     } catch {
       setError("Could not start checkout. Please try again.");

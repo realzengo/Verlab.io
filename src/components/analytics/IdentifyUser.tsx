@@ -18,7 +18,10 @@ type IdentifiableUser = { id: string; email?: string | null };
 // signal on read, so this is safe to call from both triggers.
 function trackSignupIfMarked(user: IdentifiableUser) {
   if (!consumeSignupSignal()) return;
-  trackWhopEvent("complete_registration", { email: user.email ?? undefined, external_id: user.id });
+  // event_id: one account can only register once, so its own id is a
+  // natural dedupe key -- per Whop's docs, this collapses a retry or a
+  // stray double-fire into a single counted event instead of two.
+  trackWhopEvent("complete_registration", { email: user.email ?? undefined, external_id: user.id, event_id: user.id });
 }
 
 // Ties PostHog's distinct_id to the real Supabase user id, on every route

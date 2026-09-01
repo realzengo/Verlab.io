@@ -1,8 +1,10 @@
 // Thin wrapper around the Whop Pixel global (installed in src/app/layout.tsx)
-// for conversion-event tracking, plus a sessionStorage handoff for purchase
-// value: the price is only known at checkout time, on this domain, but the
-// user only lands back here (post Whop-hosted checkout) once the purchase
-// has actually gone through -- see CheckoutSyncScreen.tsx.
+// for conversion-event tracking, plus a signup-in-progress signal used to
+// tell a fresh signup apart from a login. Whop already tracks checkout
+// views, purchases, subscriptions, and trials on its own hosted checkout
+// server-side -- per https://docs.whop.com/developer/ads/pixel, firing a
+// client-side "purchase" event for one of those would double-count it in ad
+// reporting, so this only ever covers things Whop can't see on its own.
 
 declare global {
   interface Window {
@@ -17,13 +19,6 @@ export function trackWhopEvent(event: string, properties?: Record<string, unknow
   window.whop?.track(event, properties);
 }
 
-interface PendingPurchase {
-  value: number;
-  currency: string;
-  [key: string]: unknown;
-}
-
-const PENDING_PURCHASE_KEY = "whop-pending-purchase";
 const PENDING_SIGNUP_KEY = "whop-pending-signup";
 
 /**
@@ -65,26 +60,4 @@ export function consumeSignupSignal(): boolean {
   url.searchParams.delete("signup");
   window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
   return true;
-}
-
-/** Call right before redirecting to a Whop-hosted checkout URL. */
-export function stashPendingPurchase(purchase: PendingPurchase) {
-  try {
-    sessionStorage.setItem(PENDING_PURCHASE_KEY, JSON.stringify(purchase));
-  } catch {
-    // sessionStorage unavailable (private mode) -- the purchase event is
-    // just skipped on return; the checkout itself is unaffected.
-  }
-}
-
-/** Call once, on checkout success, to read and clear the stashed value. */
-export function consumePendingPurchase(): PendingPurchase | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_PURCHASE_KEY);
-    if (!raw) return null;
-    sessionStorage.removeItem(PENDING_PURCHASE_KEY);
-    return JSON.parse(raw) as PendingPurchase;
-  } catch {
-    return null;
-  }
 }

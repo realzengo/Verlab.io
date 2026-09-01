@@ -7,14 +7,13 @@ import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTopupToggle";
 import { CreditTopupPanel } from "@/components/pricing/CreditTopupPanel";
-import { PACKS, type PackId } from "@/components/TopUpModal";
+import type { PackId } from "@/components/TopUpModal";
 import { createClient } from "@/lib/supabase/client";
 import { hasActiveSubscription } from "@/lib/server/subscription";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 import { cn } from "@/lib/utils";
-import { stashPendingPurchase } from "@/lib/analytics/whop";
 
 type Tab = PlanTopupTab;
 
@@ -197,7 +196,6 @@ export function UpgradeModal({
         return;
       }
 
-      stashPendingPurchase({ value: plan.price[frequency], currency: "USD", plan: plan.id, period: frequency });
       goToCheckoutUrl(data.url);
     } catch {
       setPlanError("Could not start checkout. Please try again.");
@@ -230,8 +228,6 @@ export function UpgradeModal({
         return;
       }
 
-      const pack = PACKS.find((p) => p.id === packId);
-      if (pack) stashPendingPurchase({ value: pack.priceUsd, currency: "USD", pack: pack.id, type: "credits" });
       goToCheckoutUrl(data.url);
     } catch {
       setPackError("Could not start checkout. Please try again.");
