@@ -478,6 +478,11 @@ export function VideoGenerator() {
   });
   const history = historyData?.generations ?? null;
   const [previewItem, setPreviewItem] = useState<GenerationHistoryItem | null>(null);
+  // Portal target for the preview modal -- deferred to an effect (not read
+  // at module/render time) so the initial server render never touches
+  // `document`, which doesn't exist there.
+  const [previewPortalTarget, setPreviewPortalTarget] = useState<Element | null>(null);
+  useEffect(() => setPreviewPortalTarget(document.body), []);
   const [promptCopied, setPromptCopied] = useState(false);
   // Purely a same-tick UI affordance -- the actual download is a same-origin
   // navigation (see downloadVideo), which we can't observe completion of, so
@@ -1507,14 +1512,16 @@ export function VideoGenerator() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {previewItem &&
-          (() => {
-            const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model);
-            const videoSrc = `/api/library/video/${previewItem.id}`;
-            const closePreview = () => setPreviewItem(null);
-            return createPortal(
-              <motion.div
+      {previewPortalTarget &&
+        createPortal(
+        <AnimatePresence>
+          {previewItem &&
+            (() => {
+              const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model);
+              const videoSrc = `/api/library/video/${previewItem.id}`;
+              const closePreview = () => setPreviewItem(null);
+              return (
+                <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -1673,11 +1680,12 @@ export function VideoGenerator() {
                     </div>
                   </div>
                 </div>
-              </motion.div>,
-              document.body
-            );
-          })()}
-      </AnimatePresence>
+                </motion.div>
+              );
+            })()}
+        </AnimatePresence>,
+        previewPortalTarget
+      )}
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
 

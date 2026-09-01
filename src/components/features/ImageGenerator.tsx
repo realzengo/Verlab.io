@@ -694,6 +694,11 @@ export function ImageGenerator() {
   const historyError = historyErrorObj ? "Couldn't load your generation history." : null;
 
   const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
+  // Portal target for the preview modal -- deferred to an effect (not read
+  // at module/render time) so the initial server render never touches
+  // `document`, which doesn't exist there.
+  const [previewPortalTarget, setPreviewPortalTarget] = useState<Element | null>(null);
+  useEffect(() => setPreviewPortalTarget(document.body), []);
   const [previewDims, setPreviewDims] = useState<{ width: number; height: number } | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
   // History-tab thumbnails are byte-light (no `images` field -- see the
@@ -1967,13 +1972,15 @@ export function ImageGenerator() {
       </div>
       </div>
 
-      <AnimatePresence>
-        {previewItem &&
-          (() => {
-            const previewModel = MODEL_OPTIONS.find((option) => option.value === previewItem.model);
-            const closePreview = () => setPreviewItem(null);
-            return createPortal(
-              <motion.div
+      {previewPortalTarget &&
+        createPortal(
+        <AnimatePresence>
+          {previewItem &&
+            (() => {
+              const previewModel = MODEL_OPTIONS.find((option) => option.value === previewItem.model);
+              const closePreview = () => setPreviewItem(null);
+              return (
+                <motion.div
                 key="preview-backdrop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -2141,11 +2148,12 @@ export function ImageGenerator() {
                     </div>
                   </div>
                 </div>
-              </motion.div>,
-              document.body
-            );
-          })()}
-      </AnimatePresence>
+                </motion.div>
+              );
+            })()}
+        </AnimatePresence>,
+        previewPortalTarget
+      )}
 
       {(previewLoadError || previewActionError) && (
         <div className="fixed inset-x-0 bottom-6 z-[60] mx-auto w-fit rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
