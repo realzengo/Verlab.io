@@ -171,6 +171,9 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
             muted
             playsInline
             preload="metadata"
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
+            onContextMenu={(event) => event.preventDefault()}
           />
         </div>
         <div className="flex flex-1 flex-col pt-2.5">

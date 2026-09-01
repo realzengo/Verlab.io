@@ -102,6 +102,9 @@ export function Hero() {
             loop
             muted
             playsInline
+            controlsList="nodownload noremoteplayback"
+            disablePictureInPicture
+            onContextMenu={(event) => event.preventDefault()}
             className="w-full rounded-lg sm:rounded-[20px]"
           />
         </div>

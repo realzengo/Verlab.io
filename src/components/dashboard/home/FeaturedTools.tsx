@@ -91,8 +91,8 @@ export function FeaturedTools() {
             className={cn(
               "group flex flex-col rounded-xl p-3 transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] sm:rounded-2xl sm:p-5",
               model.featured
-                ? "bg-gradient-to-br from-[#5CA5FF] to-[#2563EB] text-white shadow-[inset_0_0_14px_1px_#98CCFB] hover:shadow-[inset_0_0_32px_6px_#98CCFB]"
-                : "bg-app text-heading hover:shadow-[2px_3px_3px_rgba(16,24,40,0.18)] dark:border dark:border-hairline dark:bg-surface dark:hover:shadow-[2px_3px_4px_rgba(0,0,0,0.75)]"
+                ? "bg-gradient-to-br from-[#5CA5FF] to-[#2563EB] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.22),inset_0_0_14px_1px_#98CCFB] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.28),inset_0_0_32px_6px_#98CCFB]"
+                : "bg-[#F5F5F5] text-heading shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] hover:shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.2)] dark:border-0 dark:bg-surface dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),inset_0_-1px_0_0_rgba(0,0,0,0.65)]"
             )}
           >
             <div className="flex items-center justify-between gap-1.5 sm:gap-2">
@@ -102,7 +102,7 @@ export function FeaturedTools() {
                 width={28}
                 height={28}
                 className={cn(
-                  "h-5 w-5 object-contain sm:h-7 sm:w-7",
+                  "h-5 w-5 object-contain transition-transform duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-0.5 group-hover:scale-110 sm:h-7 sm:w-7",
                   model.featured ? "brightness-0 invert" : "brightness-0 dark:brightness-0 dark:invert"
                 )}
               />

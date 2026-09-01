@@ -153,6 +153,8 @@ export function Sidebar({
               width={160}
               height={160}
               priority
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
               className={cn(
                 "absolute left-0 top-0 h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
                 collapsed ? "opacity-100 group-hover:opacity-0" : "opacity-0"
@@ -172,6 +174,8 @@ export function Sidebar({
               width={600}
               height={178}
               priority
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
               className={cn(
                 "absolute left-0 top-0 h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
                 collapsed ? "opacity-0" : "opacity-100"
@@ -183,6 +187,8 @@ export function Sidebar({
               width={600}
               height={178}
               priority
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
               className={cn(
                 "absolute left-0 top-0 hidden h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
                 collapsed ? "opacity-0" : "opacity-100"
@@ -197,6 +203,8 @@ export function Sidebar({
               alt="Verlab Studio"
               width={600}
               height={178}
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
               className="h-10 w-auto max-w-none dark:hidden"
             />
             <Image
@@ -204,6 +212,8 @@ export function Sidebar({
               alt="Verlab Studio"
               width={600}
               height={178}
+              draggable={false}
+              onContextMenu={(event) => event.preventDefault()}
               className="hidden h-10 w-auto max-w-none dark:block"
             />
           </span>
@@ -249,7 +259,7 @@ export function Sidebar({
                   "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
-                    ? "border-[#E0E4F2] bg-surface font-semibold text-heading shadow-card dark:border-transparent"
+                    ? "border-[#E0E4F2] bg-surface font-semibold text-heading shadow-card dark:border-0 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)]"
                     : "border-transparent text-[#434C69] hover:bg-accent hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}

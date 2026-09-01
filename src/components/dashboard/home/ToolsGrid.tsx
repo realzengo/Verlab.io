@@ -1,14 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { Captions, ChevronRight, Compass, Download, Plug } from "lucide-react";
+import { Captions, ChevronRight, Compass, Plug } from "lucide-react";
 
 const TOOLS: { title: string; description: string; href: string; icon: LucideIcon | string }[] = [
   {
-    title: "Niche Bender",
-    description: "Reverse-engineer a winning format and bend it into a fresh, non-competing niche.",
-    href: "/bend",
-    icon: "/icons/tools/niche-bender.png",
+    title: "Downloader",
+    description: "Save TikTok, Reels, and Shorts videos without the watermark.",
+    href: "/downloads",
+    icon: "/icons/tools/downloader.png",
   },
   {
     title: "Video Generator",
@@ -41,10 +41,10 @@ const TOOLS: { title: string; description: string; href: string; icon: LucideIco
     icon: Captions,
   },
   {
-    title: "Downloader",
-    description: "Save TikTok, Reels, and Shorts videos without the watermark.",
-    href: "/downloads",
-    icon: Download,
+    title: "Niche Bender",
+    description: "Reverse-engineer a winning format and bend it into a fresh, non-competing niche.",
+    href: "/bend",
+    icon: "/icons/tools/niche-bender.png",
   },
   {
     title: "Niche Finder",
