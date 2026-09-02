@@ -59,3 +59,40 @@ export const FAQ_ITEMS: FaqItem[] = [
     answer: "No. Credits are tied to your current billing cycle and don't carry over, in line with our no-refund policy.",
   },
 ];
+
+export const PRICING_FAQ_ITEMS: FaqItem[] = [
+  {
+    id: "pricing-faq-credits",
+    question: "How do credits work?",
+    answer:
+      "Credits are Verlab's currency across every AI tool — Niche Bending, the Script Writer, Image Generator, Video Generator, AI Voiceover, and Creator Analysis all spend credits when you generate something. Your plan refills a fixed number of credits every month.",
+  },
+  {
+    id: "pricing-faq-rollover",
+    question: "Do unused credits roll over?",
+    answer: "No. Credits are tied to your current billing cycle and don't carry over, in line with our no-refund policy.",
+  },
+  {
+    id: "pricing-faq-run-out",
+    question: "What if I run out of credits mid-month?",
+    answer: "Top up any time from Settings → Credits — top-up credits are added straight to your balance and work on every plan.",
+  },
+  {
+    id: "pricing-faq-change-plan",
+    question: "Can I change or cancel my plan later?",
+    answer:
+      "Yes. Upgrade, downgrade, or cancel anytime from Settings → Subscription, no approval needed. You'll keep full access to your current plan until the end of the billing cycle.",
+  },
+  {
+    id: "pricing-faq-annual",
+    question: "How does annual billing work?",
+    answer:
+      "Annual plans are billed once a year at a discounted monthly rate — that's the \"Save X%\" badge on each card above. Monthly plans bill month to month and can be canceled anytime.",
+  },
+  {
+    id: "pricing-faq-monetize",
+    question: "Can I monetize content made with Verlab?",
+    answer:
+      "Yes. Every script, image, video, and voiceover generated on your account is yours to publish, monetize, and run ads against — no attribution required and no revenue share.",
+  },
+];

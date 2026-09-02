@@ -5,6 +5,7 @@ import type { VideoPlatform } from "@/lib/server/niche-video-refresh";
 import { isNicheName } from "@/lib/niches-catalog";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
+import { requireNicheFinderAccess } from "@/lib/server/subscription";
 
 // Let this route run long enough to cover a real scrape (SociaVault or
 // YouTube) without the platform silently killing the function mid-request
@@ -43,6 +44,10 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await requireNicheFinderAccess(supabase, user.id))) {
+    return NextResponse.json({ error: "Niche Finder requires the Pro plan or higher." }, { status: 403 });
   }
 
   const searchParams = request.nextUrl.searchParams;

@@ -8,17 +8,14 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   CheckCircle2,
-  Image as ImageBadgeIcon,
   Images,
   LayoutTemplate,
   PenSquare,
-  Video as VideoBadgeIcon,
   Wand2,
 } from "lucide-react";
-import { ClaudeIcon } from "@/components/landing/AssistantIcons";
+import { ClaudeIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
 import { Reveal } from "@/components/ui/Reveal";
-import { SpotlightCard } from "@/components/ui/SpotlightCard";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 import { TOOL_TONE_CLASSES } from "@/lib/tone";
 import type { ToolTone } from "@/lib/types";
@@ -74,25 +71,13 @@ interface ToolLogo {
   iconClassName?: string;
 }
 
-const BADGE_TONE: Record<string, string> = {
-  Image: "border border-slate-200 text-slate-500",
-  Video: "border border-slate-200 text-slate-500",
-  New: "bg-btn-primary text-white",
-  Trending: "bg-btn-primary text-white",
-};
-
-const BADGE_ICON: Partial<Record<string, LucideIcon>> = {
-  Image: ImageBadgeIcon,
-  Video: VideoBadgeIcon,
-};
-
 const TOOL_LOGOS: ToolLogo[] = [
   {
     title: "Nano Banana Pro",
     description: "Generate realistic images",
     href: `${APP_URL}/image-generator`,
     badge: "Image",
-    logo: "/logos/ai/gemini.svg",
+    logo: "/logos/ai/google-color.svg",
   },
   {
     title: "Seedance 2.5",
@@ -114,8 +99,8 @@ const TOOL_LOGOS: ToolLogo[] = [
     description: "Bend any niche with Claude",
     href: `${APP_URL}/mcp`,
     badge: "Trending",
-    icon: ClaudeIcon,
-    iconClassName: "h-8 w-8",
+    icon: ClaudeMarkIcon,
+    iconClassName: "h-6 w-6",
   },
   {
     title: "Voice Studio",
@@ -193,47 +178,30 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
 
 function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconClassName }: ToolLogo) {
   return (
-    <SpotlightCard className="h-full rounded-xl" spotlightColor="rgba(51, 92, 255, 0.16)">
-      <Link
-        href={href}
-        className="relative flex h-full flex-col justify-between gap-5 rounded-[inherit] border border-slate-200 bg-white p-4 transition-colors duration-150 ease-out hover:border-slate-300"
-      >
-        <div className="flex items-start justify-between">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-            {logo ? (
-              <Image src={logo} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
-            ) : Icon ? (
-              <Icon className={cn(iconClassName ?? "h-4 w-4", "text-slate-900")} strokeWidth={1.75} />
-            ) : null}
+    <Link
+      href={href}
+      className="group flex h-full flex-col rounded-xl bg-[#F5F5F5] p-3 shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] hover:shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.2)] sm:rounded-2xl sm:p-5"
+    >
+      <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center transition-transform duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-0.5 group-hover:scale-110 sm:h-7 sm:w-7">
+          {logo ? (
+            <Image src={logo} alt="" width={28} height={28} className="h-full w-full object-contain brightness-0" />
+          ) : Icon ? (
+            <Icon className={cn(iconClassName ?? "h-5 w-5", "h-full w-full brightness-0")} strokeWidth={1.75} />
+          ) : null}
+        </span>
+        {badge && (
+          <span className="inline-flex -skew-x-12 items-center rounded-md bg-heading bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),rgba(255,255,255,0)_65%)] px-1.5 py-0.5 sm:px-2 sm:py-1">
+            <span className="inline-block skew-x-12 text-[9px] font-extrabold italic uppercase tracking-wide text-app sm:text-[11px]">
+              {badge}
+            </span>
           </span>
-          {badge &&
-            (() => {
-              const BadgeIcon = BADGE_ICON[badge];
-              return (
-                <span
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                    BADGE_TONE[badge]
-                  )}
-                >
-                  {BadgeIcon && <BadgeIcon className="h-3 w-3" strokeWidth={2} />}
-                  {badge}
-                </span>
-              );
-            })()}
-        </div>
-        <div className="flex items-end justify-between gap-2">
-          <div className="min-w-0">
-            <h4 className="text-[13.5px] font-semibold tracking-tight text-heading">{title}</h4>
-            <p className="mt-1 text-xs leading-snug text-slate-500">{description}</p>
-          </div>
-          <ArrowRight
-            className="mb-0.5 h-3.5 w-3.5 shrink-0 text-slate-300 opacity-100 transition-opacity duration-150 ease-out sm:opacity-0 sm:group-hover:opacity-100"
-            strokeWidth={2}
-          />
-        </div>
-      </Link>
-    </SpotlightCard>
+        )}
+      </div>
+
+      <h4 className="mt-2.5 text-[13px] font-bold text-heading sm:mt-4 sm:text-[15px]">{title}</h4>
+      <p className="mt-0.5 text-[11px] leading-snug text-subtle sm:mt-1 sm:text-sm">{description}</p>
+    </Link>
   );
 }
 
@@ -473,7 +441,7 @@ export function FeaturesGridSection() {
 
         <div
           className={cn(
-            "mt-8 -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-1 scroll-pl-5",
+            "mt-8 -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-hidden touch-pan-x px-3 pb-1 scroll-pl-3",
             "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "sm:mx-0 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0"
           )}
@@ -486,10 +454,10 @@ export function FeaturesGridSection() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <Reveal className="lg:col-span-2">
+          <Reveal className="-mx-3 sm:mx-0 lg:col-span-2">
             <McpDemoCard />
           </Reveal>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
+          <div className="-mx-3 grid grid-cols-2 gap-3 sm:mx-0 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
             {TOOL_LOGOS.map((tool, i) => (
               <Reveal key={tool.title} delay={i * 60}>
                 <ToolLogoCard {...tool} />

@@ -1069,20 +1069,31 @@ export function VideoGenerator() {
                 {MODE_TABS.map((tab) => {
                   const active = tab.id === activeTab;
                   return (
-                    <button
+                    <motion.button
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       className={cn(
-                        "flex flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs transition-colors",
+                        "relative flex flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs",
                         active
-                          ? "bg-white font-bold text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:text-white dark:ring-white/[0.06]"
-                          : "font-medium text-slate-400 hover:bg-slate-50 hover:text-slate-500 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-400"
+                          ? "font-bold text-slate-900 dark:text-white"
+                          : "font-medium text-slate-400 transition-colors duration-300 ease-out hover:bg-slate-50 hover:text-slate-500 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-400"
                       )}
                     >
-                      <tab.icon className="h-4 w-4" />
-                      {tab.label}
-                    </button>
+                      {active && (
+                        <motion.span
+                          layoutId="mode-tab-desktop-active"
+                          transition={{ type: "spring", stiffness: 450, damping: 38, mass: 0.9 }}
+                          className="absolute inset-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15),inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:ring-white/[0.06]"
+                        />
+                      )}
+                      <span className="relative z-10 flex flex-col items-center gap-1">
+                        <tab.icon className="h-4 w-4" />
+                        {tab.label}
+                      </span>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -1098,20 +1109,29 @@ export function VideoGenerator() {
                 {MODE_TABS.map((tab) => {
                   const active = tab.id === activeTab;
                   return (
-                    <button
+                    <motion.button
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
+                      whileTap={{ scale: 0.96 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       className={cn(
-                        "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-colors",
-                        active
-                          ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:text-white dark:ring-white/[0.06]"
-                          : "font-medium text-slate-400 dark:text-slate-500"
+                        "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold",
+                        active ? "text-slate-900 dark:text-white" : "text-slate-400 transition-colors duration-300 ease-out dark:text-slate-500"
                       )}
                     >
-                      <tab.icon className="h-4 w-4" />
-                      {tab.label}
-                    </button>
+                      {active && (
+                        <motion.span
+                          layoutId="mode-tab-mobile-active"
+                          transition={{ type: "spring", stiffness: 450, damping: 38, mass: 0.9 }}
+                          className="absolute inset-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15),inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:ring-white/[0.06]"
+                        />
+                      )}
+                      <span className="relative z-10 flex items-center justify-center gap-1.5">
+                        <tab.icon className="h-4 w-4" />
+                        {tab.label}
+                      </span>
+                    </motion.button>
                   );
                 })}
               </div>

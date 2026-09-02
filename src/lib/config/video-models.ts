@@ -129,7 +129,16 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     aspectRatios: ["16:9", "9:16"],
     resolutions: ["720p", "1080p"],
     resolutionMode: "direct",
-    pricePerSecondUsd: 0.25,
+    // CONFIRMED (Replicate's own billingConfig, embedded in the model page's
+    // Next.js data -- not visible in the rendered HTML/markdown, only the raw
+    // response): with_audio $0.15/s, without_audio $0.10/s, no separate
+    // resolution tiers. Priced for the with-audio worst case (this app lets
+    // the user toggle sound off per soundEnabled in VideoGenerator.tsx, but
+    // getVideoGenerationCost doesn't vary by audio, so the higher tier is the
+    // safe baseline -- same worst-case convention pricing.ts uses elsewhere).
+    // The old 0.25 here was an unsourced placeholder that priced this
+    // "faster & cheaper" tier above several flagship models.
+    pricePerSecondUsd: 0.15,
   },
   {
     id: "Veo 3 Quality",
@@ -145,7 +154,11 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     aspectRatios: ["16:9", "9:16"],
     resolutions: ["720p", "1080p"],
     resolutionMode: "direct",
-    pricePerSecondUsd: 0.75,
+    // CONFIRMED (Replicate's own billingConfig, same source/caveat as Veo 3
+    // Fast above): with_audio $0.40/s, without_audio $0.20/s. Priced for the
+    // with-audio worst case, same reasoning as Veo 3 Fast. The old 0.75 was
+    // an unsourced placeholder, nearly double the real rate.
+    pricePerSecondUsd: 0.4,
   },
   {
     id: "Sora 2",
@@ -171,6 +184,10 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     aspectRatioValues: { "16:9": "landscape", "9:16": "portrait" },
     resolutions: ["720p"],
     resolutionMode: "direct",
+    // CONFIRMED (Replicate's own billingConfig, same source as Veo 3 Fast
+    // above): "Standard quality" tier is $0.10/s flat, no audio-based
+    // variant (the own-API-key tier isn't used here). Matches this app's
+    // existing value exactly -- no change needed.
     pricePerSecondUsd: 0.1,
   },
   {
@@ -192,7 +209,17 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     aspectRatios: ["16:9", "9:16", "1:1"],
     resolutions: ["720p", "1080p"],
     resolutionMode: "kling_mode",
-    pricePerSecondUsd: 0.15,
+    // CONFIRMED (Replicate's own billingConfig, same source as Veo 3 Fast
+    // above): standard(720p)+audio $0.252/s, standard+no-audio $0.168/s,
+    // pro(1080p)+audio $0.336/s, pro+no-audio $0.224/s. Priced for the
+    // with-audio worst case at the 720p/standard baseline, same convention
+    // as the Veo models above -- this app's shared VIDEO_RESOLUTION_MULTIPLIER
+    // (pricing.ts) then derives 1080p as 0.252*1.5 = ~$0.378/s, somewhat
+    // above the real pro+audio rate, i.e. this slightly OVER-charges at
+    // 1080p rather than under-charging (same tradeoff Seedance 2.5 documents
+    // below). The old 0.15 was an unsourced placeholder, well under even the
+    // cheapest real tier.
+    pricePerSecondUsd: 0.252,
   },
   {
     id: "Seedance 2",
@@ -213,6 +240,10 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     durations: [5, 10],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
     resolutions: ["720p", "480p"],
+    // CONFIRMED (Replicate's own billingConfig, same source as Veo 3 Fast
+    // above): non_video_in (this app has no video-to-video input, only
+    // image, so this is the tier that applies) 720p $0.15/s, 480p $0.07/s.
+    // Matches this app's existing value exactly -- no change needed.
     pricePerSecondUsd: 0.15,
   },
   {
@@ -293,7 +324,11 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     durations: [6],
     aspectRatios: ["16:9", "9:16", "1:1"],
     resolutions: ["720p", "480p"],
-    pricePerSecondUsd: 0.2,
+    // CONFIRMED (Replicate's own billingConfig, same source as Veo 3 Fast
+    // above): flat $0.05/s, no resolution or audio-based criteria at all
+    // (matches this model having no confirmed audio-toggle field either).
+    // The old 0.2 was an unsourced placeholder, 4x the real rate.
+    pricePerSecondUsd: 0.05,
   },
 ];
 

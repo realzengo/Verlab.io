@@ -106,7 +106,6 @@ const TABS: { value: TabValue; label: string }[] = [
   { value: "all", label: "All" },
   { value: "image", label: "Images" },
   { value: "video", label: "Video" },
-  { value: "sop", label: "SOPs" },
   { value: "voiceover", label: "Voiceovers" },
 ];
 

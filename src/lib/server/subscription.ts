@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 // Shared definition of "has an active subscription" -- used by proxy.ts (the
 // /app paywall gate) and any server route that must only act for subscribers
 // (e.g. credit top-up checkout, which requires an active plan to purchase
@@ -40,4 +42,29 @@ export function hasActiveSubscription(profile: SubscriptionProfile | null): bool
     isWithinPastDueGrace ||
     isCanceledButStillInPeriod
   );
+}
+
+export interface PlanProfile extends SubscriptionProfile {
+  plan: string | null;
+}
+
+// Niche Finder (trending-niche discovery, /niches) is Pro/Scale only -- see
+// the Core plan's feature list on the pricing page. Gates on both an active
+// subscription and the plan tier, reusing hasActiveSubscription above so the
+// two checks can't drift apart on billing-status edge cases.
+export function hasNicheFinderAccess(profile: PlanProfile | null): boolean {
+  return hasActiveSubscription(profile) && (profile?.plan === "pro" || profile?.plan === "scale");
+}
+
+// Shared fetch+check for hasNicheFinderAccess -- every Niche Finder API
+// route and the /niches page itself call this, so the profile-column list
+// and access rule can't drift between call sites the way six inline copies
+// of the same query would.
+export async function requireNicheFinderAccess(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan, subscription_status, subscription_current_period_end")
+    .eq("id", userId)
+    .single();
+  return hasNicheFinderAccess(profile);
 }

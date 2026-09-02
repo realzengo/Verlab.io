@@ -6,6 +6,7 @@ import { searchNicheVideos, NicheVideoSearchError, type SearchSort } from "@/lib
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
+import { requireNicheFinderAccess } from "@/lib/server/subscription";
 
 // Pure DB read (no live scrape triggering, see searchNicheVideos) -- well
 // under the 60s ceiling the scrape-capable routes need.
@@ -43,6 +44,10 @@ async function routePOST(request: NextRequest): Promise<NextResponse> {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await requireNicheFinderAccess(supabase, user.id))) {
+    return NextResponse.json({ error: "Niche Finder requires the Pro plan or higher." }, { status: 403 });
   }
 
   let body: SearchRequestBody;

@@ -279,11 +279,6 @@ async function enrichNicheWithRealVideos(
   return { ...publicFields, sampleVideos: realVideos };
 }
 
-// Free (no chargeUser call) -- matches browse_niche_videos/get_credit_balance.
-// Worth revisiting if usage climbs: unlike those, this runs a live
-// search-grounded OpenRouter research pass plus an extraction pass per
-// call (see niche-report-ai.ts), which isn't free to Verlab even though it's
-// free to the user.
 const findNicheTool: McpToolDefinition = {
   name: "find_niche",
   title: "Find a content niche",
@@ -295,13 +290,13 @@ const findNicheTool: McpToolDefinition = {
     "YouTube or TikTok, long-form vs Shorts, how they want videos made, any background/skill to pull from, and " +
     "monthly budget -- then researches what's actually going viral right now on their chosen platform and returns " +
     "a full niche report (5-7 niches, each with real current example videos, a momentum score/trend, and a " +
-    "personalized starter angle). Call with no arguments to show the form; " +
+    "personalized starter angle). Call with no arguments to show the form (free); " +
     "the widget calls this same tool again with the filled-in answers once the user submits, which kicks off the " +
-    "research -- that can take up to a couple minutes, so a 'processing' result means poll " +
-    "check_niche_report_status with the returned id until it's done. Also callable directly with answers already " +
-    "filled in if the user just describes themselves in chat instead of using the form. Use when the user wants " +
-    "help finding, picking, or narrowing down a YouTube/TikTok niche to start a channel in, or wants to know " +
-    "what niches are trending/going viral right now.",
+    "research and charges credits (see get_credit_balance) -- that can take up to a couple minutes, so a " +
+    "'processing' result means poll check_niche_report_status with the returned id until it's done. Also " +
+    "callable directly with answers already filled in if the user just describes themselves in chat instead of " +
+    "using the form. Use when the user wants help finding, picking, or narrowing down a YouTube/TikTok niche to " +
+    "start a channel in, or wants to know what niches are trending/going viral right now.",
   inputSchema: {
     interests: z.string().optional().describe("What they could talk about for hours -- obsessions, rabbit holes, stuff they already know too much about."),
     channelsTheyLike: z.string().optional().describe("Channels/creators they already watch or like, names or @handles."),
@@ -337,6 +332,10 @@ const findNicheTool: McpToolDefinition = {
 
     const answers: NicheFinderAnswers = { interests, channelsTheyLike, platform, format, productionStyle, background, budget };
 
+    const cost = TOOL_CREDIT_COSTS.niches.findNiche;
+    const balance = await getUserCredits(userId);
+    if (balance < cost) return errorResult("Insufficient credits");
+
     const admin = createAdminClient();
     const { data: row, error: insertError } = await admin
       .from("niche_reports")
@@ -349,6 +348,7 @@ const findNicheTool: McpToolDefinition = {
     const work = (async () => {
       const { niches: rawNiches, live } = await researchViralNiches(answers);
       const niches = await Promise.all(rawNiches.map(enrichNicheWithRealVideos));
+      await chargeUser(userId, cost, "Niche Finder Research", "niches.find_niche");
       await admin.from("niche_reports").update({ status: "complete", niches, live }).eq("id", row.id);
       recordUsageEvent("mcp", userId, { action: "nicheReport.research", reportId: row.id, live });
       return { niches, live };

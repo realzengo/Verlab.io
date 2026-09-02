@@ -1,8 +1,24 @@
 import { NicheFinder, VIDEOS_PER_PAGE } from "@/components/features/NicheFinder";
+import { NicheFinderLocked } from "@/components/features/NicheFinderLocked";
 import { getCachedInitialNicheFeed, getCachedNicheCounts, mapTrendingVideoRow } from "@/lib/server/trending-videos";
 import { NICHE_ORDER } from "@/lib/niches-catalog";
+import { createClient } from "@/lib/supabase/server";
+import { requireNicheFinderAccess } from "@/lib/server/subscription";
 
 export default async function NichesPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await requireNicheFinderAccess(supabase, user.id))) {
+    return (
+      <div className="flex flex-col gap-6 sm:gap-10">
+        <NicheFinderLocked />
+      </div>
+    );
+  }
+
   // Both cached (see trending-videos.ts) -- identical query, same result,
   // for every visitor to this page until the next scrape lands, so this no
   // longer re-runs the "all niches" feed query and the 5000-row category

@@ -6,6 +6,7 @@ import { fetchTikTokTrendingFeed, SociaVaultError } from "@/lib/server/sociavaul
 import { nicheForHashtag } from "@/lib/niches-catalog";
 import type { TrendingFeedVideo } from "@/lib/types";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requireNicheFinderAccess } from "@/lib/server/subscription";
 
 async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -15,6 +16,10 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await requireNicheFinderAccess(supabase, user.id))) {
+    return NextResponse.json({ error: "Niche Finder requires the Pro plan or higher." }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

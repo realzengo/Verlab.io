@@ -1,5 +1,6 @@
 import NumberFlow from "@number-flow/react";
-import { AlertTriangle, Clock } from "lucide-react";
+import Image from "next/image";
+import { AlertTriangle, Check, Clock } from "lucide-react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
@@ -47,14 +48,6 @@ function FireIcon(props: { className?: string }) {
       </defs>
     </svg>
   );
-}
-
-// Splits "1,000 Credits (AI Tools)" into a bold lead ("1,000 Credits") and a
-// plain trailing descriptor ("(AI Tools)").
-function splitFeatureText(text: string): { bold: string; rest: string } {
-  const parenIndex = text.indexOf(" (");
-  if (parenIndex === -1) return { bold: text, rest: "" };
-  return { bold: text.slice(0, parenIndex), rest: text.slice(parenIndex + 1) };
 }
 
 // The reference always shows a per-month figure -- in yearly mode that's the
@@ -156,37 +149,21 @@ export function PricingCard({
         </button>
       )}
 
-      <div className="mt-1 flex w-full flex-col">
-        <p className="mb-2.5 text-[11px] font-bold text-heading">Whats inside:</p>
-
-        <ul className="flex w-full flex-col">
-          {plan.features.map((feature) => {
-            const { bold, rest } = splitFeatureText(feature.text);
-            return (
-              <li key={feature.text} className="flex w-full flex-col">
-                <div className="flex w-full items-start gap-2">
-                  <svg
-                    className={cn("mt-0.5 h-3 w-3 shrink-0", plan.recommended ? "text-primary" : "text-heading")}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-
-                  <div className="flex flex-wrap items-center gap-1 text-xs">
-                    <span className="font-semibold text-heading">{bold}</span>
-                    {rest && <span className="text-subtle">{rest}</span>}
-                  </div>
-                </div>
-
-                <div className="my-2.5 h-px w-full bg-hairline" />
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <ul className="mt-1 flex w-full flex-col gap-2.5">
+        {plan.features.map((feature) =>
+          plan.recommended ? (
+            <li key={feature.text} className="flex items-start gap-2">
+              <Image src="/icons/tick-blue-glass.svg" alt="" width={20} height={20} className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="text-[13px] text-heading">{feature.text}</span>
+            </li>
+          ) : (
+            <li key={feature.text} className="flex items-start gap-2">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-heading" strokeWidth={2.5} />
+              <span className="text-[13px] text-heading">{feature.text}</span>
+            </li>
+          )
+        )}
+      </ul>
     </>
   );
 

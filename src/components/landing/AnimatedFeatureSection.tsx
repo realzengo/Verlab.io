@@ -166,12 +166,19 @@ export function AnimatedFeatureSection() {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
 
   return (
-    <section className="mt-1 mb-2 md:mt-2">
-      <Reveal className="mx-auto max-w-[1600px] px-6 md:px-12">
+    <section className="relative mt-1 bg-[#F8F9FC] pb-2 md:mt-2">
+      {/* Blends this section's off-white bg into the pure white section above
+          it instead of a hard cut — hidden behind the card wherever the two
+          overlap since it paints before that later, positioned sibling. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-20 bg-gradient-to-b from-white to-transparent sm:h-28"
+      />
+      <Reveal className="relative mx-auto max-w-[1600px] px-3 sm:px-6 md:px-12">
         <div
           ref={ref}
           data-inview={inView}
-          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-2xl bg-[#010208] sm:h-[487px]"
+          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-[28px] bg-[#010208] sm:h-[487px] sm:rounded-2xl"
         >
           {/* Background — z-0: near-black base + an animated starfield texture on top of it */}
           <div
@@ -204,7 +211,7 @@ export function AnimatedFeatureSection() {
               glow reads clearly, matching a card lit by blue light bleeding in from its edges. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 z-[15] rounded-2xl"
+            className="pointer-events-none absolute inset-0 z-[15] rounded-[28px] sm:rounded-2xl"
             style={{
               boxShadow:
                 "inset 0 0 0 1px rgba(120,155,255,0.35), inset 0 -110px 140px -50px rgba(51,92,255,0.95), inset 0 90px 120px -60px rgba(51,92,255,0.4), inset -90px 0 140px -60px rgba(51,92,255,0.6), inset 90px 0 140px -60px rgba(51,92,255,0.6)",
@@ -249,7 +256,7 @@ export function AnimatedFeatureSection() {
               keep the original 3D-tilted three-card spread from sm/xl onward. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-30">
             <GlassCard
-              position="top-[-1%] left-[0%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[13%]"
+              position="top-[-1%] left-[0%] sm:top-[0%] sm:left-[1%] md:top-[9%] md:left-[0%] xl:top-[16%] xl:left-[6%] 2xl:left-[4%]"
               scale="origin-top-left scale-[0.33] sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
               tilt="[transform:rotate(-8deg)] sm:[transform:perspective(1000px)_rotateY(10deg)_rotateX(4deg)]"
               className="w-[270px]"
@@ -258,7 +265,7 @@ export function AnimatedFeatureSection() {
             </GlassCard>
 
             <GlassCard
-              position="hidden sm:block sm:top-[-3%] sm:right-[1%] md:top-[5%] md:right-[0%] xl:top-[10%] xl:right-[6%] 2xl:right-[13%]"
+              position="hidden sm:block sm:top-[-3%] sm:right-[1%] md:top-[5%] md:right-[0%] xl:top-[10%] xl:right-[6%] 2xl:right-[4%]"
               scale="origin-top-right sm:scale-[0.46] md:scale-[0.56] xl:scale-100"
               tilt="[transform:perspective(1000px)_rotateY(-10deg)_rotateX(4deg)]"
               className="w-[270px]"
@@ -304,7 +311,7 @@ export function AnimatedFeatureSection() {
             </GlassCard>
 
             <GlassCard
-              position="bottom-[3%] right-[2%] sm:bottom-[4%] sm:right-[1%] md:bottom-[4%] md:right-[3%] xl:bottom-[5%] xl:right-[11%] 2xl:right-[17%]"
+              position="bottom-[-4%] right-[2%] sm:bottom-[4%] sm:right-[1%] md:bottom-[4%] md:right-[3%] xl:bottom-[5%] xl:right-[11%] 2xl:right-[9%]"
               scale="origin-bottom-right scale-[0.42] sm:scale-[0.5] md:scale-[0.56] xl:scale-100"
               tilt="[transform:rotate(7deg)] sm:[transform:perspective(1000px)_rotateY(-6deg)_rotateX(4deg)]"
               className="w-[270px]"

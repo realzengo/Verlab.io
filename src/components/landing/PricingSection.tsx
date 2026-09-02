@@ -22,7 +22,7 @@ export async function PricingSection({ showComparison = true }: { showComparison
     : null;
 
   return (
-    <section id="pricing" className="mx-auto max-w-6xl px-4 pb-14 pt-24 sm:px-6 sm:pb-[90px] sm:pt-36 lg:px-8">
+    <section id="pricing" className="mx-auto max-w-7xl px-4 pb-14 pt-24 sm:px-6 sm:pb-[90px] sm:pt-36 lg:px-8">
       <PricingSectionClient
         plans={plans}
         comparisonRows={COMPARISON_ROWS}

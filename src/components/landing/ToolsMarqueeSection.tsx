@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 import {
   Wand2,
   Captions,
@@ -135,11 +136,19 @@ export function ToolsMarqueeSection() {
 
   return (
     <section className="w-full overflow-hidden bg-[#F8F9FC] pt-2 pb-12 sm:pb-16">
-      <div className="relative mx-auto max-w-[1600px] px-6 md:px-12">
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#F8F9FC] to-transparent sm:w-14 md:w-20" />
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#F8F9FC] to-transparent sm:w-14 md:w-20" />
-
-        <div ref={scrollerRef} className="no-scrollbar flex w-full select-none overflow-x-hidden">
+      <div className="relative mx-auto max-w-[1600px] px-0 sm:px-6 md:px-12">
+        <div
+          ref={scrollerRef}
+          className={cn(
+            "no-scrollbar flex w-full select-none overflow-x-hidden",
+            "[mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]",
+            "[-webkit-mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]",
+            "sm:[mask-image:linear-gradient(to_right,transparent,black_56px,black_calc(100%-56px),transparent)]",
+            "sm:[-webkit-mask-image:linear-gradient(to_right,transparent,black_56px,black_calc(100%-56px),transparent)]",
+            "md:[mask-image:linear-gradient(to_right,transparent,black_80px,black_calc(100%-80px),transparent)]",
+            "md:[-webkit-mask-image:linear-gradient(to_right,transparent,black_80px,black_calc(100%-80px),transparent)]",
+          )}
+        >
           <div ref={trackRef} className="flex w-max gap-3 will-change-transform sm:gap-4 md:gap-6">
             {track.map((tool, i) => (
               <ToolCard key={i} {...tool} />

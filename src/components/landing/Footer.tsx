@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { europaGrotesk } from "@/lib/fonts";
 import { APP_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 type LinkGroup = { heading: string; links: { label: string; href: string; external?: boolean }[] };
 
@@ -49,9 +50,9 @@ const GLOW_GRADIENT =
 
 const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 
-export function Footer() {
+export function Footer({ backgroundClassName = "bg-[#F8F9FC]" }: { backgroundClassName?: string } = {}) {
   return (
-    <footer className="relative w-full overflow-hidden bg-[#F8F9FC]">
+    <footer className={cn("relative w-full overflow-hidden", backgroundClassName)}>
       <nav className="flex w-full justify-center px-6 pt-[176px] sm:px-10 sm:pt-[192px] lg:px-20 lg:pt-[208px]">
         <div className="mx-auto flex w-max max-w-full flex-col items-center gap-16 md:flex-row md:items-center md:gap-x-16 lg:gap-x-24">
           <div className="flex max-w-[305px] flex-col items-start gap-5">

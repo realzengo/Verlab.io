@@ -80,6 +80,19 @@ const CREATOR_ANALYSIS_LLM_COST_USD = (6000 / 1e6) * 3 + (300 / 1e6) * 15;
 // (system prompt + source video context), ~1200 output tokens (4 ideas x
 // title/description/audience/production notes/hashtags).
 const VIDEO_IDEAS_COST_USD = (500 / 1e6) * 0.27 + (1200 / 1e6) * 0.4;
+// find_niche (niche-report-ai.ts): one Perplexity Sonar search-grounded
+// research pass (OpenRouter pricing, ~$1/$1 per MTok in/out, plus a
+// ~$0.005/request search-context fee -- Sonar bills web search as a flat
+// per-request charge on top of tokens) followed by one deepseek-v3.2
+// extraction pass that structures the research into the niche-report
+// schema. Estimated worst case: ~300 input / ~2000 output tokens for the
+// Sonar pass (up to 8 searches, 5-7 niches described in prose), ~2500 input
+// / ~3000 output tokens for the extraction pass (the schema's 5-7 niches x
+// up to 4 sample videos each runs close to its 4000-token output ceiling).
+// Priced for the grounded path even though the non-grounded fallback
+// (researchViralNichesFallback) is cheaper -- same worst-case-charge
+// convention as script.generation.
+const NICHE_FINDER_RESEARCH_COST_USD = (300 / 1e6) * 1 + (2000 / 1e6) * 1 + 0.005 + (2500 / 1e6) * 0.27 + (3000 / 1e6) * 0.4;
 
 export const TOOL_CREDIT_COSTS = {
   nicheBend: {
@@ -116,6 +129,7 @@ export const TOOL_CREDIT_COSTS = {
   },
   niches: {
     videoIdeas: creditsForCost(VIDEO_IDEAS_COST_USD),
+    findNiche: creditsForCost(NICHE_FINDER_RESEARCH_COST_USD),
   },
   video: {
     // Client-side FFmpeg WASM compression -- zero server compute. chargeUser
