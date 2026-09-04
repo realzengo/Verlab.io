@@ -49,6 +49,7 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
 
   const name = displayName(user);
   const email = user?.email ?? "";
+  const remainingRatio = summary && summary.allocated > 0 ? summary.balance / summary.allocated : null;
 
   const refreshSummary = useCallback(() => {
     fetch("/api/credits/summary")
@@ -129,42 +130,32 @@ export function ProfileDropdown({ isPaywalled = false }: { isPaywalled?: boolean
 
           {!isPaywalled && (
             <div className="border-b border-hairline px-4 py-3.5">
-              <div className="rounded-lg bg-accent/50 p-3.5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-medium tracking-wide text-subtle uppercase">Balance</span>
-                  {summary == null ? (
-                    <Skeleton className="h-6 w-20 rounded" />
-                  ) : (
-                    <span className="font-mono text-xl font-bold tabular-nums text-success">{summary.balance.toLocaleString()}</span>
-                  )}
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-subtle">Credits</span>
+                {summary == null ? (
+                  <Skeleton className="h-5 w-20 rounded" />
+                ) : (
+                  <span className="text-sm font-semibold tabular-nums text-heading">
+                    {summary.balance.toLocaleString()}
+                    <span className="font-normal text-subtle"> / {summary.allocated.toLocaleString()}</span>
+                  </span>
+                )}
+              </div>
 
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-hairline">
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width]"
-                    style={{
-                      width: summary && summary.allocated > 0 ? `${Math.min(100, (summary.used / summary.allocated) * 100)}%` : "0%",
-                    }}
-                  />
-                </div>
-
-                <div className="mt-2 flex items-center justify-between text-xs text-subtle">
-                  {summary == null ? (
-                    <>
-                      <Skeleton className="h-3.5 w-16 rounded" />
-                      <Skeleton className="h-3.5 w-20 rounded" />
-                    </>
-                  ) : (
-                    <>
-                      <span>
-                        <span className="font-mono font-medium tabular-nums text-danger">{summary.used.toLocaleString()}</span> used
-                      </span>
-                      <span>
-                        <span className="font-mono font-medium tabular-nums text-heading">{summary.allocated.toLocaleString()}</span> allocated
-                      </span>
-                    </>
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-hairline">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-[width]",
+                    remainingRatio == null || remainingRatio > 0.2
+                      ? "bg-primary"
+                      : remainingRatio > 0.05
+                        ? "bg-warning"
+                        : "bg-danger",
                   )}
-                </div>
+                  style={{
+                    width: summary && summary.allocated > 0 ? `${Math.min(100, (summary.used / summary.allocated) * 100)}%` : "0%",
+                  }}
+                />
               </div>
             </div>
           )}

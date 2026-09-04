@@ -32,7 +32,7 @@ export function PlanTopupToggle({
                 <motion.span
                   layoutId="plan-topup-pill"
                   transition={{ type: "spring", stiffness: 500, damping: 34, mass: 0.9 }}
-                  className="absolute inset-0 rounded-full bg-primary shadow-blue"
+                  className="absolute inset-0 rounded-full bg-primary"
                 />
               )}
               <span className={active ? "relative text-white" : "relative text-subtle hover:text-heading"}>

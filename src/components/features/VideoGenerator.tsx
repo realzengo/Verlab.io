@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
@@ -129,6 +129,14 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+// Uploaded/generated clips rarely land on a whole second, so printing
+// item.params.durationSeconds directly shows noise like "8.333333s" -- round
+// to one decimal and drop it entirely for whole seconds ("8s" not "8.0s").
+function formatClipSeconds(seconds: number): string {
+  const rounded = Math.round(seconds * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+}
+
 function aspectRatioLabel(ratio: string | undefined): string {
   if (!ratio) return "N/A";
   if (ratio === "9:16") return `Portrait (${ratio})`;
@@ -151,6 +159,18 @@ function formatCompactRelative(iso: string): string {
   return formatDate(iso);
 }
 
+// Round-robins items across N columns (left-to-right, then wraps) instead of
+// filling one column at a time, so newest-first order still reads across the
+// row -- see the column-count comment above where `galleryColumns` is set.
+function distributeColumns<T>(items: T[], columnCount: number): T[][] {
+  const count = items.length > 0 ? Math.min(columnCount, items.length) : columnCount;
+  const columns: T[][] = Array.from({ length: count }, () => []);
+  items.forEach((item, index) => columns[index % count].push(item));
+  return columns;
+}
+
+const VIDEO_TILE_MENU_WIDTH = 128; // px -- w-32
+
 function VideoTile({
   item,
   elapsedSeconds,
@@ -172,16 +192,48 @@ function VideoTile({
   const [w, h] = aspectRatio.split(":").map(Number);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const ringGradientId = useId();
+  // The stored aspect ratio is the preset picked at generation time, which
+  // doesn't always match the actual output (e.g. a source video's native
+  // ratio surviving an edit) -- once the real video loads, correct the tile
+  // to its true ratio instead of leaving it in the wrong-shaped box.
+  const [naturalAspect, setNaturalAspect] = useState<number | null>(null);
+  const tileAspectRatio = naturalAspect ?? w / h;
+
+  // The "more" menu used to render as an absolutely-positioned child of the
+  // tile itself, clipped to that tile's own bounds -- on a short/portrait
+  // clip the dropdown had nowhere to go but overlap the bottom action bar
+  // inside the same card. Portaling it to <body> and positioning it from the
+  // button's real screen coordinates (mirrors ImageGenerator.tsx's
+  // HistoryTile menu) lets it float above every tile instead of being
+  // trapped inside one.
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => setPortalTarget(document.body), []);
 
   useEffect(() => {
     if (!menuOpen) return;
     function handlePointerDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || moreButtonRef.current?.contains(target)) return;
+      setMenuOpen(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [menuOpen]);
+
+  function toggleMenu(event: React.MouseEvent) {
+    event.stopPropagation();
+    if (!menuOpen && moreButtonRef.current) {
+      const rect = moreButtonRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 6,
+        left: Math.max(8, Math.min(rect.right - VIDEO_TILE_MENU_WIDTH, window.innerWidth - VIDEO_TILE_MENU_WIDTH - 8)),
+      });
+    }
+    setMenuOpen((prev) => !prev);
+  }
 
   if (item.status === "queued" || item.status === "processing") {
     const isRendering = item.status === "processing";
@@ -194,30 +246,10 @@ function VideoTile({
         <div className="absolute -bottom-1/4 -right-1/4 h-3/4 w-3/4 rounded-full bg-sky-300/20 blur-3xl animate-render-drift-alt dark:bg-sky-500/10" />
 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-          <div className="relative flex h-11 w-11 items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-indigo-400/25 blur-lg animate-craft-glow" />
-            <svg
-              className="h-9 w-9 [animation:spin_1.3s_cubic-bezier(0.65,0,0.35,1)_infinite]"
-              viewBox="0 0 40 40"
-              fill="none"
-            >
-              <circle cx="20" cy="20" r="17" strokeWidth="2.5" className="stroke-slate-300/70 dark:stroke-zinc-700/70" />
-              <circle
-                cx="20"
-                cy="20"
-                r="17"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray="46 100"
-                stroke={`url(#${ringGradientId})`}
-              />
-              <defs>
-                <linearGradient id={ringGradientId} x1="0" y1="0" x2="40" y2="40">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="100%" stopColor="#38bdf8" />
-                </linearGradient>
-              </defs>
-            </svg>
+          <div className="relative flex h-9 w-9 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-indigo-400/20 blur-lg animate-craft-glow" />
+            <div className="absolute inset-0 rounded-full bg-white/80 ring-1 ring-slate-200/70 dark:bg-white/5 dark:ring-white/10" />
+            <div className="absolute inset-0 rounded-full animate-render-orb" />
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -275,7 +307,7 @@ function VideoTile({
         if (event.key === "Enter" || event.key === " ") onPreview();
       }}
       className="group relative block w-full cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-black outline-none dark:border-zinc-800"
-      style={{ aspectRatio: `${w} / ${h}` }}
+      style={{ aspectRatio: String(tileAspectRatio) }}
     >
       <video
         src={`/api/library/video/${item.id}`}
@@ -284,6 +316,10 @@ function VideoTile({
         loop
         playsInline
         preload="metadata"
+        onLoadedMetadata={(event) => {
+          const { videoWidth, videoHeight } = event.currentTarget;
+          if (videoWidth > 0 && videoHeight > 0) setNaturalAspect(videoWidth / videoHeight);
+        }}
         onMouseEnter={(event) => void event.currentTarget.play().catch(() => {})}
         onMouseLeave={(event) => event.currentTarget.pause()}
         className="h-full w-full object-cover"
@@ -293,7 +329,7 @@ function VideoTile({
         <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
           <ModelIcon model={model} small />
           <span className="truncate text-[11px] font-semibold text-white">{model.id}</span>
-          {item.params.durationSeconds && <span className="shrink-0 text-[11px] text-white/60">· {item.params.durationSeconds}s</span>}
+          {item.params.durationSeconds && <span className="shrink-0 text-[11px] text-white/60">· {formatClipSeconds(item.params.durationSeconds)}s</span>}
           {item.params.resolution && <span className="shrink-0 text-[11px] text-white/60">· {item.params.resolution}</span>}
         </div>
       )}
@@ -321,57 +357,19 @@ function VideoTile({
         >
           <Download className="h-3.5 w-3.5" />
         </button>
-        <div ref={menuRef} className="relative">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setMenuOpen((prev) => !prev);
-            }}
-            aria-label="More options"
-            aria-expanded={menuOpen}
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80",
-              menuOpen && "bg-black/80"
-            )}
-          >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </button>
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute right-0 top-full z-10 mt-1.5 w-32 origin-top-right overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-900/95"
-              >
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onEdit();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onDelete();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <button
+          ref={moreButtonRef}
+          type="button"
+          onClick={toggleMenu}
+          aria-label="More options"
+          aria-expanded={menuOpen}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80",
+            menuOpen && "bg-black/80"
+          )}
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       <div className="absolute inset-x-2 bottom-2 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -396,6 +394,47 @@ function VideoTile({
           <Pencil className="h-3 w-3" /> Edit
         </button>
       </div>
+
+      {portalTarget &&
+        menuPos &&
+        createPortal(
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                style={{ top: menuPos.top, left: menuPos.left, width: VIDEO_TILE_MENU_WIDTH }}
+                className="fixed z-[110] origin-top-right overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-900/95"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onEdit();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalTarget
+        )}
     </div>
   );
 }
@@ -440,6 +479,24 @@ export function VideoGenerator() {
   // rather than pinning a specific frame, sent as its own field to the model.
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [showPromptModal, setShowPromptModal] = useState(false);
+
+  // Recent Generations renders as independent flex columns (see
+  // distributeColumns below) instead of a CSS grid so items keep their own
+  // aspect ratio instead of stretching to match the tallest tile in their
+  // row -- a fixed grid leaves dead space under every shorter tile in a row
+  // once a portrait clip sets that row's height. Column count tracks the
+  // same breakpoints the old `sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`
+  // classes used, since the distribution has to happen in JS.
+  const [galleryColumns, setGalleryColumns] = useState(2);
+  useEffect(() => {
+    function updateGalleryColumns() {
+      const width = window.innerWidth;
+      setGalleryColumns(width >= 1280 ? 5 : width >= 1024 ? 4 : width >= 640 ? 3 : 2);
+    }
+    updateGalleryColumns();
+    window.addEventListener("resize", updateGalleryColumns);
+    return () => window.removeEventListener("resize", updateGalleryColumns);
+  }, []);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const createElapsedSeconds = useElapsedSeconds(isGenerating);
@@ -1493,18 +1550,22 @@ export function VideoGenerator() {
           {activeTab === "create" && galleryItems.length > 0 && (
             <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {galleryItems.map((item) => (
-                  <VideoTile
-                    key={item.id}
-                    item={item}
-                    elapsedSeconds={createElapsedSeconds}
-                    onPreview={() => setPreviewItem(item)}
-                    onRecreate={() => recreateFromHistory(item)}
-                    onEdit={() => attachSourceForEdit(item, false)}
-                    onDownload={() => downloadVideo(item.id)}
-                    onDelete={() => setDeleteTargetId(item.id)}
-                  />
+              <div className="flex w-full gap-4">
+                {distributeColumns(galleryItems, galleryColumns).map((column, columnIndex) => (
+                  <div key={columnIndex} className="flex flex-1 flex-col gap-4">
+                    {column.map((item) => (
+                      <VideoTile
+                        key={item.id}
+                        item={item}
+                        elapsedSeconds={createElapsedSeconds}
+                        onPreview={() => setPreviewItem(item)}
+                        onRecreate={() => recreateFromHistory(item)}
+                        onEdit={() => attachSourceForEdit(item, false)}
+                        onDownload={() => downloadVideo(item.id)}
+                        onDelete={() => setDeleteTargetId(item.id)}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>
@@ -1513,18 +1574,22 @@ export function VideoGenerator() {
           {activeTab === "edit" && editGalleryItems.length > 0 && (
             <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
               <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {editGalleryItems.map((item) => (
-                  <VideoTile
-                    key={item.id}
-                    item={item}
-                    elapsedSeconds={editElapsedSeconds}
-                    onPreview={() => setPreviewItem(item)}
-                    onRecreate={() => attachSourceForEdit(item, true)}
-                    onEdit={() => attachSourceForEdit(item, false)}
-                    onDownload={() => downloadVideo(item.id)}
-                    onDelete={() => setDeleteTargetId(item.id)}
-                  />
+              <div className="flex w-full gap-4">
+                {distributeColumns(editGalleryItems, galleryColumns).map((column, columnIndex) => (
+                  <div key={columnIndex} className="flex flex-1 flex-col gap-4">
+                    {column.map((item) => (
+                      <VideoTile
+                        key={item.id}
+                        item={item}
+                        elapsedSeconds={editElapsedSeconds}
+                        onPreview={() => setPreviewItem(item)}
+                        onRecreate={() => attachSourceForEdit(item, true)}
+                        onEdit={() => attachSourceForEdit(item, false)}
+                        onDownload={() => downloadVideo(item.id)}
+                        onDelete={() => setDeleteTargetId(item.id)}
+                      />
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>

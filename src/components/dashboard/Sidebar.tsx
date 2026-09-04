@@ -115,7 +115,7 @@ export function Sidebar({
     <aside
       ref={asideRef}
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-[#E0E4F2] bg-[#FCFCFD] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-[#FCFCFD] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "lg:w-[76px]" : "lg:w-64"
       )}
@@ -259,7 +259,7 @@ export function Sidebar({
                   "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
                   collapsed && "lg:justify-center lg:gap-0 lg:px-0",
                   active
-                    ? "border-[#E0E4F2] bg-surface font-semibold text-heading shadow-card dark:border-0 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)]"
+                    ? "border-hairline bg-surface font-semibold text-heading shadow-card dark:border-0 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)]"
                     : "border-transparent text-[#434C69] hover:bg-accent hover:text-heading"
                 )}
                 title={collapsed ? item.label : undefined}

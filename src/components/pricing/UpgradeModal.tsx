@@ -261,43 +261,6 @@ export function UpgradeModal({
         </button>
 
         <div className="relative flex-1 overflow-y-auto px-6 py-6 sm:px-12 sm:py-10 lg:px-16">
-          {/* Premium ambient surface -- two soft brand-blue glows anchored
-              to the left and right edges (not a centered dome), drifting
-              slowly for a living feel (animate-blob-a/b, shared with
-              other hero surfaces -- paused under prefers-reduced-motion).
-              Offset side light reads as designed ambience; one flat
-              centered dome reads as a cheap spotlight. A faint dot grid
-              and grain texture add depth on top. Lives inside the scroll
-              container (not the outer modal box) and scrolls away with
-              the content instead of staying pinned in view. */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-[640px] [mask-image:linear-gradient(to_bottom,black_0%,black_45%,transparent_85%)]">
-              <div
-                className="animate-blob-a absolute -left-48 top-[8%] h-[600px] w-[600px] rounded-full blur-[150px]"
-                style={{ background: "radial-gradient(circle, rgba(51,92,255,0.55), transparent 70%)" }}
-              />
-              <div
-                className="animate-blob-b absolute -right-48 top-[8%] h-[600px] w-[600px] rounded-full blur-[150px]"
-                style={{ background: "radial-gradient(circle, rgba(77,114,255,0.55), transparent 70%)" }}
-              />
-            </div>
-            <div
-              className="absolute inset-x-0 top-0 h-[640px] opacity-[0.05] [mask-image:radial-gradient(65%_55%_at_50%_0%,black_0%,transparent_75%)] dark:opacity-[0.08]"
-              style={{
-                backgroundImage: "radial-gradient(circle, #335cff 1px, transparent 1px)",
-                backgroundSize: "24px 24px",
-              }}
-            />
-            <div
-              className="absolute inset-x-0 top-0 h-[640px] opacity-[0.02] mix-blend-overlay dark:opacity-[0.04]"
-              style={{
-                backgroundImage:
-                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-              }}
-            />
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-          </div>
-
           {/* min-h-full keeps this wrapper pinned to the scroll container's
               full height so the toggle/heading below stay put -- only the
               *tab body* (the nested flex-1 further down) recenters itself

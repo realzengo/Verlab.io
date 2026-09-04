@@ -10,10 +10,12 @@ import { cn } from "@/lib/utils";
 export function Faq({
   items = FAQ_ITEMS,
   heading = "Frequently asked questions",
+  subheading = "Everything you need to know to understand how the platform works, all in one place.",
   backgroundClassName = "bg-[#F8F9FC]",
 }: {
   items?: FaqItem[];
   heading?: string;
+  subheading?: string;
   backgroundClassName?: string;
 } = {}) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -36,6 +38,9 @@ export function Faq({
               heading
             )}
           </h2>
+          {subheading ? (
+            <p className="mx-auto mt-3 max-w-sm text-balance text-sm font-normal text-subtle sm:mt-4 sm:text-base">{subheading}</p>
+          ) : null}
         </Reveal>
 
         <Reveal delay={100} className="relative mx-auto mt-8 w-full max-w-3xl sm:mt-12">

@@ -85,10 +85,12 @@ type DropZoneProps = {
   isUploading?: boolean;
   onSelect: (file: File) => void;
   onClear: () => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
-function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: DropZoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear, inputRef: externalInputRef }: DropZoneProps) {
+  const localInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalInputRef ?? localInputRef;
   const [isDragOver, setIsDragOver] = useState(false);
 
   function openPicker() {
@@ -190,14 +192,16 @@ type TranscriptDropZoneProps = {
   isUploading?: boolean;
   onSelect: (files: File[]) => void;
   onRemove: (id: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
 // Same square-tile footprint as DropZone, but backs a list instead of a
 // single file -- a formula is usually reverse-engineered from several of a
 // creator's transcripts at once, not one, so this accepts and lists
 // multiple while staying capped at MAX_TRANSCRIPTS.
-function TranscriptDropZone({ files, isUploading, onSelect, onRemove }: TranscriptDropZoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+function TranscriptDropZone({ files, isUploading, onSelect, onRemove, inputRef: externalInputRef }: TranscriptDropZoneProps) {
+  const localInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalInputRef ?? localInputRef;
   const [isDragOver, setIsDragOver] = useState(false);
   const atLimit = files.length >= MAX_TRANSCRIPTS;
 
@@ -332,8 +336,11 @@ function ScriptWriterPageInner() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingScript, setDeletingScript] = useState<ScriptHistoryItem | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showBriefModal, setShowBriefModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sopInputRef = useRef<HTMLInputElement>(null);
+  const transcriptInputRef = useRef<HTMLInputElement>(null);
 
   // Cached by request URL -- revisiting /scripts after navigating to another
   // sidebar tab reuses whatever was already fetched instead of re-requesting
@@ -368,6 +375,7 @@ function ScriptWriterPageInner() {
   }, [referencesData]);
 
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
+  const hasReferences = Boolean(sopFile) || transcriptFiles.length > 0;
 
   const filteredHistory = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -564,6 +572,19 @@ function ScriptWriterPageInner() {
     }
   }
 
+  // Nudges toward a better brief before spending the credits, rather than
+  // silently generating off just the prompt -- but never blocks the user
+  // outright, since "Generate anyway" from the modal (or a repeat submit
+  // once references exist) always falls through to the real request.
+  function handleGenerateClick() {
+    if (!canSubmit) return;
+    if (!hasReferences) {
+      setShowBriefModal(true);
+      return;
+    }
+    handleSubmit();
+  }
+
   function cancelGeneration() {
     abortControllerRef.current?.abort();
     setIsGenerating(false);
@@ -613,7 +634,7 @@ function ScriptWriterPageInner() {
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSubmit();
+      handleGenerateClick();
     }
   }
 
@@ -659,6 +680,7 @@ function ScriptWriterPageInner() {
                   isUploading={isUploadingTranscript}
                   onSelect={addTranscriptFiles}
                   onRemove={(id) => clearReferenceFile("transcript", id)}
+                  inputRef={transcriptInputRef}
                 />
                 <DropZone
                   label="SOP"
@@ -667,6 +689,7 @@ function ScriptWriterPageInner() {
                   isUploading={uploadingKind === "sop"}
                   onSelect={saveSopFile}
                   onClear={() => clearReferenceFile("sop")}
+                  inputRef={sopInputRef}
                 />
               </div>
 
@@ -674,7 +697,7 @@ function ScriptWriterPageInner() {
                 text="Generate"
                 loading={isGenerating}
                 disabled={!canSubmit}
-                onClick={handleSubmit}
+                onClick={handleGenerateClick}
                 className="w-full py-3"
                 trailing={<CreditCost amount={TOOL_CREDIT_COSTS.script.generation} className="text-blue-200/80" />}
               />
@@ -940,6 +963,99 @@ function ScriptWriterPageInner() {
         />
       )}
       </div>
+
+      {showBriefModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+          onClick={() => setShowBriefModal(false)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-hairline bg-surface shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative border-b border-hairline px-6 py-5">
+              <button
+                type="button"
+                onClick={() => setShowBriefModal(false)}
+                aria-label="Close"
+                className="absolute right-4 top-4 text-subtle hover:text-heading"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h3 className="pr-6 text-lg font-semibold text-heading">Sharpen the brief</h3>
+              <p className="mt-2 text-sm leading-relaxed text-body">
+                The writer will run without these, but scripts come back noticeably better when it knows them.
+              </p>
+            </div>
+
+            <div className="space-y-2 px-4 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBriefModal(false);
+                  transcriptInputRef.current?.click();
+                }}
+                className="group flex w-full items-center gap-3 rounded-xl border border-hairline px-3 py-3 text-left transition-colors hover:bg-app"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-app text-body">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-heading">Transcript</span>
+                  <span className="block truncate text-xs text-subtle">
+                    Give the AI a transcript to learn the formula from
+                  </span>
+                </span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app text-subtle transition-transform group-hover:translate-x-0.5">
+                  <ChevronRight className="h-4 w-4" />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBriefModal(false);
+                  sopInputRef.current?.click();
+                }}
+                className="group flex w-full items-center gap-3 rounded-xl border border-hairline px-3 py-3 text-left transition-colors hover:bg-app"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-app text-body">
+                  <FileBadge className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-heading">SOP</span>
+                  <span className="block truncate text-xs text-subtle">
+                    Add your SOP so scripts follow your process
+                  </span>
+                </span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app text-subtle transition-transform group-hover:translate-x-0.5">
+                  <ChevronRight className="h-4 w-4" />
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-hairline px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBriefModal(false);
+                  handleSubmit();
+                }}
+                className="rounded-full border border-hairline px-4 py-2.5 text-sm font-medium text-body hover:bg-app"
+              >
+                Generate anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBriefModal(false)}
+                className="rounded-full bg-btn-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-btn-primary-hover"
+              >
+                Add details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TopUpModal isOpen={showTopUp} onClose={() => setShowTopUp(false)} />
 

@@ -339,8 +339,9 @@ export function getVoiceoverSegmentCost(characterCount: number): number {
 // ── Subscription plans ──────────────────────────────────────────────────
 // NOTE: this is a credit-focused reference constant, distinct from the
 // existing `plan_definitions` DB table (supabase/migrations/20260716120012_
-// plan_definitions.sql, id in ('core','pro','scale'), $19/$39/$89 pricing),
-// which remains the source of truth for admin-editable marketing copy. The
+// plan_definitions.sql, id in ('core','pro','scale'), $25/$39/$89 pricing as
+// of 2026-09-04), which remains the source of truth for admin-editable
+// marketing copy. The
 // naming/pricing here doesn't reconcile 1:1 with those rows -- that's a
 // product decision for later, not resolved by this config. This constant
 // seeds `plan_definitions.credits_per_period` and is meant for a future

@@ -17,7 +17,6 @@ import {
   type VideoTimeWindow,
 } from "@/components/features/NicheTopBar";
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
-import { ToolFrame } from "@/components/dashboard/ToolFrame";
 import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
 import { cn } from "@/lib/utils";
@@ -199,7 +198,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         }
       }}
       aria-label={`View details for "${video.title}"`}
-      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover dark:bg-black"
+      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover dark:bg-black"
     >
       <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
@@ -337,7 +336,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
  * visibly reflow once the real cards swap in. */
 function LikedVideoCardSkeleton() {
   return (
-    <div className="flex animate-pulse flex-col overflow-hidden rounded-card-lg border border-hairline bg-surface">
+    <div className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-hairline bg-surface">
       <div className="aspect-[9/16] w-full bg-app" />
       <div className="flex flex-col gap-3 p-3.5 sm:p-4">
         <div className="h-4 w-16 rounded-full bg-app" />
@@ -625,11 +624,7 @@ function NicheFinderInner({
             onSortChange={setVideoSort}
           />
 
-          <ToolFrame
-            className="mt-4"
-            title="Niche Finder"
-            description="Non-competitive faceless niches, backed by real transcripts, not vague metadata guesses."
-          >
+          <div className="mt-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card sm:p-6 md:p-8">
             {/* Priority order: a real error always wins (even if stale videos
                 are still in state), then videos, then the loading spinner —
                 which is now guaranteed to resolve to one of the other three
@@ -661,7 +656,7 @@ function NicheFinderInner({
                   // header and filters stay sharp -- z-10 keeps it strictly
                   // below the top bar's own z-20, so it can never paint over
                   // it even mid-scroll. Bleeds out on all four sides by the
-                  // same -4/6/8 amount as ToolFrame's own p-4/6/8 padding,
+                  // same -4/6/8 amount as the card's own p-4/6/8 padding,
                   // so the overlay reaches the card's true edge on every
                   // side instead of just left/right -- an inset-y-0 top
                   // edge would stop short of that padding and leave a
@@ -698,7 +693,7 @@ function NicheFinderInner({
                 <PaginationControls page={effectiveVideoPage} hasMore={hasMore} onPageChange={handleVideoPageChange} />
               </div>
             )}
-          </ToolFrame>
+          </div>
         </>
       )}
 

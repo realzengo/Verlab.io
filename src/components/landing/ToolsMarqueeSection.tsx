@@ -35,7 +35,7 @@ function ToolCard({ title, icon: Icon }: MarqueeTool) {
     <Link
       href="/login"
       draggable={false}
-      className="flex h-[130px] w-[158px] shrink-0 flex-col rounded-card border border-[#E0E4F2] bg-white p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
+      className="flex h-[130px] w-[158px] shrink-0 flex-col rounded-card border border-hairline bg-white p-2.5 sm:h-[160px] sm:w-[220px] sm:p-3.5 md:h-[176px] md:w-[256px]"
     >
       <div className="relative mb-2.5 flex w-full flex-1 items-center justify-center overflow-hidden rounded-card-sm bg-slate-100 sm:mb-3">
         <div

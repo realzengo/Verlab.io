@@ -143,7 +143,7 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
   return (
     <Link
       href={href}
-      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-[#E0E4F2] bg-surface shadow-card transition-all duration-200 sm:hover:-translate-y-0.5 sm:hover:shadow-card-hover"
+      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card transition-all duration-200 sm:hover:-translate-y-0.5 sm:hover:shadow-card-hover"
     >
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm bg-white">

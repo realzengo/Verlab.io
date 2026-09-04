@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
-import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
 import { Reveal } from "@/components/ui/Reveal";
 
 const OLD_WAY_ITEMS = [
@@ -27,22 +26,18 @@ function ComparisonListItem({ children, tone }: { children: React.ReactNode; ton
   return (
     <li className="flex items-start gap-2 sm:gap-3">
       {tone === "red" ? (
-        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-inset ring-slate-200 sm:h-6 sm:w-6">
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-slate-300 ring-1 ring-inset ring-white/15 sm:h-6 sm:w-6">
           <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" strokeWidth={2.5} />
         </span>
       ) : (
-        <Image
-          src="/icons/tick-blue-glass.svg"
-          alt=""
-          width={24}
-          height={24}
-          className="mt-0.5 h-5 w-5 shrink-0 sm:h-6 sm:w-6"
-        />
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/40 text-primary ring-1 ring-inset ring-white/70 sm:h-6 sm:w-6">
+          <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={3} />
+        </span>
       )}
       <span
         className={cn(
           "whitespace-nowrap text-[11.5px] leading-snug sm:whitespace-normal sm:text-[17px]",
-          tone === "red" ? "text-slate-400" : "text-slate-700",
+          tone === "red" ? "text-slate-300" : "text-slate-700",
         )}
       >
         {children}
@@ -73,11 +68,14 @@ function ComparisonCard({
         <div className="relative flex h-full flex-col overflow-hidden rounded-[20px] bg-white p-3.5 sm:rounded-[24px] sm:p-12">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-56 sm:h-80"
+            className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage: isRed
-                ? "linear-gradient(to bottom, #c3cad4 0%, #d7dce3 28%, #eceef1 52%, #f9fafb 74%, #ffffff 90%)"
-                : "linear-gradient(to bottom, #5b82f5 0%, #7a9df8 28%, #a4bffa 52%, #dde6fd 74%, #ffffff 90%)",
+                ? 'url("/old-way-card-bg.jpeg")'
+                : 'url("/verlab-card-meadow-bg.jpeg")',
+              backgroundSize: "cover",
+              backgroundPosition: isRed ? "center 40%" : "center 30%",
+              backgroundRepeat: "no-repeat",
             }}
           />
           <div
@@ -91,27 +89,34 @@ function ComparisonCard({
             }}
           />
 
-          <div className="relative flex items-center justify-center">
-            <h3
-              className={cn(
-                "font-display text-lg font-black uppercase tracking-tight sm:text-3xl",
-                isRed ? "text-slate-500" : "text-heading",
-              )}
-            >
-              {title}
-            </h3>
+          <div
+            className={cn(
+              "relative flex flex-1 flex-col rounded-2xl border p-3.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] sm:rounded-3xl sm:p-8",
+              isRed ? "border-white/10 bg-slate-950/45 backdrop-blur-md" : "border-white/50 bg-white/25 backdrop-blur-xl",
+            )}
+          >
+            <div className="flex items-center justify-center">
+              <h3
+                className={cn(
+                  "font-display text-lg font-black uppercase tracking-tight sm:text-3xl",
+                  isRed ? "text-slate-200" : "text-heading",
+                )}
+              >
+                {title}
+              </h3>
+            </div>
+            <div aria-hidden className={cn("mx-auto mt-3 mb-2 h-px w-full sm:mt-6", isRed ? "bg-white/15" : "bg-slate-200")} />
+
+            <ul className="mt-4 flex flex-1 flex-col gap-3 sm:mt-9 sm:gap-6">
+              {items.map((item) => (
+                <ComparisonListItem key={item} tone={tone}>
+                  {item}
+                </ComparisonListItem>
+              ))}
+            </ul>
+
+            <div className="mt-5 sm:mt-10">{cta}</div>
           </div>
-          <div aria-hidden className="relative mx-auto mt-3 mb-2 h-px w-full bg-slate-200 sm:mt-6" />
-
-          <ul className="relative mt-4 flex flex-1 flex-col gap-3 sm:mt-9 sm:gap-6">
-            {items.map((item) => (
-              <ComparisonListItem key={item} tone={tone}>
-                {item}
-              </ComparisonListItem>
-            ))}
-          </ul>
-
-          <div className="relative mt-5 sm:mt-10">{cta}</div>
         </div>
       </div>
     </div>
@@ -138,7 +143,7 @@ export function ComparisonSection() {
               title="The Old Way"
               items={OLD_WAY_ITEMS}
               cta={
-                <span className="block w-full cursor-not-allowed select-none rounded-full bg-slate-100 py-3 text-center text-sm font-semibold text-slate-400 sm:py-4 sm:text-lg">
+                <span className="block w-full cursor-not-allowed select-none rounded-2xl border border-white/15 bg-white/10 py-3 text-center text-sm font-semibold text-slate-300 sm:py-4 sm:text-lg">
                   Stay Stuck
                 </span>
               }
@@ -159,14 +164,19 @@ export function ComparisonSection() {
               }
               items={VERLAB_WAY_ITEMS}
               cta={
-                <GlassCtaButton
+                <a
                   href={APP_URL}
-                  radius={999}
-                  className="w-full! justify-center py-3! text-sm! font-semibold! sm:py-4! sm:text-lg!"
+                  className="group relative isolate flex w-full items-center justify-center overflow-hidden rounded-2xl bg-[radial-gradient(220%_220%_at_28%_18%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] py-3 text-sm font-bold text-white shadow-[0_4px_0_0_#1a37c4,0_10px_24px_-8px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_0_0_#1a37c4,0_12px_28px_-8px_rgba(28,63,214,0.55),inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,0_4px_10px_-6px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100 sm:py-4 sm:text-lg"
                 >
-                  Join Verlab Now
-                  <ArrowRight size={18} className="relative -mb-px ml-1 inline shrink-0" />
-                </GlassCtaButton>
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(140%_140%_at_50%_50%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] opacity-0 transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100"
+                  />
+                  <span className="relative flex items-center">
+                    Join Verlab Now
+                    <ArrowRight size={18} className="relative -mb-px ml-1 inline shrink-0" />
+                  </span>
+                </a>
               }
             />
           </Reveal>

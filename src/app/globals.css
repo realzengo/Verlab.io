@@ -27,7 +27,7 @@ html {
   --color-slate: #020617;
   --color-body: #374151;
   --color-subtle: #525866;
-  --color-hairline: #e2e6f3;
+  --color-hairline: #e4e4e7;
   --color-app: #fafafa;
   --color-surface: #ffffff;
   --color-ink: #111827;
@@ -361,6 +361,55 @@ body {
   }
   .animate-dot-pulse {
     animation: dot-pulse 1.4s ease-in-out infinite;
+  }
+
+  /* Small "rendering" indicator (video tile loading state) -- a rotating
+     inset glow instead of a dashed spinner ring, which reads closer to a
+     premium native loader than the generic spinning-arc look most AI tools
+     default to. Offsets/blur are the same shape as a much bigger reference
+     version of this effect, scaled down for a ~36px circle. */
+  @keyframes render-orb {
+    0% {
+      transform: rotate(90deg);
+      box-shadow:
+        0 1.5px 3px 0 #38bdf8 inset,
+        0 3px 4.5px 0 #005dff inset,
+        0 9px 9px 0 #1e40af inset;
+    }
+    50% {
+      transform: rotate(270deg);
+      box-shadow:
+        0 1.5px 1.5px 0 #60a5fa inset,
+        0 3px 1.5px 0 #0284c7 inset,
+        0 6px 9px 0 #005dff inset;
+    }
+    100% {
+      transform: rotate(450deg);
+      box-shadow:
+        0 1.5px 3px 0 #4dc8fd inset,
+        0 3px 4.5px 0 #005dff inset,
+        0 9px 9px 0 #1e40af inset;
+    }
+  }
+  .animate-render-orb {
+    animation: render-orb 5s linear infinite;
+  }
+
+  /* Per-letter "Generating" caption under the render-orb -- each letter
+     rises and brightens in turn (staggered via inline animation-delay)
+     instead of a static label, so the word itself reads as mid-generation. */
+  @keyframes generating-letter {
+    0%, 100% {
+      opacity: 0.35;
+      transform: translateY(1px);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+  }
+  .animate-generating-letter {
+    animation: generating-letter 1.6s ease-in-out infinite;
   }
 
   @keyframes indeterminate-bar {

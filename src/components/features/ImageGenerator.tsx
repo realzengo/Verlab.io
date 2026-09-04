@@ -229,7 +229,44 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mime });
 }
 
-function PendingGenerationTile({ aspectRatio, fill = false }: { aspectRatio: string; fill?: boolean }) {
+// Ticks once a second while `active`, resetting whenever a new generation
+// starts -- mirrors VideoGenerator.tsx's own useElapsedSeconds (images are
+// fast enough that there's no real per-model duration estimate to show
+// instead, so this is genuine elapsed time, not a guessed ETA).
+function useElapsedSeconds(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      startRef.current = null;
+      return;
+    }
+    startRef.current = Date.now();
+    const id = setInterval(() => {
+      if (startRef.current) setSeconds(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  return active ? seconds : 0;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function PendingGenerationTile({
+  aspectRatio,
+  fill = false,
+  elapsedSeconds,
+}: {
+  aspectRatio: string;
+  fill?: boolean;
+  elapsedSeconds: number;
+}) {
   const [w, h] = aspectRatio.split(":").map(Number);
 
   return (
@@ -239,9 +276,22 @@ function PendingGenerationTile({ aspectRatio, fill = false }: { aspectRatio: str
     >
       <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800" />
       <div className="absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/70 to-transparent blur-sm dark:via-white/10 animate-shimmer-sweep" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="h-10 w-10 animate-craft-glow rounded-full bg-blue-400/60 blur-xl dark:bg-blue-500/40" />
-        <Sparkles className="absolute h-5 w-5 animate-pulse text-slate-400 dark:text-slate-500" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+        <div className="relative flex h-9 w-9 items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-indigo-400/20 blur-lg animate-craft-glow" />
+          <div className="absolute inset-0 rounded-full bg-white/80 ring-1 ring-slate-200/70 dark:bg-white/5 dark:ring-white/10" />
+          <div className="absolute inset-0 rounded-full animate-render-orb" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="flex text-[11px] font-medium tracking-tight text-slate-400 dark:text-slate-500">
+            {"Generating".split("").map((letter, index) => (
+              <span key={index} className="inline-block animate-generating-letter" style={{ animationDelay: `${index * 0.08}s` }}>
+                {letter}
+              </span>
+            ))}
+          </span>
+          <span className="text-[10px] tabular-nums text-slate-400/80 dark:text-slate-500/80">{formatElapsed(elapsedSeconds)}</span>
+        </div>
       </div>
     </div>
   );
@@ -725,6 +775,7 @@ export function ImageGenerator() {
 
   const [pendingBatches, setPendingBatches] = useState<PendingBatch[]>([]);
   const pendingCount = useMemo(() => pendingBatches.reduce((sum, batch) => sum + batch.count, 0), [pendingBatches]);
+  const pendingElapsedSeconds = useElapsedSeconds(pendingCount > 0);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [galleryLayout, setGalleryLayout] = useState<"Grid" | "Mosaic">("Mosaic");
@@ -1930,6 +1981,7 @@ export function ImageGenerator() {
                             <PendingGenerationTile
                               key={`pending-${columnIndex}-${cellIndex}`}
                               aspectRatio={cell.aspectRatio}
+                              elapsedSeconds={pendingElapsedSeconds}
                             />
                           );
                         }
@@ -1959,7 +2011,7 @@ export function ImageGenerator() {
                 <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                   {Array.from({ length: pendingCount }).map((_, index) => (
                     <div key={`pending-${index}`} className="aspect-square overflow-hidden rounded-2xl">
-                      <PendingGenerationTile aspectRatio="1:1" fill />
+                      <PendingGenerationTile aspectRatio="1:1" fill elapsedSeconds={pendingElapsedSeconds} />
                     </div>
                   ))}
                   {visibleHistory?.map((item) => (

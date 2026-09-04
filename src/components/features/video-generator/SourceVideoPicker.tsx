@@ -12,6 +12,14 @@ export interface SourceVideoOption {
   durationSeconds: number | null;
 }
 
+// Uploaded videos rarely land on a whole second (probed from the actual file),
+// so raw durationSeconds prints noise like "8.333333s" -- round to one
+// decimal and drop it entirely for whole seconds ("8s" not "8.0s").
+function formatClipDuration(seconds: number): string {
+  const rounded = Math.round(seconds * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}s` : `${rounded.toFixed(1)}s`;
+}
+
 interface SourceVideoPickerProps {
   source: { id: string; thumbnail_path: string | null; durationSeconds: number | null } | null;
   onSelect: (id: string) => void;
@@ -38,12 +46,42 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
   // from a client click anyway, but createPortal itself needs `document` to
   // exist before it's called at all.
   const [mounted, setMounted] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Mirrors FrameImagePicker's FrameBox drag-and-drop -- a counter (not a
+  // plain boolean) because dragging over a child element inside the drop
+  // zone fires enter/leave pairs for that child too, and a naive boolean
+  // would flip off while still hovering the outer box.
+  function handleDragOver(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+  }
+  function handleDragEnter(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+  }
+  function handleDragLeave(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  }
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    if (isUploading) return;
+    const file = event.dataTransfer.files?.[0];
+    if (file) onUploadFile(file);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +143,7 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
               lg ? "bottom-2 left-2 px-2 py-1 text-xs" : "bottom-1 left-1 px-1.5 py-0.5 text-[10px]"
             )}
           >
-            <Clock className={lg ? "h-3 w-3" : "h-2.5 w-2.5"} /> {source.durationSeconds}s
+            <Clock className={lg ? "h-3 w-3" : "h-2.5 w-2.5"} /> {formatClipDuration(source.durationSeconds)}
           </span>
         )}
       </div>
@@ -113,7 +151,14 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
   }
 
   return (
-    <div ref={containerRef} className={cn("relative", lg && "w-full")}>
+    <div
+      ref={containerRef}
+      className={cn("relative", lg && "w-full")}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -124,11 +169,11 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
           lg ? "aspect-square w-full px-4 text-sm" : "h-28 w-24 px-3 text-[11px]",
           "border-slate-300 text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500",
           "dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06] dark:hover:text-blue-400",
-          open && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
+          (open || isDragOver) && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
         )}
       >
         {isUploading ? <Loader2 className={lg ? "h-6 w-6 animate-spin" : "h-4 w-4 animate-spin"} /> : <Video className={lg ? "h-6 w-6" : "h-4 w-4"} />}
-        <span className="leading-tight">{isUploading ? "Uploading..." : "Video to edit"}</span>
+        <span className="leading-tight">{isUploading ? "Uploading..." : isDragOver ? "Drop video" : "Video to edit"}</span>
         {!isUploading && <span className={cn("font-normal text-slate-400 dark:text-slate-500", lg ? "text-xs" : "text-[10px]")}>3-10s clips</span>}
       </button>
 
@@ -238,7 +283,7 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
                             />
                             {item.durationSeconds != null && (
                               <span className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                                <Clock className="h-2.5 w-2.5" /> {item.durationSeconds}s
+                                <Clock className="h-2.5 w-2.5" /> {formatClipDuration(item.durationSeconds)}
                               </span>
                             )}
                           </button>

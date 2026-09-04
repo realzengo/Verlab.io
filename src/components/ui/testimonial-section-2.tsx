@@ -1,6 +1,5 @@
 import { Play, Sparkle } from "lucide-react";
 import { APP_URL } from "@/lib/constants";
-import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { Reveal } from "@/components/ui/Reveal";
 import { cn } from "@/lib/utils";
@@ -221,18 +220,20 @@ export default function Testimonial2() {
         />
 
         <div className="relative z-10 mt-4 flex justify-center sm:-mt-10">
-          <GlassCtaButton
+          <a
             href={APP_URL}
-            radius={999}
-            icon={<Sparkle className="h-4 w-4 fill-white" />}
-            className="font-ui gap-2! px-8! py-4! text-base! transition-transform hover:scale-105"
-            style={{
-              boxShadow: "inset -3px -3px 4px rgba(191,229,251,0.4), inset 4px 4px 4px rgba(19,26,228,0.1)",
-            }}
+            className="font-ui group relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[radial-gradient(220%_220%_at_28%_18%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] px-8 py-4 text-base font-bold text-white shadow-[0_4px_0_0_#1a37c4,0_10px_24px_-8px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_0_0_#1a37c4,0_12px_28px_-8px_rgba(28,63,214,0.55),inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,0_4px_10px_-6px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
           >
-            Get Started
-            <Play className="relative -mb-px ml-1 inline h-3.5 w-3.5 fill-white" />
-          </GlassCtaButton>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(140%_140%_at_50%_50%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] opacity-0 transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100"
+            />
+            <span className="relative flex items-center gap-2">
+              <Sparkle className="h-4 w-4 fill-white" />
+              Get Started
+              <Play className="relative -mb-px ml-1 inline h-3.5 w-3.5 fill-white" />
+            </span>
+          </a>
         </div>
       </div>
     </section>

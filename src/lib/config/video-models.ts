@@ -387,21 +387,7 @@ export const VIDEO_EDIT_OPERATIONS: VideoEditOperationConfig[] = [
 // placeholders -- verify live before the first real deploy.
 export interface PromptEditModelConfig {
   id: string;
-  /**
-   * "replicate" (default when omitted) submits replicateModel as a
-   * Replicate prediction via submitVideoJob, same as every Create-tab model
-   * -- async, webhook-completed. "gemini" instead calls Google's Gemini API
-   * directly (see gemini-video.ts) -- that API is synchronous (no
-   * webhook/polling shape), so those rows are driven by an after() callback
-   * in generate-video/edit/route.ts instead of the Replicate webhook path.
-   */
-  provider?: "replicate" | "gemini";
-  /**
-   * Replicate model slug for provider "replicate". For provider "gemini"
-   * this instead holds the Gemini model id (e.g. "gemini-omni-flash-preview")
-   * -- stored the same way in video_generations.replicate_model either way,
-   * it's just a label there, not literally a Replicate slug for every row.
-   */
+  /** Replicate model slug, submitted as a prediction via submitVideoJob (same async, webhook-completed path every Create-tab model uses). */
   replicateModel: string;
   description: string;
   logo?: string;
@@ -421,29 +407,44 @@ export interface PromptEditModelConfig {
   videoField?: string;
   /** Field name the reference-images array is sent under. Defaults to "image_urls" when omitted -- same per-model caveat as videoField. */
   referenceImagesField?: string;
+  /** Extra static input fields merged into every Replicate request for this model (e.g. a mode flag the API requires to treat the source as editable base footage rather than a style reference). */
+  extraInputFields?: Record<string, unknown>;
   pricePerSecondUsd: number;
 }
 
 export const EDIT_VIDEO_MODELS: PromptEditModelConfig[] = [
   {
     id: "Gemini Omni Flash",
-    provider: "gemini",
-    replicateModel: "gemini-omni-flash-preview",
-    // CONFIRMED (ai.google.dev/gemini-api/docs/omni): a real public REST API
-    // (POST .../v1beta/interactions, model "gemini-omni-flash-preview"),
-    // synchronous -- the edit is sent as one request (source video + prompt,
-    // both inline as base64) and the response contains the finished video
-    // inline, no job id to poll. See gemini-video.ts for the actual call.
+    // MOVED off a direct call to Google's own Gemini API (POST
+    // generativelanguage.googleapis.com/v1beta/interactions) onto Replicate's
+    // hosted copy of the same model, google/gemini-omni-1.1 -- Google's API
+    // was rejecting every request with a hard "limit: 0" free-tier quota on
+    // this project's own API key (a billing/access problem on that project,
+    // not something fixable in code), and Replicate's hosted version isn't
+    // subject to that key's quota at all. Confirmed live against Replicate's
+    // own openapi_schema for this model: `video` (a fetchable URL, not an
+    // inline-base64 payload like the old direct-API path -- so the old
+    // 18MB inline-size ceiling in gemini-video.ts no longer applies either)
+    // and `reference_images` are the real field names; its own sample run
+    // logs "model: gemini-omni-1.1-flash" under the hood, matching this
+    // tile's name. gemini-video.ts (the old synchronous direct-API client)
+    // and its after()-callback handling in generate-video/edit/route.ts are
+    // gone now that this runs through the same async Replicate/webhook path
+    // as every other edit model.
+    replicateModel: "google/gemini-omni-1.1",
     description: "Follows edit instructions closely. Clips up to 10s.",
     logo: GEMINI_ICON,
+    // Carried over from the old direct-API entry -- Replicate's schema
+    // doesn't publish a duration constraint specific to its video-edit mode,
+    // so this is still a best-effort bound, not independently reverified.
     minSourceDurationSeconds: 1,
     maxSourceDurationSeconds: 10,
-    // Docs' own video-edit example sends exactly one source video + one text
-    // instruction per request -- no confirmed multi-reference-image input
-    // for this flow, so left at 0 rather than guessed.
-    maxReferenceImages: 0,
-    // ESTIMATED -- Google hasn't published a per-second rate for this API as
-    // of this writing; correct against real usage once live.
+    videoField: "video",
+    referenceImagesField: "reference_images",
+    maxReferenceImages: 4,
+    // ESTIMATED -- Replicate doesn't expose this model's per-second rate via
+    // its API and the pricing page didn't render it on a plain fetch;
+    // correct against a real invoice once live.
     pricePerSecondUsd: 0.2,
   },
   {
@@ -474,18 +475,22 @@ export const EDIT_VIDEO_MODELS: PromptEditModelConfig[] = [
     minSourceDurationSeconds: 3,
     maxSourceDurationSeconds: 10.05,
     maxReferenceImages: 4,
-    // CONFIRMED live against two independent sources (Replicate's own model
-    // page and a third-party mirror serving the same model) after a report
-    // that Kling Edit was generating a brand-new video with no relation to
-    // the uploaded source: the route was sending the source video under
-    // "video_url", but this model's real field is "video" -- Replicate
-    // silently ignored the unrecognized field instead of rejecting the
-    // request, so it fell back to text-only generation from the prompt
-    // alone. "reference_image_urls" is likewise the confirmed field for
-    // reference images (the route's old "image_urls" default was wrong
-    // here too, just not yet reported since reference images are optional).
-    videoField: "video",
-    referenceImagesField: "reference_image_urls",
+    // RE-CONFIRMED against Replicate's own live openapi_schema for this model
+    // (GET /v1/models/kwaivgi/kling-o1, read straight from its
+    // latest_version.openapi_schema.components.schemas.Input.properties --
+    // not a page scrape) after a second report of the same "Kling Edit
+    // ignores my uploaded video and generates something unrelated" symptom
+    // the "video"/"reference_image_urls" fields below were supposedly fixed
+    // for. Both were still wrong: the real fields are "reference_video" and
+    // "reference_images". Worse, the schema also has a required-in-spirit
+    // `video_reference_type` enum ("feature" | "base") that this route never
+    // sent at all -- "feature" treats the clip as a loose style/camera
+    // reference rather than footage to edit, so even sending the video under
+    // the right key without this would still produce something only loosely
+    // related to the source. "base" is what the edit flow needs.
+    videoField: "reference_video",
+    referenceImagesField: "reference_images",
+    extraInputFields: { video_reference_type: "base" },
     pricePerSecondUsd: 0.168,
   },
 ];
