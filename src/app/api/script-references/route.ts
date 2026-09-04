@@ -17,6 +17,12 @@ function isReferenceKind(value: unknown): value is ReferenceKind {
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_EXTENSIONS = [".txt", ".md", ".csv", ".pdf", ".docx"];
 
+// SOP stays a single reference (enforced by a partial unique index in the
+// DB), but a creator's formula is rarely captured by one transcript --
+// this bounds how many can pile up per user rather than leaving it
+// unlimited (keeps the combined-transcripts prompt payload sane too).
+const MAX_TRANSCRIPTS_PER_USER = 10;
+
 function hasAllowedExtension(fileName: string): boolean {
   const lower = fileName.toLowerCase();
   return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
@@ -89,7 +95,8 @@ async function handleGET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("script_reference_files")
-    .select("kind, file_name, content, created_at");
+    .select("id, kind, file_name, content, created_at")
+    .order("created_at", { ascending: true });
 
   if (error) {
     return serverError("script-references GET", error);
@@ -157,18 +164,53 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "That file doesn't contain any readable text." }, { status: 400 });
   }
 
-  const { error } = await supabase
+  if (kind === "sop") {
+    // Only one SOP per user -- upsert against the partial unique index that
+    // enforces that, so a re-upload replaces rather than piles up.
+    const { data, error } = await supabase
+      .from("script_reference_files")
+      .upsert(
+        { user_id: user.id, kind, file_name: file.name, content },
+        { onConflict: "user_id,kind" }
+      )
+      .select("id")
+      .single();
+
+    if (error) {
+      return serverError("script-references PUT", error);
+    }
+
+    return NextResponse.json({ success: true, id: data.id, fileName: file.name, content });
+  }
+
+  // Transcripts append instead of replacing -- a formula is usually
+  // reverse-engineered from several of a creator's videos at once, not one.
+  const { count, error: countError } = await supabase
     .from("script_reference_files")
-    .upsert(
-      { user_id: user.id, kind, file_name: file.name, content },
-      { onConflict: "user_id,kind" }
+    .select("id", { count: "exact", head: true })
+    .eq("kind", "transcript");
+
+  if (countError) {
+    return serverError("script-references PUT (count)", countError);
+  }
+  if ((count ?? 0) >= MAX_TRANSCRIPTS_PER_USER) {
+    return NextResponse.json(
+      { error: `You can upload up to ${MAX_TRANSCRIPTS_PER_USER} transcripts. Remove one before adding another.` },
+      { status: 400 }
     );
+  }
+
+  const { data, error } = await supabase
+    .from("script_reference_files")
+    .insert({ user_id: user.id, kind, file_name: file.name, content })
+    .select("id")
+    .single();
 
   if (error) {
     return serverError("script-references PUT", error);
   }
 
-  return NextResponse.json({ success: true, fileName: file.name, content });
+  return NextResponse.json({ success: true, id: data.id, fileName: file.name, content });
 }
 
 async function handleDELETE(request: NextRequest): Promise<NextResponse> {
@@ -183,12 +225,24 @@ async function handleDELETE(request: NextRequest): Promise<NextResponse> {
 
   const body = await request.json().catch(() => null);
   const kind: unknown = body?.kind;
+  const id: unknown = body?.id;
 
   if (!isReferenceKind(kind)) {
     return NextResponse.json({ error: "kind must be 'sop' or 'transcript'" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("script_reference_files").delete().eq("kind", kind);
+  // Transcripts can have several rows, so a delete without an id would be
+  // ambiguous -- SOP is still singular, so falling back to kind-only there
+  // keeps the simple "clear my SOP" call working.
+  let query = supabase.from("script_reference_files").delete().eq("kind", kind);
+  if (kind === "transcript" || typeof id === "string") {
+    if (typeof id !== "string" || !id) {
+      return NextResponse.json({ error: "id is required to delete a transcript" }, { status: 400 });
+    }
+    query = query.eq("id", id);
+  }
+
+  const { error } = await query;
 
   if (error) {
     return serverError("script-references DELETE", error);

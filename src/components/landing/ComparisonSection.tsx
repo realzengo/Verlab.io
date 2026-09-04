@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
@@ -26,26 +26,19 @@ const VERLAB_WAY_ITEMS = [
 function ComparisonListItem({ children, tone }: { children: React.ReactNode; tone: "red" | "blue" }) {
   return (
     <li className="flex items-start gap-2 sm:gap-3">
-      <span
-        className={cn(
-          "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full sm:h-6 sm:w-6",
-          tone === "red"
-            ? "bg-red-50 text-red-400"
-            : "bg-[linear-gradient(155deg,#6d8dff_0%,#335cff_55%,#1c3fd6_100%)] shadow-[0_2px_6px_rgba(51,92,255,0.45),0_0_0_1px_rgba(51,92,255,0.2)]",
-        )}
-      >
-        {tone === "blue" && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/50 to-transparent"
-          />
-        )}
-        {tone === "red" ? (
-          <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={3} />
-        ) : (
-          <Check className="relative h-3 w-3 text-white drop-shadow-[0_1px_0.5px_rgba(15,23,42,0.15)] sm:h-3.5 sm:w-3.5" strokeWidth={3.25} />
-        )}
-      </span>
+      {tone === "red" ? (
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-inset ring-slate-200 sm:h-6 sm:w-6">
+          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" strokeWidth={2.5} />
+        </span>
+      ) : (
+        <Image
+          src="/icons/tick-blue-glass.svg"
+          alt=""
+          width={24}
+          height={24}
+          className="mt-0.5 h-5 w-5 shrink-0 sm:h-6 sm:w-6"
+        />
+      )}
       <span
         className={cn(
           "whitespace-nowrap text-[11.5px] leading-snug sm:whitespace-normal sm:text-[17px]",
@@ -58,10 +51,10 @@ function ComparisonListItem({ children, tone }: { children: React.ReactNode; ton
   );
 }
 
-/** Layered "device bezel" card shape: a tinted outer frame with an inset
- * top highlight, holding a true white card inside. The Verlab card gets a
- * brighter blue bezel plus a soft ambient glow so it visibly attracts the
- * eye next to the neutral, muted Old Way card. */
+/** Bordered-shell card: a thick tinted outer frame (matching the
+ * VerlabProcess step cards) wrapping a true white inner panel. The Verlab
+ * card gets a blue-tinted border and glow so it visibly attracts the eye
+ * next to the neutral, muted Old Way card. */
 function ComparisonCard({
   tone,
   title,
@@ -76,21 +69,28 @@ function ComparisonCard({
   const isRed = tone === "red";
   return (
     <div className="relative flex flex-1 flex-col">
-      <div
-        className={cn(
-          "relative flex h-full flex-col rounded-[36px] p-2 sm:p-3.5",
-          isRed
-            ? "bg-gradient-to-b from-slate-100 to-slate-200/70 shadow-[0_24px_50px_-24px_rgba(15,23,42,0.28),0_10px_20px_-12px_rgba(15,23,42,0.18),0_0_0_1px_rgba(255,255,255,0.5)_inset] lg:rotate-y-6"
-            : "bg-gradient-to-b from-blue-100 to-blue-200/80 shadow-[0_34px_80px_-22px_rgba(37,99,235,0.45),0_14px_28px_-14px_rgba(37,99,235,0.3),0_0_0_1px_rgba(255,255,255,0.6)_inset] lg:-rotate-y-6",
-        )}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-[1px] rounded-[33px] bg-gradient-to-b from-white/70 to-transparent"
-          style={{ height: "50%" }}
-        />
+      <div className="flex h-full flex-col rounded-[24px] border-[3px] border-[#EEF0F3] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_14px_28px_-20px_rgba(15,23,42,0.14)] sm:rounded-[28px] sm:border-[4px]">
+        <div className="relative flex h-full flex-col overflow-hidden rounded-[20px] bg-white p-3.5 sm:rounded-[24px] sm:p-12">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-56 sm:h-80"
+            style={{
+              backgroundImage: isRed
+                ? "linear-gradient(to bottom, #c3cad4 0%, #d7dce3 28%, #eceef1 52%, #f9fafb 74%, #ffffff 90%)"
+                : "linear-gradient(to bottom, #5b82f5 0%, #7a9df8 28%, #a4bffa 52%, #dde6fd 74%, #ffffff 90%)",
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-56 opacity-40 sm:h-80"
+            style={{
+              backgroundImage: "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
+              backgroundSize: "6px 6px",
+              WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 20%, transparent 74%)",
+              maskImage: "linear-gradient(to bottom, black 0%, black 20%, transparent 74%)",
+            }}
+          />
 
-        <div className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-white p-3.5 shadow-[0_2px_8px_rgba(15,23,42,0.06),0_0_0_1px_rgba(15,23,42,0.04)] sm:p-12">
           <div className="relative flex items-center justify-center">
             <h3
               className={cn(
@@ -131,7 +131,7 @@ export function ComparisonSection() {
           </p>
         </Reveal>
 
-        <div className="mt-12 flex flex-col items-stretch gap-8 sm:mt-16 lg:flex-row lg:items-stretch lg:gap-10 lg:perspective-[2200px]">
+        <div className="mt-12 flex flex-col items-stretch gap-8 sm:mt-16 lg:flex-row lg:items-stretch lg:gap-10">
           <Reveal className="flex flex-1 flex-col">
             <ComparisonCard
               tone="red"
@@ -150,7 +150,7 @@ export function ComparisonSection() {
               tone="blue"
               title={
                 <Image
-                  src="/verlab-studio-logo-hires.png"
+                  src="/verlab-studio-logo-outline-white.png"
                   alt="Verlab Studio"
                   width={1600}
                   height={474}

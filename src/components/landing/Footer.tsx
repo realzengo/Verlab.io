@@ -46,7 +46,7 @@ function InstagramGlyph({ className }: { className?: string }) {
 }
 
 const GLOW_GRADIENT =
-  "radial-gradient(600% 163% at 50% 0%, rgba(255,255,255,0) 10%, rgba(88,124,255,0.85) 28%, rgb(43,73,230) 46%, rgb(18,28,110) 62%)";
+  "radial-gradient(251% 163% at 48.2% 0%, rgba(255, 255, 255, 0) 21.2961%, rgba(88, 124, 255, 0.84) 42.4039%, rgb(43, 73, 230) 59.6847%, rgb(18, 28, 110) 73.7683%)";
 
 const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 
@@ -142,10 +142,12 @@ export function Footer({ backgroundClassName = "bg-[#F8F9FC]" }: { backgroundCla
               WebkitUserSelect: "none",
               fontSize: "clamp(2.75rem, 9vw, 8rem)",
               color: "transparent",
-              WebkitTextStroke: "1px rgba(255,255,255,0.9)",
-              backgroundImage: "linear-gradient(0deg, #ffffff 9.56%, rgba(0,153,255,0) 100%)",
+              backgroundImage:
+                "linear-gradient(0deg, rgb(255, 255, 255) 9.55976%, rgba(61, 61, 255, 0) 100%)",
               backgroundClip: "text",
               WebkitBackgroundClip: "text",
+              WebkitTextStroke: "1px rgba(255,255,255,0.65)",
+              textShadow: "0 1px 2px rgba(255,255,255,0.15)",
               transform: "rotateX(10deg)",
               transformOrigin: "50% 100%",
             }}

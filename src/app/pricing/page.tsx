@@ -16,7 +16,7 @@ export default function PricingPage() {
       <Nav />
       <main className="flex-1">
         <PricingSection showComparison={false} />
-        <Faq items={PRICING_FAQ_ITEMS} heading="Pricing questions" />
+        <Faq items={PRICING_FAQ_ITEMS} heading="Pricing questions" backgroundClassName="bg-white" />
       </main>
       <Footer backgroundClassName="bg-white" />
     </div>

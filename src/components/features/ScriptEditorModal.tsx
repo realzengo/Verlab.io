@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Bot,
   Check,
@@ -55,6 +56,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
   const [metrics, setMetrics] = useState(parsedInitial.metrics);
   const [viewMode, setViewMode] = useState<"line" | "full">("line");
   const [mobilePane, setMobilePane] = useState<"editor" | "chat">("editor");
+  const mobilePanePillId = useId();
   const [segments, setSegments] = useState<string[]>(() => splitIntoSegments(parsedInitial.script));
   const [baselineSegments, setBaselineSegments] = useState<string[]>(segments);
   const [fullText, setFullText] = useState(parsedInitial.script);
@@ -269,28 +271,46 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
             <button
               type="button"
               onClick={() => setMobilePane("editor")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                mobilePane === "editor"
-                  ? "bg-white text-heading shadow-sm dark:bg-zinc-800"
-                  : "text-slate-500 dark:text-zinc-400"
-              )}
+              className="relative flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             >
-              <FileText className="h-4 w-4" />
-              Editor
+              {mobilePane === "editor" && (
+                <motion.span
+                  layoutId={`${mobilePanePillId}-active`}
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                />
+              )}
+              <span
+                className={cn(
+                  "relative z-10 flex items-center gap-1.5 transition-colors",
+                  mobilePane === "editor" ? "text-heading" : "text-slate-500 dark:text-zinc-400"
+                )}
+              >
+                <FileText className="h-4 w-4" />
+                Editor
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setMobilePane("chat")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                mobilePane === "chat"
-                  ? "bg-white text-heading shadow-sm dark:bg-zinc-800"
-                  : "text-slate-500 dark:text-zinc-400"
-              )}
+              className="relative flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             >
-              <MessageSquare className="h-4 w-4" />
-              AI Chat
+              {mobilePane === "chat" && (
+                <motion.span
+                  layoutId={`${mobilePanePillId}-active`}
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                />
+              )}
+              <span
+                className={cn(
+                  "relative z-10 flex items-center gap-1.5 transition-colors",
+                  mobilePane === "chat" ? "text-heading" : "text-slate-500 dark:text-zinc-400"
+                )}
+              >
+                <MessageSquare className="h-4 w-4" />
+                AI Chat
+              </span>
             </button>
           </div>
         </div>

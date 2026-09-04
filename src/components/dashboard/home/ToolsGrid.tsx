@@ -100,7 +100,7 @@ export function ToolsGrid() {
             <p className="mt-1 flex-1 text-xs leading-relaxed text-subtle">{tool.description}</p>
             <Link
               href={tool.href}
-              className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:border-primary group-hover:bg-accent group-hover:text-primary"
+              className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:border-subtle/30 group-hover:bg-app"
             >
               Try this out
             </Link>

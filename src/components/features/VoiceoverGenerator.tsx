@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Download,
   History,
+  Info,
   List,
   ListChecks,
   Loader2,
@@ -497,17 +499,20 @@ export function VoiceoverGenerator() {
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE_ID);
-  const generationMode: GenerationMode = "line_by_line";
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("line_by_line");
+  const generationModePillId = useId();
   const [stylePrompt, setStylePrompt] = useState(DEFAULT_STYLE_PROMPT);
   const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
 
   const [sidebarTab, setSidebarTab] = useState<"settings" | "history">("settings");
+  const sidebarTabPillId = useId();
   const [historyRefreshSignal, setHistoryRefreshSignal] = useState(0);
   const [selectingHistoryId, setSelectingHistoryId] = useState<string | null>(null);
 
   const [isVoiceDrawerOpen, setIsVoiceDrawerOpen] = useState(false);
   const [voiceSearch, setVoiceSearch] = useState("");
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<VoiceGenderFilter>("All");
+  const voiceGenderPillId = useId();
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
   const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -523,6 +528,7 @@ export function VoiceoverGenerator() {
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   const [editorTab, setEditorTab] = useState<EditorTab>("audio");
+  const editorTabPillId = useId();
   const [isAddingSegment, setIsAddingSegment] = useState(false);
   const [newSegmentText, setNewSegmentText] = useState("");
   const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
@@ -1079,13 +1085,24 @@ export function VoiceoverGenerator() {
                           key={tab}
                           type="button"
                           onClick={() => setEditorTab(tab)}
-                          className={cn(
-                            "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                            editorTab === tab ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
-                          )}
+                          className="relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
                         >
-                          {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
-                          {tab === "editor" ? "Voiceover editor" : "Generated audio"}
+                          {editorTab === tab && (
+                            <motion.span
+                              layoutId={`${editorTabPillId}-active`}
+                              transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                              className="absolute inset-0 rounded-full bg-surface shadow-card"
+                            />
+                          )}
+                          <span
+                            className={cn(
+                              "relative z-10 flex items-center gap-1.5 transition-colors",
+                              editorTab === tab ? "text-heading" : "text-subtle hover:text-heading"
+                            )}
+                          >
+                            {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
+                            {tab === "editor" ? "Voiceover editor" : "Generated audio"}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1289,12 +1306,23 @@ export function VoiceoverGenerator() {
                         key={option}
                         type="button"
                         onClick={() => setVoiceGenderFilter(option)}
-                        className={cn(
-                          "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                          voiceGenderFilter === option ? "bg-surface text-heading shadow-card" : "text-subtle hover:text-heading"
-                        )}
+                        className="relative rounded-full px-3 py-1.5 text-xs font-semibold"
                       >
-                        {option}
+                        {voiceGenderFilter === option && (
+                          <motion.span
+                            layoutId={`${voiceGenderPillId}-active`}
+                            transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                            className="absolute inset-0 rounded-full bg-surface shadow-card"
+                          />
+                        )}
+                        <span
+                          className={cn(
+                            "relative z-10 transition-colors",
+                            voiceGenderFilter === option ? "text-heading" : "text-subtle hover:text-heading"
+                          )}
+                        >
+                          {option}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -1372,13 +1400,24 @@ export function VoiceoverGenerator() {
                       key={key}
                       type="button"
                       onClick={() => setSidebarTab(key)}
-                      className={cn(
-                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                        sidebarTab === key ? "bg-surface text-heading shadow-card dark:bg-[#0D0D10]" : "text-subtle hover:text-heading"
-                      )}
+                      className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold"
                     >
-                      <TabIcon className="h-3.5 w-3.5" />
-                      {label}
+                      {sidebarTab === key && (
+                        <motion.span
+                          layoutId={`${sidebarTabPillId}-active`}
+                          transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                          className="absolute inset-0 rounded-lg bg-surface shadow-card dark:bg-[#0D0D10]"
+                        />
+                      )}
+                      <span
+                        className={cn(
+                          "relative z-10 flex items-center gap-1.5 transition-colors",
+                          sidebarTab === key ? "text-heading" : "text-subtle hover:text-heading"
+                        )}
+                      >
+                        <TabIcon className="h-3.5 w-3.5" />
+                        {label}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1412,6 +1451,47 @@ export function VoiceoverGenerator() {
                       <ChevronRight className="h-3.5 w-3.5" />
                     </span>
                   </button>
+                </div>
+
+                <div className="border-t border-hairline p-5">
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Generation Mode</h2>
+                    <span title="Line by line generates each sentence as its own clip you can edit and regenerate individually. All at once sends the full script as a single take.">
+                      <Info className="h-3.5 w-3.5 text-subtle/60" />
+                    </span>
+                  </div>
+
+                  <div className="relative mt-3 flex shrink-0 rounded-lg bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+                    {(
+                      [
+                        { key: "line_by_line", label: "Line by line" },
+                        { key: "all_at_once", label: "All at once" },
+                      ] as const
+                    ).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setGenerationMode(key)}
+                        className="relative flex-1 rounded-md px-3.5 py-2 text-xs font-semibold"
+                      >
+                        {generationMode === key && (
+                          <motion.span
+                            layoutId={`${generationModePillId}-active`}
+                            transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                            className="absolute inset-0 rounded-md bg-surface shadow-card dark:bg-[#0D0D10]"
+                          />
+                        )}
+                        <span
+                          className={cn(
+                            "relative z-10 transition-colors",
+                            generationMode === key ? "text-heading" : "text-subtle hover:text-heading"
+                          )}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="border-t border-hairline p-5">

@@ -25,7 +25,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
@@ -310,6 +310,12 @@ function HistoryTile({
 }) {
   const [busyAction, setBusyAction] = useState<HistoryTileAction | null>(null);
   const [copied, setCopied] = useState(false);
+  // Mosaic mode sizes the tile from `style`'s aspectRatio (derived from the
+  // row's stored aspect_ratio) so masonry columns can lay out before the
+  // thumbnail loads. That stored value doesn't always match what the model
+  // actually generated, so once the real image loads we correct the tile to
+  // its true aspect ratio instead of leaving it stretched to the wrong shape.
+  const [naturalAspect, setNaturalAspect] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [portalTarget, setPortalTarget] = useState<Element | null>(null);
@@ -358,7 +364,7 @@ function HistoryTile({
         "group relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950",
         className
       )}
-      style={style}
+      style={style && naturalAspect ? { ...style, aspectRatio: String(naturalAspect) } : style}
     >
       <button type="button" disabled={loading} onClick={onOpen} className="absolute inset-0 block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
@@ -368,6 +374,10 @@ function HistoryTile({
           loading="lazy"
           decoding="async"
           draggable={false}
+          onLoad={(event) => {
+            const { naturalWidth, naturalHeight } = event.currentTarget;
+            if (naturalWidth > 0 && naturalHeight > 0) setNaturalAspect(naturalWidth / naturalHeight);
+          }}
           className="h-full w-full object-cover"
         />
         {loading && (
@@ -666,6 +676,7 @@ export function ImageGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
+  const activeTabPillId = useId();
   // Generations still running (e.g. the page was reloaded, or a poll loop was
   // interrupted) have no client-side poller watching them -- resume one per
   // row on every successful load/revalidation so none gets stuck looking
@@ -1248,24 +1259,42 @@ export function ImageGenerator() {
             <button
               type="button"
               onClick={() => setActiveTab("generate")}
-              className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
-                activeTab === "generate"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400"
-              }`}
+              className="relative flex-1 rounded-full py-2 text-sm font-semibold"
             >
-              Generate
+              {activeTab === "generate" && (
+                <motion.span
+                  layoutId={`${activeTabPillId}-active`}
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                />
+              )}
+              <span
+                className={`relative z-10 transition-colors ${
+                  activeTab === "generate" ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                Generate
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("history")}
-              className={`flex-1 rounded-full py-2 text-sm font-semibold transition-colors ${
-                activeTab === "history"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-800 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400"
-              }`}
+              className="relative flex-1 rounded-full py-2 text-sm font-semibold"
             >
-              History
+              {activeTab === "history" && (
+                <motion.span
+                  layoutId={`${activeTabPillId}-active`}
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                />
+              )}
+              <span
+                className={`relative z-10 transition-colors ${
+                  activeTab === "history" ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                History
+              </span>
             </button>
           </div>
 
@@ -2016,7 +2045,7 @@ export function ImageGenerator() {
                     <img
                       src={previewItem.src}
                       alt=""
-                      className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_50px_140px_-30px_rgba(0,0,0,0.9)]"
+                      className="max-h-full max-w-full rounded-2xl object-contain shadow-[0_50px_140px_-30px_rgba(0,0,0,0.9)] ring-1 ring-white/15"
                     />
 
                     {/* Floating dark-glass action bar, bottom-center */}

@@ -26,6 +26,7 @@ import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { formatRelativeTime, parseScriptOutput, type ScriptRecord } from "@/lib/script-format";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
@@ -43,31 +44,39 @@ const RECENT_LIMIT = 6;
 type ReferenceKind = "sop" | "transcript";
 
 type ReferenceFile = {
+  id: string;
   name: string;
   content: string;
 };
 
 type ScriptHistoryItem = ScriptRecord;
 
-type ReferenceFileRow = { kind: ReferenceKind; file_name: string; content: string };
+type ReferenceFileRow = { id: string; kind: ReferenceKind; file_name: string; content: string };
 type ReferenceFilesResponse = { referenceFiles: ReferenceFileRow[] };
 type ScriptsResponse = { scripts: ScriptHistoryItem[] };
 
-// Derives a status label and rough completion percentage purely from the
-// streamed text itself (no fake timers) so the modal never lies about
-// progress it doesn't actually have.
-function getGenerationProgress(result: string): { label: string; percent: number } {
-  if (!result) {
-    return { label: "Analyzing your SOP and transcripts to match the formula", percent: 8 };
-  }
-  if (result.length < 400) {
-    return { label: "Drafting the hook and structure", percent: 30 };
-  }
-  if (result.length < 1200) {
-    return { label: "Writing the full script", percent: 65 };
-  }
-  return { label: "Polishing the final draft", percent: 92 };
+// Mirrors MAX_TRANSCRIPTS_PER_USER in /api/script-references -- kept in sync
+// manually since the client needs it to disable the uploader before the
+// round trip, not just to render the server's rejection after the fact.
+const MAX_TRANSCRIPTS = 10;
+
+// Derives a rough completion percentage purely from the streamed text itself
+// (no fake timers) so the modal never lies about progress it doesn't
+// actually have. Phase labels for each threshold live in SCRIPT_LOADING_PHASES.
+function getGenerationProgress(result: string): number {
+  if (!result) return 8;
+  if (result.length < 400) return 30;
+  if (result.length < 1200) return 65;
+  return 92;
 }
+
+const SCRIPT_LOADING_PHASES = [
+  { at: 0, label: "reading your brief" },
+  { at: 8, label: "analyzing SOP & transcripts" },
+  { at: 30, label: "drafting the hook" },
+  { at: 65, label: "writing the script" },
+  { at: 92, label: "polishing the draft" },
+];
 
 type DropZoneProps = {
   label: string;
@@ -176,6 +185,130 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear }: D
   );
 }
 
+type TranscriptDropZoneProps = {
+  files: ReferenceFile[];
+  isUploading?: boolean;
+  onSelect: (files: File[]) => void;
+  onRemove: (id: string) => void;
+};
+
+// Same square-tile footprint as DropZone, but backs a list instead of a
+// single file -- a formula is usually reverse-engineered from several of a
+// creator's transcripts at once, not one, so this accepts and lists
+// multiple while staying capped at MAX_TRANSCRIPTS.
+function TranscriptDropZone({ files, isUploading, onSelect, onRemove }: TranscriptDropZoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const atLimit = files.length >= MAX_TRANSCRIPTS;
+
+  function openPicker() {
+    if (isUploading || atLimit) return;
+    inputRef.current?.click();
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragOver(false);
+    if (isUploading || atLimit) return;
+    const dropped = Array.from(event.dataTransfer.files ?? []);
+    if (dropped.length > 0) onSelect(dropped);
+  }
+
+  const hasFiles = files.length > 0;
+
+  return (
+    <div
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!atLimit) setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={handleDrop}
+      className={cn(
+        "group relative flex min-w-0 flex-1 aspect-square flex-col overflow-hidden rounded-2xl text-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        hasFiles
+          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
+          : "border border-dashed border-slate-300 bg-slate-50/60 hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:bg-white/[0.02] dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06]",
+        isDragOver && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
+      )}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept=".txt,.md,.csv,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="hidden"
+        onChange={(event) => {
+          const selected = Array.from(event.target.files ?? []);
+          if (selected.length > 0) onSelect(selected);
+          event.target.value = "";
+        }}
+      />
+
+      {!hasFiles ? (
+        <button
+          type="button"
+          onClick={openPicker}
+          disabled={isUploading}
+          className="flex h-full w-full flex-col items-center justify-center gap-2 disabled:pointer-events-none disabled:opacity-70"
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+              <span className="text-xs font-medium text-slate-500">Reading file…</span>
+            </>
+          ) : (
+            <>
+              <FileText className="h-5 w-5 text-slate-400 transition-colors duration-200 group-hover:text-blue-500 dark:text-slate-500 dark:group-hover:text-blue-400" />
+              <span className="text-xs font-medium text-slate-500 transition-colors duration-200 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200">
+                Transcript
+              </span>
+            </>
+          )}
+        </button>
+      ) : (
+        <div className="flex h-full w-full flex-col">
+          <div className="flex-1 space-y-1 overflow-y-auto px-1.5 pt-1.5">
+            {files.map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-1.5 py-1 text-left dark:bg-white/5"
+              >
+                <FileText className="h-3 w-3 shrink-0 text-blue-500" />
+                <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-slate-700 dark:text-slate-200">
+                  {file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(file.id)}
+                  aria-label={`Remove ${file.name}`}
+                  className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ))}
+            {isUploading && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-1.5 py-1 dark:bg-white/5">
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-blue-500" />
+                <span className="text-[10px] font-medium text-slate-500">Reading file…</span>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={isUploading || atLimit}
+            className="flex shrink-0 items-center justify-center gap-1 border-t border-hairline py-1.5 text-[10px] font-semibold text-slate-500 transition-colors hover:text-blue-500 disabled:pointer-events-none disabled:opacity-40 dark:text-slate-400"
+          >
+            {atLimit ? `${MAX_TRANSCRIPTS} max` : "+ Add transcript"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScriptWriterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -191,7 +324,8 @@ function ScriptWriterPageInner() {
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
-  const [uploadingKind, setUploadingKind] = useState<ReferenceKind | null>(null);
+  const [uploadingKind, setUploadingKind] = useState<"sop" | null>(null);
+  const [isUploadingTranscript, setIsUploadingTranscript] = useState(false);
   const [viewingScript, setViewingScript] = useState<ScriptHistoryItem | null>(null);
   const [generatedScript, setGeneratedScript] = useState<ScriptHistoryItem | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
@@ -199,7 +333,6 @@ function ScriptWriterPageInner() {
   const [deletingScript, setDeletingScript] = useState<ScriptHistoryItem | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const modalStreamRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Cached by request URL -- revisiting /scripts after navigating to another
@@ -226,11 +359,12 @@ function ScriptWriterPageInner() {
         : null);
   const sopFile = useMemo<ReferenceFile | null>(() => {
     const row = referencesData?.referenceFiles.find((r) => r.kind === "sop");
-    return row ? { name: row.file_name, content: row.content } : null;
+    return row ? { id: row.id, name: row.file_name, content: row.content } : null;
   }, [referencesData]);
-  const transcriptFile = useMemo<ReferenceFile | null>(() => {
-    const row = referencesData?.referenceFiles.find((r) => r.kind === "transcript");
-    return row ? { name: row.file_name, content: row.content } : null;
+  const transcriptFiles = useMemo<ReferenceFile[]>(() => {
+    return (referencesData?.referenceFiles ?? [])
+      .filter((r) => r.kind === "transcript")
+      .map((row) => ({ id: row.id, name: row.file_name, content: row.content }));
   }, [referencesData]);
 
   const canSubmit = prompt.trim().length > 0 && !isGenerating;
@@ -259,9 +393,8 @@ function ScriptWriterPageInner() {
   // The mutate updater does the actual PUT itself so the cache only ever
   // reflects a real server response, and a thrown error leaves the cached
   // reference files untouched (no rollback bookkeeping needed).
-  async function saveReferenceFile(kind: ReferenceKind, file: File) {
+  async function saveReferenceFile(kind: ReferenceKind, file: File): Promise<boolean> {
     const label = kind === "sop" ? "SOP" : "transcript";
-    setUploadingKind(kind);
     setActionError(null);
 
     try {
@@ -275,35 +408,81 @@ function ScriptWriterPageInner() {
           const data = await response.json().catch(() => null);
           if (!response.ok) throw new Error(data?.error || `Failed to save the ${label} file. Please try again.`);
 
-          const reference: ReferenceFileRow = { kind, file_name: data.fileName ?? file.name, content: data.content ?? "" };
-          const rest = (current?.referenceFiles ?? []).filter((row) => row.kind !== kind);
+          const reference: ReferenceFileRow = {
+            id: data.id,
+            kind,
+            file_name: data.fileName ?? file.name,
+            content: data.content ?? "",
+          };
+          const existing = current?.referenceFiles ?? [];
+          // SOP replaces (only one allowed); transcripts append (each
+          // upload inserts a new row server-side, it never overwrites).
+          const rest = kind === "sop" ? existing.filter((row) => row.kind !== "sop") : existing;
           return { referenceFiles: [...rest, reference] };
         },
         { revalidate: false }
       );
+      return true;
     } catch (err) {
       setActionError(err instanceof Error ? err.message : `Failed to save the ${label} file. Please try again.`);
-    } finally {
-      setUploadingKind(null);
+      return false;
     }
   }
 
-  async function clearReferenceFile(kind: ReferenceKind) {
+  async function saveSopFile(file: File) {
+    setUploadingKind("sop");
+    await saveReferenceFile("sop", file);
+    setUploadingKind(null);
+  }
+
+  // Uploads transcripts one at a time -- each is its own PUT that appends a
+  // row, and running them concurrently would race multiple mutateReferences
+  // calls against the same SWR cache entry. Stops early (leaving whatever
+  // already succeeded in place) if a file is rejected, e.g. hitting the cap.
+  async function addTranscriptFiles(files: File[]) {
+    const remaining = MAX_TRANSCRIPTS - transcriptFiles.length;
+    if (remaining <= 0) {
+      setActionError(`You can upload up to ${MAX_TRANSCRIPTS} transcripts. Remove one before adding another.`);
+      return;
+    }
+
+    setIsUploadingTranscript(true);
+    try {
+      for (const file of files.slice(0, remaining)) {
+        const ok = await saveReferenceFile("transcript", file);
+        if (!ok) break;
+      }
+    } finally {
+      setIsUploadingTranscript(false);
+    }
+  }
+
+  async function clearReferenceFile(kind: ReferenceKind, id?: string) {
     try {
       await mutateReferences(
         async (current) => {
           const response = await fetch("/api/script-references", {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind }),
+            body: JSON.stringify({ kind, id }),
           });
           if (!response.ok) throw new Error();
-          return { referenceFiles: (current?.referenceFiles ?? []).filter((row) => row.kind !== kind) };
+          const existing = current?.referenceFiles ?? [];
+          return {
+            referenceFiles:
+              kind === "transcript" ? existing.filter((row) => row.id !== id) : existing.filter((row) => row.kind !== kind),
+          };
         },
         {
-          optimisticData: (current) => ({
-            referenceFiles: (current?.referenceFiles ?? []).filter((row) => row.kind !== kind),
-          }),
+          optimisticData: (current) => {
+            const existing = current?.referenceFiles ?? [];
+            return {
+              referenceFiles:
+                kind === "transcript"
+                  ? existing.filter((row) => row.id !== id)
+                  : existing.filter((row) => row.kind !== kind),
+            };
+          },
           rollbackOnError: true,
           revalidate: false,
         }
@@ -313,13 +492,6 @@ function ScriptWriterPageInner() {
       setActionError(`Failed to remove the ${kind === "sop" ? "SOP" : "transcript"} file. Please try again.`);
     }
   }
-
-  // Auto-scrolls the modal's live text preview to the bottom as streamed
-  // tokens arrive, so the newest text is always in view.
-  useEffect(() => {
-    if (!isGenerating) return;
-    modalStreamRef.current?.scrollTo({ top: modalStreamRef.current.scrollHeight });
-  }, [isGenerating, result]);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -343,11 +515,19 @@ function ScriptWriterPageInner() {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    // Multiple transcripts get concatenated into the one <COMPETITOR_TRANSCRIPTS>
+    // block the model expects, each clearly labeled by source file so it can
+    // still tell them apart when reverse-engineering the shared formula.
+    const transcripts =
+      transcriptFiles.length > 0
+        ? transcriptFiles.map((file) => `--- ${file.name} ---\n${file.content}`).join("\n\n")
+        : undefined;
+
     try {
       const response = await fetch("/api/generate-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sop: sopFile?.content, transcripts: transcriptFile?.content }),
+        body: JSON.stringify({ message, sop: sopFile?.content, transcripts }),
         signal: abortController.signal,
       });
 
@@ -474,20 +654,18 @@ function ScriptWriterPageInner() {
             {/* Square Drop Zones */}
             <div className="relative flex w-full flex-col gap-3 md:w-[280px]">
               <div className="flex gap-3">
-                <DropZone
-                  label="Transcript"
-                  icon={FileText}
-                  file={transcriptFile}
-                  isUploading={uploadingKind === "transcript"}
-                  onSelect={(file) => saveReferenceFile("transcript", file)}
-                  onClear={() => clearReferenceFile("transcript")}
+                <TranscriptDropZone
+                  files={transcriptFiles}
+                  isUploading={isUploadingTranscript}
+                  onSelect={addTranscriptFiles}
+                  onRemove={(id) => clearReferenceFile("transcript", id)}
                 />
                 <DropZone
                   label="SOP"
                   icon={FileBadge}
                   file={sopFile}
                   isUploading={uploadingKind === "sop"}
-                  onSelect={(file) => saveReferenceFile("sop", file)}
+                  onSelect={saveSopFile}
                   onClear={() => clearReferenceFile("sop")}
                 />
               </div>
@@ -511,13 +689,12 @@ function ScriptWriterPageInner() {
           onClick={() => setPopupDismissed(true)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-zinc-900"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-hairline bg-surface text-center shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             {isGenerating ? (
               (() => {
-                const progress = getGenerationProgress(result);
-                const wordCount = result.trim() ? result.trim().split(/\s+/).length : 0;
+                const percent = getGenerationProgress(result);
                 return (
                   <div className="p-6 pt-5 text-left">
                     <div className="flex items-center justify-between gap-4">
@@ -527,11 +704,11 @@ function ScriptWriterPageInner() {
                           <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-primary/40" />
                         </span>
                         <div className="min-w-0">
-                          <h3 className="text-base font-semibold leading-tight text-slate-900 dark:text-white">
+                          <h3 className="text-base font-semibold leading-tight text-heading">
                             Generating your script
                           </h3>
-                          <p className="mt-0.5 text-xs leading-snug text-slate-400 dark:text-zinc-500">
-                            {progress.label}
+                          <p className="mt-0.5 text-xs leading-snug text-subtle">
+                            Usually takes under a minute
                           </p>
                         </div>
                       </div>
@@ -539,49 +716,26 @@ function ScriptWriterPageInner() {
                         type="button"
                         onClick={cancelGeneration}
                         aria-label="Cancel generation"
-                        className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                        className="shrink-0 rounded-full p-1.5 text-subtle transition-colors hover:bg-app hover:text-heading"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
 
-                    <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
-                      <div
-                        className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out"
-                        style={{ width: `${progress.percent}%` }}
+                    <div className="mt-5 rounded-xl bg-app px-4 py-8">
+                      <ProgressiveFluxLoader
+                        phases={SCRIPT_LOADING_PHASES}
+                        value={percent}
+                        className="gap-6"
+                        textClassName="text-lg sm:text-xl"
                       />
                     </div>
 
-                    <div className="relative mt-4">
-                      <div
-                        ref={modalStreamRef}
-                        className="max-h-64 min-h-[7rem] overflow-y-auto rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-700 dark:bg-zinc-800/60 dark:text-zinc-300"
-                      >
-                        {result ? (
-                          <p className="whitespace-pre-wrap">
-                            {result}
-                            <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-current align-middle" />
-                          </p>
-                        ) : (
-                          <div className="flex h-full items-center gap-2 text-slate-400 dark:text-zinc-500">
-                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-                            <span className="flex h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-5 rounded-t-xl bg-gradient-to-b from-slate-50 to-transparent dark:from-zinc-800/60" />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 rounded-b-xl bg-gradient-to-t from-slate-50 to-transparent dark:from-zinc-800/60" />
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs tabular-nums text-slate-400 dark:text-zinc-500">
-                        {wordCount > 0 ? `${wordCount} words written` : "Starting up…"}
-                      </span>
+                    <div className="mt-5 flex justify-center">
                       <button
                         type="button"
                         onClick={cancelGeneration}
-                        className="text-xs font-semibold text-slate-500 transition-colors hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        className="text-xs font-semibold text-subtle transition-colors hover:text-heading"
                       >
                         Cancel
                       </button>

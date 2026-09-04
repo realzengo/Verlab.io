@@ -183,9 +183,9 @@ export function VideoDownloader() {
   return (
     <div className="mx-auto flex w-full max-w-2xl min-h-[calc(100dvh-4.5rem)] flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24">
       <div className="relative text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-[3.5rem]">
-          <span className="text-heading">Video </span>
-          <span className="relative inline-block -skew-x-12 rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-3 py-0.5 align-middle">
+        <h1 className="flex flex-wrap items-baseline justify-center gap-1.5 text-[1.75rem] font-extrabold tracking-tight min-[400px]:gap-2 min-[400px]:text-4xl sm:text-[3.5rem]">
+          <span className="text-heading">Video</span>
+          <span className="relative inline-block -skew-x-12 rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-2.5 py-0.5 min-[400px]:px-3">
             <span className="inline-block skew-x-12 text-white">Downloader</span>
           </span>
         </h1>
@@ -289,21 +289,23 @@ export function VideoDownloader() {
               <p className="relative mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
             )}
 
-            <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2 sm:mt-9">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+            <div className="relative mt-6 flex flex-col items-center justify-center gap-1.5 sm:mt-9 sm:flex-row sm:flex-wrap sm:gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 sm:text-[11px]">
                 Supports
               </span>
-              {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
-                <span
-                  key={id}
-                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 py-1.5 pl-1.5 pr-3.5 text-xs font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10">
-                    <Image src={logo} alt="" width={13} height={13} className="h-3.5 w-3.5 object-contain" />
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
+                  <span
+                    key={id}
+                    className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/80 py-1 pl-1 pr-2 text-[10px] font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 sm:gap-1.5 sm:pr-2.5 sm:text-[11px]"
+                  >
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 sm:h-5 sm:w-5">
+                      <Image src={logo} alt="" width={10} height={10} className="h-2 w-2 object-contain sm:h-2.5 sm:w-2.5" />
+                    </span>
+                    {label}
                   </span>
-                  {label}
-                </span>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
