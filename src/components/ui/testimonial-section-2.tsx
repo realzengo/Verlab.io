@@ -1,7 +1,6 @@
 import { Play, Sparkle } from "lucide-react";
 import { APP_URL } from "@/lib/constants";
 import { Avatar } from "@/components/ui/Avatar";
-import { Reveal } from "@/components/ui/Reveal";
 import { cn } from "@/lib/utils";
 
 type CardSize = "sm" | "md" | "lg";
@@ -196,23 +195,23 @@ function TestimonialCard({ name, role, image, quote, size = "md" }: Testimonial)
 export default function Testimonial2() {
   return (
     <section className="relative w-full overflow-hidden bg-[#F8F9FC] py-20 sm:py-28">
-      <Reveal className="relative z-10 mx-auto max-w-2xl px-4 text-center">
+      <div className="relative z-10 mx-auto max-w-2xl px-4 text-center">
         <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
           What our users are saying
         </h2>
         <p className="mt-4 text-base leading-relaxed text-slate-500">
           Real results from creators and teams shipping content on Verlab every day.
         </p>
-      </Reveal>
+      </div>
 
       <div className="relative mt-14 sm:mt-16">
-        <Reveal delay={100} className="relative mx-auto h-[560px] w-full max-w-[1600px] overflow-hidden px-4 sm:h-[580px] sm:px-8 lg:h-[640px] lg:px-12 xl:px-16">
+        <div className="relative mx-auto h-[560px] w-full max-w-[1600px] overflow-hidden px-4 sm:h-[580px] sm:px-8 lg:h-[640px] lg:px-12 xl:px-16">
           <div className="[column-width:150px] [column-gap:1rem] sm:[column-width:280px]">
             {TESTIMONIALS.map((testimonial) => (
               <TestimonialCard key={testimonial.name} {...testimonial} />
             ))}
           </div>
-        </Reveal>
+        </div>
 
         <div
           aria-hidden

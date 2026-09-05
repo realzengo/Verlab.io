@@ -50,7 +50,7 @@ const GLOW_GRADIENT =
 
 const CONTAINER = "mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-20";
 
-export function Footer({ backgroundClassName = "bg-[#F8F9FC]" }: { backgroundClassName?: string } = {}) {
+export function Footer({ backgroundClassName = "bg-white" }: { backgroundClassName?: string } = {}) {
   return (
     <footer className={cn("relative w-full overflow-hidden", backgroundClassName)}>
       <nav className="flex w-full justify-center px-6 pt-[176px] sm:px-10 sm:pt-[192px] lg:px-20 lg:pt-[208px]">

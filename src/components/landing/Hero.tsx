@@ -124,8 +124,8 @@ export function Hero() {
         <div
           className={cn(
             "relative overflow-hidden rounded-lg bg-surface sm:rounded-[22px]",
-            "[mask-image:linear-gradient(to_bottom,black_0%,black_92%,transparent_100%)]",
-            "[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_92%,transparent_100%)]",
+            "[mask-image:none] sm:[mask-image:linear-gradient(to_bottom,black_0%,black_92%,transparent_100%)]",
+            "[-webkit-mask-image:none] sm:[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_92%,transparent_100%)]",
           )}
         >
           <video

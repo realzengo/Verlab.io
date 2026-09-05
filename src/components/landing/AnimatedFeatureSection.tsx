@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, type ReactNode } from "react";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
-import { Reveal } from "@/components/ui/Reveal";
 import { ArrowDown, ArrowRight, BadgeCheck, Check, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
@@ -32,7 +31,7 @@ function GlassCard({
           )}
           style={{
             boxShadow:
-              "inset 0 1px 1px rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.14), inset -1px 0 0 rgba(255,255,255,0.08), inset 0 -1px 1px rgba(0,0,0,0.25), 0 25px 65px -20px rgba(0,0,0,0.5)",
+              "inset 0 1px 1px rgba(255,255,255,0.55), inset 1px 0 0 rgba(255,255,255,0.14), inset -1px 0 0 rgba(255,255,255,0.08), inset 0 -1px 1px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(120,155,255,0.3), inset 0 -46px 60px -34px rgba(51,92,255,0.65), inset 0 40px 60px -40px rgba(51,92,255,0.35), 0 25px 65px -20px rgba(0,0,0,0.5), 0 0 36px -6px rgba(51,92,255,0.4)",
           }}
         >
           {children}
@@ -166,7 +165,7 @@ export function AnimatedFeatureSection() {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
 
   return (
-    <section className="relative mt-1 bg-[#F8F9FC] pb-2 md:mt-2">
+    <section className="relative mt-1 bg-white pb-10 sm:pb-44 md:mt-2">
       {/* Blends this section's off-white bg into the pure white section above
           it instead of a hard cut — hidden behind the card wherever the two
           overlap since it paints before that later, positioned sibling. */}
@@ -174,11 +173,11 @@ export function AnimatedFeatureSection() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-20 bg-gradient-to-b from-white to-transparent sm:h-28"
       />
-      <Reveal className="relative mx-auto max-w-[1600px] px-3 sm:px-6 md:px-12">
+      <div className="relative mx-auto max-w-[1600px] px-3 sm:px-6 md:px-12">
         <div
           ref={ref}
           data-inview={inView}
-          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-[28px] bg-[#010208] sm:h-[487px] sm:rounded-2xl"
+          className="anim-gate relative isolate h-[360px] w-full overflow-hidden rounded-[20px] bg-[#010208] sm:h-[487px] sm:rounded-[24px]"
         >
           {/* Background — z-0: near-black base + an animated starfield texture on top of it */}
           <div
@@ -211,7 +210,7 @@ export function AnimatedFeatureSection() {
               glow reads clearly, matching a card lit by blue light bleeding in from its edges. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 z-[15] rounded-[28px] sm:rounded-2xl"
+            className="pointer-events-none absolute inset-0 z-[15] rounded-[20px] sm:rounded-[24px]"
             style={{
               boxShadow:
                 "inset 0 0 0 1px rgba(120,155,255,0.35), inset 0 -110px 140px -50px rgba(51,92,255,0.95), inset 0 90px 120px -60px rgba(51,92,255,0.4), inset -90px 0 140px -60px rgba(51,92,255,0.6), inset 90px 0 140px -60px rgba(51,92,255,0.6)",
@@ -338,7 +337,7 @@ export function AnimatedFeatureSection() {
             </GlassCard>
           </div>
         </div>
-      </Reveal>
+      </div>
     </section>
   );
 }

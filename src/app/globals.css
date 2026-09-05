@@ -1078,17 +1078,6 @@ body {
   .animate-testimonial-marquee-reverse {
     animation: testimonial-marquee 40s linear infinite reverse;
   }
-
-  /* ToolsMarqueeSection scrolls via JS (drag + autoplay) rather than a CSS
-     transform, so the native scrollbar is hidden but the element stays
-     scrollable by wheel/touch/trackpad and programmatic scrollLeft. */
-  .no-scrollbar {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 /* Freezes every CSS animation inside an `.anim-gate` block while its
@@ -1099,21 +1088,6 @@ body {
 .anim-gate[data-inview="false"] *::before,
 .anim-gate[data-inview="false"] *::after {
   animation-play-state: paused;
-}
-
-/* Scroll reveal — fades/rises landing content into place as it crosses into
-   the viewport (see <Reveal>, src/components/ui/Reveal.tsx). Under
-   prefers-reduced-motion this block is skipped entirely, so [data-inview]
-   is inert and content simply renders in its resting state right away. */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal {
-    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: opacity, transform;
-  }
-  .reveal[data-inview="false"] {
-    opacity: 0;
-    transform: translateY(28px);
-  }
 }
 
 /* Freezes every CSS animation on the page while actively scrolling (flag

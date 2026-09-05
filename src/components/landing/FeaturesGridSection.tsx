@@ -2,32 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Images,
-  LayoutTemplate,
-  PenSquare,
-  Wand2,
-} from "lucide-react";
+import { useEffect, useRef, type ComponentType, type SVGProps } from "react";
+import { ArrowRight, CheckCircle2, Wrench } from "lucide-react";
 import { ClaudeIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
-import { Reveal } from "@/components/ui/Reveal";
-import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
-import { TOOL_TONE_CLASSES } from "@/lib/tone";
-import type { ToolTone } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
-
-const MCP_USE_CASES: { label: string; icon: LucideIcon; tone: ToolTone }[] = [
-  { label: "Hook Swap", icon: Wand2, tone: "blue" },
-  { label: "Format Match", icon: LayoutTemplate, tone: "violet" },
-  { label: "Script Bend", icon: PenSquare, tone: "rose" },
-  { label: "Thumbnail Remix", icon: Images, tone: "orange" },
-];
 
 interface HeroTool {
   title: string;
@@ -46,11 +26,11 @@ const HERO_TOOLS: HeroTool[] = [
     poster: "/videos/video-generator-marquee-poster.jpg",
   },
   {
-    title: "Downloader",
-    description: "Download TikTok, Reels, and Shorts, watermark-free.",
-    href: `${APP_URL}/downloads`,
-    video: "/videos/downloader-marquee.mp4",
-    poster: "/videos/downloader-marquee-poster.jpg",
+    title: "AI Voice Over",
+    description: "Generate lifelike voiceovers in dozens of languages.",
+    href: `${APP_URL}/voiceover-generator`,
+    video: "/videos/voiceover-marquee.mp4",
+    poster: "/videos/voiceover-marquee-poster.jpg",
   },
   {
     title: "AI Image Generator",
@@ -143,7 +123,7 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
   return (
     <Link
       href={href}
-      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card transition-all duration-200 sm:hover:-translate-y-0.5 sm:hover:shadow-card-hover"
+      className="group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-surface transition-all duration-200 sm:hover:-translate-y-0.5"
     >
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm bg-white">
@@ -205,223 +185,72 @@ function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconC
   );
 }
 
-/** Chat-reveal timeline, in ms per phase, driven by a single `phase` counter
- * that loops 0→8→0. Kept as JS state (rather than the file's usual infinite
- * CSS % keyframe) because the sequence needs a real cross-fade (typing dots
- * morphing into Claude's reply) and spring physics on each beat — much
- * easier to get right with framer-motion than hand-tuned keyframe percents.
- * Every block stays mounted for the whole cycle and is driven by opacity /
- * transform only, so the card's height never changes and it can't jostle
- * the grid row it shares with the tool-logo cards next to it. */
-const MCP_PHASE_DURATIONS = [400, 650, 950, 750, 1650, 400, 750, 1900, 450] as const;
-
-const SPRING_SNAPPY = { type: "spring", stiffness: 420, damping: 28 } as const;
-
-function TypingDots() {
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="h-1 w-1 rounded-full bg-slate-400"
-          animate={{ y: [0, -3, 0], opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut", delay: i * 0.15 }}
-        />
-      ))}
-    </span>
-  );
-}
+const NICHE_STATS = ["8.7 score", "Low competition", "2.4M avg views"];
 
 function McpDemoCard() {
-  const { ref, inView } = useAnimationGate<HTMLAnchorElement>();
-  const [phase, setPhase] = useState(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const id = setTimeout(
-      () => setPhase((p) => (p + 1) % MCP_PHASE_DURATIONS.length),
-      MCP_PHASE_DURATIONS[phase]
-    );
-    return () => clearTimeout(id);
-  }, [phase, inView]);
-
-  const fading = phase === 0 || phase === 8;
-  const userIn = phase >= 1;
-  const typing = phase === 2;
-  const replyIn = phase >= 3;
-  const resultsIn = phase >= 4;
-  const analyzing = phase >= 4 && phase < 5;
-  const done = phase >= 5;
-  const tilesIn = phase >= 6;
-
   return (
     <Link
-      ref={ref}
-      data-inview={inView}
       href={`${APP_URL}/mcp`}
-      className="anim-gate group relative flex h-full min-h-[260px] flex-col overflow-hidden rounded-2xl border border-hairline bg-white sm:min-h-[300px]"
+      className="group relative flex h-full min-h-[132px] flex-col overflow-hidden rounded-3xl border border-hairline bg-white transition-all duration-200 sm:hover:-translate-y-0.5"
     >
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-3.5">
-        <span className="text-sm font-bold text-heading sm:text-base">Verlab MCP</span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white py-1 pl-3 pr-1 text-[10px] font-semibold text-slate-900 shadow-sm transition-transform duration-200 group-hover:translate-x-0.5 sm:text-xs">
-          Try now
-          <span className="grid h-4 w-4 place-items-center rounded-full bg-blue-500 text-white sm:h-5 sm:w-5">
-            <ArrowRight className="h-2.5 w-2.5" />
-          </span>
+      <div className="flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-5">
+        <span className="inline-flex items-center gap-1.5 text-sm font-bold text-heading">
+          <ClaudeIcon className="h-4 w-4 shrink-0 rounded-[4px]" />
+          Claude
         </span>
-      </div>
-
-      <div className="flex items-center justify-between px-4 pt-2.5 text-[9px] font-medium text-slate-500 sm:px-5 sm:text-[11px]">
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-[10px] font-semibold text-subtle">
           <span className="relative flex h-1.5 w-1.5 shrink-0">
             <span className="absolute inset-0 animate-ping rounded-full bg-blue-500/60" />
             <span className="relative h-1.5 w-1.5 rounded-full bg-blue-500" />
           </span>
-          Verlab connected
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <ClaudeIcon className="h-2.5 w-2.5 shrink-0" />
-          Powered by Claude
+          Verlab MCP
         </span>
       </div>
 
-      <motion.div
-        className="flex flex-1 flex-col justify-center gap-2 px-4 pb-4 pt-3 sm:px-5"
-        animate={{ opacity: fading ? 0 : 1 }}
-        transition={{ duration: phase === 1 ? 0.5 : 0.4, ease: "easeInOut" }}
-      >
-        <motion.div
-          className="flex justify-end"
-          animate={{ opacity: userIn ? 1 : 0, y: userIn ? 0 : 8, scale: userIn ? 1 : 0.92 }}
-          transition={SPRING_SNAPPY}
-        >
-          <span className="inline-block max-w-[85%] truncate rounded-2xl rounded-br-md bg-blue-500 px-4 py-1.5 text-[9px] font-semibold text-white shadow-sm sm:text-[11px]">
-            Show me what Verlab MCP can do
+      <div className="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5">
+        <div className="flex justify-end">
+          <span className="max-w-[88%] rounded-2xl rounded-br-md bg-heading px-3.5 py-2 text-[12.5px] font-medium leading-snug text-white sm:text-[13px]">
+            Find me a trending faceless niche in fitness
           </span>
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="flex items-start gap-1.5"
-          animate={{ opacity: typing || replyIn ? 1 : 0, y: typing || replyIn ? 0 : 8 }}
-          transition={SPRING_SNAPPY}
-        >
-          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-orange-100 bg-[#FAF0EC] sm:h-5 sm:w-5">
-            <ClaudeIcon className="h-2 w-2 shrink-0 sm:h-2.5 sm:w-2.5" />
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-100 bg-[#FAF0EC]">
+            <ClaudeIcon className="h-3.5 w-3.5 shrink-0" />
           </span>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <div className="relative flex h-6 w-fit items-center overflow-hidden rounded-2xl rounded-bl-md bg-slate-100 px-3 sm:h-7">
-              <AnimatePresence mode="wait" initial={false}>
-                {typing ? (
-                  <motion.span
-                    key="typing"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    <TypingDots />
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="reply"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="whitespace-nowrap text-[9px] font-medium text-slate-700 sm:text-[11px]"
-                  >
-                    Bending your niche with <span className="font-mono text-slate-500">bend_niche</span>&hellip;
-                  </motion.span>
-                )}
-              </AnimatePresence>
+          <div className="flex min-w-0 flex-col gap-2">
+            <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-hairline bg-app px-2.5 py-1.5 text-[11px] font-medium text-subtle">
+              <Wrench className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+              <span className="font-mono text-[10.5px] text-slate-600">verlab.find_niche</span>
+              <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
+            </span>
+            <p className="text-[12.5px] leading-relaxed text-body sm:text-[13px]">
+              Found a strong opportunity: <span className="font-semibold text-heading">AI home workouts</span> — low
+              competition, rising search volume.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {NICHE_STATS.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-hairline bg-app px-2 py-0.5 text-[10px] font-medium text-subtle"
+                >
+                  {label}
+                </span>
+              ))}
             </div>
-
-            <motion.div
-              className="relative overflow-hidden rounded-lg border border-slate-100 bg-slate-50 p-2.5"
-              animate={{ opacity: resultsIn ? 1 : 0, y: resultsIn ? 0 : 6, scale: resultsIn ? 1 : 0.97 }}
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
-            >
-              <div className="flex items-center justify-between text-[8px] font-medium text-slate-400 sm:text-[10px]">
-                <span className="inline-flex min-w-0 items-center gap-1 truncate">
-                  <span className="h-1 w-1 shrink-0 rounded-full bg-blue-500" />
-                  <span className="truncate">
-                    Verlab <span className="font-mono text-slate-500">bend_niche</span> Top use cases
-                  </span>
-                </span>
-                <span className="relative inline-flex h-3.5 shrink-0 items-center">
-                  <AnimatePresence mode="wait" initial={false}>
-                    {!done ? (
-                      <motion.span
-                        key="analyzing"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="whitespace-nowrap"
-                      >
-                        Analyzing&hellip;
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        key="done"
-                        initial={{ opacity: 0, scale: 0.6 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                        className="inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-emerald-600"
-                      >
-                        <CheckCircle2 className="h-2.5 w-2.5" strokeWidth={2.5} />
-                        Done
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </span>
-              </div>
-
-              <div className="relative mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-200">
-                <motion.div
-                  className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-blue-500"
-                  animate={{ scaleX: resultsIn ? 1 : 0 }}
-                  transition={{ duration: resultsIn ? 1.5 : 0, ease: [0.16, 1, 0.3, 1] }}
-                />
-                <AnimatePresence>
-                  {analyzing && (
-                    <motion.span
-                      key="shine"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="animate-shimmer-sweep absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent"
-                    />
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="mt-2.5 grid grid-cols-4 gap-1.5 sm:gap-2">
-                {MCP_USE_CASES.map(({ label, icon: Icon, tone }, i) => (
-                  <motion.div
-                    key={label}
-                    className="flex flex-col items-center gap-1 rounded-md bg-white p-1.5 text-center shadow-sm sm:p-2"
-                    animate={{ opacity: tilesIn ? 1 : 0, y: tilesIn ? 0 : 8, scale: tilesIn ? 1 : 0.85 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 24, delay: tilesIn ? i * 0.08 : 0 }}
-                  >
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 items-center justify-center rounded-md sm:h-6 sm:w-6",
-                        TOOL_TONE_CLASSES[tone]
-                      )}
-                    >
-                      <Icon className="h-3 w-3" strokeWidth={2} />
-                    </span>
-                    <span className="w-full truncate text-[7px] font-medium text-slate-600 sm:text-[8px]">
-                      {label}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-hairline px-4 py-3 sm:px-5">
+        <div>
+          <span className="block text-sm font-bold text-heading">Verlab MCP</span>
+          <span className="block text-xs text-subtle">Bend any niche with Claude</span>
+        </div>
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-500 text-white transition-transform duration-200 group-hover:translate-x-0.5">
+          <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
     </Link>
   );
 }
@@ -430,14 +259,14 @@ export function FeaturesGridSection() {
   return (
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
       <div className="mx-auto max-w-[1600px] px-6 md:px-12">
-        <Reveal className="flex flex-col items-center text-center">
+        <div className="flex flex-col items-center text-center">
           <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Every AI tool, in one place.
           </h2>
           <p className="mt-4 max-w-xl text-base font-medium leading-snug text-slate-500 sm:mt-5 sm:text-lg">
             Generate videos, images, voiceovers, and scripts, all in one place.
           </p>
-        </Reveal>
+        </div>
 
         <div
           className={cn(
@@ -446,22 +275,20 @@ export function FeaturesGridSection() {
             "sm:mx-0 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0"
           )}
         >
-          {HERO_TOOLS.map((tool, i) => (
-            <Reveal key={tool.title} delay={i * 90} className="h-full w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
+          {HERO_TOOLS.map((tool) => (
+            <div key={tool.title} className="h-full w-[78%] shrink-0 snap-start sm:w-auto sm:shrink">
               <HeroToolCard {...tool} />
-            </Reveal>
+            </div>
           ))}
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <Reveal className="-mx-3 sm:mx-0 lg:col-span-2">
+          <div className="-mx-3 sm:mx-0 lg:col-span-2">
             <McpDemoCard />
-          </Reveal>
+          </div>
           <div className="-mx-3 grid grid-cols-2 gap-3 sm:mx-0 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
-            {TOOL_LOGOS.map((tool, i) => (
-              <Reveal key={tool.title} delay={i * 60}>
-                <ToolLogoCard {...tool} />
-              </Reveal>
+            {TOOL_LOGOS.map((tool) => (
+              <ToolLogoCard key={tool.title} {...tool} />
             ))}
           </div>
         </div>

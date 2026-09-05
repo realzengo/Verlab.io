@@ -2,7 +2,6 @@
 
 import { type ReactNode } from "react";
 import Image from "next/image";
-import { Reveal } from "@/components/ui/Reveal";
 import { APP_URL } from "@/lib/constants";
 
 const TRUST_AVATARS = [
@@ -153,30 +152,30 @@ function StepThreeCard() {
 
 export function VerlabProcess() {
   return (
-    <section className="w-full pb-14 pt-44 sm:pb-24 sm:pt-16">
+    <section className="w-full pb-14 pt-16 sm:pb-24 sm:pt-16">
       <div className="mx-auto max-w-[96rem] px-5 sm:px-6">
-        <Reveal className="text-center" instantOnMobile>
+        <div className="text-center">
           <h2 className="font-display text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-heading sm:text-3xl sm:leading-normal sm:tracking-tight md:text-5xl">
             Go Viral in 3 Simple Steps
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-[15px] font-normal leading-relaxed text-subtle sm:mt-4 sm:text-sm sm:leading-normal md:text-base">
             Discover viral ideas, extract what makes them work, and transform them into unique scripts tailored to your niche.
           </p>
-        </Reveal>
-
-        <div className="mt-8 grid grid-cols-1 items-stretch gap-10 sm:mt-10 sm:gap-12 md:grid-cols-3 md:gap-10 lg:gap-16">
-          <Reveal className="h-full" delay={0}>
-            <StepOneCard />
-          </Reveal>
-          <Reveal className="h-full" delay={120}>
-            <StepTwoCard />
-          </Reveal>
-          <Reveal className="h-full" delay={240}>
-            <StepThreeCard />
-          </Reveal>
         </div>
 
-        <Reveal className="mt-8 flex flex-col items-center text-center sm:mt-10" delay={360}>
+        <div className="mt-8 grid grid-cols-1 items-stretch gap-10 sm:mt-10 sm:gap-12 md:grid-cols-3 md:gap-10 lg:gap-16">
+          <div className="h-full">
+            <StepOneCard />
+          </div>
+          <div className="h-full">
+            <StepTwoCard />
+          </div>
+          <div className="h-full">
+            <StepThreeCard />
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col items-center text-center sm:mt-10">
           <a
             href={APP_URL}
             className="group relative isolate inline-flex items-center justify-center overflow-hidden rounded-2xl bg-[radial-gradient(220%_220%_at_28%_18%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] px-11 py-3.5 text-lg font-bold text-white shadow-[0_4px_0_0_#1a37c4,0_10px_24px_-8px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_0_0_#1a37c4,0_12px_28px_-8px_rgba(28,63,214,0.55),inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,0_4px_10px_-6px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100 sm:px-14 sm:py-4"
@@ -202,7 +201,7 @@ export function VerlabProcess() {
             ))}
           </div>
           <p className="mt-3 text-sm font-medium text-subtle">Trusted by 50k+ Creators</p>
-        </Reveal>
+        </div>
       </div>
     </section>
   );
