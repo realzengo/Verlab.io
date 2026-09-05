@@ -6,6 +6,7 @@ import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/c
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { isSafeFreeText } from "@/lib/validation";
+import { parseScriptOutput, splitIntoSegments, stripChangeSummary } from "@/lib/script-format";
 
 export const maxDuration = 300;
 
@@ -70,7 +71,25 @@ async function handlePOST(request: NextRequest): Promise<Response> {
     throw creditError;
   }
 
-  const systemPrompt = buildEditSystemPrompt(content);
+  // Same persisted reference material buildSystemPrompt used for the
+  // original draft (see script_reference_files: one SOP row, up to
+  // MAX_TRANSCRIPTS_PER_USER transcript rows) -- kept in the loop here so
+  // AI-driven edits stay in the creator's established voice instead of
+  // drifting toward generic phrasing. RLS scopes this to the caller's own
+  // rows, same as /api/script-references's GET.
+  const { data: referenceRows } = await supabase
+    .from("script_reference_files")
+    .select("kind, content");
+
+  const sop = referenceRows?.find((row) => row.kind === "sop")?.content?.trim() || "No SOP provided.";
+  const transcriptContents = (referenceRows ?? [])
+    .filter((row) => row.kind === "transcript")
+    .map((row) => row.content.trim())
+    .filter(Boolean);
+  const transcripts = transcriptContents.length > 0 ? transcriptContents.join("\n\n---\n\n") : "No transcripts provided.";
+
+  const segments = splitIntoSegments(parseScriptOutput(content).script);
+  const systemPrompt = buildEditSystemPrompt(content, segments, sop, transcripts);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -94,7 +113,14 @@ async function handlePOST(request: NextRequest): Promise<Response> {
           }
 
           if (fullText) {
-            await supabase.from("scripts").update({ content: fullText }).eq("id", scriptId).eq("user_id", user.id);
+            // Strip the trailing CHANGES: line before persisting -- it's
+            // chat-only commentary for the assistant bubble, not part of
+            // the script envelope the history list's raw "Copy" reads.
+            await supabase
+              .from("scripts")
+              .update({ content: stripChangeSummary(fullText) })
+              .eq("id", scriptId)
+              .eq("user_id", user.id);
           }
           controller.close();
           return;

@@ -76,6 +76,27 @@ export function parseScriptOutput(raw: string): ParsedScript {
   return { title, script, metrics };
 }
 
+// Pulls the "CHANGES: ..." line the edit-chat model appends after the
+// closing "---" of its envelope (see buildEditSystemPrompt) so the chat
+// panel can show the user exactly what was changed instead of a generic
+// "Updated your script." That trailing line falls outside the dash-delimited
+// chunk parseScriptOutput treats as the script body, so it's safe to extract
+// independently without disturbing the title/script/metrics parse above.
+export function extractChangeSummary(raw: string): string | null {
+  const match = raw.match(/CHANGES:\s*(.+)/i);
+  if (!match) return null;
+  return match[1].replace(/\*/g, "").trim() || null;
+}
+
+// Removes that trailing "CHANGES: ..." line before a model's raw edit-chat
+// output is persisted as a script's `content` -- the history list's "Copy"
+// action (and anything else reading the row's content directly, unparsed)
+// must only ever see the TITLE/SCRIPT/METRICS envelope, never this
+// internal chat-only commentary.
+export function stripChangeSummary(raw: string): string {
+  return raw.replace(/\n?CHANGES:[^\n]*\s*$/i, "").trimEnd();
+}
+
 // Re-serializes an edited script back into the same envelope so history
 // previews and future edit-chat passes keep parsing it correctly. Word
 // Count is always recomputed from the live script text (it drifts as the

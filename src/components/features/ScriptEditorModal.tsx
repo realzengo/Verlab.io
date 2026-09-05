@@ -28,6 +28,7 @@ import {
   buildScriptOutput,
   countWords,
   estimateDurationLabel,
+  extractChangeSummary,
   joinSegments,
   parseScriptOutput,
   splitIntoSegments,
@@ -238,7 +239,8 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
       setFullText(revised.script);
       if (revised.metrics.length > 0) setMetrics(revised.metrics);
 
-      setMessages((prev) => [...prev, { role: "assistant", content: "Updated your script." }]);
+      const changeSummary = extractChangeSummary(fullResponse);
+      setMessages((prev) => [...prev, { role: "assistant", content: changeSummary ?? "Updated your script." }]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
