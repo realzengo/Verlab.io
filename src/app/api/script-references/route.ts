@@ -165,16 +165,34 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
   }
 
   if (kind === "sop") {
-    // Only one SOP per user -- upsert against the partial unique index that
-    // enforces that, so a re-upload replaces rather than piles up.
-    const { data, error } = await supabase
+    // Only one SOP per user, enforced by a partial unique index (user_id
+    // where kind = 'sop'). Postgres can only match ON CONFLICT to a partial
+    // index if the same WHERE predicate is supplied, which PostgREST's
+    // upsert(onConflict: ...) has no way to express -- so look the row up
+    // and update/insert explicitly instead of upserting against it.
+    const { data: existing, error: lookupError } = await supabase
       .from("script_reference_files")
-      .upsert(
-        { user_id: user.id, kind, file_name: file.name, content },
-        { onConflict: "user_id,kind" }
-      )
       .select("id")
-      .single();
+      .eq("user_id", user.id)
+      .eq("kind", "sop")
+      .maybeSingle();
+
+    if (lookupError) {
+      return serverError("script-references PUT (sop lookup)", lookupError);
+    }
+
+    const { data, error } = existing
+      ? await supabase
+          .from("script_reference_files")
+          .update({ file_name: file.name, content })
+          .eq("id", existing.id)
+          .select("id")
+          .single()
+      : await supabase
+          .from("script_reference_files")
+          .insert({ user_id: user.id, kind, file_name: file.name, content })
+          .select("id")
+          .single();
 
     if (error) {
       return serverError("script-references PUT", error);
