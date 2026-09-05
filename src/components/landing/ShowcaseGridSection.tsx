@@ -8,11 +8,6 @@ import { APP_URL } from "@/lib/constants";
 interface ToolCardData {
   title: string;
   image?: string;
-  /** Crops the source screenshot to a shorter band instead of showing it in
-   * full -- used to trim off a baked-in label from the source asset that a
-   * card's own heading already makes redundant. */
-  cropAspect?: string;
-  cropPosition?: "top" | "bottom";
   footer?: ReactNode;
   /** Renders a looping video instead of a static screenshot. The clip's flat
    * gray backdrop is brightened to pure white here so it blends into this
@@ -22,20 +17,15 @@ interface ToolCardData {
 }
 
 const ROW_1: ToolCardData[] = [
-  { title: "Video Transcripts", image: "/tools/light/transcript.png" },
-  { title: "AI Image Generator", image: "/tools/light/image-generator.png" },
-  {
-    title: "AI Voice Over",
-    image: "/tools/light/voice-over.png",
-    cropAspect: "960 / 400",
-    cropPosition: "bottom",
-  },
+  { title: "Video Transcripts", image: "/tools/light/transcript.webp" },
+  { title: "AI Image Generator", image: "/tools/light/image-generator.webp" },
+  { title: "AI Voice Over", image: "/tools/light/voice-over.webp" },
 ];
 
 const ROW_2: ToolCardData[] = [
-  { title: "Download Any Video", image: "/tools/light/downloader.png" },
-  { title: "Niche Bend", image: "/tools/light/niche-bend.png" },
-  { title: "Niche Finder", image: "/tools/light/niche-finder.png" },
+  { title: "Download Any Video", image: "/tools/light/downloader.webp" },
+  { title: "Niche Bend", image: "/tools/light/niche-bend.webp" },
+  { title: "Niche Finder", image: "/tools/light/niche-finder.webp" },
 ];
 
 const ROW_3: ToolCardData[] = [
@@ -51,38 +41,60 @@ const ROW_3: ToolCardData[] = [
   },
 ];
 
-function ToolCard({ title, image, cropAspect, cropPosition = "top", footer, video, videoPoster }: ToolCardData) {
+function ToolCard({ title, image, footer, video, videoPoster }: ToolCardData) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-hairline bg-white p-5 sm:p-6">
-      <h3 className="text-lg font-bold tracking-tight text-heading sm:text-2xl">{title}</h3>
-      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4">
+    <div className="flex h-full flex-col rounded-[20px] border-[3px] border-[#EEF0F3] bg-white p-1 sm:rounded-[24px] sm:border-[4px]">
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[16px] p-5 sm:rounded-[20px] sm:p-6">
         <div
-          className="relative w-full"
-          style={{ aspectRatio: cropAspect ?? "16 / 10" }}
-        >
-          {video ? (
-            <video
-              src={video}
-              poster={videoPoster}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 h-full w-full object-contain"
-              style={{ filter: "brightness(1.15) contrast(1.03)" }}
-            />
-          ) : (
-            <Image
-              src={image!}
-              alt={title}
-              fill
-              sizes="(max-width: 768px) 90vw, 33vw"
-              className={cropAspect ? "object-cover" : "object-contain"}
-              style={cropAspect ? { objectPosition: cropPosition } : undefined}
-            />
-          )}
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, #f1f5f9 0%, white 22%), radial-gradient(circle 90px at 0% 30%, #f1f5f9 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, #f1f5f9 0%, transparent 100%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage: "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
+            backgroundSize: "6px 6px",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, black 0%, black 12%, transparent 28%), radial-gradient(circle 90px at 0% 30%, black 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, black 0%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to bottom, black 0%, black 12%, transparent 28%), radial-gradient(circle 90px at 0% 30%, black 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, black 0%, transparent 100%)",
+          }}
+        />
+        <h3 className="relative text-lg font-bold tracking-tight text-heading sm:text-2xl">{title}</h3>
+        <div className="relative mt-4 flex flex-1 flex-col items-center justify-center gap-4">
+          <div className="relative w-full" style={{ aspectRatio: "16 / 10" }}>
+            {video ? (
+              <video
+                src={video}
+                poster={videoPoster}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 h-full w-full object-contain"
+                style={{
+                  filter: "brightness(1.15) contrast(1.03)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
+                  maskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
+                }}
+              />
+            ) : (
+              <Image
+                src={image!}
+                alt={title}
+                fill
+                sizes="(max-width: 768px) 90vw, 33vw"
+                className="object-contain"
+              />
+            )}
+          </div>
+          {footer}
         </div>
-        {footer}
       </div>
     </div>
   );

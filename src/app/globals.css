@@ -7,6 +7,14 @@ html {
   scroll-padding-top: 96px;
 }
 
+/* Lenis drives scroll position itself on the landing page (see
+   SmoothScroll.tsx) -- letting the browser's native smooth-scroll fight it
+   over the same scroll produces visible stutter, so it's disabled whenever
+   Lenis is mounted. */
+html.lenis-active {
+  scroll-behavior: auto !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #111827;

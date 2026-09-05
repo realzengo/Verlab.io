@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { FAQ_ITEMS } from "@/lib/mock/faq";
 import type { FaqItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,8 @@ export function Faq({
     <section id="faq" className={cn("w-full", backgroundClassName)}>
       <div className="mx-auto w-full max-w-[88rem] px-4 py-14 sm:px-6 sm:py-[90px]">
         <div className="text-center">
-          <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
+          <VerifiedBadge label="FAQ" className="mb-5 sm:mb-6" />
+          <h2 className="font-display text-[32px] font-bold leading-[1.1] tracking-tight text-heading sm:text-3xl sm:leading-normal md:text-5xl">
             {heading === "Frequently asked questions" ? (
               <>
                 <span className="sm:hidden">

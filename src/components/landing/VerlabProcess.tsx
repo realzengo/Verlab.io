@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import Image from "next/image";
+import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { APP_URL } from "@/lib/constants";
 
 const TRUST_AVATARS = [
@@ -155,6 +156,7 @@ export function VerlabProcess() {
     <section className="w-full pb-14 pt-16 sm:pb-24 sm:pt-16">
       <div className="mx-auto max-w-[96rem] px-5 sm:px-6">
         <div className="text-center">
+          <VerifiedBadge label="How It Works" className="mb-5 sm:mb-6" />
           <h2 className="font-display text-[28px] font-bold leading-[1.15] tracking-[-0.015em] text-heading sm:text-3xl sm:leading-normal sm:tracking-tight md:text-5xl">
             Go Viral in 3 Simple Steps
           </h2>

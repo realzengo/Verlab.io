@@ -165,7 +165,7 @@ export function AnimatedFeatureSection() {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
 
   return (
-    <section className="relative mt-1 bg-white pb-10 sm:pb-44 md:mt-2">
+    <section className="relative mt-1 bg-white pb-10 sm:pb-16 md:mt-2">
       {/* Blends this section's off-white bg into the pure white section above
           it instead of a hard cut — hidden behind the card wherever the two
           overlap since it paints before that later, positioned sibling. */}

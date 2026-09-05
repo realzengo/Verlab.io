@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, type ComponentType, type SVGProps } from "react";
-import { ArrowRight, CheckCircle2, Wrench } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, CheckCircle2, Loader2, Wrench } from "lucide-react";
 import { ClaudeIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
+import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 
@@ -185,13 +187,85 @@ function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconC
   );
 }
 
-const NICHE_STATS = ["8.7 score", "Low competition", "2.4M avg views"];
+interface McpScenario {
+  prompt: string;
+  tool: string;
+  resultPrefix: string;
+  resultHighlight: string;
+  resultSuffix: string;
+  stats: string[];
+}
+
+const MCP_SCENARIOS: McpScenario[] = [
+  {
+    prompt: "Find me a trending faceless niche in fitness",
+    tool: "verlab.find_niche",
+    resultPrefix: "Found a strong opportunity: ",
+    resultHighlight: "AI home workouts",
+    resultSuffix: " — low competition, rising search volume.",
+    stats: ["8.7 score", "Low competition", "2.4M avg views"],
+  },
+  {
+    prompt: "Write a 60 second script about a viral cooking hack",
+    tool: "verlab.generate_script",
+    resultPrefix: "Script is ready: ",
+    resultHighlight: "cooking-hack.txt",
+    resultSuffix: " — hook-driven, ready to record.",
+    stats: ["60s", "Hook-driven", "3 scenes"],
+  },
+  {
+    prompt: "Break down @mrbeast's content strategy for me",
+    tool: "verlab.analyze_creator",
+    resultPrefix: "Analysis is ready: ",
+    resultHighlight: "24 videos",
+    resultSuffix: " breaking down what makes them work.",
+    stats: ["Full report", "24 videos", "Top hooks"],
+  },
+  {
+    prompt: "Download this Reel with no watermark",
+    tool: "verlab.download_video",
+    resultPrefix: "Video is ready: ",
+    resultHighlight: "reel-download.mp4",
+    resultSuffix: " in full 1080p quality.",
+    stats: ["1080p", "No watermark", "Ready to post"],
+  },
+];
+
+const MCP_STEP_DURATION_MS = 5200;
+const MCP_EASE = [0.16, 1, 0.3, 1] as const;
+
+type McpStage = "typing" | "running" | "done";
 
 function McpDemoCard() {
+  const [index, setIndex] = useState(0);
+  const [stage, setStage] = useState<McpStage>("typing");
+  const [stageResetIndex, setStageResetIndex] = useState(index);
+
+  if (index !== stageResetIndex) {
+    setStageResetIndex(index);
+    setStage("typing");
+  }
+
+  useEffect(() => {
+    const toRunning = setTimeout(() => setStage("running"), 700);
+    const toDone = setTimeout(() => setStage("done"), 2200);
+    const toNext = setTimeout(() => setIndex((i) => (i + 1) % MCP_SCENARIOS.length), MCP_STEP_DURATION_MS);
+
+    return () => {
+      clearTimeout(toRunning);
+      clearTimeout(toDone);
+      clearTimeout(toNext);
+    };
+  }, [index]);
+
+  const scenario = MCP_SCENARIOS[index];
+  const showTool = stage === "running" || stage === "done";
+  const isDone = stage === "done";
+
   return (
     <Link
       href={`${APP_URL}/mcp`}
-      className="group relative flex h-full min-h-[132px] flex-col overflow-hidden rounded-3xl border border-hairline bg-white transition-all duration-200 sm:hover:-translate-y-0.5"
+      className="group relative flex h-[320px] flex-col overflow-hidden rounded-3xl border border-hairline bg-white transition-all duration-200 sm:h-[310px] sm:hover:-translate-y-0.5"
     >
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-5">
         <span className="inline-flex items-center gap-1.5 text-sm font-bold text-heading">
@@ -208,38 +282,90 @@ function McpDemoCard() {
       </div>
 
       <div className="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex justify-end">
-          <span className="max-w-[88%] rounded-2xl rounded-br-md bg-heading px-3.5 py-2 text-[12.5px] font-medium leading-snug text-white sm:text-[13px]">
-            Find me a trending faceless niche in fitness
-          </span>
-        </div>
-
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-100 bg-[#FAF0EC]">
-            <ClaudeIcon className="h-3.5 w-3.5 shrink-0" />
-          </span>
-          <div className="flex min-w-0 flex-col gap-2">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-hairline bg-app px-2.5 py-1.5 text-[11px] font-medium text-subtle">
-              <Wrench className="h-3 w-3 shrink-0" strokeWidth={2.25} />
-              <span className="font-mono text-[10.5px] text-slate-600">verlab.find_niche</span>
-              <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
-            </span>
-            <p className="text-[12.5px] leading-relaxed text-body sm:text-[13px]">
-              Found a strong opportunity: <span className="font-semibold text-heading">AI home workouts</span> — low
-              competition, rising search volume.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {NICHE_STATS.map((label) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-hairline bg-app px-2 py-0.5 text-[10px] font-medium text-subtle"
-                >
-                  {label}
-                </span>
-              ))}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={index}
+            layout
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.4, ease: MCP_EASE }}
+            className="flex flex-col gap-3"
+          >
+            <div className="flex justify-end">
+              <motion.span
+                layout
+                className="max-w-[88%] rounded-2xl rounded-br-md bg-heading px-3.5 py-2 text-[12.5px] font-medium leading-snug text-white sm:text-[13px]"
+              >
+                {scenario.prompt}
+                {stage === "typing" && (
+                  <motion.span
+                    aria-hidden
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse" }}
+                    className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-white align-middle"
+                  />
+                )}
+              </motion.span>
             </div>
-          </div>
-        </div>
+
+            <AnimatePresence>
+              {showTool && (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: MCP_EASE }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-100 bg-[#FAF0EC]">
+                    <ClaudeIcon className="h-3.5 w-3.5 shrink-0" />
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-hairline bg-app px-2.5 py-1.5 text-[11px] font-medium text-subtle">
+                      <Wrench className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+                      <span className="font-mono text-[10.5px] text-slate-600">{scenario.tool}</span>
+                      {isDone ? (
+                        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
+                      ) : (
+                        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-blue-500" strokeWidth={2.5} />
+                      )}
+                    </span>
+
+                    <AnimatePresence>
+                      {isDone && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.35, ease: MCP_EASE }}
+                          className="flex min-w-0 flex-col gap-2"
+                        >
+                          <p className="text-[12.5px] leading-relaxed text-body sm:text-[13px]">
+                            {scenario.resultPrefix}
+                            <span className="font-semibold text-heading">{scenario.resultHighlight}</span>
+                            {scenario.resultSuffix}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {scenario.stats.map((label) => (
+                              <span
+                                key={label}
+                                className="rounded-full border border-hairline bg-app px-2 py-0.5 text-[10px] font-medium text-subtle"
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <div className="flex items-center justify-between border-t border-hairline px-4 py-3 sm:px-5">
@@ -260,6 +386,7 @@ export function FeaturesGridSection() {
     <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
       <div className="mx-auto max-w-[1600px] px-6 md:px-12">
         <div className="flex flex-col items-center text-center">
+          <VerifiedBadge label="AI Tools" className="mb-5 sm:mb-6" />
           <h2 className="font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl">
             Every AI tool, in one place.
           </h2>
