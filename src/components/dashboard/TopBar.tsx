@@ -7,9 +7,37 @@ import { Menu, Rocket } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
 import { UpgradeModal } from "@/components/pricing/UpgradeModal";
-import { PlasticButton } from "@/components/ui/plastic-button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+
+// Kept as the original glass-pill recipe (see plastic-button.tsx's git
+// history) rather than the shared PlasticButton's chunkier CTA look --
+// this one lives in the compact top bar, not as a page-level CTA.
+const UPGRADE_BUTTON_STYLES = `
+@keyframes upgrade-btn-sheen {
+  from { transform: translateX(-140%) skewX(-16deg); }
+  to   { transform: translateX(320%)  skewX(-16deg); }
+}
+.upgrade-btn-sheen { transform: translateX(-140%) skewX(-16deg); }
+.upgrade-btn:hover .upgrade-btn-sheen {
+  animation: upgrade-btn-sheen 0.85s cubic-bezier(0.32, 0, 0.24, 1);
+}
+.upgrade-btn::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border-radius: inherit;
+  opacity: 0;
+  mix-blend-mode: overlay;
+  background: radial-gradient(101.79% 101.79% at 65.61% 81.79%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%);
+  transition: opacity 0.3s ease-in-out;
+}
+.upgrade-btn:hover::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .upgrade-btn:hover .upgrade-btn-sheen { animation: none; }
+}
+`;
 
 function defaultHeading(pathname: string): string {
   const match = SIDEBAR_NAV.find((item) => pathname.startsWith(item.href) && item.href !== "/");
@@ -126,16 +154,48 @@ export function TopBar({
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {!isPaywalled && (
-          <PlasticButton
+          <button
+            type="button"
             onClick={() => setIsUpgradeOpen(true)}
-            className="h-9 px-3.5 font-semibold"
-            text={
-              <>
-                <Rocket className="h-3.5 w-3.5" fill="currentColor" />
-                <span className="hidden sm:inline-block">Upgrade</span>
-              </>
-            }
-          />
+            className="upgrade-btn relative isolate flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3.5 text-sm font-semibold text-white transition-transform duration-150 ease-out active:scale-[0.98]"
+            style={{
+              backgroundImage:
+                "radial-gradient(101.79% 101.79% at 65.61% 81.79%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%), radial-gradient(114.65% 114.65% at 9.73% 17.27%, #1e82e0 0%, #1c38ea 100%)",
+              backgroundBlendMode: "overlay, normal",
+              boxShadow: "inset -3px -3px 4px rgba(191,229,251,0.4), inset 4px 4px 4px rgba(19,26,228,0.1)",
+            }}
+          >
+            <style>{UPGRADE_BUTTON_STYLES}</style>
+
+            <span aria-hidden className="pointer-events-none absolute inset-0 z-20 blur-[1px]">
+              <span
+                className="absolute -left-px -top-px z-20 h-full w-full"
+                style={{
+                  opacity: 0.45,
+                  padding: 2,
+                  borderRadius: 9999,
+                  background: "linear-gradient(176.87deg, rgba(255,255,255,0.5) 8.56%, rgba(255,255,255,0) 85.04%)",
+                  WebkitMask: "linear-gradient(#fff, #fff) content-box, linear-gradient(#fff, #fff)",
+                  WebkitMaskComposite: "xor",
+                  mask: "linear-gradient(#fff, #fff) content-box, linear-gradient(#fff, #fff)",
+                  maskComposite: "exclude",
+                }}
+              />
+            </span>
+
+            <span
+              aria-hidden
+              className="upgrade-btn-sheen pointer-events-none absolute inset-y-0 left-0 z-10 w-1/3 blur-[5px]"
+              style={{
+                background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)",
+              }}
+            />
+
+            <span className="relative z-30 flex items-center gap-1.5">
+              <Rocket className="h-3.5 w-3.5" fill="currentColor" />
+              <span className="hidden sm:inline-block">Upgrade</span>
+            </span>
+          </button>
         )}
         <ProfileDropdown isPaywalled={isPaywalled} />
       </div>

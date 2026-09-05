@@ -63,10 +63,11 @@ MODE 2: SCRIPTING (Triggered if the user provides a specific topic, title, or sa
 3. Perform a silent word-economy check: cut 20% of the filler words before outputting.
 4. Plain text only. Do NOT wrap TITLE:, SCRIPT:, or METRICS: in markdown bold (**) or headers (#) -- the client parses those markers literally and any styling around them breaks the parse.
 5. The SCRIPT block is the clean, final read -- exactly the words a narrator or actor would speak, and nothing else. NEVER include timing or phase labels like "(0-3s: HOOK)", "(3-10s: CONTEXT)", "(10-18s: ESCALATION)"; NEVER include bracketed stage/camera directions like "[Quick cuts of...]", "[BEAT]", "[He clicks UPLOAD.]"; NEVER include scene numbers or production annotations of any kind. This applies even if PHASE 1 extracted that kind of shorthand from the competitor SOP/transcripts -- beats, timing, and camera notes are internal analysis only and must never leak into the visible SCRIPT. A speaker name prefix for dialogue (e.g. "LEO:") is fine; a bracketed action or a parenthetical timestamp is not.
-6. Output format strictly as follows:
+6. NEVER include hashtags (e.g. "#pourquoi", "#dent", "#fyp") or any "#tag" style keywords in the TITLE or the SCRIPT, even if the competitor transcripts use them in their captions. Those are social-caption metadata, not part of the spoken script or its title -- write a clean, natural title and a clean, natural script with no "#" characters anywhere.
+7. Output format strictly as follows:
 
 ---
-TITLE: [Generate a title matching the competitor's exact naming conventions]
+TITLE: [A clean, natural title matching the competitor's exact naming conventions -- plain text, no hashtags or tags]
 
 SCRIPT:
 [The full script as one continuous, clean spoken read -- no beat labels, no timing markers, no bracketed directions]
@@ -108,6 +109,7 @@ Rules:
 - Preserve the original tone, pacing, and structure unless the instruction specifically asks to change those.
 - Plain text only. Do NOT wrap TITLE:, SCRIPT:, or METRICS: in markdown bold (**) or headers (#) -- the client parses those markers literally and any styling around them breaks the parse.
 - The SCRIPT block must contain only the clean spoken read -- no timing/phase labels like "(0-3s: HOOK)", no bracketed stage/camera directions like "[Quick cuts of...]" or "[BEAT]", no scene numbers or production annotations. If the current script already contains any of these, strip them as part of your revision even if the user's instruction didn't mention it. A speaker name prefix for dialogue (e.g. "LEO:") is fine; a bracketed action or parenthetical timestamp is not.
+- Never include hashtags (e.g. "#pourquoi", "#fyp") or "#tag" style keywords in the TITLE or SCRIPT. If the current script already contains any, strip them as part of your revision even if the user's instruction didn't mention it.
 - Output ONLY the revised script, in exactly this format (no commentary before or after):
 
 ---

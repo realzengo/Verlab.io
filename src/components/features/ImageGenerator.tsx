@@ -1358,7 +1358,7 @@ export function ImageGenerator() {
                   onChange={(event) => setPrompt(event.target.value)}
                   placeholder="Describe the image you want to generate..."
                   maxLength={PROMPT_MAX}
-                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-bold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
+                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-normal text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
                 />
               </section>
 
@@ -1661,7 +1661,7 @@ export function ImageGenerator() {
                   text="Generate"
                   disabled={!canSubmit}
                   onClick={handleGenerate}
-                  className="w-full py-3.5 shadow-lg"
+                  className="w-full py-3.5"
                   trailing={
                     <>
                       <Sparkles className="h-4 w-4" />
@@ -1728,11 +1728,11 @@ export function ImageGenerator() {
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the image you want to create..."
               maxLength={PROMPT_MAX}
-              className="min-h-[96px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+              className="min-h-[96px] w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
             />
 
-            <div className="-ml-3 mt-3 flex flex-nowrap items-center gap-2">
-              <div className="flex flex-nowrap items-center gap-1.5">
+            <div className="mt-3 flex flex-nowrap items-center gap-2">
+              <div className="-ml-3 flex flex-nowrap items-center gap-1.5">
                 <PillDropdown value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
                 <PillDropdown value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />
                 {QUALITY_LADDER_MODELS.has(selectedModel) && (
@@ -1829,7 +1829,7 @@ export function ImageGenerator() {
                 disabled={!canSubmit}
                 onClick={handleGenerate}
                 trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                className="ml-auto shrink-0 !rounded-2xl !px-5 !py-2.5 font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                className="ml-auto shrink-0 !px-5 !py-2.5 font-semibold"
               />
             </div>
               </div>

@@ -104,28 +104,21 @@ export default function ToolsPage() {
       </div>
 
       <div className="mt-6 w-full">
-        <div className="-m-6 overflow-x-auto p-6">
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:justify-start lg:gap-5",
-              collapsed ? "lg:grid-cols-[repeat(4,390px)]" : "lg:grid-cols-[repeat(3,410px)]"
-            )}
-          >
-            {TOOLS.map((tool, index) => (
-              <ToolGridCard
-                key={tool.title}
-                title={tool.title}
-                description={tool.description}
-                href={tool.href}
-                icon={tool.icon}
-                tone={tool.tone}
-                badge={tool.badge}
-                thumbnail={tool.thumbnail}
-                thumbnailDark={tool.thumbnailDark}
-                priority={index < 3}
-              />
-            ))}
-          </div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-4 sm:gap-5">
+          {TOOLS.map((tool, index) => (
+            <ToolGridCard
+              key={tool.title}
+              title={tool.title}
+              description={tool.description}
+              href={tool.href}
+              icon={tool.icon}
+              tone={tool.tone}
+              badge={tool.badge}
+              thumbnail={tool.thumbnail}
+              thumbnailDark={tool.thumbnailDark}
+              priority={index < 3}
+            />
+          ))}
         </div>
       </div>
     </div>

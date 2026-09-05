@@ -609,7 +609,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                 placeholder="Ask to edit your script…"
                 rows={1}
                 disabled={isSendingChat}
-                className="max-h-24 flex-1 resize-none bg-transparent text-sm font-bold text-heading outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:placeholder:text-zinc-500"
+                className="max-h-24 flex-1 resize-none bg-transparent text-sm font-normal text-heading outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:placeholder:text-zinc-500"
               />
               <button
                 type="button"

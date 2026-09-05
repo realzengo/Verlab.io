@@ -1236,7 +1236,7 @@ export function VideoGenerator() {
                           onChange={setEditPrompt}
                           images={editReferenceImages}
                           placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
-                          className="h-28 w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                          className="h-28 w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                         />
                       </div>
 
@@ -1255,7 +1255,7 @@ export function VideoGenerator() {
                           disabled={!canSubmitEdit}
                           onClick={handleGenerateEdit}
                           trailing={<CreditCost amount={estimatedEditCost} className="text-blue-200/80" />}
-                          className="ml-auto shrink-0 !rounded-full !px-6 !py-2.5 !text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                          className="ml-auto shrink-0 !px-6 !py-2.5 !text-sm font-semibold"
                         />
                       </div>
                     </div>
@@ -1377,7 +1377,7 @@ export function VideoGenerator() {
                               onChange={setPrompt}
                               images={referenceImages}
                               placeholder={referenceImages.length > 0 ? "Describe a new video... Type @ to insert a reference" : "Describe a new video..."}
-                              className="h-full w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                              className="h-full w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
                             />
                           </div>
                           {promptTooLong && (
@@ -1459,7 +1459,7 @@ export function VideoGenerator() {
                           disabled={!canSubmit}
                           onClick={handleGenerate}
                           trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                          className="mt-3 shrink-0 !rounded-full !px-6 !py-2.5 !text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+                          className="mt-3 shrink-0 !px-6 !py-2.5 !text-sm font-semibold"
                         />
                       </div>
                     </div>

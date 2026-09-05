@@ -665,7 +665,7 @@ function ScriptWriterPageInner() {
                 placeholder={PLACEHOLDER}
                 disabled={isGenerating}
                 maxLength={FREE_TEXT_MAX}
-                className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
+                className="h-full min-h-[150px] w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 disabled:opacity-60 dark:text-white dark:placeholder:text-zinc-500"
               />
             </div>
 

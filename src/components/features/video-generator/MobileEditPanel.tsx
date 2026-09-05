@@ -127,7 +127,7 @@ export function MobileEditPanel({
             onChange={(event) => onEditPromptChange(event.target.value)}
             placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
             rows={expanded ? 12 : 5}
-            className="w-full resize-none bg-transparent pr-6 text-sm font-bold leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+            className="w-full resize-none bg-transparent pr-6 text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
           />
           <button
             type="button"
@@ -316,7 +316,7 @@ export function MobileEditPanel({
           disabled={!canSubmit}
           onClick={onGenerate}
           trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-          className="!flex-1 !rounded-full !py-3 !text-sm font-semibold shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)]"
+          className="!flex-1 !py-3 !text-sm font-semibold"
         />
       </div>
     </div>
