@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsLeft, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
@@ -163,7 +163,7 @@ export function Sidebar({
             {collapsed && (
               <span
                 aria-hidden="true"
-                className="absolute left-0 top-0 flex h-10 w-10 scale-90 items-center justify-center rounded-xl border border-hairline bg-surface opacity-0 shadow-sm transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
+                className="absolute left-0 top-0 flex h-10 w-10 scale-90 items-center justify-center rounded-xl border border-hairline bg-surface opacity-0 transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
               >
                 <ChevronRight className="h-4 w-4 text-subtle transition-colors duration-200 ease-out group-hover:text-heading" />
               </span>
@@ -233,7 +233,7 @@ export function Sidebar({
             aria-label="Collapse sidebar"
             className="hidden h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-app hover:text-heading lg:flex"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronsLeft className="h-4 w-4" />
           </button>
         )}
       </div>
