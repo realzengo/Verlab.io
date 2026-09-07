@@ -3,7 +3,7 @@ import { McpSetupFlow } from "@/components/mcp/McpSetupFlow";
 
 export default function McpPage() {
   return (
-    <div className="w-full py-8">
+    <div className="w-full">
       <McpConnectSection compact />
 
       <div className="mt-6 sm:mt-8">

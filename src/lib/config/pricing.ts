@@ -336,6 +336,20 @@ export function getVoiceoverSegmentCost(characterCount: number): number {
   return creditsForCost((Math.max(1, characterCount) / 1000) * VOICEOVER_COST_PER_1K_CHARS_USD);
 }
 
+// ── Voice cloning (Replicate: minimax/voice-cloning) ────────────────────
+// Real invoiced cost (confirmed against a live Replicate run, 2026-09-07),
+// not an estimate -- $3.00 per clone. Deliberately does NOT go through
+// creditsForCost(): that helper bakes in this file's blanket 70% margin
+// (MIN_MARGIN above), but this price is set directly at a 50% markup on the
+// known real cost instead -- $3.00 * 1.5 = $4.50 -> $4.50 / CREDIT_VALUE_USD
+// = exactly 300 credits.
+const VOICE_CLONE_ACTUAL_COST_USD = 3.0;
+const VOICE_CLONE_MARKUP = 1.5; // 50% profit margin on top of actual cost
+
+export function getVoiceCloneCost(): number {
+  return Math.ceil((VOICE_CLONE_ACTUAL_COST_USD * VOICE_CLONE_MARKUP) / CREDIT_VALUE_USD);
+}
+
 // ── Subscription plans ──────────────────────────────────────────────────
 // NOTE: this is a credit-focused reference constant, distinct from the
 // existing `plan_definitions` DB table (supabase/migrations/20260716120012_

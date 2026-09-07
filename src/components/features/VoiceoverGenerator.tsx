@@ -23,6 +23,7 @@ import {
   SkipBack,
   SkipForward,
   Sparkles,
+  Trash2,
   Wand2,
   X,
 } from "lucide-react";
@@ -32,7 +33,8 @@ import { IconButton } from "@/components/ui/IconButton";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { HistoryPanel } from "@/components/features/voiceover-generator/HistoryPanel";
-import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
+import { AddVoiceModal, type VoiceCloneSummary } from "@/components/features/voiceover-generator/AddVoiceModal";
+import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_CLONING_ENABLED, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
 import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { exportSegmentsAsWav } from "@/lib/client/audio-export";
@@ -416,8 +418,7 @@ function Timeline({
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform active:scale-95 disabled:cursor-not-allowed"
         style={{
           background: "linear-gradient(to bottom, rgb(84, 132, 255), rgb(51, 92, 255))",
-          boxShadow:
-            "0 2px 10px 0 rgba(51,92,255,0.55), 0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
+          boxShadow: "0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
         }}
       >
         {isPlaying ? (
@@ -518,6 +519,13 @@ export function VoiceoverGenerator() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [voiceClones, setVoiceClones] = useState<VoiceCloneSummary[]>([]);
+  const [isAddVoiceModalOpen, setIsAddVoiceModalOpen] = useState(false);
+  const [previewingCloneId, setPreviewingCloneId] = useState<string | null>(null);
+  const [playingCloneId, setPlayingCloneId] = useState<string | null>(null);
+  const [deletingCloneId, setDeletingCloneId] = useState<string | null>(null);
+  const cloneAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const [view, setView] = useState<View>("input");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -566,7 +574,31 @@ export function VoiceoverGenerator() {
 
   const deepLinkId = useSearchParams().get("id");
 
+  useEffect(() => {
+    if (!VOICE_CLONING_ENABLED) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/voice-clones");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) setVoiceClones(data.voiceClones ?? []);
+      } catch {
+        // Non-fatal -- the fixed catalog still works without cloned voices.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const selectedVoice = getVoiceOption(voiceId) ?? VOICE_OPTIONS[0];
+  const selectedClone = voiceId.startsWith("clone:") ? voiceClones.find((clone) => `clone:${clone.id}` === voiceId) : undefined;
+
+  const filteredVoiceClones = useMemo(() => {
+    const query = voiceSearch.trim().toLowerCase();
+    return query ? voiceClones.filter((clone) => clone.name.toLowerCase().includes(query)) : voiceClones;
+  }, [voiceClones, voiceSearch]);
 
   const filteredVoices = useMemo(() => {
     return VOICE_OPTIONS.filter((voice) => {
@@ -624,6 +656,61 @@ export function VoiceoverGenerator() {
     } finally {
       setPreviewingVoiceId(null);
     }
+  }
+
+  // Cloned voices have no shared cached clip (see /api/voice-clones/[id]/preview's
+  // own comment) -- the endpoint streams fresh audio bytes back directly
+  // rather than a Storage URL, so this decodes a blob instead of setting
+  // `.src` to a JSON-returned link like playVoicePreview does.
+  async function playClonePreview(clone: VoiceCloneSummary) {
+    if (playingCloneId === clone.id) {
+      cloneAudioRef.current?.pause();
+      setPlayingCloneId(null);
+      return;
+    }
+    setPreviewingCloneId(clone.id);
+    setPreviewError(null);
+    try {
+      const response = await fetch(`/api/voice-clones/${clone.id}/preview`, { signal: AbortSignal.timeout(60_000) });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? `Could not load preview (${response.status})`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      if (cloneAudioRef.current) {
+        cloneAudioRef.current.src = url;
+        await cloneAudioRef.current.play();
+        setPlayingCloneId(clone.id);
+      }
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Could not load preview");
+    } finally {
+      setPreviewingCloneId(null);
+    }
+  }
+
+  async function deleteClone(clone: VoiceCloneSummary) {
+    setDeletingCloneId(clone.id);
+    try {
+      const response = await fetch(`/api/voice-clones/${clone.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not delete that voice");
+      }
+      setVoiceClones((prev) => prev.filter((c) => c.id !== clone.id));
+      if (voiceId === `clone:${clone.id}`) setVoiceId(DEFAULT_VOICE_ID);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Could not delete that voice");
+    } finally {
+      setDeletingCloneId(null);
+    }
+  }
+
+  function handleVoiceCloneCreated(clone: VoiceCloneSummary) {
+    setVoiceClones((prev) => [clone, ...prev]);
+    setVoiceId(`clone:${clone.id}`);
+    setIsVoiceDrawerOpen(false);
   }
 
   function pollGeneration(id: string) {
@@ -975,6 +1062,8 @@ export function VoiceoverGenerator() {
   return (
     <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
       <audio ref={previewAudioRef} className="hidden" onEnded={() => setPlayingPreviewId(null)} />
+      <audio ref={cloneAudioRef} className="hidden" onEnded={() => setPlayingCloneId(null)} />
+      <AddVoiceModal isOpen={isAddVoiceModalOpen} onClose={() => setIsAddVoiceModalOpen(false)} onCreated={handleVoiceCloneCreated} />
       <audio
         ref={audioRef}
         className="hidden"
@@ -1346,17 +1435,99 @@ export function VoiceoverGenerator() {
                   </p>
                 )}
 
-                <button
-                  type="button"
-                  disabled
-                  title="Coming soon"
-                  className="mx-4 mt-3.5 flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-subtle opacity-70"
-                >
-                  <Plus className="h-4 w-4" /> Add Your Voice
-                  <Badge>Coming soon</Badge>
-                </button>
+                {VOICE_CLONING_ENABLED ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddVoiceModalOpen(true)}
+                    className="mx-4 mt-3.5 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-body transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-primary"
+                  >
+                    <Plus className="h-4 w-4" /> Add Your Voice
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Voice cloning is temporarily locked"
+                    className="mx-4 mt-3.5 flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-subtle opacity-70"
+                  >
+                    <Plus className="h-4 w-4" /> Add Your Voice
+                    <Badge>Locked</Badge>
+                  </button>
+                )}
 
                 <div className="mt-3.5 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4 pt-1">
+                  {filteredVoiceClones.length > 0 && (
+                    <div className="space-y-2.5 pb-1">
+                      <p className="px-0.5 text-xs font-semibold uppercase tracking-wide text-subtle">Your Voices</p>
+                      {filteredVoiceClones.map((clone) => {
+                            const cloneVoiceId = `clone:${clone.id}`;
+                            const selected = cloneVoiceId === voiceId;
+                            return (
+                              <div
+                                key={clone.id}
+                                className={cn(
+                                  "group relative flex w-full items-center gap-3 rounded-2xl border p-3.5 transition-all duration-200",
+                                  selected
+                                    ? "border-primary/60 bg-gradient-to-b from-accent to-accent/40 shadow-[0_0_0_1px_var(--color-primary),0_10px_28px_-8px_rgba(51,92,255,0.4)] dark:from-primary/[0.12] dark:to-primary/[0.03]"
+                                    : "border-hairline bg-surface shadow-card hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-hover"
+                                )}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setVoiceId(cloneVoiceId);
+                                    setIsVoiceDrawerOpen(false);
+                                    previewAudioRef.current?.pause();
+                                    cloneAudioRef.current?.pause();
+                                    setPlayingPreviewId(null);
+                                    setPlayingCloneId(null);
+                                  }}
+                                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                >
+                                  <Avatar
+                                    name={clone.name}
+                                    size="md"
+                                    hideInitials
+                                    className={cn("shadow-sm ring-2", selected ? "ring-primary/25" : "ring-surface dark:ring-white/5")}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-heading">{clone.name}</p>
+                                    <p className="truncate text-xs text-subtle">Cloned from your audio</p>
+                                  </div>
+                                  {selected && (
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_6px_rgba(51,92,255,0.5)]">
+                                      <Check className="h-3 w-3" strokeWidth={3} />
+                                    </span>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => playClonePreview(clone)}
+                                  aria-label={playingCloneId === clone.id ? `Stop ${clone.name} preview` : `Preview ${clone.name}`}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-app text-subtle ring-1 ring-inset ring-black/[0.06] transition-colors hover:text-primary hover:ring-primary/30 dark:bg-white/5 dark:ring-white/10"
+                                >
+                                  {previewingCloneId === clone.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : playingCloneId === clone.id ? (
+                                    <Pause className="h-3.5 w-3.5" fill="currentColor" />
+                                  ) : (
+                                    <Play className="h-3.5 w-3.5" fill="currentColor" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteClone(clone)}
+                                  disabled={deletingCloneId === clone.id}
+                                  aria-label={`Delete ${clone.name}`}
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:text-danger disabled:opacity-50"
+                                >
+                                  {deletingCloneId === clone.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            );
+                          })}
+                    </div>
+                  )}
                   {filteredVoices.map((voice) => (
                     <VoiceCard
                       key={voice.id}
@@ -1438,14 +1609,18 @@ export function VoiceoverGenerator() {
                     onClick={() => setIsVoiceDrawerOpen(true)}
                     className="group/row mt-3 flex w-full items-center gap-3 rounded-xl border border-hairline bg-app/60 p-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50 dark:bg-white/[0.02]"
                   >
-                    <Avatar name={selectedVoice.id} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
+                    <Avatar name={selectedClone ? selectedClone.name : selectedVoice.id} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-1">
-                        <p className="truncate text-sm font-semibold text-heading">{selectedVoice.id}</p>
-                        <span className="text-subtle">·</span>
-                        <span className="truncate text-sm font-medium text-primary">{selectedVoice.gender}</span>
+                        <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : selectedVoice.id}</p>
+                        {!selectedClone && (
+                          <>
+                            <span className="text-subtle">·</span>
+                            <span className="truncate text-sm font-medium text-primary">{selectedVoice.gender}</span>
+                          </>
+                        )}
                       </div>
-                      <p className="truncate text-xs text-subtle">{selectedVoice.description}</p>
+                      <p className="truncate text-xs text-subtle">{selectedClone ? "Your cloned voice" : selectedVoice.description}</p>
                     </div>
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-transform duration-200 group-hover/row:translate-x-0.5">
                       <ChevronRight className="h-3.5 w-3.5" />

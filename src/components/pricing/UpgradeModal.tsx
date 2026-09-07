@@ -300,21 +300,22 @@ export function UpgradeModal({
 
               {planError && <p className="mt-4 text-center text-sm text-danger">{planError}</p>}
 
-              <div className="mx-auto mt-5 grid w-full max-w-6xl grid-cols-1 gap-4 sm:mt-10 sm:grid-cols-3 sm:gap-8">
+              <div className="mx-auto mt-5 grid w-full max-w-6xl grid-cols-1 gap-4 sm:mt-10 sm:gap-6 lg:grid-cols-3 lg:gap-8">
                 {plans.map((plan) => (
-                  <PricingCard
-                    key={plan.id}
-                    plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}
-                    frequency={frequency}
-                    onSelect={handleSelectPlan}
-                    // Only badge the card "Current Plan" when the toggle is
-                    // actually showing the cycle they're billed on -- a
-                    // monthly subscriber viewing the Annual toggle should see
-                    // Pro as a purchasable upgrade, not a mislabeled
-                    // "Current Plan" at a price they never agreed to.
-                    isCurrentPlan={plan.id === currentPlanId && frequency === (subscriptionPeriod ?? "monthly")}
-                    subscriptionStatus={subscriptionStatus}
-                  />
+                  <div key={plan.id} className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
+                    <PricingCard
+                      plan={{ ...plan, cta: checkingOutPlanId === plan.id ? "Starting checkout…" : plan.cta }}
+                      frequency={frequency}
+                      onSelect={handleSelectPlan}
+                      // Only badge the card "Current Plan" when the toggle is
+                      // actually showing the cycle they're billed on -- a
+                      // monthly subscriber viewing the Annual toggle should see
+                      // Pro as a purchasable upgrade, not a mislabeled
+                      // "Current Plan" at a price they never agreed to.
+                      isCurrentPlan={plan.id === currentPlanId && frequency === (subscriptionPeriod ?? "monthly")}
+                      subscriptionStatus={subscriptionStatus}
+                    />
+                  </div>
                 ))}
               </div>
             </>

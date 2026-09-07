@@ -75,13 +75,13 @@ export function McpSetupFlow() {
           </div>
         </div>
 
-        <div className="relative mt-12 grid grid-cols-1 gap-8 sm:mt-16 md:grid-cols-3">
+        <div className="relative mt-10 grid grid-cols-1 gap-6 sm:mt-14 sm:grid-cols-2 sm:gap-8 lg:mt-16 lg:grid-cols-3">
           <div
             aria-hidden
-            className="absolute inset-x-0 top-12 hidden h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent md:block"
+            className="absolute inset-x-0 top-12 hidden h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent lg:block"
           />
 
-          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 md:items-start md:text-left">
+          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 sm:items-start sm:text-left">
             <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-app bg-gradient-to-br from-[#5b82ff] to-primary text-base font-bold text-white shadow-blue">
               1
             </span>
@@ -106,7 +106,7 @@ export function McpSetupFlow() {
             </button>
           </div>
 
-          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 md:items-start md:text-left">
+          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 sm:items-start sm:text-left">
             <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-app bg-gradient-to-br from-[#5b82ff] to-primary text-base font-bold text-white shadow-blue">
               2
             </span>
@@ -129,7 +129,7 @@ export function McpSetupFlow() {
             </div>
           </div>
 
-          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 md:items-start md:text-left">
+          <div className="premium-hover-border flex flex-col items-center rounded-2xl border border-hairline bg-app p-6 text-center transition-transform duration-300 hover:-translate-y-1 sm:items-start sm:text-left">
             <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-4 border-app bg-gradient-to-br from-[#5b82ff] to-primary text-base font-bold text-white shadow-blue">
               3
             </span>

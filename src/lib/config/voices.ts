@@ -65,3 +65,12 @@ export function getVoiceOption(id: string): VoiceOption | undefined {
 // hears the exact same clip, so generating it per-voice (not per-user) is
 // correct, not a shortcut.
 export const VOICE_PREVIEW_TEXT = "Hi, this is a quick preview of how I sound. I hope you like it!";
+
+// Single kill switch for the "Add Your Voice" cloning feature (VoiceCloneModal
+// / AddVoiceModal, the voice-clones API routes, and the "Your Voices" list in
+// VoiceoverGenerator.tsx) -- flip to true once the voice_clones migration is
+// live and the flow has been re-verified end to end. Checked both
+// client-side (button stays disabled, no clone list fetched) and
+// server-side in POST /api/voice-clones (a disabled client can't be trusted
+// as the only gate).
+export const VOICE_CLONING_ENABLED = false;

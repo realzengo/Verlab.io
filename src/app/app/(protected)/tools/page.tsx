@@ -3,8 +3,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
-import { useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
-import { cn } from "@/lib/utils";
 
 // Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
 // `thumbnail` below to "/tools/<slug>.png" -- cards fall back to a tinted
@@ -85,15 +83,8 @@ const TOOLS: {
 ];
 
 export default function ToolsPage() {
-  const { collapsed } = useSidebarCollapsed();
-
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center gap-2 pt-2 lg:mx-auto",
-        collapsed ? "lg:max-w-[1620px]" : "lg:max-w-[1270px]"
-      )}
-    >
+    <div className="flex w-full flex-col items-center gap-2 pt-2">
       <div className="w-full text-left">
         <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
           Tools
@@ -104,7 +95,7 @@ export default function ToolsPage() {
       </div>
 
       <div className="mt-6 w-full">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-4 sm:gap-5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4 sm:gap-5">
           {TOOLS.map((tool, index) => (
             <ToolGridCard
               key={tool.title}

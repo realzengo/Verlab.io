@@ -1,10 +1,10 @@
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getVoiceOption, VOICE_OPTIONS } from "@/lib/config/voices";
 import { getLanguageOption } from "@/lib/config/languages";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { generateSpeechForVoice, isValidVoiceId } from "@/lib/server/voice-resolution";
 import { splitScript } from "@/lib/server/voiceover-segmentation";
 import { mapWithConcurrency } from "@/lib/server/concurrency";
 import { recordUsageEvent } from "@/lib/server/usage";
@@ -238,9 +238,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: `script must be ${MAX_SCRIPT_CHARS} characters or fewer` }, { status: 400 });
   }
 
-  const voice = voiceId ? getVoiceOption(voiceId) : undefined;
-  if (!voice) {
-    return NextResponse.json({ error: `voiceId must be one of: ${VOICE_OPTIONS.map((v) => v.id).join(", ")}` }, { status: 400 });
+  if (!voiceId || !(await isValidVoiceId(voiceId, user.id))) {
+    return NextResponse.json({ error: "voiceId must be a valid catalog voice or one of your cloned voices" }, { status: 400 });
   }
 
   if (!stylePrompt || !stylePrompt.trim()) {
@@ -280,7 +279,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       user_id: user.id,
       title: title?.trim() || "Untitled Script",
       script,
-      voice_id: voice.id,
+      voice_id: voiceId,
       generation_mode: generationMode,
       style_prompt: stylePrompt,
       language_code: languageCode,
@@ -315,7 +314,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       });
 
       const segments: VoiceoverSegment[] = await mapWithConcurrency(segmentTexts, SEGMENT_CONCURRENCY, async (text, index) => {
-        const speech = await generateSpeech({ text, voiceId: voice.id, stylePrompt, languageCode });
+        const speech = await generateSpeechForVoice({ text, voiceId, stylePrompt, languageCode, userId: user.id });
         const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
         const audioPath = `${user.id}/${row.id}/${index}.${extension}`;
 
@@ -329,7 +328,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       });
 
       try {
-        await chargeUser(user.id, cost, "Voiceover Generation", `voiceover.${voice.id}`);
+        await chargeUser(user.id, cost, "Voiceover Generation", `voiceover.${voiceId}`);
       } catch (creditError) {
         // Audio is already generated and stored -- a ledger failure here
         // shouldn't undo that, same posture as generate-image/route.ts.
@@ -337,7 +336,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
 
       await admin.from("voiceover_generations").update({ segments, status: "completed" }).eq("id", row.id);
-      void recordUsageEvent("voiceover", user.id, { voiceId: voice.id, generationMode, segments: segments.length });
+      void recordUsageEvent("voiceover", user.id, { voiceId, generationMode, segments: segments.length });
     } catch (error) {
       // The row never gets a `segments` array when the batch fails this way
       // (it stays the `[]` set at insert time), so any segment that did

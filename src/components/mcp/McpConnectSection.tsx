@@ -20,16 +20,16 @@ export function McpConnectSection({ className, compact = false }: { className?: 
 
   return (
     <section
-      className={cn("relative", compact ? "py-8 sm:py-12" : "pb-16 pt-20 sm:pb-24 sm:pt-32", className)}
+      className={cn("relative", compact ? "py-6 sm:py-10" : "pb-16 pt-20 sm:pb-24 sm:pt-32", className)}
     >
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-[9fr_11fr] lg:gap-16">
-        <div>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 sm:gap-10 lg:grid-cols-[9fr_11fr] lg:gap-16">
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1.5 dark:border-white/10 dark:bg-white/[0.06]">
             <ClaudeIcon className="h-4 w-4 rounded-[5px]" />
             <span className="text-xs font-semibold text-slate-900 sm:text-sm dark:text-white">Claude and ChatGPT</span>
           </div>
 
-          <h1 className="mt-5 text-[34px] font-black leading-[1.1] tracking-[-1.5px] text-slate-900 sm:mt-6 sm:text-[46px] sm:leading-[1.06] lg:text-[52px] dark:text-white">
+          <h1 className="mt-5 text-[32px] font-black leading-[1.15] tracking-[-1px] text-slate-900 sm:mt-6 sm:text-[40px] sm:leading-[1.08] sm:tracking-[-1.5px] md:text-[46px] lg:text-[52px] dark:text-white">
             Verlab now works
             <br />
             inside Claude and ChatGPT
@@ -58,7 +58,7 @@ export function McpConnectSection({ className, compact = false }: { className?: 
           </p>
         </div>
 
-        <VerlabClaudeChatDemo className="mx-auto w-full max-w-lg lg:max-w-none" />
+        <VerlabClaudeChatDemo className="w-full" />
       </div>
     </section>
   );

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { VoiceoverSegment } from "../../route";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { generateSpeech, estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
@@ -70,7 +71,13 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
   const existingSegments: VoiceoverSegment[] = Array.isArray(row.segments) ? row.segments : [];
 
   try {
-    const speech = await generateSpeech({ text, voiceId: row.voice_id, stylePrompt: row.style_prompt, languageCode: row.language_code });
+    const speech = await generateSpeechForVoice({
+      text,
+      voiceId: row.voice_id,
+      stylePrompt: row.style_prompt,
+      languageCode: row.language_code,
+      userId: user.id,
+    });
     const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
     const newPosition = existingSegments.length;
     const audioPath = `${user.id}/${row.id}/${newPosition}-${Date.now()}.${extension}`;
