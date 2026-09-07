@@ -117,7 +117,7 @@ export function Sidebar({
       className={cn(
         "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-[#FCFCFD] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[76px]" : "lg:w-64"
+        collapsed ? "lg:w-16" : "lg:w-64"
       )}
     >
       <div
@@ -239,7 +239,10 @@ export function Sidebar({
       </div>
 
       <nav
-        className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3"
+        className={cn(
+          "flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3",
+          collapsed && "lg:px-2"
+        )}
         onMouseLeave={syncIndicatorToActive}
       >
         {SIDEBAR_NAV.map((item) => {

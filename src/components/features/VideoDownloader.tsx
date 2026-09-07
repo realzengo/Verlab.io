@@ -297,7 +297,7 @@ export function VideoDownloader() {
                 {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
                   <span
                     key={id}
-                    className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/80 py-1 pl-1 pr-2 text-[10px] font-semibold text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 sm:gap-1.5 sm:pr-2.5 sm:text-[11px]"
+                    className="flex items-center gap-1 rounded-full bg-white/80 py-1 pl-1 pr-2 text-[10px] font-semibold text-slate-600 shadow-sm dark:bg-white/5 dark:text-zinc-300 sm:gap-1.5 sm:pr-2.5 sm:text-[11px]"
                   >
                     <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 sm:h-5 sm:w-5">
                       <Image src={logo} alt="" width={10} height={10} className="h-2 w-2 object-contain sm:h-2.5 sm:w-2.5" />

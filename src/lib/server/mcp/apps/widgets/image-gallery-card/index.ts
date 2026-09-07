@@ -93,8 +93,33 @@ const app = connectApp({
   onResult: (result) => render((result.structuredContent as ImageData | undefined) ?? null),
 });
 
+function filenameFor(url: string, index: number): string {
+  const fromUrl = url.split("/").pop()?.split(/[?#]/)[0];
+  return fromUrl && /\.[a-z0-9]{2,5}$/i.test(fromUrl) ? fromUrl : `verlab-image-${index + 1}.png`;
+}
+
+async function downloadImage(url: string, index: number) {
+  try {
+    // resource_link -- the host fetches the bytes itself, so this works
+    // for a same-origin/CORS-restricted image URL the widget can't fetch
+    // from inside its own sandboxed iframe.
+    const result = await app.downloadFile(
+      { contents: [{ type: "resource_link", uri: url, name: filenameFor(url, index), mimeType: "image/*" }] },
+      { timeout: 8000 }
+    );
+    if (result.isError) throw new Error("denied");
+  } catch {
+    // Host doesn't support (or denied) a mediated download -- opening the
+    // image is the next best thing so the button never dead-ends silently.
+    openLink(app, url);
+  }
+}
+
 root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
   if (!button) return;
-  openLink(app, images[Number(button.dataset.index)]);
+  const src = images[Number(button.dataset.index)];
+  if (!src) return;
+  if (button.dataset.action === "download") void downloadImage(src, Number(button.dataset.index));
+  else openLink(app, src);
 });

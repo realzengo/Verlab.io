@@ -133,6 +133,15 @@ const app = connectApp({
   onResult: (result) => render((result.structuredContent as TranscriptData | undefined) ?? null),
 });
 
+function closeExportPanel() {
+  if (!exportOpen) return;
+  exportOpen = false;
+  const panel = document.getElementById("export-panel") as HTMLElement | null;
+  const toggle = document.getElementById("export-toggle") as HTMLElement | null;
+  if (panel) panel.hidden = true;
+  toggle?.classList.remove("is-open");
+}
+
 function showExportStatus(message: string) {
   const el = document.getElementById("export-status") as HTMLElement | null;
   if (!el) return;
@@ -187,6 +196,21 @@ root.addEventListener("click", (event) => {
 
   const exportBtn = target.closest<HTMLButtonElement>("[data-export]");
   if (exportBtn) {
+    closeExportPanel();
     void exportTranscript(exportBtn.dataset.export as "srt" | "vtt" | "txt");
+    return;
   }
+
+  // Clicking anywhere else in the card (or the document, below) dismisses
+  // an open export panel -- otherwise it stays stuck open until the user
+  // happens to hit the toggle again.
+  if (exportOpen && !target.closest("#export-panel")) closeExportPanel();
+});
+
+document.addEventListener("click", (event) => {
+  if (exportOpen && !root.contains(event.target as Node)) closeExportPanel();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && exportOpen) closeExportPanel();
 });

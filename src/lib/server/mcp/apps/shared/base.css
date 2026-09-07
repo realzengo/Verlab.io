@@ -121,6 +121,22 @@
   box-sizing: border-box;
 }
 
+/* Every widget button starts from the browser's native button styling
+   (wrong font, a tap-highlight rectangle on touch, an inconsistent focus
+   ring per host) unless reset here once. :focus-visible (not :focus) so a
+   mouse/touch click stays silent and only real keyboard navigation shows
+   the ring -- matches .vf-input's own focus treatment below. */
+button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--border-accent);
+}
+
 html,
 body {
   margin: 0;
@@ -389,12 +405,16 @@ h3 {
   color: var(--text-muted);
   cursor: pointer;
   flex: none;
-  transition: background var(--v-ease), color var(--v-ease);
+  transition: background var(--v-ease), color var(--v-ease), transform var(--v-ease);
 }
 
 .v-icon-btn:hover {
   background: var(--surface-1);
   color: var(--text-primary);
+}
+
+.v-icon-btn:active {
+  transform: scale(0.92);
 }
 
 .v-icon-btn.is-done {
@@ -430,11 +450,15 @@ h3 {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .v-quick-pill:hover:not(:disabled) {
   background: var(--surface-1);
+}
+
+.v-quick-pill:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .v-quick-pill:disabled {

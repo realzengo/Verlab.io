@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Check } from "lucide-react";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
+import { OnlineCount } from "./OnlineCount";
 
 export const metadata: Metadata = {
   title: "Discord, Verlab AI",
@@ -51,7 +52,7 @@ export default function DiscordPage() {
               <p className="truncate text-base font-semibold text-heading">{GUILD_NAME}</p>
               <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-[10px] font-semibold text-success">
                 <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                {ONLINE_COUNT.toLocaleString()} online
+                <OnlineCount base={ONLINE_COUNT} /> online
               </span>
             </div>
             <p className="text-xs text-subtle">{MEMBER_COUNT.toLocaleString()} members</p>

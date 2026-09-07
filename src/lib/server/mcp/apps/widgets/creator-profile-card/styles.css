@@ -22,11 +22,15 @@
   color: inherit;
   cursor: pointer;
   border-radius: var(--radius);
-  transition: background var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .v-bench-row-link:hover {
   background: var(--surface-1);
+}
+
+.v-bench-row-link:active {
+  transform: scale(0.98);
 }
 
 .v-bench-label {

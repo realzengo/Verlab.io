@@ -100,11 +100,15 @@ input.vf-input {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--v-ease), color var(--v-ease);
+  transition: background var(--v-ease), color var(--v-ease), transform var(--v-ease);
 }
 
 .vf-pill:hover {
   background: var(--surface-1);
+}
+
+.vf-pill:active {
+  transform: scale(0.96);
 }
 
 .vf-pill.active {
@@ -335,11 +339,15 @@ input.vf-input {
 
 .vf-video-link {
   cursor: pointer;
-  transition: background var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .vf-video-link:hover {
   background: var(--surface-1);
+}
+
+.vf-video-link:active {
+  transform: scale(0.98);
 }
 
 .vf-video-cover,
@@ -410,9 +418,13 @@ input.vf-input {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .vf-restart:hover {
   background: var(--surface-1);
+}
+
+.vf-restart:active {
+  transform: scale(0.98);
 }

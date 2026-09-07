@@ -43,28 +43,8 @@ const ROW_3: ToolCardData[] = [
 
 function ToolCard({ title, image, footer, video, videoPoster }: ToolCardData) {
   return (
-    <div className="flex h-full flex-col rounded-[20px] border-[3px] border-[#EEF0F3] bg-white p-1 sm:rounded-[24px] sm:border-[4px]">
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[16px] p-5 sm:rounded-[20px] sm:p-6">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, #f1f5f9 0%, white 22%), radial-gradient(circle 90px at 0% 30%, #f1f5f9 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, #f1f5f9 0%, transparent 100%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-40"
-          style={{
-            backgroundImage: "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
-            backgroundSize: "6px 6px",
-            WebkitMaskImage:
-              "linear-gradient(to bottom, black 0%, black 12%, transparent 28%), radial-gradient(circle 90px at 0% 30%, black 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, black 0%, transparent 100%)",
-            maskImage:
-              "linear-gradient(to bottom, black 0%, black 12%, transparent 28%), radial-gradient(circle 90px at 0% 30%, black 0%, transparent 100%), radial-gradient(circle 90px at 100% 30%, black 0%, transparent 100%)",
-          }}
-        />
+    <div className="flex h-full flex-col rounded-[14px] border border-[#E4E7EC] bg-white p-1 sm:rounded-[16px] sm:border-[1.5px]">
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[10px] bg-white p-5 sm:rounded-[13px] sm:p-6">
         <h3 className="relative text-lg font-bold tracking-tight text-heading sm:text-2xl">{title}</h3>
         <div className="relative mt-4 flex flex-1 flex-col items-center justify-center gap-4">
           <div className="relative w-full" style={{ aspectRatio: "16 / 10" }}>
@@ -76,6 +56,8 @@ function ToolCard({ title, image, footer, video, videoPoster }: ToolCardData) {
                 loop
                 muted
                 playsInline
+                controlsList="nodownload noremoteplayback"
+                disablePictureInPicture
                 className="absolute inset-0 h-full w-full object-contain"
                 style={{
                   filter: "brightness(1.15) contrast(1.03)",

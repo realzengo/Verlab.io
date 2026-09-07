@@ -16,7 +16,7 @@ export function SidebarFooter({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="p-3">
+    <div className={cn("p-3", collapsed && "lg:px-2")}>
       {isAdmin && (
         <Link
           href="/admin"

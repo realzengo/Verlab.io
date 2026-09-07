@@ -2,20 +2,20 @@ import {
   Activity,
   BarChart3,
   Coins,
-  Compass,
   DollarSign,
   EyeOff,
-  Home,
   LayoutDashboard,
-  Library,
-  Plug,
   Settings,
   Wallet,
   Tag,
   Ticket,
   Users,
+  Home,
+  Library,
+  Telescope,
   Wand2,
-  Wrench,
+  Folder,
+  Key,
 } from "lucide-react";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
 import type { NavItem } from "@/lib/types";
@@ -23,10 +23,10 @@ import type { NavItem } from "@/lib/types";
 export const SIDEBAR_NAV: NavItem[] = [
   { label: "Home", href: "/", icon: Home },
   { label: "Library", href: "/library", icon: Library },
-  { label: "Niche Finder", href: "/niches", icon: Compass },
+  { label: "Niche Finder", href: "/niches", icon: Telescope },
   { label: "Niche Bending", href: "/bend", icon: Wand2 },
-  { label: "Tools", href: "/tools", icon: Wrench },
-  { label: "MCP", href: "/mcp", icon: Plug },
+  { label: "Tools", href: "/tools", icon: Folder },
+  { label: "MCP", href: "/mcp", icon: Key },
   { label: "Discord", href: "/discord", icon: DiscordIcon },
 ];
 

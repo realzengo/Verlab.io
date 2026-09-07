@@ -17,11 +17,15 @@
   font: inherit;
   color: inherit;
   text-align: left;
-  transition: background var(--v-ease);
+  transition: background var(--v-ease), transform var(--v-ease);
 }
 
 .v-video:hover {
   background: var(--surface-2);
+}
+
+.v-video:active {
+  transform: scale(0.98);
 }
 
 .v-video img,

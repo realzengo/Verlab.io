@@ -55,13 +55,17 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--v-ease), color var(--v-ease);
+  transition: background var(--v-ease), color var(--v-ease), transform var(--v-ease);
 }
 
 .v-export-toggle:hover,
 .v-export-toggle.is-open {
   background: var(--surface-1);
   color: var(--text-primary);
+}
+
+.v-export-toggle:active {
+  transform: scale(0.97);
 }
 
 .v-export-toggle svg {
