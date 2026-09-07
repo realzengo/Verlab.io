@@ -14,7 +14,7 @@ import {
   Library,
   Telescope,
   Wand2,
-  Folder,
+  Wrench,
   Key,
 } from "lucide-react";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
@@ -25,7 +25,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "Library", href: "/library", icon: Library },
   { label: "Niche Finder", href: "/niches", icon: Telescope },
   { label: "Niche Bending", href: "/bend", icon: Wand2 },
-  { label: "Tools", href: "/tools", icon: Folder },
+  { label: "Tools", href: "/tools", icon: Wrench },
   { label: "MCP", href: "/mcp", icon: Key },
   { label: "Discord", href: "/discord", icon: DiscordIcon },
 ];
