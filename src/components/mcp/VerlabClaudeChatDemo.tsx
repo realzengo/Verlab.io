@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Captions,
@@ -45,6 +46,7 @@ interface Scenario {
   resultMeta: string;
   icon: LucideIcon;
   tone: Tone;
+  resultImage?: string;
 }
 
 const SCENARIOS: Scenario[] = [
@@ -97,16 +99,18 @@ const SCENARIOS: Scenario[] = [
     resultMeta: "1080p",
     icon: Download,
     tone: "cat-1",
+    resultImage: "/videos/einstein-poster.jpg",
   },
   {
-    prompt: "Generate a thumbnail of a shocked man pointing at a chart.",
+    prompt: "Generate a thumbnail of a surprised cat for my shorts channel.",
     tool: "generate_image",
-    params: ["Shocked man", "1024×1024", "4 variations"],
+    params: ["Surprised cat", "1024×1024", "4 variations"],
     resultTitle: "Image is ready",
     resultFile: "thumbnail.png",
     resultMeta: "4 variations",
     icon: ImageIcon,
     tone: "cat-3",
+    resultImage: "/text2img-thumb-1.png",
   },
 ];
 
@@ -149,14 +153,32 @@ export function VerlabClaudeChatDemo({ className }: { className?: string }) {
   return (
     <div className={cn("relative", className)}>
       <div className="overflow-hidden rounded-[24px] border border-black/[0.06] bg-white sm:rounded-[28px] dark:border-white/[0.08] dark:bg-zinc-950">
-        <div className="flex items-center justify-between border-b border-black/[0.06] px-6 py-4 sm:px-10 dark:border-white/[0.08]">
-          <div className="flex items-center gap-1.5">
-            <ClaudeIcon className="h-4 w-4 rounded-[4px]" />
-            <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Claude</span>
+        <div className="flex items-center justify-between border-b border-black/[0.07] bg-[linear-gradient(to_bottom,#fdfdfe,#eef0f4)] px-5 py-3.5 sm:px-7 dark:border-white/[0.08] dark:bg-[linear-gradient(to_bottom,#1c1c1f,#141416)]">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-2.5 w-2.5 rounded-full border border-black/[0.08]"
+                  style={{
+                    backgroundImage: "radial-gradient(circle at 35% 30%, #ffffff, #cdd2db 55%, #9ba2b0 100%)",
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ClaudeIcon className="h-4 w-4 rounded-[4px]" />
+              <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">Claude</span>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+              <motion.span
+                aria-hidden
+                className="absolute inline-flex h-full w-full rounded-full bg-primary/50"
+                animate={{ scale: [1, 2.1], opacity: [0.55, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: EASE }}
+              />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
             <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Verlab connected</span>
@@ -164,23 +186,27 @@ export function VerlabClaudeChatDemo({ className }: { className?: string }) {
         </div>
 
         <div className="min-h-[340px] bg-slate-50 px-6 py-6 sm:min-h-[400px] sm:px-10 sm:py-8 dark:bg-white/[0.02]">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             <motion.div
               key={index}
-              layout
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.45, ease: EASE }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.5, ease: EASE }}
               className="flex flex-col gap-4"
             >
               <div className="flex justify-end">
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.6, y: 14 }}
+                  initial={{ opacity: 0, scale: 0.94, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 480, damping: 32, mass: 0.6 }}
-                  style={{ transformOrigin: "bottom right" }}
-                  className="max-w-[75%] rounded-[20px] rounded-br-[6px] bg-btn-primary px-4 py-2.5 text-sm leading-relaxed text-white shadow-[0_1px_2px_rgba(51,92,255,0.15),0_6px_16px_-6px_rgba(51,92,255,0.45)] sm:text-[15px]"
+                  transition={{ duration: 0.4, ease: EASE }}
+                  style={{
+                    transformOrigin: "bottom right",
+                    backgroundImage: "linear-gradient(180deg, #46464c 0%, #313136 55%, #2a2a2f 100%)",
+                    boxShadow:
+                      "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.3), 0 10px 24px -10px rgba(0,0,0,0.45)",
+                  }}
+                  className="max-w-[75%] rounded-[20px] rounded-br-[6px] px-4 py-2.5 text-sm leading-relaxed text-white sm:text-[15px]"
                 >
                   {scenario.prompt}
                   {stage === "typing" && (
@@ -200,13 +226,13 @@ export function VerlabClaudeChatDemo({ className }: { className?: string }) {
                     layout
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4, ease: EASE }}
+                    exit={{ opacity: 0, transition: { duration: 0.25, ease: EASE } }}
+                    transition={{ duration: 0.4, ease: EASE, layout: { duration: 0.4, ease: EASE } }}
                     className="rounded-2xl border border-black/[0.06] bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_-12px_rgba(15,23,42,0.12)] dark:border-white/[0.08] dark:bg-white/[0.03]"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2 text-[13px]">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        <Image src="/logo-icon.png" alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-[5px]" />
                         <span className="shrink-0 text-slate-500 dark:text-slate-400">Verlab</span>
                         <span className="truncate font-mono text-[13px] font-semibold text-heading">
                           {scenario.tool}
@@ -251,18 +277,30 @@ export function VerlabClaudeChatDemo({ className }: { className?: string }) {
                     layout
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4, ease: EASE }}
+                    exit={{ opacity: 0, transition: { duration: 0.25, ease: EASE } }}
+                    transition={{ duration: 0.4, ease: EASE, layout: { duration: 0.4, ease: EASE } }}
                     className="flex items-center gap-3.5 rounded-2xl bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_-12px_rgba(15,23,42,0.12)] dark:bg-white/[0.03]"
                   >
-                    <span
-                      className={cn(
-                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-                        TONE_CHIP[scenario.tone]
-                      )}
-                    >
-                      <Icon className={cn("h-5 w-5", TONE_ICON[scenario.tone])} />
-                    </span>
+                    {scenario.resultImage ? (
+                      <span className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                        <Image
+                          src={scenario.resultImage}
+                          alt=""
+                          width={96}
+                          height={96}
+                          className="h-full w-full object-cover"
+                        />
+                      </span>
+                    ) : (
+                      <span
+                        className={cn(
+                          "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                          TONE_CHIP[scenario.tone]
+                        )}
+                      >
+                        <Icon className={cn("h-5 w-5", TONE_ICON[scenario.tone])} />
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <p className="truncate text-[15px] font-semibold tracking-tight text-heading">
                         {scenario.resultTitle}

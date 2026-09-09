@@ -11,11 +11,13 @@ import {
   Loader2,
   Search,
   SlidersHorizontal,
+  VenetianMask,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { RangeSlider } from "@/components/ui/RangeSlider";
+import { Switch } from "@/components/ui/Switch";
 import { useNicheSidebar } from "@/components/dashboard/NicheSidebarContext";
 import { cn, formatNumber } from "@/lib/utils";
 import { SHORT_TEXT_MAX } from "@/lib/validation";
@@ -31,6 +33,11 @@ export interface VideoRangeFilters {
   followersMax: string;
   /** 2-letter YouTube region codes; empty means worldwide. */
   countries: string[];
+  /** AI-verified "no real face on camera" — matched by channel name against
+   * the niche_channels classifier (see getFacelessAuthorSet in
+   * niche-video-query.ts). A channel that's never been submitted for
+   * classification won't match, even if its content is genuinely faceless. */
+  faceless: boolean;
 }
 
 export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
@@ -39,11 +46,12 @@ export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
   followersMin: "",
   followersMax: "",
   countries: [],
+  faceless: false,
 };
 
 export function countActiveRangeFilters(filters: VideoRangeFilters): number {
-  const { countries, ...ranges } = filters;
-  return Object.values(ranges).filter(Boolean).length + (countries.length > 0 ? 1 : 0);
+  const { countries, faceless, ...ranges } = filters;
+  return Object.values(ranges).filter(Boolean).length + (countries.length > 0 ? 1 : 0) + (faceless ? 1 : 0);
 }
 
 const PLATFORM_PILLS: { id: VideoPlatformFilter; label: string }[] = [
@@ -445,6 +453,28 @@ function CountryFilterCard({
   );
 }
 
+function FacelessFilterCard({
+  checked,
+  onChange,
+  onReset,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  onReset: () => void;
+}) {
+  return (
+    <FilterCard label="Faceless only" active={checked} onReset={onReset}>
+      <div className="flex w-full items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-body">
+          <VenetianMask className="h-4 w-4 shrink-0 text-body/60" />
+          No real face on camera
+        </span>
+        <Switch checked={checked} onCheckedChange={onChange} label="Faceless only" size="sm" />
+      </div>
+    </FilterCard>
+  );
+}
+
 const PUBLISHING_DATE_OPTIONS: { id: VideoTimeWindow; label: string }[] = [
   { id: "all", label: "Any time" },
   { id: "24h", label: "Last 24 hours" },
@@ -648,6 +678,11 @@ function FiltersPanel({
                 />
               )}
               <PublishingDateCard value={pendingWindow} onChange={setPendingWindow} onReset={() => setPendingWindow("all")} />
+              <FacelessFilterCard
+                checked={pending.faceless}
+                onChange={(faceless) => setPending((prev) => ({ ...prev, faceless }))}
+                onReset={() => setPending((prev) => ({ ...prev, faceless: false }))}
+              />
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4">

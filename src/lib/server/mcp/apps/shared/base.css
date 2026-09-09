@@ -1,14 +1,13 @@
-/* Flat, host-native design tokens for Verlab's MCP App widgets. Sandboxed
-   iframes get no access to the parent page's fonts/CSS, so these are
-   duplicated here rather than shared at build time. System font stack on
+/* Flat, white/blue-branded design tokens for Verlab's MCP App widgets.
+   Sandboxed iframes get no access to the parent page's fonts/CSS, so these
+   are duplicated here rather than shared at build time. System font stack on
    purpose -- color + logo + layout carry the brand here, not a self-hosted
    webfont, to keep every widget bundle small.
 
-   Theme: hosts that implement the MCP Apps theme handshake set
-   [data-theme] on <html> via applyDocumentTheme() -- see shared/host.ts,
-   which calls it from getHostContext()/onhostcontextchanged. Hosts that
-   don't implement it fall through to prefers-color-scheme. Every token
-   below resolves in both cases. */
+   Deliberately a single fixed light palette, not a host-theme-adaptive one:
+   every widget is a small white card with Verlab's own blue accent, the same
+   in a dark host chat as a light one -- see shared/host.ts's connectApp,
+   which does not sync to the host's theme context on purpose. */
 
 :root {
   --v-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -60,61 +59,12 @@
      token-mapped to light/dark. */
   --overlay-scrim: rgba(0, 0, 0, 0.6);
 
+  /* Ambient "floating card" shadow behind every widget -- a tight contact
+     shadow for edge definition plus a soft, blue-tinted glow (not plain
+     black) so it reads as branded rather than a generic Material shadow. */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 20px 36px -18px rgba(37, 70, 214, 0.35);
+
   --v-ease: 120ms ease;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --surface-1: #1c1c1f;
-    --surface-2: #232327;
-    --text-primary: #f2f2f3;
-    --text-secondary: #a8a8b0;
-    --text-muted: #75757d;
-    --border: rgba(255, 255, 255, 0.09);
-    --border-strong: rgba(255, 255, 255, 0.2);
-    --bg-accent: rgba(60, 100, 255, 0.16);
-    --text-accent: #90a4ff;
-    --border-accent: #5c7cff;
-    --bg-danger: rgba(224, 66, 55, 0.15);
-    --text-danger: #f0857c;
-    --border-danger: rgba(224, 66, 55, 0.4);
-    --bg-success: rgba(35, 158, 92, 0.15);
-    --text-success: #5fd489;
-    --border-success: rgba(35, 158, 92, 0.4);
-    --bg-warning: rgba(196, 138, 15, 0.16);
-    --text-warning: #e0ab4c;
-    --border-warning: rgba(196, 138, 15, 0.4);
-    --bg-ai: rgba(146, 79, 219, 0.16);
-    --text-ai: #c69bef;
-    --border-ai: rgba(146, 79, 219, 0.4);
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --surface-1: #1c1c1f;
-  --surface-2: #232327;
-  --text-primary: #f2f2f3;
-  --text-secondary: #a8a8b0;
-  --text-muted: #75757d;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  --bg-accent: rgba(60, 100, 255, 0.16);
-  --text-accent: #90a4ff;
-  --border-accent: #5c7cff;
-  --bg-danger: rgba(224, 66, 55, 0.15);
-  --text-danger: #f0857c;
-  --border-danger: rgba(224, 66, 55, 0.4);
-  --bg-success: rgba(35, 158, 92, 0.15);
-  --text-success: #5fd489;
-  --border-success: rgba(35, 158, 92, 0.4);
-  --bg-warning: rgba(196, 138, 15, 0.16);
-  --text-warning: #e0ab4c;
-  --border-warning: rgba(196, 138, 15, 0.4);
-  --bg-ai: rgba(146, 79, 219, 0.16);
-  --text-ai: #c69bef;
-  --border-ai: rgba(146, 79, 219, 0.4);
 }
 
 * {
@@ -137,13 +87,17 @@ button:focus-visible {
   box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--border-accent);
 }
 
-html,
-body {
+html {
   margin: 0;
   padding: 0;
 }
 
 body {
+  margin: 0;
+  /* Gutter around the card itself -- .v-card's box-shadow needs room to
+     render into, or the iframe's own edge (sized to the body's content box)
+     clips it flush against the card border and it just looks cropped. */
+  padding: 14px;
   font-family: var(--v-font);
   /* Host provides the surface behind the widget -- never paint one here. */
   background: transparent;
@@ -180,9 +134,13 @@ h3 {
 
 .v-card {
   background: var(--surface-2);
-  border: 0.5px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 1rem 1.25rem;
+  /* A touch tighter than the old 1rem/1.25rem -- a slightly smaller card
+     inside body's new padding gutter reads as a deliberate floating panel
+     rather than one edge-to-edge with the shadow it casts. */
+  padding: 0.875rem 1.125rem;
+  box-shadow: var(--shadow-card);
 }
 
 .v-header {
@@ -470,6 +428,17 @@ h3 {
   width: 12px;
   height: 12px;
   flex: none;
+}
+
+/* Feedback line under a row of quick-action pills -- shown when a pill's
+   action had to fall back (host doesn't support in-chat messages/mediated
+   downloads), so the click always reports what actually happened instead of
+   silently doing nothing. */
+.v-quick-status {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 a {

@@ -132,7 +132,7 @@ export function Sidebar({
       <div
         className={cn(
           "flex items-center justify-between px-4 py-5",
-          collapsed && "lg:justify-center lg:px-0"
+          collapsed && "lg:px-3"
         )}
       >
         <button
@@ -260,7 +260,7 @@ export function Sidebar({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
-                  collapsed && "lg:justify-center lg:gap-0 lg:px-0",
+                  collapsed && "lg:gap-0 lg:px-3.5",
                   active
                     ? "border-hairline bg-surface font-semibold text-heading shadow-card dark:border-0 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)]"
                     : "border-transparent text-[#434C69] hover:bg-accent hover:text-heading"
@@ -302,7 +302,7 @@ export function Sidebar({
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 className={cn(
                   "font-ui group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-[15px] font-semibold transition-all duration-150",
-                  collapsed && "lg:justify-center lg:px-0",
+                  collapsed && "lg:px-3.5",
                   groupActive
                     ? "text-heading"
                     : "text-[#434C69] hover:bg-accent hover:text-heading"

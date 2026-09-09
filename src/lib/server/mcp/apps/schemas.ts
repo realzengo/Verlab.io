@@ -87,6 +87,17 @@ export const DownloadCardSchema = {
   error_message: z.string().nullable().optional(),
 };
 
+export const VoiceoverCardSchema = {
+  id: z.string(),
+  status: z.string(),
+  title: z.string().nullable().optional(),
+  voiceId: z.string().nullable().optional(),
+  url: z.string().nullable().optional(),
+  durationSeconds: z.number().nullable().optional(),
+  note: z.string().optional(),
+  error_message: z.string().nullable().optional(),
+};
+
 const creatorAnalysisDetail = z.object({
   executiveSummary: z.string(),
   hookFormula: z.string(),

@@ -8,6 +8,7 @@ import { transcriptCardHtml } from "./generated/transcript-card";
 import { downloadCardHtml } from "./generated/download-card";
 import { creatorProfileCardHtml } from "./generated/creator-profile-card";
 import { nicheFinderCardHtml } from "./generated/niche-finder-card";
+import { voiceoverCardHtml } from "./generated/voiceover-card";
 import {
   StatCardSchema,
   ListCardSchema,
@@ -18,6 +19,7 @@ import {
   DownloadCardSchema,
   CreatorProfileCardSchema,
   FindNicheCardSchema,
+  VoiceoverCardSchema,
 } from "./schemas";
 
 interface WidgetDefinition {
@@ -35,26 +37,26 @@ interface WidgetDefinition {
 // showing a stale cached fetch. Bump a widget's suffix whenever its HTML
 // changes meaningfully to force hosts to refetch.
 const WIDGETS = {
-  statCard: { resourceUri: "ui://verlab/stat-card-v5.html", html: statCardHtml, outputSchema: StatCardSchema },
-  listCard: { resourceUri: "ui://verlab/list-card-v5.html", html: listCardHtml, outputSchema: ListCardSchema },
+  statCard: { resourceUri: "ui://verlab/stat-card-v6.html", html: statCardHtml, outputSchema: StatCardSchema },
+  listCard: { resourceUri: "ui://verlab/list-card-v6.html", html: listCardHtml, outputSchema: ListCardSchema },
   videoGridCard: {
-    resourceUri: "ui://verlab/video-grid-card-v5.html",
+    resourceUri: "ui://verlab/video-grid-card-v6.html",
     html: videoGridCardHtml,
     outputSchema: VideoGridCardSchema,
   },
   scriptCard: {
-    resourceUri: "ui://verlab/script-card-v6.html",
+    resourceUri: "ui://verlab/script-card-v7.html",
     html: scriptCardHtml,
     outputSchema: ScriptCardSchema,
     permissions: { clipboardWrite: {} },
   },
   imageGalleryCard: {
-    resourceUri: "ui://verlab/image-gallery-card-v7.html",
+    resourceUri: "ui://verlab/image-gallery-card-v8.html",
     html: imageGalleryCardHtml,
     outputSchema: ImageGalleryCardSchema,
   },
   transcriptCard: {
-    resourceUri: "ui://verlab/transcript-card-v6.html",
+    resourceUri: "ui://verlab/transcript-card-v7.html",
     html: transcriptCardHtml,
     outputSchema: TranscriptCardSchema,
     // Export panel falls back to a clipboard copy when the host can't do a
@@ -62,19 +64,28 @@ const WIDGETS = {
     permissions: { clipboardWrite: {} },
   },
   downloadCard: {
-    resourceUri: "ui://verlab/download-card-v5.html",
+    resourceUri: "ui://verlab/download-card-v6.html",
     html: downloadCardHtml,
     outputSchema: DownloadCardSchema,
   },
   creatorProfileCard: {
-    resourceUri: "ui://verlab/creator-profile-card-v7.html",
+    resourceUri: "ui://verlab/creator-profile-card-v8.html",
     html: creatorProfileCardHtml,
     outputSchema: CreatorProfileCardSchema,
+    // Quick-action pills (Extract top hooks / Write a script) fall back to a
+    // clipboard copy when the host can't take a sendMessage handoff -- see
+    // sendChatMessage's fallback in shared/host.ts.
+    permissions: { clipboardWrite: {} },
   },
   nicheFinderCard: {
-    resourceUri: "ui://verlab/niche-finder-card-v6.html",
+    resourceUri: "ui://verlab/niche-finder-card-v7.html",
     html: nicheFinderCardHtml,
     outputSchema: FindNicheCardSchema,
+  },
+  voiceoverCard: {
+    resourceUri: "ui://verlab/voiceover-card-v2.html",
+    html: voiceoverCardHtml,
+    outputSchema: VoiceoverCardSchema,
   },
 } as const satisfies Record<string, WidgetDefinition>;
 
@@ -98,6 +109,8 @@ export const TOOL_WIDGETS: Record<string, WidgetDefinition> = {
   check_download_status: WIDGETS.downloadCard,
   analyze_creator: WIDGETS.creatorProfileCard,
   check_creator_analysis_status: WIDGETS.creatorProfileCard,
+  generate_voiceover: WIDGETS.voiceoverCard,
+  check_voiceover_status: WIDGETS.voiceoverCard,
 };
 
 // Resources are registered once per unique URI (not once per tool) --

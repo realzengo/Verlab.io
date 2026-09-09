@@ -21,11 +21,9 @@ export const GLASS_PILL_BASE =
 // look, not a see-through one.
 export const GLASS_PILL_IDLE = cn(
   "border-slate-200 bg-white text-slate-800 backdrop-saturate-150",
-  "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_16px_-6px_rgba(15,23,42,0.14),inset_0_1px_0_rgba(255,255,255,1)]",
-  "hover:border-slate-300 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_12px_22px_-6px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,1)] hover:-translate-y-px",
+  "hover:border-slate-300",
   "dark:border-white/[0.14] dark:bg-white/[0.09] dark:text-slate-100 dark:backdrop-blur-md",
-  "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_8px_18px_-8px_rgba(0,0,0,0.7)]",
-  "dark:hover:border-white/[0.22] dark:hover:bg-white/[0.13] dark:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_22px_-8px_rgba(0,0,0,0.75)]",
+  "dark:hover:border-white/[0.22] dark:hover:bg-white/[0.13]",
 );
 
 export const GLASS_PILL_FOCUS =

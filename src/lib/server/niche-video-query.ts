@@ -82,6 +82,12 @@ export interface NicheVideoQueryParams {
   /** Views ÷ hours since posted. Same derived-in-JS treatment as outlier. */
   viewsPerHourMin?: string | null;
   viewsPerHourMax?: string | null;
+  /** AI-verified "no real face on camera", matched by channel name against
+   * niche_channels' classifier verdicts (see getFacelessAuthorSet) -- an
+   * inexact join since trending_videos has no real foreign key to
+   * niche_channels, but the only usable signal today. A video whose channel
+   * was never submitted for classification simply won't match. */
+  faceless?: boolean;
   /** Free-text match against title/author/hashtag -- the search box in the
    * niche finder's top bar. Empty/omitted means no text filter. */
   q: string | null;
@@ -184,7 +190,8 @@ async function backfillPageFollowerCounts(admin: SupabaseClient, videos: Trendin
 function filterAndSortLiveResults(
   raw: TrendingVideo[],
   params: NicheVideoQueryParams,
-  applyViewFilter: boolean
+  applyViewFilter: boolean,
+  facelessAuthorSet: Set<string>
 ): TrendingVideo[] {
   const { style, timeWindow, sort } = params;
   const viewsMin = parseNonNegativeNumber(params.viewsMin);
@@ -199,6 +206,9 @@ function filterAndSortLiveResults(
 
   let results = raw;
   if (style !== "all") results = results.filter((v) => matchesStyle(v.hashtag, style));
+  if (params.faceless) {
+    results = results.filter((v) => isFacelessAuthor(facelessAuthorSet, v.platform, v.author));
+  }
   if (applyViewFilter) {
     if (viewsMin !== null) results = results.filter((v) => v.viewCount >= viewsMin);
     if (viewsMax !== null) results = results.filter((v) => v.viewCount <= viewsMax);
@@ -287,19 +297,21 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
     ...(youtubeOutcome.status === "fulfilled" ? youtubeOutcome.value.map((v) => mapSearchResult(v, "youtube")) : []),
   ];
 
-  let results = filterAndSortLiveResults(raw, params, true);
+  const admin = createAdminClient() as SupabaseClient;
+  const facelessAuthorSet = params.faceless ? await getFacelessAuthorSet(admin) : new Set<string>();
+
+  let results = filterAndSortLiveResults(raw, params, true, facelessAuthorSet);
 
   // The view floor found nothing even after scanning the full live search
   // depth -- rather than show a blank page, drop just the view-count floor
   // (every other filter stays intact) and surface the closest matches.
   let relaxedFilters = false;
   if (results.length === 0 && (viewsMin !== null || viewsMax !== null)) {
-    results = filterAndSortLiveResults(raw, params, false);
+    results = filterAndSortLiveResults(raw, params, false, facelessAuthorSet);
     relaxedFilters = results.length > 0;
   }
 
   const pageVideos = results.slice(offset, offset + limit);
-  const admin = createAdminClient() as SupabaseClient;
   await backfillPageFollowerCounts(admin, pageVideos);
 
   return {
@@ -332,6 +344,32 @@ function parseNonNegativeNumber(raw: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+// The "faceless only" filter matches by channel name against
+// niche_channels' classifier verdicts (104/136 real verified channels as of
+// 2026-09) rather than trending_videos.transcript_analysis.is_faceless --
+// that per-video enrichment worker has only ever analyzed a handful of the
+// ~8.8k cached rows, nowhere near enough to power a usable filter on its
+// own. There's no real foreign key between the two tables (niche_channels
+// is keyed by channel_url, trending_videos only stores a display name), so
+// this matches on (platform, lowercased/trimmed channel name) -- inexact,
+// but the only link that exists today.
+async function getFacelessAuthorSet(admin: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await admin.from("niche_channels").select("channel_title, platform").eq("is_faceless", true);
+  if (error) {
+    console.error("[niche-video-query] failed to load faceless channel set:", error);
+    return new Set();
+  }
+  return new Set(
+    (data ?? [])
+      .filter((c): c is { channel_title: string; platform: string } => Boolean(c.channel_title))
+      .map((c) => `${c.platform}::${c.channel_title.trim().toLowerCase()}`)
+  );
+}
+
+function isFacelessAuthor(authorSet: Set<string>, platform: string, author: string): boolean {
+  return authorSet.has(`${platform}::${(author ?? "").trim().toLowerCase()}`);
+}
+
 const NICHE_QUERY_DEBUG = process.env.NICHE_QUERY_DEBUG === "1";
 
 export async function getNicheVideosPage(
@@ -343,7 +381,7 @@ export async function getNicheVideosPage(
   if (rawQuery) return searchLiveVideos(rawQuery, params);
 
   const admin = createAdminClient() as SupabaseClient;
-  const { page, limit, style, platform, timeWindow, country, sort } = params;
+  const { page, limit, style, platform, timeWindow, country, sort, faceless } = params;
   const { postedAfter, postedBefore } = params;
   const viewsMin = parseNonNegativeNumber(params.viewsMin);
   const viewsMax = parseNonNegativeNumber(params.viewsMax);
@@ -355,7 +393,13 @@ export async function getNicheVideosPage(
   const viewsPerHourMax = parseNonNegativeNumber(params.viewsPerHourMax ?? null);
   const offset = (page - 1) * limit;
   const countries = country ? country.split(",").filter(Boolean) : [];
-  const hasDerivedFilters = outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null;
+  // faceless rides the same JS-side derived-filter path as outlier/vph --
+  // there's no clean SQL join to niche_channels, so a capped batch is
+  // fetched and filtered in JS (see getFacelessAuthorSet/applyDerivedFilters
+  // below) rather than pushed down as a query filter.
+  const hasDerivedFilters =
+    outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null || faceless;
+  const facelessAuthorSet = faceless ? await getFacelessAuthorSet(admin) : new Set<string>();
 
   if (NICHE_QUERY_DEBUG) {
     console.log("[niche-video-query] request", {
@@ -375,7 +419,7 @@ export async function getNicheVideosPage(
     });
   }
 
-  function buildBaseQuery(applyViewFilter = true) {
+  function buildBaseQuery(applyViewFilter = true, applyTimeWindow = true) {
     let query = admin.from("trending_videos").select(TRENDING_VIDEO_COLUMNS);
 
     if (!isAllNiches) query = query.eq("niche_category", niche);
@@ -404,12 +448,14 @@ export async function getNicheVideosPage(
     if (followersMin !== null) query = query.gte("follower_count", followersMin);
     if (followersMax !== null) query = query.lte("follower_count", followersMax);
 
-    if (postedAfter || postedBefore) {
-      if (postedAfter) query = query.gte("posted_at", new Date(postedAfter).toISOString());
-      if (postedBefore) query = query.lte("posted_at", new Date(postedBefore).toISOString());
-    } else if (TIME_WINDOW_DAYS[timeWindow]) {
-      const days = TIME_WINDOW_DAYS[timeWindow];
-      query = query.gte("posted_at", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+    if (applyTimeWindow) {
+      if (postedAfter || postedBefore) {
+        if (postedAfter) query = query.gte("posted_at", new Date(postedAfter).toISOString());
+        if (postedBefore) query = query.lte("posted_at", new Date(postedBefore).toISOString());
+      } else if (TIME_WINDOW_DAYS[timeWindow]) {
+        const days = TIME_WINDOW_DAYS[timeWindow];
+        query = query.gte("posted_at", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+      }
     }
 
     return sort === "newest"
@@ -427,6 +473,7 @@ export async function getNicheVideosPage(
     const now = Date.now();
 
     return batch.filter((row) => {
+      if (faceless && !isFacelessAuthor(facelessAuthorSet, row.platform, row.author)) return false;
       if (outlierMin !== null || outlierMax !== null) {
         const outlierRatio = row.view_count / Math.max(nicheAvgViews, 1);
         if (outlierMin !== null && outlierRatio < outlierMin) return false;
@@ -449,9 +496,12 @@ export async function getNicheVideosPage(
   // active: the common case paginates in SQL via .range() (cheap, exact);
   // the derived-filter case has to pull a capped batch and paginate in JS
   // instead, since those two fields can't be expressed as column filters.
-  async function runQuery(applyViewFilter = true): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
+  async function runQuery(
+    applyViewFilter = true,
+    applyTimeWindow = true
+  ): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
     if (hasDerivedFilters) {
-      const { data, error } = await buildBaseQuery(applyViewFilter).limit(DERIVED_FILTER_BATCH_CAP);
+      const { data, error } = await buildBaseQuery(applyViewFilter, applyTimeWindow).limit(DERIVED_FILTER_BATCH_CAP);
       if (error) {
         console.error(`[niche-video-query] Supabase error (derived-filter batch, niche=${niche}, platform=${platform}):`, error);
         throw new Error(error.message);
@@ -502,12 +552,29 @@ export async function getNicheVideosPage(
 
   let { pageRows, hasMore } = await runQuery();
 
+  let relaxedFilters = false;
+
+  // A derived filter (faceless, in practice) can legitimately zero out the
+  // batch even though clearly-matching content exists further back in time
+  // -- e.g. a channel classified faceless may have zero posts inside the
+  // default 30-day window while still having dozens all-time. The
+  // scrape/warm-cache fallbacks below fetch more of the *same* generic
+  // content and can't fix that (they know nothing about faceless/outlier/vph),
+  // so try dropping just the time window first, the same way the view-count
+  // floor gets dropped further down -- niche/platform/style/faceless/view
+  // filters all stay intact.
+  let timeWindowRelaxed = false;
+  if (hasDerivedFilters && pageRows.length === 0 && page === 1 && (postedAfter || postedBefore || TIME_WINDOW_DAYS[timeWindow])) {
+    ({ pageRows, hasMore } = await runQuery(true, false));
+    relaxedFilters = pageRows.length > 0;
+    timeWindowRelaxed = relaxedFilters;
+  }
+
   // Cache-aside: only a specific (niche, platform) pair is backed by an
   // on-demand scrape — the "all" feed (either dimension) reads whatever's
   // already cached, since there's no single provider to refresh against a
   // blended view. Only a single selected country gets a targeted regional
   // warm-up; multi-select (or none) falls back to the global cache.
-  let relaxedFilters = false;
   if (!isAllNiches && platform !== "all") {
     const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
     const ranOutOfCache = pageRows.length < limit;
@@ -536,7 +603,12 @@ export async function getNicheVideosPage(
       if (outcome === SOFT_TIMEOUT) {
         after(() => refreshPromise);
       } else if (outcome) {
-        ({ pageRows, hasMore } = await runQuery());
+        // Keep the earlier time-window relaxation (if any) in effect here --
+        // a fresh scrape has no idea faceless/outlier/vph even exist, so it's
+        // no more likely to land inside the strict window than the cache
+        // already was, and re-imposing the window would silently throw away
+        // the relaxed matches we already found.
+        ({ pageRows, hasMore } = await runQuery(true, !timeWindowRelaxed));
       }
     } else if (staleFirstPage) {
       // Enough cached rows to answer this request right now -- the cache is
@@ -557,7 +629,7 @@ export async function getNicheVideosPage(
     // view-count floor (niche/platform/date/style/country stay intact) and
     // surface the closest matches instead.
     if (pageRows.length === 0 && page === 1 && (viewsMin !== null || viewsMax !== null)) {
-      ({ pageRows, hasMore } = await runQuery(false));
+      ({ pageRows, hasMore } = await runQuery(false, !timeWindowRelaxed));
       relaxedFilters = pageRows.length > 0;
     }
   } else if (isAllNiches && platform !== "all" && page === 1 && pageRows.length === 0) {

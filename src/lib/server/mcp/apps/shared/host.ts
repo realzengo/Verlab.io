@@ -1,4 +1,4 @@
-import { App, PostMessageTransport, applyDocumentTheme } from "@modelcontextprotocol/ext-apps";
+import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 // Verlab's brand mark, inlined as SVG path data so every widget carries the
@@ -39,17 +39,11 @@ export function connectApp({ name, onResult, onLoading, onConnected }: ConnectAp
   app.onerror = (error) => console.error(`[verlab:${name}]`, error);
   app.ontoolinput = () => onLoading?.();
   app.ontoolresult = (result) => onResult(result as CallToolResult);
-  // Hosts that implement the theme handshake report light/dark here --
-  // applyDocumentTheme sets [data-theme] on <html>, which base.css's dark
-  // overrides key off. Hosts that don't implement it just never call this,
-  // and prefers-color-scheme covers the fallback.
-  app.onhostcontextchanged = (ctx) => {
-    if (ctx.theme) applyDocumentTheme(ctx.theme);
-  };
+  // Deliberately no theme handshake -- every widget renders as a fixed
+  // white/blue brand card (see shared/base.css) regardless of what theme the
+  // host itself is in, rather than matching a dark host chat.
 
   app.connect(new PostMessageTransport(window.parent, window.parent)).then(() => {
-    const theme = app.getHostContext()?.theme;
-    if (theme) applyDocumentTheme(theme);
     onConnected?.(app);
   });
 
@@ -76,10 +70,16 @@ export function openLink(app: App, url: string | null | undefined) {
 // widget's quick-action pills (e.g. "Shorten", "Send to voiceover") hand off
 // to Claude/other connected tools, since the widget itself can't call tools
 // outside its own server. Hosts that don't support (or reject) it get the
-// same clipboard fallback as the transcript export, so the pill never
-// dead-ends silently.
-export function sendChatMessage(app: App, text: string) {
-  const fallback = () => void navigator.clipboard.writeText(text).catch(() => {});
+// same clipboard fallback as the transcript export -- `onFallback`, when
+// given, reports which of the two actually happened so the pill can show it
+// instead of silently doing nothing.
+export function sendChatMessage(app: App, text: string, onFallback?: (message: string) => void) {
+  const fallback = () => {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => onFallback?.("This host can't send messages directly here -- copied the prompt to your clipboard instead."))
+      .catch(() => onFallback?.("Couldn't send that -- this host doesn't support messages or clipboard access."));
+  };
   app
     .sendMessage({ role: "user", content: [{ type: "text", text }] }, { timeout: ACTION_TIMEOUT_MS })
     .then((result) => {

@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { ClaudeIcon } from "@/components/landing/AssistantIcons";
 import { VerlabClaudeChatDemo } from "@/components/mcp/VerlabClaudeChatDemo";
 import { cn } from "@/lib/utils";
 
 export const MCP_PATH = "/api/mcp";
+const MCP_URL_FALLBACK = `verlab.io${MCP_PATH}`;
 
 export function McpConnectSection({ className, compact = false }: { className?: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
-  const url = typeof window !== "undefined" ? `${window.location.origin}${MCP_PATH}` : `verlab.io${MCP_PATH}`;
+  // Starts as the generic fallback (matching SSR, since there's no window on
+  // the server) and swaps to the real origin right after mount.
+  const [url, setUrl] = useState(MCP_URL_FALLBACK);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from window.location, not a derived/external sync
+    setUrl(`${window.location.origin}${MCP_PATH}`);
+  }, []);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(url);

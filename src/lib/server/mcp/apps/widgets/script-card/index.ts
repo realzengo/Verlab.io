@@ -126,8 +126,19 @@ function render(data: ScriptData | null) {
         <button type="button" class="v-quick-pill" id="action-translate">${LANGUAGES_ICON}Translate to Arabic</button>
         <button type="button" class="v-quick-pill" id="action-voiceover">${MIC_ICON}Send to voiceover</button>
       </div>
+      <div class="v-quick-status" id="quick-status" hidden></div>
     </div>
   `;
+}
+
+function showQuickStatus(message: string) {
+  const el = document.getElementById("quick-status") as HTMLElement | null;
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = message;
+  setTimeout(() => {
+    el.hidden = true;
+  }, 3000);
 }
 
 function renderError(message: string) {
@@ -179,15 +190,15 @@ root.addEventListener("click", (event) => {
   }
 
   if (target.closest("#action-shorten")) {
-    sendChatMessage(app, "Shorten the script you just gave me, keeping the hook and call-to-action intact.");
+    sendChatMessage(app, "Shorten the script you just gave me, keeping the hook and call-to-action intact.", showQuickStatus);
     return;
   }
   if (target.closest("#action-translate")) {
-    sendChatMessage(app, "Translate the script you just gave me into Arabic.");
+    sendChatMessage(app, "Translate the script you just gave me into Arabic.", showQuickStatus);
     return;
   }
   if (target.closest("#action-voiceover")) {
-    sendChatMessage(app, "Turn the script you just gave me into a voiceover.");
+    sendChatMessage(app, "Turn the script you just gave me into a voiceover.", showQuickStatus);
     return;
   }
 });

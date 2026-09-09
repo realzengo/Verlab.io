@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { ClaudeIcon, ChatGPTIcon } from "@/components/landing/AssistantIcons";
@@ -11,11 +11,18 @@ const TABS = [
   { id: "claude", label: "Claude", icon: ClaudeIcon },
   { id: "chatgpt", label: "ChatGPT", icon: ChatGPTIcon },
 ];
+const MCP_URL_FALLBACK = `verlab.io${MCP_PATH}`;
 
 export function McpSetupFlow() {
   const [activeTab, setActiveTab] = useState("claude");
   const [copied, setCopied] = useState(false);
-  const url = typeof window !== "undefined" ? `${window.location.origin}${MCP_PATH}` : `verlab.io${MCP_PATH}`;
+  // Starts as the generic fallback (matching SSR, since there's no window on
+  // the server) and swaps to the real origin right after mount.
+  const [url, setUrl] = useState(MCP_URL_FALLBACK);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from window.location, not a derived/external sync
+    setUrl(`${window.location.origin}${MCP_PATH}`);
+  }, []);
   const platformLabel = activeTab === "chatgpt" ? "ChatGPT" : "Claude";
   const settingsHref = activeTab === "chatgpt" ? "https://chatgpt.com" : "https://claude.ai";
 

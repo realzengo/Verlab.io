@@ -82,6 +82,7 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
   const outlierMax = searchParams.get("outlierMax");
   const viewsPerHourMin = searchParams.get("viewsPerHourMin");
   const viewsPerHourMax = searchParams.get("viewsPerHourMax");
+  const faceless = searchParams.get("faceless") === "true";
   const q = searchParams.get("q");
   // A non-empty q drives a live scrape/search (see getNicheVideosPage ->
   // searchLiveVideos) -- rejected outright with a 400 rather than silently
@@ -110,6 +111,7 @@ async function handleGet(request: NextRequest, niche: string, isAllNiches: boole
     outlierMax,
     viewsPerHourMin,
     viewsPerHourMax,
+    faceless,
     q,
     sort,
   });

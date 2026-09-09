@@ -61,8 +61,6 @@ function ToolCard({ title, image, footer, video, videoPoster }: ToolCardData) {
                 className="absolute inset-0 h-full w-full object-contain"
                 style={{
                   filter: "brightness(1.15) contrast(1.03)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
-                  maskImage: "linear-gradient(to bottom, transparent 0%, black 18%)",
                 }}
               />
             ) : (
@@ -97,12 +95,8 @@ export function ShowcaseGridSection() {
           </div>
           <a
             href={APP_URL}
-            className="group relative isolate inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[radial-gradient(220%_220%_at_28%_18%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] px-9 py-3.5 text-lg font-bold text-white shadow-[0_4px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
+            className="relative isolate inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#335CFF] px-9 py-3.5 text-lg font-bold text-white shadow-[0_4px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-y-0.5 hover:bg-[#3d68ff] hover:shadow-[0_2px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
           >
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(140%_140%_at_50%_50%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] opacity-0 transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100"
-            />
             <span className="relative">Try Verlab Now</span>
             <ArrowRight className="relative h-4 w-4" />
           </a>

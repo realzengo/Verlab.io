@@ -556,6 +556,7 @@ function NicheFinderInner({
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
         if (videoRangeFilters.followersMax) qs.set("followersMax", videoRangeFilters.followersMax);
         if (videoRangeFilters.countries.length > 0) qs.set("country", videoRangeFilters.countries.join(","));
+        if (videoRangeFilters.faceless) qs.set("faceless", "true");
 
         const res = await fetch(`/api/niches/${encodeURIComponent(activeNiche ?? "all")}/videos?${qs.toString()}`, {
           signal: controller.signal,

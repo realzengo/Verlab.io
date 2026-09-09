@@ -60,6 +60,37 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
+export const MCP_FAQ_ITEMS: FaqItem[] = [
+  {
+    id: "mcp-faq-what",
+    question: "What is MCP?",
+    answer:
+      "Model Context Protocol is an open standard that lets AI assistants like Claude and ChatGPT call an app's tools directly from a conversation. Connecting Verlab over MCP gives your assistant access to your account's tools without switching tabs.",
+  },
+  {
+    id: "mcp-faq-assistants",
+    question: "Which assistants does this work with?",
+    answer: "Any MCP-compatible client that supports remote connectors, including Claude and ChatGPT. Add the same link in both if you use both.",
+  },
+  {
+    id: "mcp-faq-credits",
+    question: "Do actions through my assistant use my credits?",
+    answer:
+      "Yes. Generating scripts, images, or creator analyses through your assistant spends credits the same way it would in the app. Free actions like transcripts stay free.",
+  },
+  {
+    id: "mcp-faq-security",
+    question: "Is it safe to connect?",
+    answer:
+      "You log into Verlab and approve access before anything connects, the same OAuth flow you'd use for any third-party app. Nothing runs on your account without that approval.",
+  },
+  {
+    id: "mcp-faq-revoke",
+    question: "How do I disconnect it later?",
+    answer: "Go to Settings → MCP in Verlab and remove the connector. Your assistant loses access immediately.",
+  },
+];
+
 export const PRICING_FAQ_ITEMS: FaqItem[] = [
   {
     id: "pricing-faq-credits",

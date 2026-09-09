@@ -74,6 +74,7 @@ export function TopBar({
 }) {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const isTools = pathname.startsWith("/tools");
   const resolvedHeading = heading ?? defaultHeading(pathname);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -142,6 +143,11 @@ export function TopBar({
               {firstName(user) && <>, {firstName(user)}</>}
             </h1>
             <p className="truncate text-xs text-subtle sm:text-sm">What will you create?</p>
+          </div>
+        ) : isTools && !isPaywalled ? (
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold tracking-tight text-heading sm:text-xl">Tools</h1>
+            <p className="truncate text-xs text-subtle sm:text-sm">Everything Verlab can do, in one place.</p>
           </div>
         ) : (
           !hideHeading && (

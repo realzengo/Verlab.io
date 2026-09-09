@@ -85,16 +85,7 @@ const TOOLS: {
 export default function ToolsPage() {
   return (
     <div className="flex w-full flex-col items-center gap-2 pt-2">
-      <div className="w-full text-left">
-        <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
-          Tools
-        </h1>
-        <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
-          Everything Verlab can do, in one place.
-        </p>
-      </div>
-
-      <div className="mt-6 w-full">
+      <div className="w-full">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4 sm:gap-5">
           {TOOLS.map((tool, index) => (
             <ToolGridCard

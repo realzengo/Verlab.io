@@ -26,6 +26,7 @@ const WIDGETS = [
   "download-card",
   "creator-profile-card",
   "niche-finder-card",
+  "voiceover-card",
 ];
 
 async function buildWidget(name) {

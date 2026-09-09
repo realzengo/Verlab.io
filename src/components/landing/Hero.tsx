@@ -61,8 +61,13 @@ export function Hero() {
           }}
         />
 
-        {/* Content layer: sits above the gradient and cloud edges. */}
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-40 text-center sm:px-6 sm:pb-28 sm:pt-32 lg:px-8 lg:pb-32 md:pt-44">
+        {/* Content layer: sits above the gradient and cloud edges. Bottom padding
+            from sm up mirrors the preview card's pull-up magnitude below (both
+            keyed off the same 40vh term) plus a fixed ~2rem buffer, so the card
+            can never climb high enough to cover the CTA button -- if it grew to
+            match the pull exactly, a tall/short viewport edge case could still
+            close the gap to zero. */}
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-40 text-center sm:px-6 sm:pb-[clamp(12rem,40vh,32rem)] sm:pt-32 lg:px-8 md:pt-44">
           <div className="relative flex w-full justify-center">
             <h1 className="relative max-w-6xl font-display text-[clamp(24px,8vw,30px)] font-bold leading-[1.1] tracking-[-0.5px] text-heading sm:text-[62px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[72px]">
               <span className="whitespace-nowrap">

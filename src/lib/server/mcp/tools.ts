@@ -1,11 +1,15 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { getUserCredits, chargeUser, refundUser, InsufficientCreditsError } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
-import { TOOL_CREDIT_COSTS, getImageGenerationCost, slugifyModelName } from "@/lib/config/pricing";
+import { TOOL_CREDIT_COSTS, getImageGenerationCost, getVoiceoverSegmentCost, slugifyModelName } from "@/lib/config/pricing";
 import { generateScriptText, buildSystemPrompt } from "@/lib/server/script-generation";
 import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
+import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
+import { VOICE_OPTIONS, DEFAULT_VOICE_ID } from "@/lib/config/voices";
+import { getLanguageOption, DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
 import {
   fetchTranscript,
   fetchDownloadLink,
@@ -927,6 +931,179 @@ const checkCreatorAnalysisStatusTool: McpToolDefinition = {
   },
 };
 
+const VOICEOVER_BUCKET = "voiceovers";
+const MAX_VOICEOVER_SCRIPT_CHARS = 5000;
+const MAX_VOICEOVER_STYLE_PROMPT_CHARS = 500;
+// Signed URLs are re-minted on every read (here and in check_voiceover_status)
+// rather than stored once -- same posture as thumb-proxy.ts's signing, just
+// against Supabase Storage directly since this bucket is private. A week is
+// long enough for the calling model to hand the link off (e.g. into a Google
+// Drive upload) without it dying mid-conversation.
+const VOICEOVER_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
+const VOICEOVER_VOICE_IDS = VOICE_OPTIONS.map((voice) => voice.id) as [string, ...string[]];
+
+interface VoiceoverSegmentRow {
+  index: number;
+  text: string;
+  audioPath: string;
+  durationSeconds: number;
+}
+
+const generateVoiceoverTool: McpToolDefinition = {
+  name: "generate_voiceover",
+  title: "Generate a voiceover",
+  description:
+    "Generates an AI voiceover audio file from a script using Verlab's text-to-speech engine and returns a " +
+    "playable/downloadable audio URL. Pick a voice from the catalog (30 options) and, optionally, a free-text " +
+    "delivery style (e.g. 'Speak with excitement and energy', 'Calm and reassuring'). Use this whenever the user " +
+    "wants an actual spoken voiceover/narration generated, as opposed to generate_script which only writes text. " +
+    "Charges credits (see get_credit_balance).",
+  inputSchema: {
+    script: z.string().describe(`The text to speak, up to ${MAX_VOICEOVER_SCRIPT_CHARS} characters.`),
+    voiceId: z.enum(VOICEOVER_VOICE_IDS).optional().describe(`Which catalog voice to use. Defaults to ${DEFAULT_VOICE_ID}.`),
+    stylePrompt: z
+      .string()
+      .optional()
+      .describe("A free-text delivery/style instruction, e.g. 'Speak with excitement and energy'. Defaults to a neutral, clear delivery."),
+    languageCode: z.string().optional().describe(`A supported BCP-47 language code (e.g. en-US, es-ES, fr-FR). Defaults to ${DEFAULT_LANGUAGE_CODE}.`),
+    title: z.string().optional().describe("A short title for this voiceover, shown in the user's Verlab history."),
+  },
+  handler: async (userId, args) => {
+    const script = String(args.script ?? "").trim();
+    if (!script) return errorResult("script is required");
+    if (script.length > MAX_VOICEOVER_SCRIPT_CHARS) {
+      return errorResult(`script must be ${MAX_VOICEOVER_SCRIPT_CHARS} characters or fewer`);
+    }
+
+    const voiceId = typeof args.voiceId === "string" && VOICEOVER_VOICE_IDS.includes(args.voiceId) ? args.voiceId : DEFAULT_VOICE_ID;
+    const stylePrompt = String(args.stylePrompt ?? "").trim().slice(0, MAX_VOICEOVER_STYLE_PROMPT_CHARS) || "Speak naturally and clearly.";
+    const languageCode = typeof args.languageCode === "string" && getLanguageOption(args.languageCode) ? args.languageCode : DEFAULT_LANGUAGE_CODE;
+    const title = String(args.title ?? "").trim() || "Untitled Voiceover";
+
+    const cost = getVoiceoverSegmentCost(script.length);
+    const balance = await getUserCredits(userId);
+    if (balance < cost) return errorResult("Insufficient credits");
+
+    const admin = createAdminClient();
+    const { data: row, error: insertError } = await admin
+      .from("voiceover_generations")
+      .insert({
+        user_id: userId,
+        title,
+        script,
+        voice_id: voiceId,
+        generation_mode: "all_at_once",
+        style_prompt: stylePrompt,
+        language_code: languageCode,
+        segments: [],
+        credits_quoted: cost,
+        status: "generating",
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !row) return errorResult(insertError?.message ?? "Could not start generation");
+
+    const work = (async () => {
+      // The `voiceovers` bucket may not exist yet in this environment -- same
+      // on-demand creation as the web route (see generate-voiceover/route.ts).
+      await ensureBucket(admin, VOICEOVER_BUCKET, {
+        public: false,
+        fileSizeLimit: 26214400,
+        allowedMimeTypes: ["audio/mpeg", "audio/mp4", "audio/wav", "audio/x-wav"],
+      });
+
+      const speech = await generateSpeechForVoice({ text: script, voiceId, stylePrompt, languageCode, userId });
+      const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
+      const audioPath = `${userId}/${row.id}/0.${extension}`;
+
+      const { error: uploadError } = await admin.storage
+        .from(VOICEOVER_BUCKET)
+        .upload(audioPath, speech.bytes, { contentType: speech.contentType, upsert: true });
+      if (uploadError) throw new Error(`Voiceover storage upload failed: ${uploadError.message}`);
+
+      const { data: signed, error: signError } = await admin.storage.from(VOICEOVER_BUCKET).createSignedUrl(audioPath, VOICEOVER_URL_TTL_SECONDS);
+      if (signError || !signed) throw new Error(signError?.message ?? "Could not sign voiceover URL");
+
+      const segment: VoiceoverSegmentRow = { index: 0, text: script, audioPath, durationSeconds: estimateDurationSeconds(script) };
+      await chargeUser(userId, cost, "Voiceover Generation", `voiceover.${voiceId}`);
+      await admin.from("voiceover_generations").update({ segments: [segment], status: "completed" }).eq("id", row.id);
+      recordUsageEvent("voiceover", userId, { voiceId, generationMode: "all_at_once", source: "mcp" });
+      return { url: signed.signedUrl, durationSeconds: segment.durationSeconds };
+    })();
+
+    const outcome = await withBudget(work, ASYNC_TOOL_BUDGET_MS);
+
+    if (outcome === "timeout") {
+      return jsonResult({
+        id: row.id,
+        status: "generating",
+        title,
+        voiceId,
+        // The widget polls check_voiceover_status itself and updates in place --
+        // telling the calling model to also call it would just spawn duplicate
+        // "generating" widget cards in the chat on top of the one already polling.
+        note: "Still generating. The audio will appear in the widget above once it's ready, no need to check again.",
+      });
+    }
+
+    work.catch(async (error) => {
+      await admin
+        .from("voiceover_generations")
+        .update({ status: "failed", ...describeGenerationFailure("mcp/generate_voiceover", error) })
+        .eq("id", row.id);
+    });
+
+    return jsonResult({ id: row.id, status: "completed", title, voiceId, url: outcome.url, durationSeconds: outcome.durationSeconds });
+  },
+};
+
+const checkVoiceoverStatusTool: McpToolDefinition = {
+  name: "check_voiceover_status",
+  title: "Check voiceover generation status",
+  description: "Checks the status of an in-progress generate_voiceover call by its id.",
+  inputSchema: { id: z.string() },
+  handler: async (userId, args) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("voiceover_generations")
+      .select("id, status, title, voice_id, segments, error_message")
+      .eq("id", String(args.id))
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!data) return errorResult("Not found");
+    if (data.status !== "completed") {
+      return jsonResult({
+        id: data.id,
+        status: data.status,
+        title: data.title,
+        voiceId: data.voice_id,
+        error_message: data.error_message ?? undefined,
+        note: data.status === "generating" ? "Still generating. Try again shortly." : undefined,
+      });
+    }
+
+    const segments = (data.segments as VoiceoverSegmentRow[] | null) ?? [];
+    const segment = segments[0];
+    if (!segment) return errorResult("Voiceover completed but no audio was found");
+
+    const { data: signed, error: signError } = await admin.storage
+      .from(VOICEOVER_BUCKET)
+      .createSignedUrl(segment.audioPath, VOICEOVER_URL_TTL_SECONDS);
+    if (signError || !signed) return errorResult(signError?.message ?? "Could not sign voiceover URL");
+
+    return jsonResult({
+      id: data.id,
+      status: "completed",
+      title: data.title,
+      voiceId: data.voice_id,
+      url: signed.signedUrl,
+      durationSeconds: segment.durationSeconds,
+    });
+  },
+};
+
 export const MCP_TOOLS: McpToolDefinition[] = [
   getCreditBalanceTool,
   listScriptsTool,
@@ -943,4 +1120,6 @@ export const MCP_TOOLS: McpToolDefinition[] = [
   checkDownloadStatusTool,
   analyzeCreatorTool,
   checkCreatorAnalysisStatusTool,
+  generateVoiceoverTool,
+  checkVoiceoverStatusTool,
 ];

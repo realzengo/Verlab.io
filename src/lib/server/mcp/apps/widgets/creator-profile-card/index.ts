@@ -116,6 +116,7 @@ function render(data: CreatorProfileData | null) {
         <button type="button" class="v-quick-pill" id="action-hooks">Extract top hooks</button>
         <button type="button" class="v-quick-pill" id="action-script">Write a script in this style</button>
       </div>
+      <div class="v-quick-status" id="quick-status" hidden></div>
     `;
   } else {
     body = `<div class="v-empty">${escapeHtml(data?.note ?? `Analyzing ${channelName}'s top videos…`)}</div>`;
@@ -132,6 +133,16 @@ function render(data: CreatorProfileData | null) {
       ${body}
     </div>
   `;
+}
+
+function showQuickStatus(message: string) {
+  const el = document.getElementById("quick-status") as HTMLElement | null;
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = message;
+  setTimeout(() => {
+    el.hidden = true;
+  }, 3000);
 }
 
 render(null);
@@ -151,10 +162,10 @@ root.addEventListener("click", (event) => {
   }
 
   if (target.closest("#action-hooks")) {
-    sendChatMessage(app, `Extract the top hooks from ${channelName}'s videos you just analyzed.`);
+    sendChatMessage(app, `Extract the top hooks from ${channelName}'s videos you just analyzed.`, showQuickStatus);
     return;
   }
   if (target.closest("#action-script")) {
-    sendChatMessage(app, `Write me a script in ${channelName}'s style.`);
+    sendChatMessage(app, `Write me a script in ${channelName}'s style.`, showQuickStatus);
   }
 });
