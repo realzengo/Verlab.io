@@ -141,11 +141,13 @@ export async function proxy(request: NextRequest) {
   // etc., on every host, exactly like the narrower matcher this file used
   // to have before the subdomain split needed a broader one to catch
   // clean dashboard URLs.
+  // Segment-matched, not prefix-matched: a bare startsWith("/admin") also
+  // swallows sibling paths like /admin-logo.png, bouncing a public static
+  // asset to /login. That breaks <Image> in particular, because the image
+  // optimizer refetches the source server-side with no session cookie and
+  // reports the 307 as "not a valid image".
   const needsAuthCheck =
-    pathname.startsWith("/app") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/checkout") ||
-    pathname.startsWith("/oauth") ||
+    matchesPrefix(pathname, ["/app", "/admin", "/checkout", "/oauth"]) ||
     pathname === "/login" ||
     pathname === "/signup";
 
@@ -316,7 +318,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/admin")) {
+  if (matchesPrefix(pathname, ["/admin"])) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", rawPathname);
