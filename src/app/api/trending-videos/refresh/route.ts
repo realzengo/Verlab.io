@@ -39,21 +39,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // bounded to whatever page a user actually views -- see
     // backfillPageFollowerCounts in niche-video-query.ts.
 
-    // The trending set changes entirely between refreshes, so replace rather
-    // than upsert — otherwise videos that fall out of trending would linger.
-    // Scoped to platform='tiktok' so this doesn't wipe out the YouTube pool,
-    // which is refreshed independently (and far less often, due to quota) by
-    // /api/youtube-videos/refresh.
-    const { error: deleteError } = await admin.from("trending_videos").delete().eq("platform", "tiktok");
-    if (deleteError) throw new Error(deleteError.message);
-
     // Chunked + bounded-concurrency rather than one insert() carrying the
     // whole ~50-hashtag catalog (up to a few thousand rows) -- see
     // batchUpsertTrendingVideos for why a single giant write is risky here
     // (one malformed row previously poisoned an entire batch, and a huge
     // payload holds a pooled DB connection longer than it needs to).
-    // upsert (not insert) is still safe post-delete: no conflicts are
-    // expected, it just tolerates a retry landing rows twice.
+    // Upserting (onConflict: "id") rather than deleting-then-inserting is
+    // deliberate: a video that's still trending keeps the same id, so the
+    // upsert leaves its transcript_analysis (written by the enrichment cron,
+    // see niche-video-enrichment.ts) and everything else not in this payload
+    // untouched. Deleting the whole platform first used to wipe that column
+    // back to NULL every 30 minutes even for videos that never stopped
+    // trending, which is why per-video faceless coverage stayed near zero
+    // despite the enrichment worker running steadily.
     const refreshedAt = new Date().toISOString();
     const summary = await batchUpsertTrendingVideos(
       admin,
@@ -81,6 +79,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
 
     if (summary.upsertedRows === 0) throw new Error("Batch upsert failed for every chunk");
+
+    // Now that the current trending set has been written (each row stamped
+    // with refreshedAt above), anything still carrying an older refreshed_at
+    // is a video that fell out of trending this cycle -- prune it. Scoped to
+    // platform='tiktok' so this doesn't touch the YouTube pool, which is
+    // refreshed independently (and far less often, due to quota) by
+    // /api/youtube-videos/refresh.
+    const { error: deleteStaleError } = await admin
+      .from("trending_videos")
+      .delete()
+      .eq("platform", "tiktok")
+      .lt("refreshed_at", refreshedAt);
+    if (deleteStaleError) throw new Error(deleteStaleError.message);
 
     return NextResponse.json({
       ok: true,

@@ -10,10 +10,13 @@ import type { TranscriptAnalysis } from "@/lib/types";
 
 export class VideoEnrichmentError extends Error {}
 
+const FORMAT_TAGS = ["top5_ranking", "roblox_gaming", "commentary", "animation_2d", "other"] as const;
+
 const AnalysisSchema = z.object({
   niche: z.enum(NICHE_ORDER),
   is_faceless: z.boolean(),
   confidence: z.number().min(0).max(100),
+  format_tags: z.array(z.enum(FORMAT_TAGS)).max(2),
   summary: z.string(),
   reasoning: z.string(),
 });
@@ -32,7 +35,7 @@ const ANALYSIS_MAX_OUTPUT_TOKENS = 800;
 // length bounds cost per call without hurting classification accuracy.
 const MAX_TRANSCRIPT_CHARS = 6_000;
 
-const SYSTEM_PROMPT = `You are Verlab's video content analyst. Given a video's title, creator, hashtag, and transcript, identify (1) which single niche from the fixed catalog it best belongs to, and (2) whether it is a "faceless" video -- defined as content produced without the creator's real physical face on camera (e.g. voiceover-narrated stock/AI footage, 2D/3D animation, whiteboard explainer, screen recording, text-on-screen storytelling). A video showing a real human host on camera -- even briefly -- is NOT faceless. Base your verdict only on evidence in the transcript and metadata given; when the evidence is ambiguous, favor a lower confidence_score rather than guessing. Be terse and evidence-based -- your reasoning must cite the specific signal(s) that drove the verdict.`;
+const SYSTEM_PROMPT = `You are Verlab's video content analyst. Given a video's title, creator, hashtag, and transcript, identify (1) which single niche from the fixed catalog it best belongs to, (2) whether it is a "faceless" video -- defined as content produced without the creator's real physical face on camera (e.g. voiceover-narrated stock/AI footage, 2D/3D animation, whiteboard explainer, screen recording, text-on-screen storytelling). A video showing a real human host on camera -- even briefly -- is NOT faceless. And (3) 0-2 format/sub-genre tags from this fixed set, based on what the title/transcript actually show: top5_ranking (countdown or ranked-list format -- "top 5", "ranked worst to best", numbered items), roblox_gaming (gameplay footage, primarily Roblox or another game, is the main visual/subject), commentary (reacting to or analyzing existing content, news, or drama -- not gameplay, not a ranking), animation_2d (primary visual style is 2D animation/motion graphics, not live footage or gameplay). Only assign a tag that clearly applies from the evidence given -- most videos get 0-1 tags; use "other" or an empty list rather than forcing a fit. Base every verdict only on evidence in the transcript and metadata given; when the evidence is ambiguous, favor a lower confidence_score rather than guessing. Be terse and evidence-based -- your reasoning must cite the specific signal(s) that drove the verdict.`;
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -188,13 +191,59 @@ export interface EnrichmentTickResult {
 }
 
 /**
+ * Loads up to `limit` not-yet-analyzed rows, oldest-refreshed first within
+ * each platform, split evenly across tiktok/youtube rather than one combined
+ * cross-platform query. TikTok's pool is both larger and more frequently
+ * refreshed, so a single "oldest refreshed_at first" query across both
+ * platforms tends to let TikTok rows dominate every tick's batch, leaving
+ * YouTube rows perpetually unanalyzed even once fully caught up on TikTok --
+ * confirmed against real data (zero YouTube rows had ever been analyzed).
+ * Each half still hits the partial index from
+ * 20260819130000_trending_videos_transcript_analysis.sql for its
+ * transcript_analysis IS NULL + refreshed_at scan.
+ */
+async function loadEnrichmentQueue(admin: SupabaseClient, limit: number): Promise<EnrichmentQueueRow[]> {
+  const perPlatform = Math.ceil(limit / 2);
+  const [tiktokRows, youtubeRows] = await Promise.all([
+    admin
+      .from("trending_videos")
+      .select(ENRICHMENT_QUEUE_COLUMNS)
+      .eq("platform", "tiktok")
+      .is("transcript_analysis", null)
+      .order("refreshed_at", { ascending: true })
+      .limit(perPlatform),
+    admin
+      .from("trending_videos")
+      .select(ENRICHMENT_QUEUE_COLUMNS)
+      .eq("platform", "youtube")
+      .is("transcript_analysis", null)
+      .order("refreshed_at", { ascending: true })
+      .limit(perPlatform),
+  ]);
+
+  if (tiktokRows.error) {
+    console.error("[niche-video-enrichment] failed to load tiktok enrichment queue:", tiktokRows.error.message);
+  }
+  if (youtubeRows.error) {
+    console.error("[niche-video-enrichment] failed to load youtube enrichment queue:", youtubeRows.error.message);
+  }
+
+  return [...((tiktokRows.data ?? []) as EnrichmentQueueRow[]), ...((youtubeRows.data ?? []) as EnrichmentQueueRow[])].slice(
+    0,
+    limit
+  );
+}
+
+/**
  * Runs one enrichment tick: pulls up to `batchSize` not-yet-analyzed
- * trending_videos rows (oldest-refreshed first, so a long-neglected video
- * doesn't get starved behind a constant stream of newly-scraped ones) and
- * enriches them with bounded concurrency. Safe to call repeatedly on a
- * schedule -- each tick only ever claims rows still sitting at
- * transcript_analysis IS NULL, so overlapping/retried ticks don't duplicate
- * work once a row lands a terminal status.
+ * trending_videos rows (oldest-refreshed first per platform, split evenly --
+ * see loadEnrichmentQueue -- so a long-neglected video doesn't get starved
+ * behind a constant stream of newly-scraped ones, and one platform's larger
+ * pool doesn't starve the other's) and enriches them with bounded
+ * concurrency. Safe to call repeatedly on a schedule -- each tick only ever
+ * claims rows still sitting at transcript_analysis IS NULL, so
+ * overlapping/retried ticks don't duplicate work once a row lands a terminal
+ * status.
  */
 export async function runNicheVideoEnrichmentTick(
   admin: SupabaseClient = createAdminClient() as SupabaseClient,
@@ -202,24 +251,9 @@ export async function runNicheVideoEnrichmentTick(
 ): Promise<EnrichmentTickResult> {
   const limit = Math.min(MAX_BATCH_SIZE, Math.max(1, batchSize));
 
-  // Hits the partial index from
-  // 20260819130000_trending_videos_transcript_analysis.sql -- stays cheap
-  // regardless of table size since it only ever scans not-yet-analyzed rows.
-  const { data, error } = await admin
-    .from("trending_videos")
-    .select(ENRICHMENT_QUEUE_COLUMNS)
-    .is("transcript_analysis", null)
-    .order("refreshed_at", { ascending: true })
-    .limit(limit);
-
   const result: EnrichmentTickResult = { processed: 0, analyzed: 0, unavailable: 0, failed: 0 };
 
-  if (error) {
-    console.error("[niche-video-enrichment] failed to load enrichment queue:", error.message);
-    return result;
-  }
-
-  const queue = (data ?? []) as EnrichmentQueueRow[];
+  const queue = await loadEnrichmentQueue(admin, limit);
   if (queue.length === 0) return result;
 
   let nextIndex = 0;

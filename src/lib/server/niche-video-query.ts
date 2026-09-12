@@ -344,15 +344,19 @@ function parseNonNegativeNumber(raw: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-// The "faceless only" filter matches by channel name against
-// niche_channels' classifier verdicts (104/136 real verified channels as of
-// 2026-09) rather than trending_videos.transcript_analysis.is_faceless --
-// that per-video enrichment worker has only ever analyzed a handful of the
-// ~8.8k cached rows, nowhere near enough to power a usable filter on its
-// own. There's no real foreign key between the two tables (niche_channels
-// is keyed by channel_url, trending_videos only stores a display name), so
-// this matches on (platform, lowercased/trimmed channel name) -- inexact,
-// but the only link that exists today.
+// The "faceless only" filter prefers each video's own transcript_analysis
+// verdict when available -- analyzeVideoTranscript (niche-video-enrichment.ts)
+// runs Gemini against that specific video's transcript, so it's the same
+// signal already driving the "Faceless" badge on the video card, and more
+// precise than a name match. transcript_analysis used to have near-zero
+// coverage because the TikTok refresh cron deleted+reinserted every row
+// every 30 minutes, wiping it back to NULL even for videos still trending --
+// fixed in trending-videos/refresh/route.ts, so coverage now grows instead
+// of resetting every cycle. Until a given video has been enriched, this
+// falls back to matching its channel name against niche_channels' classifier
+// verdicts (104/136 real verified channels as of 2026-09) -- inexact (no
+// real foreign key, only a lowercased/trimmed name match), but still better
+// than nothing for not-yet-enriched rows.
 async function getFacelessAuthorSet(admin: SupabaseClient): Promise<Set<string>> {
   const { data, error } = await admin.from("niche_channels").select("channel_title, platform").eq("is_faceless", true);
   if (error) {
@@ -368,6 +372,12 @@ async function getFacelessAuthorSet(admin: SupabaseClient): Promise<Set<string>>
 
 function isFacelessAuthor(authorSet: Set<string>, platform: string, author: string): boolean {
   return authorSet.has(`${platform}::${(author ?? "").trim().toLowerCase()}`);
+}
+
+function isFacelessVideo(row: TrendingVideoRow, authorSet: Set<string>): boolean {
+  const analysis = row.transcript_analysis;
+  if (analysis?.status === "analyzed") return analysis.is_faceless;
+  return isFacelessAuthor(authorSet, row.platform, row.author);
 }
 
 const NICHE_QUERY_DEBUG = process.env.NICHE_QUERY_DEBUG === "1";
@@ -473,7 +483,7 @@ export async function getNicheVideosPage(
     const now = Date.now();
 
     return batch.filter((row) => {
-      if (faceless && !isFacelessAuthor(facelessAuthorSet, row.platform, row.author)) return false;
+      if (faceless && !isFacelessVideo(row, facelessAuthorSet)) return false;
       if (outlierMin !== null || outlierMax !== null) {
         const outlierRatio = row.view_count / Math.max(nicheAvgViews, 1);
         if (outlierMin !== null && outlierRatio < outlierMin) return false;
@@ -491,11 +501,75 @@ export async function getNicheVideosPage(
     });
   }
 
+  // Alternates tiktok[0], youtube[0], tiktok[1], youtube[1], ... up to
+  // `limit` total, continuing from whichever platform still has rows once
+  // the other runs out (a niche can legitimately have zero rows on one
+  // platform -- e.g. Movie Commentary/Gaming had zero YouTube rows for a
+  // while -- so this must degrade to single-platform rather than leaving
+  // gaps or erroring).
+  function interleaveByPlatform(
+    tiktokRows: TrendingVideoRow[],
+    youtubeRows: TrendingVideoRow[]
+  ): TrendingVideoRow[] {
+    const merged: TrendingVideoRow[] = [];
+    let ti = 0;
+    let yi = 0;
+    while (merged.length < limit && (ti < tiktokRows.length || yi < youtubeRows.length)) {
+      if (ti < tiktokRows.length) merged.push(tiktokRows[ti++]);
+      if (merged.length >= limit) break;
+      if (yi < youtubeRows.length) merged.push(youtubeRows[yi++]);
+    }
+    return merged;
+  }
+
+  // Plain "ORDER BY view_count DESC" across both platforms lets YouTube
+  // dominate every page of the "All" tab -- its view counts run an order of
+  // magnitude higher than TikTok's for equivalently-recent content (the
+  // first TikTok row didn't show up until position 68 of a 30-day-window
+  // "Most Viewed" query, confirmed against real data). Fetching each
+  // platform's own page independently and interleaving them makes "All"
+  // actually alternate between both instead of the higher-magnitude
+  // platform crowding the other out by raw view count.
+  async function runAllPlatformsQuery(
+    applyViewFilter: boolean,
+    applyTimeWindow: boolean
+  ): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
+    const perPlatform = Math.ceil(limit / 2);
+    const platformOffset = (page - 1) * perPlatform;
+
+    const [tiktokResult, youtubeResult] = await Promise.all([
+      buildBaseQuery(applyViewFilter, applyTimeWindow)
+        .eq("platform", "tiktok")
+        .range(platformOffset, platformOffset + perPlatform),
+      buildBaseQuery(applyViewFilter, applyTimeWindow)
+        .eq("platform", "youtube")
+        .range(platformOffset, platformOffset + perPlatform),
+    ]);
+
+    if (tiktokResult.error) {
+      console.error(`[niche-video-query] Supabase error (all-platforms tiktok half, niche=${niche}):`, tiktokResult.error);
+      throw new Error(tiktokResult.error.message);
+    }
+    if (youtubeResult.error) {
+      console.error(`[niche-video-query] Supabase error (all-platforms youtube half, niche=${niche}):`, youtubeResult.error);
+      throw new Error(youtubeResult.error.message);
+    }
+
+    const tiktokRows = (tiktokResult.data ?? []) as TrendingVideoRow[];
+    const youtubeRows = (youtubeResult.data ?? []) as TrendingVideoRow[];
+
+    return {
+      pageRows: interleaveByPlatform(tiktokRows, youtubeRows),
+      hasMore: tiktokRows.length > perPlatform || youtubeRows.length > perPlatform,
+    };
+  }
+
   // Runs the query and returns this page's rows plus whether more exist.
-  // Two shapes depending on whether outlier/views-per-hour filters are
-  // active: the common case paginates in SQL via .range() (cheap, exact);
-  // the derived-filter case has to pull a capped batch and paginate in JS
-  // instead, since those two fields can't be expressed as column filters.
+  // Three shapes: the derived-filter case pulls a capped batch and paginates
+  // in JS (outlier/views-per-hour/faceless can't be expressed as column
+  // filters); the "all platforms" case interleaves two independently-paged
+  // queries (see runAllPlatformsQuery, above); everything else paginates in
+  // SQL via .range() (cheap, exact).
   async function runQuery(
     applyViewFilter = true,
     applyTimeWindow = true
@@ -516,6 +590,10 @@ export async function getNicheVideosPage(
         pageRows: filtered.slice(offset, offset + limit),
         hasMore: filtered.length > offset + limit,
       };
+    }
+
+    if (platform === "all") {
+      return runAllPlatformsQuery(applyViewFilter, applyTimeWindow);
     }
 
     const { data, error } = await buildBaseQuery(applyViewFilter).range(offset, offset + limit);

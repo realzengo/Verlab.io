@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { preload } from "react-dom";
 import Link from "next/link";
-import { BadgeCheck, Compass, Eye, Heart, MessageCircle, Play, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
+import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
 import {
@@ -21,88 +21,17 @@ import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
 import { cn } from "@/lib/utils";
 import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
-import type { TrendingVideo } from "@/lib/types";
+import type { FormatTag, TrendingVideo } from "@/lib/types";
 
 export const VIDEOS_PER_PAGE = 20;
 
-type ContentStyle = "narrated" | "ai-generated" | "2d-animation";
-
-const STYLE_LABEL: Record<ContentStyle, string> = {
-  narrated: "Narrated",
-  "ai-generated": "AI-Generated",
-  "2d-animation": "2D Animation",
+const FORMAT_TAG_LABEL: Partial<Record<FormatTag, string>> = {
+  top5_ranking: "Top 5 Ranking",
+  roblox_gaming: "Roblox/Gaming",
+  commentary: "Commentary",
+  animation_2d: "2D Animation",
+  // "other" intentionally has no label -- not shown as a badge.
 };
-
-function videoStyle(video: TrendingVideo): ContentStyle {
-  const tag = video.hashtag.toLowerCase();
-  if (tag.includes("ai")) return "ai-generated";
-  if (tag.includes("2d") || tag.includes("animat")) return "2d-animation";
-  return "narrated";
-}
-
-// Categorical hue slots (1-8, dataviz-validated order) assigned once per
-// niche/style so a given tag always renders the same color everywhere.
-const NICHE_CAT_SLOT: Record<string, number> = {
-  History: 1,
-  Horror: 2,
-  Crime: 3,
-  Finance: 4,
-  Education: 5,
-  Storytelling: 6,
-  Entertainment: 7,
-  Animals: 8,
-  Explained: 1,
-  Engineering: 2,
-  Military: 3,
-  Sport: 4,
-  Technology: 5,
-  Psychology: 6,
-  Religion: 7,
-  "Crime & Psychology": 8,
-  "Fitness & Health": 1,
-  Politics: 2,
-  Stats: 3,
-  Gaming: 4,
-  Games: 5,
-};
-
-const STYLE_CAT_SLOT: Record<ContentStyle, number> = {
-  narrated: 5,
-  "ai-generated": 7,
-  "2d-animation": 6,
-};
-
-const CAT_CHIP: Record<number, string> = {
-  1: "border-2 border-cat-1/20 bg-cat-1-tint text-cat-1",
-  2: "border-2 border-cat-2/20 bg-cat-2-tint text-cat-2",
-  3: "border-2 border-cat-3/20 bg-cat-3-tint text-cat-3",
-  4: "border-2 border-cat-4/20 bg-cat-4-tint text-cat-4",
-  5: "border-2 border-cat-5/20 bg-cat-5-tint text-cat-5",
-  6: "border-2 border-cat-6/20 bg-cat-6-tint text-cat-6",
-  7: "border-2 border-cat-7/20 bg-cat-7-tint text-cat-7",
-  8: "border-2 border-cat-8/20 bg-cat-8-tint text-cat-8",
-};
-
-const CAT_CHIP_ACTIVE: Record<number, string> = {
-  1: "border-2 border-cat-1 bg-cat-1-tint text-cat-1",
-  2: "border-2 border-cat-2 bg-cat-2-tint text-cat-2",
-  3: "border-2 border-cat-3 bg-cat-3-tint text-cat-3",
-  4: "border-2 border-cat-4 bg-cat-4-tint text-cat-4",
-  5: "border-2 border-cat-5 bg-cat-5-tint text-cat-5",
-  6: "border-2 border-cat-6 bg-cat-6-tint text-cat-6",
-  7: "border-2 border-cat-7 bg-cat-7-tint text-cat-7",
-  8: "border-2 border-cat-8 bg-cat-8-tint text-cat-8",
-};
-
-function nicheChipClasses(niche: string, active = false): string {
-  const slot = NICHE_CAT_SLOT[niche] ?? 1;
-  return active ? CAT_CHIP_ACTIVE[slot] : CAT_CHIP[slot];
-}
-
-function styleChipClasses(style: ContentStyle, active = false): string {
-  const slot = STYLE_CAT_SLOT[style];
-  return active ? CAT_CHIP_ACTIVE[slot] : CAT_CHIP[slot];
-}
 
 // Deep, muted placeholder tones (shown while a cover image loads or is
 // missing) — anchored to slate-900 so they read as premium dark thumbnails
@@ -172,8 +101,6 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
   const triedThumbFallback = useRef(!video.coverUrl);
   const [coverFailed, setCoverFailed] = useState(false);
   const timeAgo = formatTimeAgo(video.postedAt);
-  const niche = video.niche;
-  const style = videoStyle(video);
   const analysis = video.transcriptAnalysis?.status === "analyzed" ? video.transcriptAnalysis : null;
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
 
@@ -265,33 +192,30 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
       </div>
 
       <div className="flex flex-col gap-3 p-3.5 sm:p-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {analysis ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border-2 border-accent-line bg-accent px-2 py-0.5 text-[10px] font-bold leading-none text-primary"
-              title={`AI-verified niche, ${analysis.confidence}% confidence`}
-            >
-              <BadgeCheck className="h-3 w-3" />
-              {analysis.niche}
-            </span>
-          ) : (
-            <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", nicheChipClasses(niche))}>
-              {niche}
-            </span>
-          )}
-          {analysis?.is_faceless && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold leading-none text-white"
-              title="AI-verified: no real face on camera"
-            >
-              <VenetianMask className="h-3 w-3" />
-              Faceless
-            </span>
-          )}
-          <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold leading-none", styleChipClasses(style))}>
-            {STYLE_LABEL[style]}
-          </span>
-        </div>
+        {(analysis?.is_faceless || analysis?.format_tags?.length) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {analysis?.is_faceless && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold leading-none text-white"
+                title="AI-verified: no real face on camera"
+              >
+                <VenetianMask className="h-3 w-3" />
+                Faceless
+              </span>
+            )}
+            {analysis?.format_tags
+              .filter((tag): tag is Exclude<FormatTag, "other"> => tag !== "other" && Boolean(FORMAT_TAG_LABEL[tag]))
+              .map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full border-2 border-accent-line bg-accent px-2 py-0.5 text-[10px] font-bold leading-none text-primary"
+                  title="AI-verified format"
+                >
+                  {FORMAT_TAG_LABEL[tag]}
+                </span>
+              ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-heading">@{video.author}</span>

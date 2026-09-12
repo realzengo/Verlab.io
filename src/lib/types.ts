@@ -28,12 +28,35 @@ export interface SampleVideo {
 // three terminal shapes onto trending_videos.transcript_analysis -- "status"
 // is what lets a UI (or a future retry pass) tell a real verdict apart from
 // a permanent miss without re-parsing the whole payload.
+/** Sub-genre/format tag from the video classification passes -- "other" (or
+ * an empty array) means none of the fixed tags clearly applied. Declared as a
+ * const array so both classifiers (the per-video transcript pass in
+ * niche-video-enrichment.ts and the batched metadata pass in
+ * faceless-batch-classifier.ts) can build a Zod enum from the same source. */
+export const FORMAT_TAGS = ["top5_ranking", "roblox_gaming", "commentary", "animation_2d", "other"] as const;
+
+export type FormatTag = (typeof FORMAT_TAGS)[number];
+
+/** trending_videos.faceless_rank -- the feed's primary sort key. "unknown"
+ * deliberately sits between the two known states so unclassified videos
+ * outrank ones we know show a face, and nothing is ever hidden (see
+ * 20260910120000_trending_videos_faceless_rank.sql). */
+export const FACELESS_RANK = {
+  faceless: 0,
+  unknown: 1,
+  notFaceless: 2,
+} as const;
+
+export type FacelessRank = (typeof FACELESS_RANK)[keyof typeof FACELESS_RANK];
+
 export interface AnalyzedTranscript {
   status: "analyzed";
   /** One of the fixed niches in niches-catalog.ts's NICHE_ORDER. */
   niche: string;
   is_faceless: boolean;
   confidence: number;
+  /** 0-2 tags; see analyzeVideoTranscript's prompt in niche-video-enrichment.ts. */
+  format_tags: FormatTag[];
   summary: string;
   reasoning: string;
   analyzed_at: string;
