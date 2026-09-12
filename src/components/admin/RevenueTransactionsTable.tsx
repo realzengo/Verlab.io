@@ -52,7 +52,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
                     <Avatar name={txn.userName} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate font-medium text-heading">{txn.userName}</p>
-                      <p className="truncate text-xs text-body">{txn.userEmail}</p>
+                      <p className="truncate text-xs text-subtle">{txn.userEmail}</p>
                     </div>
                   </div>
                 </TableCell>

@@ -156,14 +156,14 @@ export default async function AdminOverviewPage() {
 
       <Card className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success-tint text-success">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-green rounded-lg">
             <CreditCard className="h-[18px] w-[18px]" />
           </span>
           <div>
             <p className="text-sm font-semibold text-heading">
               {CURRENT_MRR > 0 ? `${formatCurrency(CURRENT_MRR)} MRR from ${PAYING_USERS} subscribers` : "Awaiting your first payment"}
             </p>
-            <p className="text-xs text-body">Whop billing is wired up. MRR, churn, and transactions populate automatically as payments come in.</p>
+            <p className="text-sm text-subtle">Whop billing is wired up. MRR, churn, and transactions populate automatically as payments come in.</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -190,8 +190,8 @@ export default async function AdminOverviewPage() {
         </div>
 
         <Card>
-          <h3 className="text-sm font-semibold text-heading">Plan distribution</h3>
-          <p className="mb-5 text-xs text-body">{formatNumber(PLAN_DISTRIBUTION.reduce((s, p) => s + p.count, 0))} accounts by plan tier</p>
+          <h3 className="text-base">Plan distribution</h3>
+          <p className="mb-5 text-sm text-subtle">{formatNumber(PLAN_DISTRIBUTION.reduce((s, p) => s + p.count, 0))} accounts by plan tier</p>
           <StackedShareBar segments={PLAN_DISTRIBUTION.map((p) => ({ label: p.label, value: p.count, tone: p.tone }))} />
         </Card>
       </div>
@@ -200,16 +200,16 @@ export default async function AdminOverviewPage() {
         <Card className="xl:col-span-2">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-heading">Signups</h3>
-              <p className="text-xs text-body">Daily new accounts, last 30 days</p>
+              <h3 className="text-base">Signups</h3>
+              <p className="text-sm text-subtle">Daily new accounts, last 30 days</p>
             </div>
           </div>
           <BarChart labels={signupLabels} data={SIGNUP_SERIES.map((p) => p.signups)} tone="blue" />
         </Card>
 
         <Card>
-          <h3 className="text-sm font-semibold text-heading">Tool usage (30d)</h3>
-          <p className="mb-5 text-xs text-body">Runs by tool, most to least used</p>
+          <h3 className="text-base">Tool usage (30d)</h3>
+          <p className="mb-5 text-sm text-subtle">Runs by tool, most to least used</p>
           <RankedBarList
             items={[...TOOL_USAGE_SHARE].sort((a, b) => b.count - a.count).map((t) => ({ label: t.label, value: t.count, tone: t.tone }))}
           />
@@ -217,14 +217,14 @@ export default async function AdminOverviewPage() {
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-heading">Admin tools</h3>
+        <h3 className="mb-4 text-base">Admin tools</h3>
         <AdminToolsGrid items={toolItems} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-heading">Recent activity</h3>
+            <h3 className="text-base">Recent activity</h3>
             <Button href="/admin/system" variant="text" size="sm">
               View system log
             </Button>
@@ -234,12 +234,12 @@ export default async function AdminOverviewPage() {
 
         <Card className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-primary">
+            <span className="flex h-9 w-9 items-center justify-center admin-sticker admin-sticker-purple rounded-lg">
               <Gauge className="h-[18px] w-[18px]" />
             </span>
             <div>
-              <h3 className="text-sm font-semibold text-heading">Job pipeline</h3>
-              <p className="text-xs text-body">Niche Bend, SOP & transcript jobs</p>
+              <h3 className="text-base">Job pipeline</h3>
+              <p className="text-sm text-subtle">Niche Bend, SOP & transcript jobs</p>
             </div>
           </div>
           <div className="flex flex-col gap-2.5 text-sm">

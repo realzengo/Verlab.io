@@ -121,7 +121,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
         </div>
       </div>
 
-      <p className="text-xs text-body">
+      <p className="text-sm text-subtle">
         Showing {filtered.length} of {users.length} recent users
       </p>
 
@@ -165,7 +165,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
                     <Avatar name={user.name} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate font-medium text-heading">{user.name}</p>
-                      <p className="truncate text-xs text-body">{user.email}</p>
+                      <p className="truncate text-xs text-subtle">{user.email}</p>
                     </div>
                   </div>
                 </TableCell>

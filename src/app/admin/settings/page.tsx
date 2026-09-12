@@ -12,8 +12,8 @@ export default async function AdminSettingsPage() {
     <div className="flex flex-col gap-6 pt-2">
       <Card>
         <div className="mb-2">
-          <h3 className="text-sm font-semibold text-heading">Feature flags</h3>
-          <p className="text-xs text-body">Roll out new tools and pipelines gradually across the user base</p>
+          <h3 className="text-base">Feature flags</h3>
+          <p className="text-sm text-subtle">Roll out new tools and pipelines gradually across the user base</p>
         </div>
         <FeatureFlagsList flags={FEATURE_FLAGS} />
       </Card>

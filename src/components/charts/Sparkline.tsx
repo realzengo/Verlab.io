@@ -35,7 +35,7 @@ export function Sparkline({
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       <path d={path} fill="none" stroke="currentColor" strokeWidth={1.5} className="text-hairline" vectorEffect="non-scaling-stroke" />
-      <circle cx={lastX} cy={lastY} r={2.5} fill={accent} stroke={resolvedTheme === "dark" ? "#0a0a0d" : "#ffffff"} strokeWidth={1.5} />
+      <circle cx={lastX} cy={lastY} r={2.5} fill={accent} stroke="var(--color-surface)" strokeWidth={1.5} />
     </svg>
   );
 }

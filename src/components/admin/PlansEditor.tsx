@@ -67,8 +67,8 @@ function SectionHeading({ icon: Icon, title, subtitle }: { icon: LucideIcon; tit
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-heading">{title}</h3>
-        {subtitle && <p className="text-xs text-body">{subtitle}</p>}
+        <h3 className="text-base">{title}</h3>
+        {subtitle && <p className="text-sm text-subtle">{subtitle}</p>}
       </div>
     </div>
   );
@@ -446,7 +446,7 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
 
       <div className="flex flex-col gap-3 xl:sticky xl:top-6 xl:self-start">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-heading">Live preview</h3>
+          <h3 className="text-base">Live preview</h3>
           <Button href="/pricing" variant="text" size="sm" icon={ExternalLink} iconPosition="right" target="_blank">
             Open pricing page
           </Button>

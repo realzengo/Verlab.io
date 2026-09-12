@@ -21,15 +21,18 @@ export function AdminTopBar({ onMenuClick }: { onMenuClick: () => void }) {
           type="button"
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="shrink-0 rounded-lg p-1 text-body hover:bg-accent md:hidden"
+          className="shrink-0 rounded-md p-1.5 text-body transition-colors hover:bg-black/[0.05] hover:text-heading md:hidden dark:hover:bg-white/[0.06]"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-xl font-semibold text-heading sm:text-2xl">{heading(pathname)}</h1>
+        {/* heading-2: the weight-700 headline against calm 400 body copy is the
+            system's primary expressive lever. Tracking is set in globals.css. */}
+        <h1 className="truncate">{heading(pathname)}</h1>
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        <span className="hidden items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-body sm:flex">
+        {/* badge-pill: white surface, eyebrow type, fully pill. */}
+        <span className="hidden items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1 text-xs font-semibold tracking-[0.125px] text-subtle sm:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
           All systems operational
         </span>

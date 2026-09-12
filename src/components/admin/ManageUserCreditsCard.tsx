@@ -98,8 +98,8 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
     <Card>
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-heading">Manage user credits</h3>
-          <p className="text-xs text-body">Search a user to grant or remove credits manually</p>
+          <h3 className="text-base">Manage user credits</h3>
+          <p className="text-sm text-subtle">Search a user to grant or remove credits manually</p>
         </div>
       </div>
 
@@ -127,7 +127,7 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
               <Avatar name={user.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-heading">{user.name}</p>
-                <p className="truncate text-xs text-body">{user.email}</p>
+                <p className="truncate text-xs text-subtle">{user.email}</p>
               </div>
               <Badge variant="default">
                 <Coins className="h-3 w-3" />
@@ -141,13 +141,13 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
           <div
-            className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover"
+            className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-hairline p-5">
               <div>
-                <h2 className="text-lg font-semibold text-heading">Adjust credits</h2>
-                <p className="text-xs text-body">
+                <h2 className="text-[22px]">Adjust credits</h2>
+                <p className="text-sm text-subtle">
                   {selected.name} · {formatNumber(selected.credits)} credits
                 </p>
               </div>

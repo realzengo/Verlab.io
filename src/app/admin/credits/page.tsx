@@ -43,8 +43,8 @@ export default async function AdminCreditsPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card>
-          <h3 className="text-sm font-semibold text-heading">Spend by action</h3>
-          <p className="mb-5 text-xs text-body">Last 30 days, most to least expensive</p>
+          <h3 className="text-base">Spend by action</h3>
+          <p className="mb-5 text-sm text-subtle">Last 30 days, most to least expensive</p>
           {spendByAction.length === 0 ? (
             <p className="text-sm text-body">No credit spend yet.</p>
           ) : (
@@ -53,8 +53,8 @@ export default async function AdminCreditsPage() {
         </Card>
 
         <Card className="xl:col-span-2">
-          <h3 className="text-sm font-semibold text-heading">Top spenders</h3>
-          <p className="mb-4 text-xs text-body">Ranked by credits spent, last 30 days</p>
+          <h3 className="text-base">Top spenders</h3>
+          <p className="mb-5 text-sm text-subtle">Ranked by credits spent, last 30 days</p>
           {topSpenders.length === 0 ? (
             <EmptyState icon={Coins} title="No spend yet" description="Top spenders will appear once users start using credit-metered tools." />
           ) : (
@@ -90,8 +90,8 @@ export default async function AdminCreditsPage() {
       <ManageUserCreditsCard initialUsers={users} />
 
       <Card>
-        <h3 className="text-sm font-semibold text-heading">Recent transactions</h3>
-        <p className="mb-4 text-xs text-body">Latest 50 ledger entries across all users</p>
+        <h3 className="text-base">Recent transactions</h3>
+        <p className="mb-5 text-sm text-subtle">Latest 50 ledger entries across all users</p>
         {recentTransactions.length === 0 ? (
           <EmptyState icon={Coins} title="No transactions yet" description="Credit charges, refunds, and manual adjustments will show up here." />
         ) : (

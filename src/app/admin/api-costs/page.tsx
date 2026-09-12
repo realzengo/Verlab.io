@@ -19,7 +19,7 @@ export default async function AdminApiCostsPage() {
             {missingKeys.map((p) => p.name).join(", ")} {missingKeys.length === 1 ? "has" : "have"} no API key set on this
             deployment.
           </p>
-          <p className="mt-1 text-xs text-body">
+          <p className="mt-1 text-xs text-subtle">
             Add the missing env var{missingKeys.length === 1 ? "" : "s"} (
             {missingKeys.map((p) => p.envVar).join(", ")}) to enable those integrations.
           </p>

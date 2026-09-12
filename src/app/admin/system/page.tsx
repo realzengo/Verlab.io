@@ -71,8 +71,8 @@ export default async function AdminSystemPage() {
 
       <Card>
         <div className="mb-5">
-          <h3 className="text-sm font-semibold text-heading">API & MCP endpoint health</h3>
-          <p className="text-xs text-body">Response times and error rates, today</p>
+          <h3 className="text-base">API & MCP endpoint health</h3>
+          <p className="text-sm text-subtle">Response times and error rates, today</p>
         </div>
         {endpointHealth.length === 0 ? (
           <EmptyState
@@ -87,8 +87,8 @@ export default async function AdminSystemPage() {
 
       <Card>
         <div className="mb-5">
-          <h3 className="text-sm font-semibold text-heading">Job queue</h3>
-          <p className="text-xs text-body">Niche Bend, SOP, transcript, and download jobs</p>
+          <h3 className="text-base">Job queue</h3>
+          <p className="text-sm text-subtle">Niche Bend, SOP, transcript, and download jobs</p>
         </div>
         {SYSTEM_JOBS.length === 0 ? (
           <EmptyState icon={Gauge} title="No jobs yet" description="Jobs will show up here as users run tools." />

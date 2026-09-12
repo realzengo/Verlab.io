@@ -339,8 +339,8 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-heading">Niche Channels</h2>
-          <p className="text-xs text-body">
+          <h2 className="text-base">Niche Channels</h2>
+          <p className="text-sm text-subtle">
             Ingest channels -- raw, unclassified, visible on Niche Finder immediately. Classify manually below if you
             want a faceless verdict on a channel.
           </p>
@@ -473,9 +473,9 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
 
       {isIngestOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setIsIngestOpen(false)}>
-          <div className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="text-lg font-semibold text-heading">Ingest channel</h2>
+              <h2 className="text-[22px]">Ingest channel</h2>
               <button type="button" onClick={() => setIsIngestOpen(false)} aria-label="Close" className="text-body hover:text-heading">
                 <X className="h-5 w-5" />
               </button>
@@ -556,11 +556,11 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
 
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setPreview(null)}>
-          <div className="w-full max-w-lg rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
               <div>
-                <h2 className="text-lg font-semibold text-heading">Classification preview</h2>
-                <p className="text-xs text-body">{preview.channelTitle}</p>
+                <h2 className="text-[22px]">Classification preview</h2>
+                <p className="text-sm text-subtle">{preview.channelTitle}</p>
               </div>
               <button type="button" onClick={() => setPreview(null)} aria-label="Close" className="text-body hover:text-heading">
                 <X className="h-5 w-5" />

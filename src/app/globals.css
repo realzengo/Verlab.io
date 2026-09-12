@@ -1678,3 +1678,321 @@ html[data-scrolling="true"] *::after {
     inset 0 1px 0 rgba(255, 255, 255, 0.32),
     inset 0 -1px 0 rgba(0, 0, 20, 0.3);
 }
+
+/* =========================================================================
+   ADMIN — Notion theme
+   -------------------------------------------------------------------------
+   Scoped to the `.admin-theme` subtree mounted by AdminLayoutClient, so the
+   whole admin shell re-skins from DESIGN.md without touching the marketing
+   site or the user-facing dashboard. Every override below redeclares a token
+   the shared UI primitives (Card, Button, Badge, Table, charts) already
+   consume, which is why none of them need admin-specific variants.
+
+   Brand read: a warm paper canvas under white cards and near-black Inter,
+   with exactly one structural accent -- Notion blue -- on actions, links and
+   the active/focus signal. The multi-color sticker palette carries all the
+   personality, and only ever as icon tiles and category dots.
+   ========================================================================= */
+
+.admin-theme {
+  /* --- Canvas & ink. The warm off-white is the point: cards read as paper
+         on a desk rather than panels on a screen. --- */
+  --background: #f6f5f4;
+  --foreground: #000000;
+  --color-app: #f6f5f4;
+  --color-surface: #ffffff;
+  --color-ink: #000000;
+
+  /* --- The single structural accent. Actions, links, active state. --- */
+  --color-primary: #0075de;
+  --color-primary-hover: #005bab;
+  --color-btn-primary: #0075de;
+  --color-btn-primary-hover: #005bab;
+
+  /* button-secondary / button-utility: white surface, ink label, hairline. */
+  --color-btn-secondary: #ffffff;
+  --color-btn-secondary-hover: #f6f5f4;
+  --color-btn-secondary-border: #e6e6e6;
+
+  /* `bg-accent` is the blue-tinted wash behind active nav rows and badges. */
+  --color-accent: #eaf4fd;
+  --color-accent-line: #cfe6fa;
+
+  /* --- Text ramp: ink -> warm charcoal -> stone -> ash --- */
+  --color-heading: #000000;
+  --color-slate: #000000;
+  --color-body: #31302e;
+  --color-subtle: #615d59;
+
+  --color-hairline: #e6e6e6;
+
+  /* --- Semantics. The spec exposes no error/success ramp, so status borrows
+         from the sticker palette: green for affirmative, orange for warning,
+         and a red tuned to sit beside them. --- */
+  --color-success: #0f7a26;
+  --color-success-tint: #e8f7eb;
+  --color-warning: #a04200;
+  --color-warning-tint: #fdeee4;
+  --color-danger: #c0392b;
+  --color-danger-tint: #fcecea;
+
+  /* --- Categorical tags, drawn from the sticker palette --- */
+  --color-cat-1: #0075de;
+  --color-cat-1-tint: #eaf4fd;
+  --color-cat-2: #1aae39;
+  --color-cat-2-tint: #e9f8ec;
+  --color-cat-3: #ff64c8;
+  --color-cat-3-tint: #ffeef8;
+  --color-cat-4: #dd5b00;
+  --color-cat-4-tint: #fdeee4;
+  --color-cat-5: #2a9d99;
+  --color-cat-5-tint: #e7f6f5;
+  --color-cat-6: #62aef0;
+  --color-cat-6-tint: #eef6fe;
+  --color-cat-7: #8b5cf0;
+  --color-cat-7-tint: #f2ecfe;
+  --color-cat-8: #523410;
+  --color-cat-8-tint: #f5f0e9;
+
+  /* --- Charts. Read by src/lib/charts.ts through var(--chart-*), so every
+         bar, sparkline and area picks up the sticker palette. --- */
+  --chart-blue: #0075de;
+  --chart-green: #1aae39;
+  --chart-amber: #dd5b00;
+  --chart-violet: #8b5cf0;
+  --chart-rose: #ff64c8;
+  --chart-sky: #62aef0;
+  --chart-orange: #dd5b00;
+  --chart-good: #128a2c;
+  --chart-warning: #a04200;
+  --chart-critical: #c0392b;
+  --chart-grid: #e6e6e6;
+  --chart-axis: #615d59;
+
+  /* --- Shape. Inputs stay tight at 4px, utility buttons at 8px, cards at the
+         friendly 12px. Pill is reserved for CTAs and badges. --- */
+  --radius-chip: 8px;
+  --radius-card-sm: 8px;
+  --radius-card: 12px;
+  --radius-card-lg: 16px;
+  --radius-input: 4px;
+
+  /* Tailwind's own radius utilities are var-driven, so pinning them here lands
+     every existing `rounded-md/lg/xl` in the admin on the spec scale rather
+     than requiring a per-element edit: sm 4px (form fields, tags), md 5px
+     (menu items, list rows), lg 8px (utility buttons, small cards), xl 12px
+     (feature cards), 2xl 16px (large containers). */
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* --- Elevation is barely-there: many near-transparent layers, never a hard
+         cast. Level 0 cards are hairline-only. --- */
+  --shadow-card: none;
+  --shadow-card-hover:
+    rgba(0, 0, 0, 0.01) 0 0.175px 1.041px, rgba(0, 0, 0, 0.02) 0 0.8px 2.925px,
+    rgba(0, 0, 0, 0.027) 0 2.025px 7.847px, rgba(0, 0, 0, 0.04) 0 4px 18px;
+  --shadow-elevated:
+    rgba(0, 0, 0, 0.01) 0 0.4px 2px, rgba(0, 0, 0, 0.02) 0 1.5px 5px, rgba(0, 0, 0, 0.03) 0 4px 12px,
+    rgba(0, 0, 0, 0.04) 0 10px 26px, rgba(0, 0, 0, 0.05) 0 23px 52px;
+  --shadow-blue: none;
+
+  /* --- Type: one family for everything, 64px display down to 12px eyebrow. */
+  --font-admin-body: "Inter", -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  font-family: var(--font-admin-body);
+  font-feature-settings: "lnum" 1;
+  letter-spacing: 0;
+  background-color: var(--color-app);
+  color: var(--color-body);
+}
+
+/* Dark inversion. The spec is a daylight system with one deep-indigo night
+   band, so dark mode takes that indigo family as its floor rather than a
+   neutral black -- it keeps the blue accent legible and stays on-brand. */
+.dark .admin-theme {
+  --background: #16182b;
+  --foreground: #ffffff;
+  --color-app: #16182b;
+  --color-surface: #1e2138;
+  --color-ink: #ffffff;
+
+  --color-primary: #62aef0;
+  --color-primary-hover: #8cc5f5;
+  --color-btn-primary: #0075de;
+  --color-btn-primary-hover: #338fe6;
+
+  --color-btn-secondary: rgba(255, 255, 255, 0.06);
+  --color-btn-secondary-hover: rgba(255, 255, 255, 0.1);
+  --color-btn-secondary-border: rgba(255, 255, 255, 0.16);
+
+  --color-accent: rgba(98, 174, 240, 0.14);
+  --color-accent-line: rgba(98, 174, 240, 0.28);
+
+  --color-heading: #ffffff;
+  --color-slate: #ffffff;
+  --color-body: #c7c9d6;
+  --color-subtle: #9195a8;
+
+  --color-hairline: rgba(255, 255, 255, 0.1);
+
+  --color-success: #5ed67a;
+  --color-success-tint: rgba(26, 174, 57, 0.16);
+  --color-warning: #f59355;
+  --color-warning-tint: rgba(221, 91, 0, 0.18);
+  --color-danger: #f2837a;
+  --color-danger-tint: rgba(192, 57, 43, 0.2);
+
+  --color-cat-1: #62aef0;
+  --color-cat-1-tint: rgba(98, 174, 240, 0.16);
+  --color-cat-2: #5ed67a;
+  --color-cat-2-tint: rgba(26, 174, 57, 0.16);
+  --color-cat-3: #ff8ed8;
+  --color-cat-3-tint: rgba(255, 100, 200, 0.16);
+  --color-cat-4: #f59355;
+  --color-cat-4-tint: rgba(221, 91, 0, 0.18);
+  --color-cat-5: #4ec7c2;
+  --color-cat-5-tint: rgba(42, 157, 153, 0.18);
+  --color-cat-6: #8cc5f5;
+  --color-cat-6-tint: rgba(140, 197, 245, 0.16);
+  --color-cat-7: #b79bf5;
+  --color-cat-7-tint: rgba(183, 155, 245, 0.16);
+  --color-cat-8: #c9a678;
+  --color-cat-8-tint: rgba(201, 166, 120, 0.16);
+
+  --chart-blue: #62aef0;
+  --chart-green: #5ed67a;
+  --chart-amber: #f59355;
+  --chart-violet: #b79bf5;
+  --chart-rose: #ff8ed8;
+  --chart-sky: #8cc5f5;
+  --chart-orange: #f59355;
+  --chart-good: #5ed67a;
+  --chart-warning: #f59355;
+  --chart-critical: #f2837a;
+  --chart-grid: rgba(255, 255, 255, 0.1);
+  --chart-axis: #9195a8;
+
+  --shadow-card: none;
+  --shadow-card-hover:
+    rgba(0, 0, 0, 0.15) 0 1px 3px, rgba(0, 0, 0, 0.2) 0 4px 12px, rgba(0, 0, 0, 0.25) 0 10px 28px;
+  --shadow-elevated:
+    rgba(0, 0, 0, 0.3) 0 4px 12px, rgba(0, 0, 0, 0.4) 0 12px 32px, rgba(0, 0, 0, 0.5) 0 23px 52px;
+}
+
+/* -------------------------------------------------------------------------
+   Admin typography
+   One family carries everything -- Inter, substituting for NotionInter. The
+   expressive lever is weight contrast: headings at 700 with negative tracking
+   that grows with size, body calm at 400. No serif, no decorative face.
+   ------------------------------------------------------------------------- */
+
+.admin-theme h1,
+.admin-theme h2,
+.admin-theme h3,
+.admin-theme h4 {
+  font-family: var(--font-admin-body);
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+/* heading-1 */
+.admin-theme h1 {
+  font-size: 26px;
+  line-height: 1.23;
+  letter-spacing: -0.625px;
+}
+
+/* heading-3 -- section headings */
+.admin-theme h2 {
+  font-size: 22px;
+  line-height: 1.27;
+  letter-spacing: -0.25px;
+}
+
+/* title -- card headings sit at 600, a step below the 700 headline voice */
+.admin-theme h3,
+.admin-theme h4 {
+  font-weight: 600;
+  letter-spacing: -0.125px;
+}
+
+/* ex-data-table-cell: mono-caps eyebrow header over the warm canvas band.
+   `text-transform` is left to the component's own `uppercase` class; tracking
+   is opened past the eyebrow token's +0.125px because caps at 12px need it. */
+.admin-theme thead th {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.33;
+  letter-spacing: 0.06em;
+  color: var(--color-subtle);
+}
+
+.admin-theme button,
+.admin-theme input,
+.admin-theme select,
+.admin-theme textarea {
+  font-family: var(--font-admin-body);
+}
+
+/* Brand blue on the blue wash is only 4.1:1 -- under AA for the 15px active
+   nav label and the 11px badge that share this pairing. The pressed blue is
+   the same hue one step down and clears it at 6.1:1, so anything sitting on
+   an accent-tinted plate uses that instead. */
+.admin-theme .bg-accent.text-primary {
+  color: var(--color-primary-hover);
+}
+
+/* text-input -- deliberately tighter than the pill CTAs: 4px corners, a
+   hairline border, and the soft Level-1 shadow on focus rather than a ring. */
+.admin-theme input:not([type="checkbox"]):not([type="radio"]),
+.admin-theme select,
+.admin-theme textarea {
+  border-radius: var(--radius-input);
+}
+
+.admin-theme input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.admin-theme select:focus-visible,
+.admin-theme textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* -------------------------------------------------------------------------
+   Sticker tiles -- the palette's only sanctioned home in the admin: the small
+   icon plates on stat tiles, tool cards and activity rows, plus category
+   dots. A tinted plate carrying a saturated glyph, never a filled button.
+
+   Tint and glyph are declared as an explicit pair rather than derived with
+   color-mix(): the minifier emits a plain `background-color: var(--sticker)`
+   fallback ahead of any color-mix declaration, which would paint the plate
+   solid in the same color as its own glyph. Explicit pairs also let each
+   glyph be darkened independently to clear 3:1 against its tint -- several
+   sticker hues (#ff64c8, #62aef0) are far too light to sit on white as-is.
+   ------------------------------------------------------------------------- */
+
+.admin-sticker {
+  background-color: var(--sticker-tint);
+  color: var(--sticker-ink);
+}
+
+.admin-sticker-blue   { --sticker-tint: #eaf4fd; --sticker-ink: #0075de; }
+.admin-sticker-sky    { --sticker-tint: #e9f3fc; --sticker-ink: #1a7fc4; }
+.admin-sticker-purple { --sticker-tint: #f1eafe; --sticker-ink: #7b3fe4; }
+.admin-sticker-pink   { --sticker-tint: #ffeaf6; --sticker-ink: #c2187e; }
+.admin-sticker-orange { --sticker-tint: #fdeee4; --sticker-ink: #c25100; }
+.admin-sticker-teal   { --sticker-tint: #e5f4f3; --sticker-ink: #1f7f7c; }
+.admin-sticker-green  { --sticker-tint: #e8f7eb; --sticker-ink: #158a2d; }
+.admin-sticker-brown  { --sticker-tint: #f5efe7; --sticker-ink: #6b4514; }
+
+.dark .admin-sticker-blue   { --sticker-tint: rgba(0, 117, 222, 0.22);  --sticker-ink: #79bcf5; }
+.dark .admin-sticker-sky    { --sticker-tint: rgba(98, 174, 240, 0.2);  --sticker-ink: #9acbf7; }
+.dark .admin-sticker-purple { --sticker-tint: rgba(139, 92, 240, 0.22); --sticker-ink: #bda1f7; }
+.dark .admin-sticker-pink   { --sticker-tint: rgba(255, 100, 200, 0.18); --sticker-ink: #ff9ad9; }
+.dark .admin-sticker-orange { --sticker-tint: rgba(221, 91, 0, 0.24);   --sticker-ink: #f5a068; }
+.dark .admin-sticker-teal   { --sticker-tint: rgba(42, 157, 153, 0.24); --sticker-ink: #63cfca; }
+.dark .admin-sticker-green  { --sticker-tint: rgba(26, 174, 57, 0.22);  --sticker-ink: #6fdc88; }
+.dark .admin-sticker-brown  { --sticker-tint: rgba(201, 166, 120, 0.2); --sticker-ink: #d6b58a; }

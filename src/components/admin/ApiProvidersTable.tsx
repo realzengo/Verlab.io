@@ -132,8 +132,8 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
     <>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-heading">API providers</h2>
-          <p className="text-xs text-body">Every third-party API this app calls, and what you expect to pay each one per month.</p>
+          <h2 className="text-base">API providers</h2>
+          <p className="text-sm text-subtle">Every third-party API this app calls, and what you expect to pay each one per month.</p>
         </div>
         <Button icon={Plus} onClick={openModal}>
           Add provider
@@ -169,7 +169,7 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
                       </a>
                     )}
                   </div>
-                  {provider.notes && <p className="mt-0.5 text-xs text-body">{provider.notes}</p>}
+                  {provider.notes && <p className="mt-0.5 text-xs text-subtle">{provider.notes}</p>}
                 </TableCell>
                 <TableCell className="text-body">{provider.category}</TableCell>
                 <TableCell>
@@ -230,9 +230,9 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
-          <div className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-heading">
+              <h2 className="flex items-center gap-2 text-[22px]">
                 <Plug className="h-4.5 w-4.5" />
                 Add API provider
               </h2>

@@ -135,8 +135,8 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
     <>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-heading">Promo Codes</h2>
-          <p className="text-xs text-body">Manage discounts and credit grants.</p>
+          <h2 className="text-base">Promo Codes</h2>
+          <p className="text-sm text-subtle">Manage discounts and credit grants.</p>
         </div>
         <Button icon={Plus} onClick={openModal}>
           Create Promo Code
@@ -204,9 +204,9 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="text-lg font-semibold text-heading">Create promo code</h2>
+              <h2 className="text-[22px]">Create promo code</h2>
               <button type="button" onClick={closeModal} aria-label="Close" className="text-body hover:text-heading">
                 <X className="h-5 w-5" />
               </button>

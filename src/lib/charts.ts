@@ -1,31 +1,43 @@
 import type { ToolTone } from "@/lib/types";
 
 /**
+ * Chart colors resolve through a CSS variable with the app default baked in as
+ * the fallback, e.g. `var(--chart-blue, #3b82f6)`. Nothing defines those
+ * variables at the document root, so every surface keeps the exact hex below —
+ * but a themed subtree (see `.admin-theme` in globals.css) can restyle every
+ * chart in one place by declaring them. Inline `style`/SVG paint accepts the
+ * var() form everywhere these values are used (fill, stroke, background).
+ */
+function themed(name: string, light: string, dark: string): { light: string; dark: string } {
+  return { light: `var(--chart-${name}, ${light})`, dark: `var(--chart-${name}, ${dark})` };
+}
+
+/**
  * Categorical series palette. Fixed slot order (never cycled/reassigned) —
  * validated with the dataviz skill's six-checks script against this app's
  * light (#ffffff) and dark (#0a0a0d) surfaces.
  */
 export const TONE_HEX: Record<ToolTone, { light: string; dark: string }> = {
-  blue: { light: "#3b82f6", dark: "#3b82f6" },
-  green: { light: "#10b981", dark: "#059669" },
-  amber: { light: "#f59e0b", dark: "#d97706" },
-  violet: { light: "#8b5cf6", dark: "#8b5cf6" },
-  rose: { light: "#f43f5e", dark: "#f43f5e" },
-  sky: { light: "#0ea5e9", dark: "#0284c7" },
+  blue: themed("blue", "#3b82f6", "#3b82f6"),
+  green: themed("green", "#10b981", "#059669"),
+  amber: themed("amber", "#f59e0b", "#d97706"),
+  violet: themed("violet", "#8b5cf6", "#8b5cf6"),
+  rose: themed("rose", "#f43f5e", "#f43f5e"),
+  sky: themed("sky", "#0ea5e9", "#0284c7"),
   // 7th categorical slot -- added for Video Generator. Kept clearly distinct
   // from amber (more yellow/gold) despite both sitting in the warm range.
-  orange: { light: "#f97316", dark: "#ea580c" },
+  orange: themed("orange", "#f97316", "#ea580c"),
 };
 
 export const STATUS_HEX = {
-  good: { light: "#16a34a", dark: "#34d399" },
-  warning: { light: "#f59e0b", dark: "#fbbf24" },
-  critical: { light: "#dc2626", dark: "#f87171" },
+  good: themed("good", "#16a34a", "#34d399"),
+  warning: themed("warning", "#f59e0b", "#fbbf24"),
+  critical: themed("critical", "#dc2626", "#f87171"),
 };
 
 export const CHART_CHROME = {
-  grid: { light: "#e5e5e5", dark: "#1c1c1f" },
-  axis: { light: "#525866", dark: "#75757f" },
+  grid: themed("grid", "#e5e5e5", "#1c1c1f"),
+  axis: themed("axis", "#525866", "#75757f"),
 };
 
 export function toneHex(tone: ToolTone, resolvedTheme: "light" | "dark"): string {

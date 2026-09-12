@@ -23,7 +23,11 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   }, [mobileNavOpen]);
 
   return (
-    <div className="flex min-h-screen w-full bg-app">
+    // `admin-theme` scopes the Notion token set (globals.css) to this subtree
+    // -- every shared primitive below re-skins off it automatically. The warm
+    // paper canvas under white cards is the whole figure/ground device; there
+    // is no atmospheric decoration behind it.
+    <div className="admin-theme flex min-h-screen w-full bg-app">
       <AdminSidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
       {showBackdrop && (
@@ -39,7 +43,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminTopBar onMenuClick={() => setMobileNavOpen(true)} />
-        <main className="flex-1 px-6 pb-12 sm:px-8">{children}</main>
+        <main className="flex-1 px-6 pb-16 sm:px-8">{children}</main>
       </div>
     </div>
   );

@@ -91,8 +91,8 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
     <Card>
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-heading">Admin team</h3>
-          <p className="text-xs text-body">People with access to this dashboard</p>
+          <h3 className="text-base">Admin team</h3>
+          <p className="text-sm text-subtle">People with access to this dashboard</p>
         </div>
         <Button variant="secondary" size="sm" icon={UserPlus} onClick={() => setIsOpen(true)}>
           Invite admin
@@ -112,7 +112,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
               <Avatar name={member.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-heading">{member.name}</p>
-                <p className="truncate text-xs text-body">{member.email}</p>
+                <p className="truncate text-xs text-subtle">{member.email}</p>
               </div>
               <span className="hidden text-xs text-subtle sm:block">Last login {formatDate(member.lastLogin)}</span>
               <Badge variant={ROLE_VARIANT[member.role]}>
@@ -126,9 +126,9 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-xl bg-surface shadow-card-hover" onClick={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="text-lg font-semibold text-heading">Invite admin</h2>
+              <h2 className="text-[22px]">Invite admin</h2>
               <button type="button" onClick={closeModal} aria-label="Close" className="text-body hover:text-heading">
                 <X className="h-5 w-5" />
               </button>

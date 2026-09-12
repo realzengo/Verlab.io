@@ -5,11 +5,13 @@ import { cn } from "@/lib/utils";
 
 type Tone = "blue" | "violet" | "green" | "amber";
 
-const TONE_CLASSES: Record<Tone, string> = {
-  blue: "bg-accent text-primary",
-  violet: "bg-[#f3e8ff] text-[#7c3aed] dark:bg-violet-400/15 dark:text-violet-300",
-  green: "bg-success-tint text-success",
-  amber: "bg-warning-tint text-warning",
+// Sticker palette -- decoration only. It lives on the icon tile and nowhere
+// else on the card: never the CTA, never the surface, never the type.
+const TONE_STICKER: Record<Tone, string> = {
+  blue: "admin-sticker-blue",
+  violet: "admin-sticker-purple",
+  green: "admin-sticker-green",
+  amber: "admin-sticker-orange",
 };
 
 interface StatTileProps {
@@ -23,22 +25,23 @@ interface StatTileProps {
 
 export function StatTile({ label, value, icon: Icon, tone = "blue", delta, trend }: StatTileProps) {
   return (
-    <Card className="flex flex-col gap-3">
+    <Card hoverLift className="flex flex-col gap-3">
       <div className="flex items-start justify-between">
-        <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", TONE_CLASSES[tone])}>
+        <span className={cn("admin-sticker flex h-9 w-9 items-center justify-center rounded-lg", TONE_STICKER[tone])}>
           <Icon className="h-[18px] w-[18px]" />
         </span>
         {trend && trend.length > 1 && <Sparkline data={trend} positive={delta?.isGood ?? true} />}
       </div>
       <div>
-        <p className="text-sm font-medium text-body">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tracking-tight text-heading">{value}</p>
+        <p className="text-sm text-subtle">{label}</p>
+        {/* heading-2 figure -- weight 700 with the tracking pulled in tight. */}
+        <p className="mt-1 text-[26px] font-bold leading-[1.23] tracking-[-0.625px] text-heading">{value}</p>
       </div>
       {delta && (
-        <div className="flex items-center gap-1.5 text-xs font-medium">
+        <div className="flex items-center gap-1.5 text-xs">
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5",
+              "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-medium",
               delta.isGood ? "bg-success-tint text-success" : "bg-danger-tint text-danger"
             )}
           >

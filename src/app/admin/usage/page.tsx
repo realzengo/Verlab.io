@@ -53,14 +53,14 @@ export default async function AdminUsagePage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card>
-          <h3 className="text-sm font-semibold text-heading">Total runs by tool</h3>
-          <p className="mb-5 text-xs text-body">Last 30 days</p>
+          <h3 className="text-base">Total runs by tool</h3>
+          <p className="mb-5 text-sm text-subtle">Last 30 days</p>
           <RankedBarList items={[...TOOL_USAGE_SHARE].sort((a, b) => b.count - a.count).map((t) => ({ label: t.label, value: t.count, tone: t.tone }))} />
         </Card>
 
         <Card className="xl:col-span-2">
-          <h3 className="text-sm font-semibold text-heading">Most active users</h3>
-          <p className="mb-4 text-xs text-body">Ranked by total tool usage across all products</p>
+          <h3 className="text-base">Most active users</h3>
+          <p className="mb-5 text-sm text-subtle">Ranked by total tool usage across all products</p>
           <Table>
             <TableHead>
               <TableRow>
