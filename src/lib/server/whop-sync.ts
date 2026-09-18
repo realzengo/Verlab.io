@@ -8,8 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { grantCredits, deductCredits, getUserCredits } from "@/lib/server/credits";
 import { getWhopClient, findCreditPackByPlanId, findSubscriptionPlanByPlanId } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
-import type { Membership } from "@whop/sdk/resources/shared";
-import type { RefundCreatedWebhookEvent } from "@whop/sdk/resources/webhooks";
+import type { MembershipStatus } from "@whop/sdk/resources/shared";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -24,6 +23,35 @@ interface PaymentLike {
   metadata: { [key: string]: unknown } | null;
   plan: { id: string } | null;
   membership: { id: string } | null;
+}
+
+/**
+ * Same structural-subset trick as PaymentLike above, for the refund shape:
+ * the webhook's `RefundCreatedWebhookEvent.Data` and the reconciliation
+ * sweep's `RefundListResponse` are separately-generated types for the same
+ * object, and these three fields are all handleRefundCreated reads.
+ */
+interface RefundLike {
+  id: string;
+  amount: number;
+  payment: { id: string } | null;
+}
+
+/**
+ * Structural subset again, for memberships. `Membership` (the webhook's
+ * type) and `MembershipListResponse` (the reconciliation sweep's) differ
+ * only by fields nothing here reads -- notably `custom_field_responses`,
+ * required on the former and absent on the latter, which is enough to stop
+ * a listed membership assigning to `Membership` even though every field
+ * below is identical on both.
+ */
+interface MembershipLike {
+  id: string;
+  metadata: { [key: string]: unknown } | null;
+  plan: { id: string };
+  status: MembershipStatus;
+  renewal_period_end: string | null;
+  manage_url: string | null;
 }
 
 /**
@@ -94,7 +122,7 @@ export async function handlePaymentSucceeded(
  * event for the same payment (e.g. two partial refunds), double-deducting
  * credits that an earlier event already clawed back.
  */
-export async function handleRefundCreated(admin: AdminClient, refund: RefundCreatedWebhookEvent.Data): Promise<void> {
+export async function handleRefundCreated(admin: AdminClient, refund: RefundLike): Promise<void> {
   const paymentId = refund.payment?.id;
   if (!paymentId) return;
 
@@ -128,7 +156,7 @@ export async function handleRefundCreated(admin: AdminClient, refund: RefundCrea
   await deductCredits(userId, actualClaw, "Refund clawback", `whop.refund.${refund.id}`);
 }
 
-export async function syncMembershipState(admin: AdminClient, membership: Membership): Promise<void> {
+export async function syncMembershipState(admin: AdminClient, membership: MembershipLike): Promise<void> {
   const userId = membership.metadata?.user_id as string | undefined;
   if (!userId) return;
 
@@ -151,7 +179,7 @@ export async function syncMembershipState(admin: AdminClient, membership: Member
   await admin.from("profiles").update(updates).eq("id", userId);
 }
 
-export async function handleMembershipDeactivated(admin: AdminClient, membership: Membership): Promise<void> {
+export async function handleMembershipDeactivated(admin: AdminClient, membership: MembershipLike): Promise<void> {
   const userId = membership.metadata?.user_id as string | undefined;
   if (!userId) return;
 

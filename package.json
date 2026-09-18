@@ -11,7 +11,8 @@
     "lint": "eslint",
     "db:link": "supabase link",
     "db:push": "supabase db push",
-    "db:diff": "supabase db diff"
+    "db:diff": "supabase db diff",
+    "db:backup": "node scripts/backup-data.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.15",
