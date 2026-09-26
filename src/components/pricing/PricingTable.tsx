@@ -35,11 +35,11 @@ export function PricingTable({
   subscriptionPeriod?: PricingFrequency | null;
 }) {
   // Opens on the subscriber's actual billing cycle so "Current Plan" never
-  // shows next to a price they didn't agree to; defaults to "yearly" to
-  // nudge everyone else toward the better-value plan. subscriptionPeriod is
+  // shows next to a price they didn't agree to; defaults to "monthly" so
+  // everyone else sees the entry price first. subscriptionPeriod is
   // server-fetched and fixed for the page's lifetime, so a lazy initializer
   // (rather than an effect) is enough to pick it up.
-  const [frequency, setFrequency] = useState<PricingFrequency>(() => subscriptionPeriod ?? "yearly");
+  const [frequency, setFrequency] = useState<PricingFrequency>(() => subscriptionPeriod ?? "monthly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

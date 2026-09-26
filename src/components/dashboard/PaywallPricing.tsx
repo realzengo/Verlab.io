@@ -58,7 +58,7 @@ function maxYearlyPercentOff(plans: PricingPlan[]): number {
  */
 export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   const [plans, setPlans] = useState<PricingPlan[]>(PRICING_PLANS);
-  const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
+  const [frequency, setFrequency] = useState<PricingFrequency>("monthly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

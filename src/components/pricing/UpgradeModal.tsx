@@ -79,11 +79,11 @@ export function UpgradeModal({
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [subscriptionPeriodEnd, setSubscriptionPeriodEnd] = useState<string | null>(null);
   const [subscriptionPeriod, setSubscriptionPeriod] = useState<PricingFrequency | null>(null);
-  // Defaults to "yearly" to nudge new subscribers toward the better-value
-  // plan -- once we know an existing subscriber's actual billing cycle (see
-  // the profile fetch below), this is corrected to match it, so the toggle
+  // Defaults to "monthly" so new subscribers see the entry price first --
+  // once we know an existing subscriber's actual billing cycle (see the
+  // profile fetch below), this is corrected to match it, so the toggle
   // never opens on a cycle that contradicts their real "Current Plan" badge.
-  const [frequency, setFrequency] = useState<PricingFrequency>("yearly");
+  const [frequency, setFrequency] = useState<PricingFrequency>("monthly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [checkingOutTopupId, setCheckingOutTopupId] = useState<PackId | null>(null);
