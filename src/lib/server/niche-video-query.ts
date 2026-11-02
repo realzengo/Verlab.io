@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mapTrendingVideoRow, TRENDING_VIDEO_COLUMNS, type TrendingVideoRow } from "@/lib/server/trending-videos";
+import {
+  DEFAULT_VIRAL_VIEW_FLOOR,
+  getCachedNicheCounts,
+  mapTrendingVideoRow,
+  TRENDING_VIDEO_COLUMNS,
+  type TrendingVideoRow,
+} from "@/lib/server/trending-videos";
 import {
   GLOBAL_REGION,
   isNicheCacheStale,
@@ -19,15 +25,68 @@ import { backfillTikTokVideoFollowerCounts } from "@/lib/server/tiktok-follower-
 import { NICHE_ORDER, nicheForHashtag, type NicheName } from "@/lib/niches-catalog";
 import type { TrendingVideo } from "@/lib/types";
 
-// How many niches to backfill in one shot when the "All niches" view has
-// zero cached rows for the requested platform/country.
-const ALL_NICHES_WARM_COUNT = 3;
-const ALL_NICHES_WARM_TARGET = 30;
+// How many niches to warm in one shot when a cross-niche view ("All niches",
+// and/or "All platforms") can't fill the requested page from cache. The old
+// values (3 niches x 30 videos, and only when the page came back completely
+// empty) were the single biggest reason the default view felt like it only
+// knew about a sliver of the market: the default landing state IS "All
+// niches + All platforms", and that combination never scraped at all. These
+// warm the *coldest* niches (fewest cached rows) rather than always the
+// first three in NICHE_ORDER, so repeated visits walk the whole catalog
+// instead of re-warming the same head of the list.
+const ALL_NICHES_WARM_COUNT = 6;
+const ALL_NICHES_WARM_TARGET = 150;
 
-// Outlier score and views-per-hour aren't stored columns -- they're derived
-// in JS from a capped batch fetch (see runQuery below) rather than filtered
-// in SQL. This bounds how many matching rows get pulled per request.
-const DERIVED_FILTER_BATCH_CAP = 600;
+// Each active filter roughly multiplies how deep a scrape has to reach for
+// the surviving rows to still fill a page. 4x per filter is calibrated off
+// the shape that actually starved before: faceless + a view floor + a 7-day
+// window used to ask for ~60 raw rows and keep single digits.
+const FILTER_SCRAPE_DEPTH_MULTIPLIER = 4;
+// Backstop on a single request's scrape depth, and the one number here that's
+// a budget decision rather than a safety net. The provider clients page only
+// as deep as the target they're handed (they break out the moment they have
+// enough -- see MAX_PAGES_PER_HASHTAG / MAX_SEARCH_PAGES), so this is what
+// bounds a single page-turn's SociaVault credits and, more sharply, YouTube
+// search.list quota: 100 units per 50 results against a 10,000/day budget
+// means 400 is roughly 800 units worst case, the same order of magnitude the
+// existing high-view-floor path (HIGH_VIEW_FLOOR_SCRAPE_TARGET) already spent.
+// Raising it further trades breadth for running out of YouTube quota mid-day.
+const MAX_ON_DEMAND_SCRAPE_DEPTH = 400;
+
+// Bounds how many (niche, platform) warms run at once inside one request --
+// each is a live provider call plus a chunked upsert.
+const WARM_CONCURRENCY = 3;
+
+// Outlier score, views-per-hour and "faceless only" aren't stored columns --
+// they're derived in JS (see applyDerivedFilters below) rather than filtered
+// in SQL, so satisfying them means scanning cached rows and keeping the
+// survivors. This used to be one flat 600-row fetch, which silently made
+// every derived filter a "first 600 rows only" filter: turning on "Faceless
+// only" capped the entire reachable result set at whatever survived those
+// 600, no matter how much matching content was cached behind them, and
+// hasMore went false long before the data actually ran out. It's now a
+// windowed scan that keeps pulling until it has enough survivors for the
+// requested page (see runDerivedFilterScan), so paging depth is bounded by
+// the data rather than by a constant.
+const DERIVED_FILTER_SCAN_WINDOW = 1_000;
+// Ceiling on one request's scan, purely so a filter that matches almost
+// nothing can't spend the route's whole 60s budget walking the table. It
+// scales with how deep the caller has paged, so it never becomes the thing
+// that stops a user who is genuinely paging forward.
+const DERIVED_FILTER_SCAN_BASE_ROWS = 20_000;
+
+function derivedFilterScanBudget(offset: number, limit: number): number {
+  return Math.max(DERIVED_FILTER_SCAN_BASE_ROWS, (offset + limit) * 40);
+}
+
+// Live search (the search box) hits SociaVault/YouTube directly instead of
+// the cache, so its depth is real money per page-turn -- but it used to be
+// pinned to the same 600-row ceiling as the cached path, which meant a
+// search could never reach past ~page 30 however much the platforms had.
+// Depth now grows with how deep the user has actually paged: page 1 stays
+// cheap, and only someone genuinely walking forward pays for the extra
+// pages.
+const LIVE_SEARCH_MAX_RESULTS = 2_000;
 
 // A cache-miss on-demand scrape (see ranOutOfCache below) can legitimately
 // take up to the route's full 60s maxDuration -- a deep, high-view-floor
@@ -76,7 +135,7 @@ export interface NicheVideoQueryParams {
   postedBefore: string | null;
   /** Outlier index = this video's views ÷ the average views among the
    * currently matching cached videos, as a multiplier (1x-100x+). Derived in
-   * JS, not a stored column -- see DERIVED_FILTER_BATCH_CAP. */
+   * JS, not a stored column -- see runDerivedFilterScan. */
   outlierMin?: string | null;
   outlierMax?: string | null;
   /** Views ÷ hours since posted. Same derived-in-JS treatment as outlier. */
@@ -265,10 +324,12 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
 
   // How deep to fetch from the live provider before filtering/paginating in
   // JS -- has to cover at least this page's offset, with a buffer since
-  // filters below only ever shrink the pool. Capped at the same ceiling as
-  // the cached-DB derived-filter path (DERIVED_FILTER_BATCH_CAP) to bound
-  // worst-case credit spend per search box submission.
-  const targetCount = Math.min(DERIVED_FILTER_BATCH_CAP, Math.max(offset + limit + 40, 100));
+  // filters below only ever shrink the pool. Grows with how deep the caller
+  // has paged (rather than sitting at a flat ceiling that made ~page 30 the
+  // end of every search) so page 1 stays cheap and only real forward paging
+  // pays for the extra provider pages; LIVE_SEARCH_MAX_RESULTS is the
+  // worst-case-spend backstop.
+  const targetCount = Math.min(LIVE_SEARCH_MAX_RESULTS, Math.max(offset + limit + 60, 120));
   const wantsTikTok = platform !== "youtube";
   const wantsYoutube = platform !== "tiktok";
 
@@ -380,6 +441,86 @@ function isFacelessVideo(row: TrendingVideoRow, authorSet: Set<string>): boolean
   return isFacelessAuthor(authorSet, row.platform, row.author);
 }
 
+/**
+ * The catalog niches with the fewest cached rows right now. A cross-niche
+ * view is only ever as broad as the thinnest niches behind it, so warming
+ * those is what actually widens the blended feed -- the previous behavior
+ * (always the first N of NICHE_ORDER) re-warmed the same head of the list on
+ * every miss and left the tail permanently thin no matter how often someone
+ * browsed. Counts come from the same 5-minute-cached aggregate the sidebar
+ * uses, so this costs no extra query on a warm cache.
+ */
+async function coldestNiches(take: number): Promise<NicheName[]> {
+  try {
+    const counts = await getCachedNicheCounts();
+    return [...NICHE_ORDER].sort((a, b) => (counts[a] ?? 0) - (counts[b] ?? 0)).slice(0, take) as NicheName[];
+  } catch (err) {
+    // A failed count read shouldn't cost the caller its warm-up entirely --
+    // fall back to catalog order rather than warming nothing.
+    console.warn("[niche-video-query] niche counts unavailable, warming in catalog order:", err);
+    return NICHE_ORDER.slice(0, take) as NicheName[];
+  }
+}
+
+/**
+ * Warms every (niche, platform) pair behind a cross-cutting view, bounded so
+ * it can't blow the route's 60s budget: pairs run WARM_CONCURRENCY at a time,
+ * and the whole fan-out gets one soft-timeout window to contribute to *this*
+ * request. Anything still running past that keeps going under after(), so the
+ * work isn't thrown away -- the next page-turn reads a cache it already
+ * deepened. Failures are per-pair and non-fatal; one dead niche shouldn't
+ * take the page down with it.
+ */
+async function warmCrossCutCache(args: {
+  admin: SupabaseClient;
+  niches: NicheName[];
+  platforms: VideoPlatform[];
+  region: string;
+  target: number;
+  minViews: number;
+}): Promise<void> {
+  const { admin, niches, platforms, region, target, minViews } = args;
+  const candidates = niches.flatMap((n) => platforms.map((pf) => ({ niche: n, platform: pf })));
+  if (candidates.length === 0) return;
+
+  // Stale-gate every pair before scraping it. Without this, a cross-cutting
+  // view fans out over many niches on every under-filled page, so browsing
+  // traffic alone could re-scrape the same niches every few seconds and
+  // exhaust the YouTube daily quota in an afternoon. Gating on the same 24h
+  // TTL the single-pair path uses caps browse-triggered warming at one
+  // refresh per (niche, platform, region) per day no matter how many people
+  // are looking.
+  const staleness = await Promise.all(
+    candidates.map(async (job) => {
+      try {
+        return await isNicheCacheStale(admin, job.niche, job.platform, region);
+      } catch (err) {
+        console.warn(`[niche-video-query] staleness check failed (${job.platform}/${job.niche}):`, err);
+        return false;
+      }
+    })
+  );
+  const jobs = candidates.filter((_, i) => staleness[i]);
+  if (jobs.length === 0) return;
+
+  let nextIndex = 0;
+  async function worker(): Promise<void> {
+    for (let i = nextIndex++; i < jobs.length; i = nextIndex++) {
+      const { niche, platform } = jobs[i];
+      try {
+        await refreshNicheVideoCache(admin, niche, platform, target, region, minViews);
+      } catch (err) {
+        console.warn(`[niche-video-query] cross-cut warm failed (${platform}/${niche}):`, err);
+      }
+    }
+  }
+
+  const fanOut = Promise.all(Array.from({ length: Math.min(WARM_CONCURRENCY, jobs.length) }, worker));
+  if ((await withSoftTimeout(fanOut, ON_DEMAND_SCRAPE_SOFT_TIMEOUT_MS)) === SOFT_TIMEOUT) {
+    after(() => fanOut);
+  }
+}
+
 const NICHE_QUERY_DEBUG = process.env.NICHE_QUERY_DEBUG === "1";
 
 export async function getNicheVideosPage(
@@ -393,8 +534,16 @@ export async function getNicheVideosPage(
   const admin = createAdminClient() as SupabaseClient;
   const { page, limit, style, platform, timeWindow, country, sort, faceless } = params;
   const { postedAfter, postedBefore } = params;
-  const viewsMin = parseNonNegativeNumber(params.viewsMin);
+  const requestedViewsMin = parseNonNegativeNumber(params.viewsMin);
   const viewsMax = parseNonNegativeNumber(params.viewsMax);
+  // No views filter of the user's own => lead with what actually went viral
+  // (see DEFAULT_VIRAL_VIEW_FLOOR) instead of whatever the scrape returned.
+  // The moment they set either end of the views range themselves, their
+  // filter replaces this outright -- so an applied filter always means "show
+  // me everything on the market matching this", never "this, intersected with
+  // a floor we didn't tell you about".
+  const viewFloorIsDefault = requestedViewsMin === null && viewsMax === null;
+  const viewsMin = viewFloorIsDefault ? DEFAULT_VIRAL_VIEW_FLOOR : requestedViewsMin;
   const followersMin = parseNonNegativeNumber(params.followersMin);
   const followersMax = parseNonNegativeNumber(params.followersMax);
   const outlierMin = parseNonNegativeNumber(params.outlierMin ?? null);
@@ -404,12 +553,26 @@ export async function getNicheVideosPage(
   const offset = (page - 1) * limit;
   const countries = country ? country.split(",").filter(Boolean) : [];
   // faceless rides the same JS-side derived-filter path as outlier/vph --
-  // there's no clean SQL join to niche_channels, so a capped batch is
-  // fetched and filtered in JS (see getFacelessAuthorSet/applyDerivedFilters
-  // below) rather than pushed down as a query filter.
+  // there's no clean SQL join to niche_channels, so matching rows are scanned
+  // and filtered in JS (see getFacelessAuthorSet/runDerivedFilterScan below)
+  // rather than pushed down as a query filter.
   const hasDerivedFilters =
     outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null || faceless;
   const facelessAuthorSet = faceless ? await getFacelessAuthorSet(admin) : new Set<string>();
+
+  // Every filter the user actually applied, counted so scrape depth can scale
+  // with how much of a raw pool the filters are about to throw away. The
+  // default viral floor deliberately doesn't count -- it isn't the user
+  // narrowing anything.
+  const activeFilterCount =
+    (requestedViewsMin !== null || viewsMax !== null ? 1 : 0) +
+    (followersMin !== null || followersMax !== null ? 1 : 0) +
+    (outlierMin !== null || outlierMax !== null ? 1 : 0) +
+    (viewsPerHourMin !== null || viewsPerHourMax !== null ? 1 : 0) +
+    (faceless ? 1 : 0) +
+    (countries.length > 0 ? 1 : 0) +
+    (style !== "all" ? 1 : 0) +
+    (postedAfter || postedBefore || TIME_WINDOW_DAYS[timeWindow] ? 1 : 0);
 
   if (NICHE_QUERY_DEBUG) {
     console.log("[niche-video-query] request", {
@@ -558,45 +721,114 @@ export async function getNicheVideosPage(
     const tiktokRows = (tiktokResult.data ?? []) as TrendingVideoRow[];
     const youtubeRows = (youtubeResult.data ?? []) as TrendingVideoRow[];
 
+    // Each half is only fetched `perPlatform` deep, which is correct while
+    // both platforms have rows -- but when one is empty at this depth, the
+    // interleave can only ever return the other's half, so an "All
+    // platforms" page over a niche that's thin on one platform came back
+    // half-empty (10 cards out of a 20-card page) and looked like the niche
+    // had barely any content. Fall back to paginating the platform that does
+    // have rows at the full page size so the page actually fills. Offsets
+    // stay deterministic within a mode, so this can't duplicate or skip rows
+    // as long as the thin platform stays thin.
+    if (tiktokRows.length === 0 || youtubeRows.length === 0) {
+      const onlyPlatform: VideoPlatform = tiktokRows.length === 0 ? "youtube" : "tiktok";
+      const { data, error } = await buildBaseQuery(applyViewFilter, applyTimeWindow)
+        .eq("platform", onlyPlatform)
+        .range(offset, offset + limit);
+      if (error) {
+        console.error(
+          `[niche-video-query] Supabase error (all-platforms single-platform fallback, niche=${niche}, platform=${onlyPlatform}):`,
+          error
+        );
+        throw new Error(error.message);
+      }
+      const rows = (data ?? []) as TrendingVideoRow[];
+      return { pageRows: rows.slice(0, limit), hasMore: rows.length > limit };
+    }
+
     return {
       pageRows: interleaveByPlatform(tiktokRows, youtubeRows),
       hasMore: tiktokRows.length > perPlatform || youtubeRows.length > perPlatform,
     };
   }
 
+  // Walks the ordered result set in windows, keeping only rows that survive
+  // the JS-derived filters, until it has enough survivors to fill the
+  // requested page (plus one, to answer hasMore honestly) or the table runs
+  // out. Replaces the old single flat-capped fetch, which made every derived
+  // filter silently mean "search the first 600 rows only" -- with "Faceless
+  // only" on, that was the entire reachable catalog regardless of how much
+  // matching content was cached behind it.
+  //
+  // Two things are deliberately NOT done here. It doesn't re-derive the
+  // outlier baseline per window (see applyDerivedFilters): the average is
+  // taken over each window as it arrives, which is the same
+  // "outlier vs. what you're currently looking at" approximation the flat
+  // batch already used, just now over a moving window rather than one fixed
+  // 600. And it stops as soon as the page is satisfiable rather than scanning
+  // to completion, so a cheap filter on page 1 still costs a single window.
+  async function runDerivedFilterScan(
+    applyViewFilter: boolean,
+    applyTimeWindow: boolean
+  ): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
+    const scanBudget = derivedFilterScanBudget(offset, limit);
+    const needed = offset + limit + 1;
+    const survivors: TrendingVideoRow[] = [];
+    let scanned = 0;
+
+    while (survivors.length < needed && scanned < scanBudget) {
+      const window = Math.min(DERIVED_FILTER_SCAN_WINDOW, scanBudget - scanned);
+      const { data, error } = await buildBaseQuery(applyViewFilter, applyTimeWindow).range(
+        scanned,
+        scanned + window - 1
+      );
+      if (error) {
+        console.error(
+          `[niche-video-query] Supabase error (derived-filter scan, niche=${niche}, platform=${platform}, offset=${scanned}):`,
+          error
+        );
+        throw new Error(error.message);
+      }
+      const rows = (data ?? []) as TrendingVideoRow[];
+      survivors.push(...applyDerivedFilters(rows));
+      scanned += rows.length;
+      // Short read means the ordered result set is exhausted -- every further
+      // window would come back empty, so stop rather than burning round trips
+      // discovering that.
+      if (rows.length < window) break;
+    }
+
+    if (NICHE_QUERY_DEBUG) {
+      console.log(
+        `[niche-video-query] derived-filter scan: scanned=${scanned} budget=${scanBudget} survivors=${survivors.length} needed=${needed}`
+      );
+    }
+
+    return {
+      pageRows: survivors.slice(offset, offset + limit),
+      hasMore: survivors.length > offset + limit,
+    };
+  }
+
   // Runs the query and returns this page's rows plus whether more exist.
-  // Three shapes: the derived-filter case pulls a capped batch and paginates
-  // in JS (outlier/views-per-hour/faceless can't be expressed as column
-  // filters); the "all platforms" case interleaves two independently-paged
-  // queries (see runAllPlatformsQuery, above); everything else paginates in
-  // SQL via .range() (cheap, exact).
+  // Three shapes: the derived-filter case scans in windows and paginates in
+  // JS (outlier/views-per-hour/faceless can't be expressed as column
+  // filters -- see runDerivedFilterScan, above); the "all platforms" case
+  // interleaves two independently-paged queries (see runAllPlatformsQuery,
+  // above); everything else paginates in SQL via .range() (cheap, exact).
   async function runQuery(
     applyViewFilter = true,
     applyTimeWindow = true
   ): Promise<{ pageRows: TrendingVideoRow[]; hasMore: boolean }> {
     if (hasDerivedFilters) {
-      const { data, error } = await buildBaseQuery(applyViewFilter, applyTimeWindow).limit(DERIVED_FILTER_BATCH_CAP);
-      if (error) {
-        console.error(`[niche-video-query] Supabase error (derived-filter batch, niche=${niche}, platform=${platform}):`, error);
-        throw new Error(error.message);
-      }
-      const filtered = applyDerivedFilters((data ?? []) as TrendingVideoRow[]);
-      if (NICHE_QUERY_DEBUG) {
-        console.log(
-          `[niche-video-query] derived-filter batch: fetched=${data?.length ?? 0} afterDerivedFilters=${filtered.length}`
-        );
-      }
-      return {
-        pageRows: filtered.slice(offset, offset + limit),
-        hasMore: filtered.length > offset + limit,
-      };
+      return runDerivedFilterScan(applyViewFilter, applyTimeWindow);
     }
 
     if (platform === "all") {
       return runAllPlatformsQuery(applyViewFilter, applyTimeWindow);
     }
 
-    const { data, error } = await buildBaseQuery(applyViewFilter).range(offset, offset + limit);
+    const { data, error } = await buildBaseQuery(applyViewFilter, applyTimeWindow).range(offset, offset + limit);
     if (error) {
       console.error(`[niche-video-query] Supabase error (niche=${niche}, platform=${platform}, applyViewFilter=${applyViewFilter}):`, error);
       throw new Error(error.message);
@@ -633,28 +865,41 @@ export async function getNicheVideosPage(
   let relaxedFilters = false;
 
   // A derived filter (faceless, in practice) can legitimately zero out the
-  // batch even though clearly-matching content exists further back in time
+  // scan even though clearly-matching content exists further back in time
   // -- e.g. a channel classified faceless may have zero posts inside the
   // default 30-day window while still having dozens all-time. The
   // scrape/warm-cache fallbacks below fetch more of the *same* generic
   // content and can't fix that (they know nothing about faceless/outlier/vph),
   // so try dropping just the time window first, the same way the view-count
   // floor gets dropped further down -- niche/platform/style/faceless/view
-  // filters all stay intact.
+  // filters all stay intact. Applies on every page, not just the first: a
+  // relaxation that only held for page 1 meant clicking Next re-imposed the
+  // window and landed on a blank page 2, which read as "there's nothing more"
+  // when there demonstrably was.
   let timeWindowRelaxed = false;
-  if (hasDerivedFilters && pageRows.length === 0 && page === 1 && (postedAfter || postedBefore || TIME_WINDOW_DAYS[timeWindow])) {
+  if (hasDerivedFilters && pageRows.length === 0 && (postedAfter || postedBefore || TIME_WINDOW_DAYS[timeWindow])) {
     ({ pageRows, hasMore } = await runQuery(true, false));
     relaxedFilters = pageRows.length > 0;
     timeWindowRelaxed = relaxedFilters;
   }
 
-  // Cache-aside: only a specific (niche, platform) pair is backed by an
-  // on-demand scrape — the "all" feed (either dimension) reads whatever's
-  // already cached, since there's no single provider to refresh against a
-  // blended view. Only a single selected country gets a targeted regional
-  // warm-up; multi-select (or none) falls back to the global cache.
+  // Only a single selected country gets a targeted regional warm-up;
+  // multi-select (or none) falls back to the global cache.
+  const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
+  // Scrape depth is "how many rows does this page need" multiplied by how
+  // much the active filters are about to throw away. Sized off offset+limit
+  // alone, a filtered request kept asking for ~60 raw rows and then
+  // discarding nearly all of them, which is what made a filtered niche look
+  // like it held a handful of videos: the pool was never deep enough for the
+  // filter to have anything to find.
+  const scrapeDepth = Math.min(
+    MAX_ON_DEMAND_SCRAPE_DEPTH,
+    (offset + limit) * (1 + activeFilterCount * FILTER_SCRAPE_DEPTH_MULTIPLIER)
+  );
+
   if (!isAllNiches && platform !== "all") {
-    const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
+    // Cache-aside for one concrete (niche, platform) pair -- the only shape
+    // with a single provider to refresh against.
     const ranOutOfCache = pageRows.length < limit;
     const staleFirstPage = page === 1 && (await isNicheCacheStale(admin, niche, platform, region));
     const minViews = viewsMin ?? 0;
@@ -673,7 +918,7 @@ export async function getNicheVideosPage(
         admin,
         niche as NicheName,
         platform,
-        offset + limit,
+        scrapeDepth,
         region,
         minViews
       );
@@ -698,28 +943,47 @@ export async function getNicheVideosPage(
       // background instead -- after() keeps this running past the response
       // (Vercel's waitUntil under the hood) so the *next* request benefits
       // without this one waiting on it.
-      after(() => refreshNicheVideoCache(admin, niche as NicheName, platform, offset + limit, region, minViews));
+      after(() => refreshNicheVideoCache(admin, niche as NicheName, platform, scrapeDepth, region, minViews));
     }
+  } else if (page === 1 && pageRows.length < limit) {
+    // Cross-cutting views -- "All niches", "All platforms", or both. These
+    // used to read whatever happened to already be cached and never scrape,
+    // on the reasoning that there's no single provider to refresh a blended
+    // view against. But "All niches + All platforms" is the state every user
+    // lands on, and a specific niche on "All platforms" never scraped either,
+    // so in practice the default experience was capped at whatever the crons
+    // had last left behind -- the core of "it's not finding all the content
+    // on the platform". Warm the underlying (niche, platform) pairs instead:
+    // there's no blended provider, but every pair behind the blend has one.
+    // Scoped to page 1: warming brings in fresh trending rows, which is what
+    // fixes "this looks empty" on arrival, but does nothing for a deep page
+    // that under-fills because the cached pool genuinely ends there.
+    const warmNiches = isAllNiches ? await coldestNiches(ALL_NICHES_WARM_COUNT) : [niche as NicheName];
+    await warmCrossCutCache({
+      admin,
+      niches: warmNiches,
+      platforms: platform === "all" ? ["tiktok", "youtube"] : [platform],
+      region,
+      target: Math.max(ALL_NICHES_WARM_TARGET, scrapeDepth),
+      minViews: viewsMin ?? 0,
+    });
+    ({ pageRows, hasMore } = await runQuery(true, !timeWindowRelaxed));
+  }
 
-    // Even a full-depth scrape can legitimately find nothing above the
-    // requested view-count floor for a narrow niche keyword within the
-    // selected date range -- rather than leave the page blank, drop just the
-    // view-count floor (niche/platform/date/style/country stay intact) and
-    // surface the closest matches instead.
-    if (pageRows.length === 0 && page === 1 && (viewsMin !== null || viewsMax !== null)) {
-      ({ pageRows, hasMore } = await runQuery(false, !timeWindowRelaxed));
-      relaxedFilters = pageRows.length > 0;
-    }
-  } else if (isAllNiches && platform !== "all" && page === 1 && pageRows.length === 0) {
-    // Blended "All niches" feed never scrapes on its own — warm a handful of
-    // niches inline so a newly-picked filter isn't permanently empty.
-    const region = platform === "youtube" && countries.length === 1 ? countries[0] : GLOBAL_REGION;
-    await Promise.all(
-      NICHE_ORDER.slice(0, ALL_NICHES_WARM_COUNT).map((n) =>
-        refreshNicheVideoCache(admin, n, platform, ALL_NICHES_WARM_TARGET, region)
-      )
-    );
-    ({ pageRows, hasMore } = await runQuery());
+  // Even a full-depth scrape can legitimately find nothing above the
+  // requested view-count floor for a narrow niche keyword within the
+  // selected date range -- rather than leave the page blank, drop just the
+  // view-count floor (niche/platform/date/style/country stay intact) and
+  // surface the closest matches instead. Runs for every shape of query (not
+  // just the single-pair one) and on every page, so paging forward through a
+  // relaxed result set doesn't hit a phantom wall at page 2.
+  if (pageRows.length === 0 && viewsMin !== null) {
+    ({ pageRows, hasMore } = await runQuery(false, !timeWindowRelaxed));
+    // Only call it out when the user set the floor themselves. Relaxing our
+    // own DEFAULT_VIRAL_VIEW_FLOOR isn't a filter of theirs failing to match,
+    // so saying "no videos matched your view-count filter" there would be
+    // reporting on a filter they never applied.
+    if (!viewFloorIsDefault) relaxedFilters = pageRows.length > 0 || relaxedFilters;
   }
 
   const videos = pageRows.map(mapTrendingVideoRow);

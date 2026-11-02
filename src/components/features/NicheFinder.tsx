@@ -23,7 +23,12 @@ import { cn } from "@/lib/utils";
 import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 import type { FormatTag, TrendingVideo } from "@/lib/types";
 
-export const VIDEOS_PER_PAGE = 20;
+// Chosen to divide evenly into every breakpoint of the results grid
+// (2/3/4 columns), so a full page never leaves a ragged last row. Raised from
+// 20 -- with deep paging now actually reaching the whole cached pool, a
+// bigger page is the difference between the feed reading as a sample and
+// reading as a catalog.
+export const VIDEOS_PER_PAGE = 36;
 
 const FORMAT_TAG_LABEL: Partial<Record<FormatTag, string>> = {
   top5_ranking: "Top 5 Ranking",
@@ -479,6 +484,10 @@ function NicheFinderInner({
         if (videoRangeFilters.viewsMax) qs.set("viewsMax", videoRangeFilters.viewsMax);
         if (videoRangeFilters.followersMin) qs.set("followersMin", videoRangeFilters.followersMin);
         if (videoRangeFilters.followersMax) qs.set("followersMax", videoRangeFilters.followersMax);
+        if (videoRangeFilters.outlierMin) qs.set("outlierMin", videoRangeFilters.outlierMin);
+        if (videoRangeFilters.outlierMax) qs.set("outlierMax", videoRangeFilters.outlierMax);
+        if (videoRangeFilters.viewsPerHourMin) qs.set("viewsPerHourMin", videoRangeFilters.viewsPerHourMin);
+        if (videoRangeFilters.viewsPerHourMax) qs.set("viewsPerHourMax", videoRangeFilters.viewsPerHourMax);
         if (videoRangeFilters.countries.length > 0) qs.set("country", videoRangeFilters.countries.join(","));
         if (videoRangeFilters.faceless) qs.set("faceless", "true");
 

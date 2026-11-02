@@ -31,6 +31,18 @@ export interface VideoRangeFilters {
   viewsMax: string;
   followersMin: string;
   followersMax: string;
+  /** How many times a video's views beat the average of what's currently
+   * matching, as a multiplier -- the "did this actually break out" dial, as
+   * opposed to raw views (a 2M-view video on a channel whose videos all do
+   * 2M isn't an outlier; a 2M-view video among 50K ones is). Computed
+   * server-side, see outlierMin/outlierMax in niche-video-query.ts. */
+  outlierMin: string;
+  outlierMax: string;
+  /** Views ÷ hours since posted -- how fast it's climbing right now, which
+   * catches something 6 hours old on its way to viral that a raw view floor
+   * would miss entirely. */
+  viewsPerHourMin: string;
+  viewsPerHourMax: string;
   /** 2-letter YouTube region codes; empty means worldwide. */
   countries: string[];
   /** AI-verified "no real face on camera" — matched by channel name against
@@ -45,6 +57,10 @@ export const EMPTY_VIDEO_RANGE_FILTERS: VideoRangeFilters = {
   viewsMax: "",
   followersMin: "",
   followersMax: "",
+  outlierMin: "",
+  outlierMax: "",
+  viewsPerHourMin: "",
+  viewsPerHourMax: "",
   countries: [],
   faceless: false,
 };
@@ -179,18 +195,48 @@ function FilterCard({
  * boundMax) is treated as "unbounded" and clears to "" rather than sending
  * the literal edge number, matching the "10M+" style open-ended labels
  * shown under the track. */
-// Views/Subscribers deliberately aren't built from a formula --
-// the first half of the track (0%-50%) covers 0 up to just under 1M with
-// increasingly large "nice" steps (most of a real video's view count lives
-// here, so it gets the fine control), then the second half is a plain
-// linear ramp in flat 500K steps: 1M, 1.5M, 2M, ... up to 10M, matching how
-// someone actually thinks about the top tier. Both halves have exactly 18
-// points so 1,000,000 lands precisely on the midpoint index.
+// Views/Subscribers deliberately aren't built from a formula -- the low end
+// covers 0 up to just under 1M with increasingly large "nice" steps (most of
+// a real video's view count lives here, so it gets the fine control), then a
+// flat 500K ramp through the 1M-10M tier, then a widening tail up to 100M.
+// The tail matters: the track used to stop at 10M, which meant "only show me
+// videos over 10M views" was the most selective thing anyone could ask for,
+// and there was no way at all to say "20M+" -- on TikTok and YouTube Shorts,
+// where a genuine breakout hit routinely clears 50M, that's not the top of
+// the market, it's the middle of it.
 const VIEWS_LOW_HALF = [
   0, 10, 50, 100, 200, 400, 600, 800, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000,
 ];
-const VIEWS_HIGH_HALF = Array.from({ length: 18 }, (_, i) => 1_500_000 + i * 500_000);
-const VIEWS_BREAKPOINTS = [...VIEWS_LOW_HALF, 1_000_000, ...VIEWS_HIGH_HALF];
+const VIEWS_MID_TIER = Array.from({ length: 19 }, (_, i) => 1_000_000 + i * 500_000);
+const VIEWS_TOP_TIER = [
+  12_500_000, 15_000_000, 17_500_000, 20_000_000, 25_000_000, 30_000_000, 40_000_000, 50_000_000, 75_000_000,
+  100_000_000,
+];
+const VIEWS_BREAKPOINTS = [...VIEWS_LOW_HALF, ...VIEWS_MID_TIER, ...VIEWS_TOP_TIER];
+
+// Outlier multiplier: how far a video's views beat the average of what's
+// currently matching. 1x is "dead average", so the useful range starts just
+// above it -- 0 is the "no filter" bound, not a meaningful multiplier.
+const OUTLIER_BREAKPOINTS = [
+  0, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100,
+];
+
+// Views per hour since posting -- momentum rather than total size. A 3-hour-
+// old video at 30K/hr is on a far steeper curve than a month-old one sitting
+// at 5M, and only this dial can tell them apart.
+const VIEWS_PER_HOUR_BREAKPOINTS = [
+  0, 100, 250, 500, 1_000, 2_000, 3_000, 5_000, 7_500, 10_000, 15_000, 25_000, 50_000, 75_000, 100_000, 250_000,
+  500_000, 1_000_000,
+];
+
+// 1.5 reads as "1.5x", 20 as "20x" -- no trailing ".0" on whole multipliers.
+function formatOutlier(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(2).replace(/0$/, "")}x`;
+}
+
+function formatViewsPerHour(value: number): string {
+  return `${formatNumber(value)}/hr`;
+}
 
 function closestBreakpointIndex(value: number, breakpoints: number[]): number {
   let bestIndex = 0;
@@ -641,12 +687,12 @@ function FiltersPanel({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <RangeFilterCard
                 label="Views"
-                rangeLabel="Range (0-10M+)"
+                rangeLabel="Range (0-100M+)"
                 formatValue={formatNumber}
                 minBoundLabel="0"
-                maxBoundLabel="10M+"
+                maxBoundLabel="100M+"
                 boundMin={0}
-                boundMax={10_000_000}
+                boundMax={100_000_000}
                 step={10_000}
                 breakpoints={VIEWS_BREAKPOINTS}
                 minValue={pending.viewsMin}
@@ -656,18 +702,55 @@ function FiltersPanel({
               />
               <RangeFilterCard
                 label="Subscribers"
-                rangeLabel="Range (0-10M+)"
+                rangeLabel="Range (0-100M+)"
                 formatValue={formatNumber}
                 minBoundLabel="0"
-                maxBoundLabel="10M+"
+                maxBoundLabel="100M+"
                 boundMin={0}
-                boundMax={10_000_000}
+                boundMax={100_000_000}
                 step={10_000}
                 breakpoints={VIEWS_BREAKPOINTS}
                 minValue={pending.followersMin}
                 maxValue={pending.followersMax}
                 onChange={(min, max) => setPending((prev) => ({ ...prev, followersMin: min, followersMax: max }))}
                 onReset={() => setPending((prev) => ({ ...prev, followersMin: "", followersMax: "" }))}
+              />
+              {/* Both of these were already fully implemented server-side
+                  (outlierMin/Max and viewsPerHourMin/Max in
+                  niche-video-query.ts) and simply had no control wired to
+                  them, so nothing ever sent them -- the two dials that
+                  actually isolate breakout content were dead code. */}
+              <RangeFilterCard
+                label="Outlier score"
+                rangeLabel="How far above average (1x-100x+)"
+                formatValue={formatOutlier}
+                minBoundLabel="Any"
+                maxBoundLabel="100x+"
+                boundMin={0}
+                boundMax={100}
+                step={1}
+                breakpoints={OUTLIER_BREAKPOINTS}
+                minValue={pending.outlierMin}
+                maxValue={pending.outlierMax}
+                onChange={(min, max) => setPending((prev) => ({ ...prev, outlierMin: min, outlierMax: max }))}
+                onReset={() => setPending((prev) => ({ ...prev, outlierMin: "", outlierMax: "" }))}
+              />
+              <RangeFilterCard
+                label="Views per hour"
+                rangeLabel="Momentum since posting (0-1M/hr+)"
+                formatValue={formatViewsPerHour}
+                minBoundLabel="Any"
+                maxBoundLabel="1M/hr+"
+                boundMin={0}
+                boundMax={1_000_000}
+                step={100}
+                breakpoints={VIEWS_PER_HOUR_BREAKPOINTS}
+                minValue={pending.viewsPerHourMin}
+                maxValue={pending.viewsPerHourMax}
+                onChange={(min, max) =>
+                  setPending((prev) => ({ ...prev, viewsPerHourMin: min, viewsPerHourMax: max }))
+                }
+                onReset={() => setPending((prev) => ({ ...prev, viewsPerHourMin: "", viewsPerHourMax: "" }))}
               />
               {/* YouTube-only -- see the lastPlatform effect above. */}
               {platform === "youtube" && (

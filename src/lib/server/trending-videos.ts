@@ -61,6 +61,21 @@ export function mapTrendingVideoRow(row: TrendingVideoRow): TrendingVideo {
 // calls revalidateTag(TRENDING_VIDEOS_CACHE_TAG) after a successful write so
 // a fresh scrape shows up immediately instead of waiting out the TTL.
 export const TRENDING_VIDEOS_CACHE_TAG = "trending-videos";
+
+/**
+ * Views floor applied to a video feed ONLY when the viewer has set no views
+ * filter of their own, so the default Niche Finder feed leads with videos
+ * that actually went viral rather than whatever a scrape happened to return
+ * in view order. It is never intersected with a user-set views range -- an
+ * explicit filter (even a lower one) replaces this outright, so an applied
+ * filter always means "everything on the market matching this". Lives here
+ * rather than in niche-video-query.ts so the server-rendered first page and
+ * the client's own fetches can't disagree about what the default feed is.
+ * Sparse niches fall back to the relax-the-view-floor path in
+ * getNicheVideosPage, so this can't blank out a niche with no 50K+ videos
+ * cached yet.
+ */
+export const DEFAULT_VIRAL_VIEW_FLOOR = 50_000;
 const NICHE_FEED_CACHE_TTL_SECONDS = 300;
 
 // unstable_cache only coalesces concurrent callers when a (possibly stale)
@@ -93,6 +108,10 @@ const getCachedInitialNicheFeedInner = unstable_cache(
       .from("trending_videos")
       .select(TRENDING_VIDEO_COLUMNS)
       .gte("posted_at", thirtyDaysAgo)
+      // Same default viral floor the client's own fetches apply (see
+      // DEFAULT_VIRAL_VIEW_FLOOR) -- without it, first paint showed a feed
+      // this page's very first client-side refetch would then replace.
+      .gte("view_count", DEFAULT_VIRAL_VIEW_FLOOR)
       .order("view_count", { ascending: false })
       .range(0, limit);
 
@@ -120,15 +139,43 @@ export function getCachedInitialNicheFeed(limit: number): Promise<{ rows: Trendi
   return dedupeInFlight(`niches-initial-feed:${limit}`, () => getCachedInitialNicheFeedInner(limit));
 }
 
+// Fallback tally for when the RPC below is unavailable: an unordered,
+// undated .limit(5000) sample counted in JS. Kept only as a safety net --
+// it silently truncates once trending_videos outgrows 5000 rows, and counts
+// rows the 30-day feed never shows, so the badge disagrees with the grid.
+async function tallyNicheCountsFromSample(): Promise<Record<string, number>> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("trending_videos").select("niche_category").limit(5000);
+
+  const counts: Record<string, number> = {};
+  for (const row of (data as { niche_category: string | null }[]) ?? []) {
+    if (!row.niche_category) continue;
+    counts[row.niche_category] = (counts[row.niche_category] ?? 0) + 1;
+  }
+  return counts;
+}
+
 const getCachedNicheCountsInner = unstable_cache(
   async (): Promise<Record<string, number>> => {
     const admin = createAdminClient();
-    const { data } = await admin.from("trending_videos").select("niche_category").limit(5000);
+    // niche_video_counts_30d() aggregates in Postgres over the same 30-day
+    // window the feed itself uses. It shipped with the faceless-rank
+    // migration specifically to replace the truncating JS sample below, but
+    // nothing was ever pointed at it -- so the sidebar kept reporting counts
+    // that could both undercount (5000-row ceiling) and overcount (no date
+    // filter) relative to what the grid actually renders.
+    const { data, error } = await admin.rpc("niche_video_counts_30d");
+    if (error) {
+      // The migration may not have reached this environment yet -- fall back
+      // rather than leaving the sidebar with no counts at all.
+      console.warn("[trending-videos] niche_video_counts_30d unavailable, falling back to sample:", error);
+      return tallyNicheCountsFromSample();
+    }
 
     const counts: Record<string, number> = {};
-    for (const row of (data as { niche_category: string | null }[]) ?? []) {
+    for (const row of (data as { niche_category: string | null; video_count: number }[]) ?? []) {
       if (!row.niche_category) continue;
-      counts[row.niche_category] = (counts[row.niche_category] ?? 0) + 1;
+      counts[row.niche_category] = Number(row.video_count) || 0;
     }
     return counts;
   },
@@ -137,10 +184,10 @@ const getCachedNicheCountsInner = unstable_cache(
 );
 
 /**
- * Per-niche video counts for the sidebar -- an unfiltered scan across the
- * whole cached pool (up to 5000 rows), taking zero request-specific
- * parameters, so every single /niches visitor was re-running the exact same
- * expensive aggregate before this was cached.
+ * Per-niche video counts for the sidebar, aggregated in Postgres over the
+ * feed's own 30-day window so the dropdown badges and the grid agree. Takes
+ * zero request-specific parameters and is identical for every visitor, so
+ * it's cached globally.
  */
 export function getCachedNicheCounts(): Promise<Record<string, number>> {
   return dedupeInFlight("niches-category-counts", getCachedNicheCountsInner);

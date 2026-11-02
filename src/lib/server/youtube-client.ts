@@ -95,9 +95,18 @@ const DISCOVERY_WINDOW_DAYS = 45;
 
 // search.list is 100 quota units per call regardless of maxResults (capped
 // at 50/call by the API), so getting more than 50 results for a keyword
-// requires paging with pageToken. Capped at 5 pages (250 results) per
-// keyword so a single niche refresh can't run away with the daily quota.
-const MAX_SEARCH_PAGES = 5;
+// requires paging with pageToken. This is the one provider cap that's a real
+// budget decision rather than a safety net: 100 units a page against a
+// 10,000-unit daily quota means the ceiling here is "how many pages a day of
+// browsing is allowed to cost". Raised from 5 to 8 (250 -> 400 results per
+// keyword) so a filtered browse can reach past the first few hundred hits of
+// a niche, which is where a selective filter usually starts finding matches --
+// and no further, because the existing 3-hourly refresh cron already commits
+// roughly 4,000 units/day on its own.
+// The loop still exits the instant it has `maxResults`, so shallow requests
+// (the common case) spend exactly what they did before -- only a caller that
+// explicitly asked for a deep pool pays for the extra pages.
+const MAX_SEARCH_PAGES = 8;
 
 async function searchVideoIdsOnce(
   query: string,

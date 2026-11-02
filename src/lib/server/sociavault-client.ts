@@ -96,7 +96,13 @@ async function searchHashtagPage(hashtag: string, cursor: number): Promise<Socia
 // via `cursor` until either enough items are collected, the provider says
 // there's nothing left, or a safety cap is hit so one hashtag can't burn
 // unbounded credits chasing a target it'll never reach.
-const MAX_PAGES_PER_HASHTAG = 8;
+//
+// The loop exits the moment it has `targetCount` items, so this cap only ever
+// binds when a caller genuinely asked for a deep pool -- raising it costs
+// nothing on the shallow requests that make up most traffic, and is what lets
+// a deep/filtered browse reach past the ~8 pages that used to be the hard
+// ceiling on how much of a hashtag existed as far as this app was concerned.
+const MAX_PAGES_PER_HASHTAG = 25;
 
 async function searchHashtag(hashtag: string, targetCount: number): Promise<SociaVaultAwemeItem[]> {
   const items: SociaVaultAwemeItem[] = [];
@@ -520,8 +526,10 @@ function toAwemeInfoArray(
 
 // Shared page cap for both live-search modes below (keyword and per-creator)
 // -- same reasoning as MAX_PAGES_PER_HASHTAG: bounds worst-case credit spend
-// per search box submission rather than walking cursors indefinitely.
-const MAX_PAGES_PER_SEARCH = 8;
+// per search box submission rather than walking cursors indefinitely. Also
+// exits as soon as targetCount is reached, so the ceiling only binds on a
+// caller that has genuinely paged deep into one search.
+const MAX_PAGES_PER_SEARCH = 25;
 
 /**
  * Live TikTok search across all of TikTok, not scoped to our faceless
