@@ -9,7 +9,7 @@
 // /api/checkout/reconcile does rather than waiting on webhook delivery.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWhopClient } from "@/lib/config/whop";
-import { syncMembershipState } from "@/lib/server/whop-sync";
+import { syncMembershipState, whopTimestampToIso } from "@/lib/server/whop-sync";
 import { capturePostHogEvent } from "@/lib/server/posthog";
 import { RETENTION_OFFER_FREE_DAYS, type CancellationReason } from "@/lib/cancellation";
 import type { Membership } from "@whop/sdk/resources/shared";
@@ -43,7 +43,7 @@ async function loadSubscriberProfile(
 }
 
 function periodEndIso(membership: Membership): string | null {
-  return membership.renewal_period_end ? new Date(Number(membership.renewal_period_end) * 1000).toISOString() : null;
+  return whopTimestampToIso(membership.renewal_period_end);
 }
 
 export interface RetentionOfferResult {

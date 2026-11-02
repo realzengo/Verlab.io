@@ -156,6 +156,19 @@ export async function handleRefundCreated(admin: AdminClient, refund: RefundLike
   await deductCredits(userId, actualClaw, "Refund clawback", `whop.refund.${refund.id}`);
 }
 
+/**
+ * Whop's SDK types renewal_period_end as a string, and the API returns ISO
+ * 8601 ("2027-09-05T15:10:23.460Z"). Older code assumed unix seconds, which
+ * turned every real value into an Invalid Date that throws on toISOString().
+ * Accept both, and drop anything unparseable rather than failing the sync.
+ */
+export function whopTimestampToIso(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const asNumber = Number(value);
+  const date = Number.isFinite(asNumber) ? new Date(asNumber * 1000) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export async function syncMembershipState(admin: AdminClient, membership: MembershipLike): Promise<void> {
   const userId = membership.metadata?.user_id as string | undefined;
   if (!userId) return;
@@ -165,9 +178,7 @@ export async function syncMembershipState(admin: AdminClient, membership: Member
   const updates: Record<string, unknown> = {
     subscription_id: membership.id,
     subscription_status: membership.status,
-    subscription_current_period_end: membership.renewal_period_end
-      ? new Date(Number(membership.renewal_period_end) * 1000).toISOString()
-      : null,
+    subscription_current_period_end: whopTimestampToIso(membership.renewal_period_end),
     whop_manage_url: membership.manage_url,
   };
   if (plan) {
