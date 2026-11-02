@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
+import { getModel, parseTtsSettings, readStoredTtsSettings, serializeTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
@@ -51,7 +51,7 @@ interface GenerateVoiceoverRequestBody {
 // Byte-light for the list view -- `segments` holds Storage paths, not audio
 // bytes, so it's small unlike image_generations.images (base64 data URLs),
 // but there's still no reason to ship it for rows the sidebar just lists.
-const LIST_SELECT = "id, title, voice_id, generation_mode, style_prompt, language_code, tts_settings, status, error_message, credits_quoted, created_at";
+const LIST_SELECT = "id, title, voice_id, generation_mode, style_prompt, language_code, status, error_message, credits_quoted, created_at";
 const DETAIL_SELECT = `${LIST_SELECT}, script, segments`;
 // History tab needs a script preview (for search-result context) plus a
 // segment count/duration to render each row without shipping full segment
@@ -74,7 +74,7 @@ interface HistoryListRow {
   voice_id: string;
   generation_mode: string;
   language_code: string;
-  tts_settings: { voiceName?: string; modelId?: string } | null;
+  style_prompt: string | null;
   status: string;
   error_message: string | null;
   credits_quoted: number;
@@ -84,13 +84,14 @@ interface HistoryListRow {
 }
 
 function toHistoryListItem(row: HistoryListRow) {
+  const tts = readStoredTtsSettings(row.style_prompt);
   const segments: { durationSeconds?: number }[] = Array.isArray(row.segments) ? row.segments : [];
   return {
     id: row.id,
     title: row.title,
     voiceId: row.voice_id,
-    voiceName: row.tts_settings?.voiceName ?? row.voice_id,
-    modelId: row.tts_settings?.modelId ?? null,
+    voiceName: tts?.voiceName ?? row.voice_id,
+    modelId: tts?.modelId ?? null,
     generationMode: row.generation_mode,
     languageCode: row.language_code,
     status: row.status,
@@ -280,8 +281,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       script,
       voice_id: voiceId,
       generation_mode: generationMode,
+      style_prompt: serializeTtsSettings(settings),
       language_code: settings.languageCode ?? "auto",
-      tts_settings: settings,
       segments: [],
       credits_quoted: cost,
       status: "generating",

@@ -37,7 +37,12 @@ export interface VoiceSettings {
   speed: number;
 }
 
-/** Everything stored in voiceover_generations.tts_settings. */
+/**
+ * Everything stored per generation. Persisted as JSON in the existing
+ * voiceover_generations.style_prompt column (see serializeTtsSettings) rather
+ * than a new column, so this feature never depends on a migration having
+ * been applied to whichever database a deploy is pointed at.
+ */
 export interface TtsSettings {
   modelId: string;
   /** ISO 639-1 code, or null for models that detect the language themselves. */
@@ -248,4 +253,30 @@ export function parseTtsSettings(raw: unknown): TtsSettings | string {
   const voiceName = typeof input.voiceName === "string" && input.voiceName.trim() ? input.voiceName.trim().slice(0, 100) : "Voice";
 
   return { modelId, languageCode, voiceSettings, voiceName };
+}
+
+const STORED_SETTINGS_VERSION = 1;
+
+/** The value written to voiceover_generations.style_prompt. */
+export function serializeTtsSettings(settings: TtsSettings): string {
+  return JSON.stringify({ v: STORED_SETTINGS_VERSION, ...settings });
+}
+
+/**
+ * Reads settings back from a row's style_prompt. Returns null for rows made
+ * before the ElevenLabs switch, whose style_prompt is a plain Gemini style
+ * instruction ("Say the following.") and whose voice ids aren't ElevenLabs
+ * voices.
+ */
+export function readStoredTtsSettings(stylePrompt: string | null | undefined): TtsSettings | null {
+  if (!stylePrompt || !stylePrompt.startsWith("{")) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stylePrompt);
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object" || (raw as { v?: unknown }).v !== STORED_SETTINGS_VERSION) return null;
+  const settings = parseTtsSettings(raw);
+  return typeof settings === "string" ? null : settings;
 }

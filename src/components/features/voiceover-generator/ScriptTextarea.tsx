@@ -4,7 +4,7 @@ import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // Eleven v3 audio tags, e.g. [angry], [whispers], [laughs harder].
-const AUDIO_TAG = /(\[[^\]\n]{1,40}\])/g;
+const AUDIO_TAG = /(\[[^\]\n]{1,200}\])/g;
 
 function renderHighlighted(text: string): ReactNode[] {
   return text.split(AUDIO_TAG).map((part, index) =>

@@ -49,6 +49,7 @@ import {
   supportsAudioTags,
   getVoice,
   nearestDiscreteStability,
+  readStoredTtsSettings,
   supportsLanguageSelection,
   type ElevenLabsVoice,
   type TtsSettings,
@@ -1029,9 +1030,9 @@ export function VoiceoverGenerator() {
 
       setTitle(row.title ?? "");
       setScript(row.script ?? "");
-      // Rows from before the ElevenLabs switch have no tts_settings (and a
+      // Rows from before the ElevenLabs switch have no stored settings (and a
       // Gemini voice id), so they keep whatever voice/settings are current.
-      const tts: TtsSettings | null = row.tts_settings ?? null;
+      const tts = readStoredTtsSettings(row.style_prompt);
       if (tts) {
         if (String(row.voice_id).startsWith("clone:")) {
           setVoiceId(row.voice_id);

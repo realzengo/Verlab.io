@@ -8,7 +8,7 @@ import { generateScriptText, buildSystemPrompt } from "@/lib/server/script-gener
 import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
 import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
 import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
-import { DEFAULT_MODEL_ID, DEFAULT_VOICE, ELEVENLABS_MODELS, VOICES, getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
+import { DEFAULT_MODEL_ID, DEFAULT_VOICE, ELEVENLABS_MODELS, VOICES, getModel, parseTtsSettings, serializeTtsSettings } from "@/lib/config/elevenlabs";
 import {
   fetchTranscript,
   fetchDownloadLink,
@@ -1009,8 +1009,8 @@ const generateVoiceoverTool: McpToolDefinition = {
         script,
         voice_id: voiceId,
         generation_mode: "all_at_once",
+        style_prompt: serializeTtsSettings(settings),
         language_code: settings.languageCode ?? "auto",
-        tts_settings: settings,
         segments: [],
         credits_quoted: cost,
         status: "generating",

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { VoiceoverSegment } from "../../route";
-import { getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
+import { getModel, readStoredTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
@@ -51,7 +51,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: row, error: fetchError } = await supabase
     .from("voiceover_generations")
-    .select("id, status, voice_id, tts_settings, segments")
+    .select("id, status, voice_id, style_prompt, segments")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -63,14 +63,11 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Can only add a segment to a completed generation" }, { status: 400 });
   }
 
-  // Rows from before the ElevenLabs switch have no tts_settings and a Gemini
-  // voice id ("Kore") that ElevenLabs doesn't know.
-  if (!row.tts_settings) {
-    return NextResponse.json({ error: "This voiceover was made with the previous voice engine -- generate it again to edit it" }, { status: 400 });
-  }
-  const settings = parseTtsSettings(row.tts_settings);
-  if (typeof settings === "string") {
-    return NextResponse.json({ error: "This voiceover's model is no longer available -- generate it again" }, { status: 400 });
+  // Rows from before the ElevenLabs switch have no stored ElevenLabs settings
+  // and a Gemini voice id ("Kore") that ElevenLabs doesn't know.
+  const settings = readStoredTtsSettings(row.style_prompt);
+  if (!settings) {
+    return NextResponse.json({ error: "This voiceover was made with an older voice engine -- generate it again to edit it" }, { status: 400 });
   }
   const costMultiplier = getModel(settings.modelId)?.costMultiplier ?? 1;
 
