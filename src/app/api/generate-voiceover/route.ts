@@ -1,9 +1,9 @@
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getLanguageOption } from "@/lib/config/languages";
+import { getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
 import { generateSpeechForVoice, isValidVoiceId } from "@/lib/server/voice-resolution";
 import { splitScript } from "@/lib/server/voiceover-segmentation";
 import { mapWithConcurrency } from "@/lib/server/concurrency";
@@ -23,9 +23,6 @@ const STORAGE_BUCKET = "voiceovers";
 const MAX_SCRIPT_CHARS = 5000;
 const MAX_SEGMENTS = 60;
 const SEGMENT_CONCURRENCY = 4;
-// Well under Replicate's 4,000-byte `prompt` limit -- a style instruction
-// has no business being longer than this in practice.
-const MAX_STYLE_PROMPT_CHARS = 500;
 
 // Same rationale as generate-image/route.ts's STALE_GENERATING_MS -- nothing
 // guarantees the after() background job below gets to run to completion (a
@@ -46,15 +43,15 @@ interface GenerateVoiceoverRequestBody {
   title?: string;
   script?: string;
   voiceId?: string;
-  stylePrompt?: string;
-  languageCode?: string;
+  /** Model id, voice settings etc. -- validated by parseTtsSettings(). */
+  tts?: unknown;
   generationMode?: "line_by_line" | "all_at_once";
 }
 
 // Byte-light for the list view -- `segments` holds Storage paths, not audio
 // bytes, so it's small unlike image_generations.images (base64 data URLs),
 // but there's still no reason to ship it for rows the sidebar just lists.
-const LIST_SELECT = "id, title, voice_id, generation_mode, style_prompt, language_code, status, error_message, credits_quoted, created_at";
+const LIST_SELECT = "id, title, voice_id, generation_mode, style_prompt, language_code, tts_settings, status, error_message, credits_quoted, created_at";
 const DETAIL_SELECT = `${LIST_SELECT}, script, segments`;
 // History tab needs a script preview (for search-result context) plus a
 // segment count/duration to render each row without shipping full segment
@@ -77,6 +74,7 @@ interface HistoryListRow {
   voice_id: string;
   generation_mode: string;
   language_code: string;
+  tts_settings: { voiceName?: string; modelId?: string } | null;
   status: string;
   error_message: string | null;
   credits_quoted: number;
@@ -91,6 +89,8 @@ function toHistoryListItem(row: HistoryListRow) {
     id: row.id,
     title: row.title,
     voiceId: row.voice_id,
+    voiceName: row.tts_settings?.voiceName ?? row.voice_id,
+    modelId: row.tts_settings?.modelId ?? null,
     generationMode: row.generation_mode,
     languageCode: row.language_code,
     status: row.status,
@@ -225,7 +225,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { title, script, voiceId, stylePrompt, languageCode, generationMode } = body;
+  const { title, script, voiceId, generationMode } = body;
 
   if (title && title.trim() && !isValidName(title)) {
     return NextResponse.json({ error: "title contains characters that aren't allowed, or is too long" }, { status: 400 });
@@ -239,18 +239,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!voiceId || !(await isValidVoiceId(voiceId, user.id))) {
-    return NextResponse.json({ error: "voiceId must be a valid catalog voice or one of your cloned voices" }, { status: 400 });
+    return NextResponse.json({ error: "voiceId must be one of the available voices or one of your cloned voices" }, { status: 400 });
   }
 
-  if (!stylePrompt || !stylePrompt.trim()) {
-    return NextResponse.json({ error: "stylePrompt is required" }, { status: 400 });
+  const settings = parseTtsSettings(body.tts);
+  if (typeof settings === "string") {
+    return NextResponse.json({ error: settings }, { status: 400 });
   }
-  if (stylePrompt.length > MAX_STYLE_PROMPT_CHARS) {
-    return NextResponse.json({ error: `stylePrompt must be ${MAX_STYLE_PROMPT_CHARS} characters or fewer` }, { status: 400 });
-  }
-  if (!languageCode || !getLanguageOption(languageCode)) {
-    return NextResponse.json({ error: "languageCode must be a supported language" }, { status: 400 });
-  }
+  const model = getModel(settings.modelId)!;
   if (generationMode !== "line_by_line" && generationMode !== "all_at_once") {
     return NextResponse.json({ error: "generationMode must be 'line_by_line' or 'all_at_once'" }, { status: 400 });
   }
@@ -262,8 +258,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (segmentTexts.length > MAX_SEGMENTS) {
     return NextResponse.json({ error: `Script splits into too many segments (max ${MAX_SEGMENTS}) -- try "All at Once" or a shorter script` }, { status: 400 });
   }
+  if (segmentTexts.some((text) => text.length > model.maxChars)) {
+    return NextResponse.json({ error: `${model.name} accepts at most ${model.maxChars} characters per request -- try "Line by line" or another model` }, { status: 400 });
+  }
 
-  const cost = segmentTexts.reduce((sum, text) => sum + getVoiceoverSegmentCost(text.length), 0);
+  const cost = segmentTexts.reduce((sum, text) => sum + getVoiceoverSegmentCost(text.length, model.costMultiplier), 0);
 
   // Checked synchronously, same rationale as generate-image/route.ts: the
   // response below is sent before generation finishes, so a balance check
@@ -281,8 +280,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       script,
       voice_id: voiceId,
       generation_mode: generationMode,
-      style_prompt: stylePrompt,
-      language_code: languageCode,
+      language_code: settings.languageCode ?? "auto",
+      tts_settings: settings,
       segments: [],
       credits_quoted: cost,
       status: "generating",
@@ -314,7 +313,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       });
 
       const segments: VoiceoverSegment[] = await mapWithConcurrency(segmentTexts, SEGMENT_CONCURRENCY, async (text, index) => {
-        const speech = await generateSpeechForVoice({ text, voiceId, stylePrompt, languageCode, userId: user.id });
+        const speech = await generateSpeechForVoice({
+          text,
+          voiceId,
+          settings,
+          previousText: segmentTexts[index - 1],
+          nextText: segmentTexts[index + 1],
+          userId: user.id,
+        });
         const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
         const audioPath = `${user.id}/${row.id}/${index}.${extension}`;
 
@@ -324,11 +330,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         if (uploadError) throw new Error(`Voiceover storage upload failed: ${uploadError.message}`);
         uploadedPaths.push(audioPath);
 
-        return { index, text, audioPath, durationSeconds: estimateDurationSeconds(text) };
+        return { index, text, audioPath, durationSeconds: estimateDurationSeconds(text, settings.voiceSettings.speed) };
       });
 
       try {
-        await chargeUser(user.id, cost, "Voiceover Generation", `voiceover.${voiceId}`);
+        await chargeUser(user.id, cost, "Voiceover Generation", `voiceover.${settings.modelId}`);
       } catch (creditError) {
         // Audio is already generated and stored -- a ledger failure here
         // shouldn't undo that, same posture as generate-image/route.ts.
@@ -336,7 +342,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
 
       await admin.from("voiceover_generations").update({ segments, status: "completed" }).eq("id", row.id);
-      void recordUsageEvent("voiceover", user.id, { voiceId, generationMode, segments: segments.length });
+      void recordUsageEvent("voiceover", user.id, { voiceId, modelId: settings.modelId, generationMode, segments: segments.length });
     } catch (error) {
       // The row never gets a `segments` array when the batch fails this way
       // (it stays the `[]` set at insert time), so any segment that did

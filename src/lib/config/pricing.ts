@@ -324,16 +324,15 @@ export function getVideoPromptEditCost(input: { model: string; sourceDurationSec
 }
 
 // ── Voiceover generation ────────────────────────────────────────────────
-// Replicate bills minimax/speech-02-turbo per-call on their end; no public
-// flat per-character rate is published as of this writing, so this follows
-// the same ESTIMATED-cost discipline as the rest of this file -- a
-// conservative $/1000-characters estimate, correct against a real Replicate
-// invoice once live. Charged per segment (each is its own Replicate call),
-// not once for the whole script.
-const VOICEOVER_COST_PER_1K_CHARS_USD = 0.06;
+// ElevenLabs bills per character, scaled by each model's
+// `character_cost_multiplier` (Flash models are 0.5x -- see /v1/models).
+// ESTIMATED base rate at ElevenLabs' paid-plan per-1k-character pricing,
+// same discipline as the rest of this file -- correct against a real
+// invoice once live. Charged per segment (each is its own TTS call).
+const VOICEOVER_COST_PER_1K_CHARS_USD = 0.18;
 
-export function getVoiceoverSegmentCost(characterCount: number): number {
-  return creditsForCost((Math.max(1, characterCount) / 1000) * VOICEOVER_COST_PER_1K_CHARS_USD);
+export function getVoiceoverSegmentCost(characterCount: number, costMultiplier = 1): number {
+  return creditsForCost((Math.max(1, characterCount) / 1000) * VOICEOVER_COST_PER_1K_CHARS_USD * costMultiplier);
 }
 
 // ── Voice cloning (Replicate: minimax/voice-cloning) ────────────────────

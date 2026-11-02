@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { VoiceoverSegment } from "../../route";
+import { getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
 import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
@@ -50,7 +51,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: row, error: fetchError } = await supabase
     .from("voiceover_generations")
-    .select("id, status, voice_id, style_prompt, language_code, segments")
+    .select("id, status, voice_id, tts_settings, segments")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -62,7 +63,18 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Can only add a segment to a completed generation" }, { status: 400 });
   }
 
-  const cost = getVoiceoverSegmentCost(text.length);
+  // Rows from before the ElevenLabs switch have no tts_settings and a Gemini
+  // voice id ("Kore") that ElevenLabs doesn't know.
+  if (!row.tts_settings) {
+    return NextResponse.json({ error: "This voiceover was made with the previous voice engine -- generate it again to edit it" }, { status: 400 });
+  }
+  const settings = parseTtsSettings(row.tts_settings);
+  if (typeof settings === "string") {
+    return NextResponse.json({ error: "This voiceover's model is no longer available -- generate it again" }, { status: 400 });
+  }
+  const costMultiplier = getModel(settings.modelId)?.costMultiplier ?? 1;
+
+  const cost = getVoiceoverSegmentCost(text.length, costMultiplier);
   const balance = await getUserCredits(user.id);
   if (balance < cost) {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
@@ -74,8 +86,8 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     const speech = await generateSpeechForVoice({
       text,
       voiceId: row.voice_id,
-      stylePrompt: row.style_prompt,
-      languageCode: row.language_code,
+      settings,
+      previousText: existingSegments[existingSegments.length - 1]?.text,
       userId: user.id,
     });
     const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
@@ -93,7 +105,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
       .upload(audioPath, speech.bytes, { contentType: speech.contentType, upsert: true });
     if (uploadError) throw new Error(`Voiceover storage upload failed: ${uploadError.message}`);
 
-    const newSegment: VoiceoverSegment = { index: newPosition, text, audioPath, durationSeconds: estimateDurationSeconds(text) };
+    const newSegment: VoiceoverSegment = { index: newPosition, text, audioPath, durationSeconds: estimateDurationSeconds(text, settings.voiceSettings.speed) };
     const segments = [...existingSegments, newSegment];
 
     const { error: updateError } = await supabase.from("voiceover_generations").update({ segments }).eq("id", row.id).eq("user_id", user.id);

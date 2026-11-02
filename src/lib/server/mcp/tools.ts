@@ -6,10 +6,9 @@ import { recordUsageEvent } from "@/lib/server/usage";
 import { TOOL_CREDIT_COSTS, getImageGenerationCost, getVoiceoverSegmentCost, slugifyModelName } from "@/lib/config/pricing";
 import { generateScriptText, buildSystemPrompt } from "@/lib/server/script-generation";
 import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
-import { estimateDurationSeconds } from "@/lib/server/replicate-tts";
+import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
 import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
-import { VOICE_OPTIONS, DEFAULT_VOICE_ID } from "@/lib/config/voices";
-import { getLanguageOption, DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
+import { DEFAULT_MODEL_ID, DEFAULT_VOICE, ELEVENLABS_MODELS, VOICES, getModel, parseTtsSettings } from "@/lib/config/elevenlabs";
 import {
   fetchTranscript,
   fetchDownloadLink,
@@ -933,14 +932,12 @@ const checkCreatorAnalysisStatusTool: McpToolDefinition = {
 
 const VOICEOVER_BUCKET = "voiceovers";
 const MAX_VOICEOVER_SCRIPT_CHARS = 5000;
-const MAX_VOICEOVER_STYLE_PROMPT_CHARS = 500;
 // Signed URLs are re-minted on every read (here and in check_voiceover_status)
 // rather than stored once -- same posture as thumb-proxy.ts's signing, just
 // against Supabase Storage directly since this bucket is private. A week is
 // long enough for the calling model to hand the link off (e.g. into a Google
 // Drive upload) without it dying mid-conversation.
 const VOICEOVER_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
-const VOICEOVER_VOICE_IDS = VOICE_OPTIONS.map((voice) => voice.id) as [string, ...string[]];
 
 interface VoiceoverSegmentRow {
   index: number;
@@ -954,18 +951,28 @@ const generateVoiceoverTool: McpToolDefinition = {
   title: "Generate a voiceover",
   description:
     "Generates an AI voiceover audio file from a script using Verlab's text-to-speech engine and returns a " +
-    "playable/downloadable audio URL. Pick a voice from the catalog (30 options) and, optionally, a free-text " +
-    "delivery style (e.g. 'Speak with excitement and energy', 'Calm and reassuring'). Use this whenever the user " +
+    "playable/downloadable audio URL, powered by ElevenLabs. Pick one of the preset voices and models, plus " +
+    "optional voice settings (stability, similarity, style, speed). Use this whenever the user " +
     "wants an actual spoken voiceover/narration generated, as opposed to generate_script which only writes text. " +
     "Charges credits (see get_credit_balance).",
   inputSchema: {
     script: z.string().describe(`The text to speak, up to ${MAX_VOICEOVER_SCRIPT_CHARS} characters.`),
-    voiceId: z.enum(VOICEOVER_VOICE_IDS).optional().describe(`Which catalog voice to use. Defaults to ${DEFAULT_VOICE_ID}.`),
-    stylePrompt: z
+    voiceId: z
+      .enum(VOICES.map((v) => v.voiceId) as [string, ...string[]])
+      .optional()
+      .describe(`Which ElevenLabs voice to use. Defaults to ${DEFAULT_VOICE.voiceId}.`),
+    modelId: z
+      .enum(ELEVENLABS_MODELS.map((m) => m.id) as [string, ...string[]])
+      .optional()
+      .describe(`Which ElevenLabs model to use. Defaults to ${DEFAULT_MODEL_ID}.`),
+    languageCode: z
       .string()
       .optional()
-      .describe("A free-text delivery/style instruction, e.g. 'Speak with excitement and energy'. Defaults to a neutral, clear delivery."),
-    languageCode: z.string().optional().describe(`A supported BCP-47 language code (e.g. en-US, es-ES, fr-FR). Defaults to ${DEFAULT_LANGUAGE_CODE}.`),
+      .describe("ISO 639-1 language code (e.g. en, es, fr). Defaults to en; ignored by eleven_multilingual_v2, which auto-detects."),
+    stability: z.number().min(0).max(1).optional().describe("0-1. Lower is more expressive, higher more consistent. Default 0.5."),
+    similarityBoost: z.number().min(0).max(1).optional().describe("0-1. How closely to match the original voice. Default 0.75."),
+    style: z.number().min(0).max(1).optional().describe("0-1 style exaggeration, on models that support it. Default 0."),
+    speed: z.number().min(0.7).max(1.2).optional().describe("0.7-1.2 speaking speed. Default 1."),
     title: z.string().optional().describe("A short title for this voiceover, shown in the user's Verlab history."),
   },
   handler: async (userId, args) => {
@@ -975,12 +982,21 @@ const generateVoiceoverTool: McpToolDefinition = {
       return errorResult(`script must be ${MAX_VOICEOVER_SCRIPT_CHARS} characters or fewer`);
     }
 
-    const voiceId = typeof args.voiceId === "string" && VOICEOVER_VOICE_IDS.includes(args.voiceId) ? args.voiceId : DEFAULT_VOICE_ID;
-    const stylePrompt = String(args.stylePrompt ?? "").trim().slice(0, MAX_VOICEOVER_STYLE_PROMPT_CHARS) || "Speak naturally and clearly.";
-    const languageCode = typeof args.languageCode === "string" && getLanguageOption(args.languageCode) ? args.languageCode : DEFAULT_LANGUAGE_CODE;
+    const voiceId = VOICES.find((v) => v.voiceId === args.voiceId)?.voiceId ?? DEFAULT_VOICE.voiceId;
+    const settings = parseTtsSettings(
+      {
+        modelId: typeof args.modelId === "string" ? args.modelId : DEFAULT_MODEL_ID,
+        languageCode: args.languageCode,
+        voiceSettings: { stability: args.stability, similarityBoost: args.similarityBoost, style: args.style, speed: args.speed },
+        voiceName: voiceId,
+      }
+    );
+    if (typeof settings === "string") return errorResult(settings);
+    const model = getModel(settings.modelId)!;
+    if (script.length > model.maxChars) return errorResult(`${model.name} accepts at most ${model.maxChars} characters per request`);
     const title = String(args.title ?? "").trim() || "Untitled Voiceover";
 
-    const cost = getVoiceoverSegmentCost(script.length);
+    const cost = getVoiceoverSegmentCost(script.length, model.costMultiplier);
     const balance = await getUserCredits(userId);
     if (balance < cost) return errorResult("Insufficient credits");
 
@@ -993,8 +1009,8 @@ const generateVoiceoverTool: McpToolDefinition = {
         script,
         voice_id: voiceId,
         generation_mode: "all_at_once",
-        style_prompt: stylePrompt,
-        language_code: languageCode,
+        language_code: settings.languageCode ?? "auto",
+        tts_settings: settings,
         segments: [],
         credits_quoted: cost,
         status: "generating",
@@ -1013,7 +1029,7 @@ const generateVoiceoverTool: McpToolDefinition = {
         allowedMimeTypes: ["audio/mpeg", "audio/mp4", "audio/wav", "audio/x-wav"],
       });
 
-      const speech = await generateSpeechForVoice({ text: script, voiceId, stylePrompt, languageCode, userId });
+      const speech = await generateSpeechForVoice({ text: script, voiceId, settings, userId });
       const extension = speech.contentType.includes("wav") ? "wav" : "mp3";
       const audioPath = `${userId}/${row.id}/0.${extension}`;
 
@@ -1025,8 +1041,8 @@ const generateVoiceoverTool: McpToolDefinition = {
       const { data: signed, error: signError } = await admin.storage.from(VOICEOVER_BUCKET).createSignedUrl(audioPath, VOICEOVER_URL_TTL_SECONDS);
       if (signError || !signed) throw new Error(signError?.message ?? "Could not sign voiceover URL");
 
-      const segment: VoiceoverSegmentRow = { index: 0, text: script, audioPath, durationSeconds: estimateDurationSeconds(script) };
-      await chargeUser(userId, cost, "Voiceover Generation", `voiceover.${voiceId}`);
+      const segment: VoiceoverSegmentRow = { index: 0, text: script, audioPath, durationSeconds: estimateDurationSeconds(script, settings.voiceSettings.speed) };
+      await chargeUser(userId, cost, "Voiceover Generation", `voiceover.${settings.modelId}`);
       await admin.from("voiceover_generations").update({ segments: [segment], status: "completed" }).eq("id", row.id);
       recordUsageEvent("voiceover", userId, { voiceId, generationMode: "all_at_once", source: "mcp" });
       return { url: signed.signedUrl, durationSeconds: segment.durationSeconds };

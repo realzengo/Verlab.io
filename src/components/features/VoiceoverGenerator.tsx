@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Check,
-  ChevronLeft,
+  ChevronDown,
   ChevronRight,
   Download,
   History,
@@ -18,13 +18,11 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Search,
   Settings2,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
   Sparkles,
-  Trash2,
-  Wand2,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -34,8 +32,28 @@ import { PlasticButton } from "@/components/ui/plastic-button";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { HistoryPanel } from "@/components/features/voiceover-generator/HistoryPanel";
 import { AddVoiceModal, type VoiceCloneSummary } from "@/components/features/voiceover-generator/AddVoiceModal";
-import { DEFAULT_VOICE_ID, getVoiceOption, VOICE_CLONING_ENABLED, VOICE_OPTIONS, type VoiceOption } from "@/lib/config/voices";
-import { DEFAULT_LANGUAGE_CODE } from "@/lib/config/languages";
+import { VoiceLibraryModal, voiceMeta } from "@/components/features/voiceover-generator/VoiceLibraryModal";
+import { ScriptTextarea } from "@/components/features/voiceover-generator/ScriptTextarea";
+import { VOICE_CLONING_ENABLED } from "@/lib/config/voices";
+import {
+  DEFAULT_MODEL_ID,
+  DEFAULT_VOICE,
+  DEFAULT_VOICE_SETTINGS,
+  DISCRETE_STABILITY_OPTIONS,
+  DEFAULT_LANGUAGE_CODE,
+  ELEVENLABS_MODELS,
+  LANGUAGES,
+  SPEED_MAX,
+  SPEED_MIN,
+  hasDiscreteStability,
+  supportsAudioTags,
+  getVoice,
+  nearestDiscreteStability,
+  supportsLanguageSelection,
+  type ElevenLabsVoice,
+  type TtsSettings,
+  type VoiceSettings,
+} from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { consumeVoiceoverHandoff } from "@/lib/client/voiceover-handoff";
@@ -46,7 +64,6 @@ import { isValidName, NAME_MAX } from "@/lib/validation";
 type GenerationMode = "line_by_line" | "all_at_once";
 type View = "input" | "loading" | "editor";
 type EditorTab = "editor" | "audio";
-type VoiceGenderFilter = "All" | "Male" | "Female";
 
 interface SegmentState {
   text: string;
@@ -82,10 +99,6 @@ const VOICEOVER_LOADING_PHASES = [
 ];
 
 const MAX_SCRIPT_CHARS = 5000;
-// Matches the Gemini TTS model's own default `prompt` value, and the server
-// route's 500-char cap on stylePrompt (see generate-voiceover/route.ts).
-const DEFAULT_STYLE_PROMPT = "Say the following.";
-const MAX_STYLE_PROMPT_CHARS = 500;
 
 function segmentUrl(generationId: string, index: number): string {
   return `/api/generate-voiceover/${generationId}/segments/${index}`;
@@ -93,110 +106,101 @@ function segmentUrl(generationId: string, index: number): string {
 
 // ── Small presentational pieces ─────────────────────────────────────────
 
-// Quick-tap presets for the free-text `prompt` style instruction Gemini TTS
-// actually accepts (see src/lib/server/replicate-tts.ts) -- there's no
-// numeric speed/stability knob on this model, so these fill the box with a
-// ready-made instruction that the user can still edit directly afterward.
-const STYLE_PRESETS: { label: string; prompt: string }[] = [
-  { label: "Natural", prompt: "Say the following." },
-  { label: "Calm & Professional", prompt: "Say this in a calm, professional tone." },
-  { label: "Energetic", prompt: "Speak with excitement and energy." },
-  { label: "Warm & Friendly", prompt: "Say this in a warm, friendly tone." },
-  { label: "Fast-Paced", prompt: "Say the following quickly and energetically." },
-  { label: "Slow & Deliberate", prompt: "Say the following slowly and deliberately." },
-  { label: "Whispered", prompt: "Say the following in a hushed whisper." },
-  { label: "Dramatic", prompt: "Say the following dramatically, like narrating a movie trailer." },
-];
-
-function VoiceCard({
-  voice,
-  selected,
-  onSelect,
-  onPlay,
-  isPreviewLoading,
-  isPreviewPlaying,
+function SegmentedControl<T extends string | number>({
+  options,
+  value,
+  onChange,
 }: {
-  voice: VoiceOption;
-  selected: boolean;
-  onSelect: () => void;
-  onPlay: () => void;
-  isPreviewLoading: boolean;
-  isPreviewPlaying: boolean;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const pillId = useId();
+  return (
+    <div className="relative flex rounded-lg bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+      {options.map((option) => (
+        <button
+          key={String(option.value)}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className="relative flex-1 rounded-md px-3 py-1.5 text-xs font-semibold"
+        >
+          {value === option.value && (
+            <motion.span
+              layoutId={`${pillId}-active`}
+              transition={{ type: "spring", stiffness: 500, damping: 34 }}
+              className="absolute inset-0 rounded-md bg-surface shadow-card dark:bg-[#0D0D10]"
+            />
+          )}
+          <span className={cn("relative z-10 transition-colors", value === option.value ? "text-heading" : "text-subtle hover:text-heading")}>
+            {option.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SettingLabel({ label, hint, value }: { label: string; hint: string; value?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="flex items-center gap-1.5 text-xs font-semibold text-heading">
+        {label}
+        <span title={hint}>
+          <Info className="h-3.5 w-3.5 text-subtle/60" />
+        </span>
+      </span>
+      {value !== undefined && <span className="font-mono text-[11px] font-medium tabular-nums text-subtle">{value}</span>}
+    </div>
+  );
+}
+
+function SettingSlider({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  format,
+  leftLabel,
+  rightLabel,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  format: (value: number) => string;
+  leftLabel: string;
+  rightLabel: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "group relative flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition-all duration-200",
-        selected
-          ? "border-primary/60 bg-gradient-to-b from-accent to-accent/40 shadow-[0_0_0_1px_var(--color-primary),0_10px_28px_-8px_rgba(51,92,255,0.4)] dark:from-primary/[0.12] dark:to-primary/[0.03]"
-          : "border-hairline bg-surface shadow-card hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-hover"
-      )}
-    >
-      <Avatar
-        name={voice.id}
-        size="md"
-        hideInitials
-        className={cn("shadow-sm ring-2", selected ? "ring-primary/25" : "ring-surface dark:ring-white/5")}
+    <div>
+      <SettingLabel label={label} hint={hint} value={format(value)} />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={label}
+        className="mt-2 w-full cursor-pointer accent-primary"
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-1">
-          <p className="truncate text-sm font-semibold text-heading">{voice.id}</p>
-          <span className="text-subtle">·</span>
-          <span className="truncate text-sm font-medium text-primary">{voice.gender}</span>
-        </div>
-        <p className="truncate text-xs text-subtle">{voice.description}</p>
+      <div className="flex justify-between text-[10px] font-medium text-subtle/70">
+        <span>{leftLabel}</span>
+        <span>{rightLabel}</span>
       </div>
-      {selected && (
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_6px_rgba(51,92,255,0.5)]">
-          <Check className="h-3 w-3" strokeWidth={3} />
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onPlay();
-        }}
-        aria-label={isPreviewPlaying ? `Stop ${voice.id} preview` : `Preview ${voice.id}`}
-        className={cn(
-          "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition-all duration-200 hover:scale-105 active:scale-[0.94]",
-          selected || isPreviewPlaying
-            ? "text-white"
-            : "bg-app text-subtle ring-1 ring-inset ring-black/[0.06] hover:text-primary hover:ring-primary/30 dark:bg-white/5 dark:ring-white/10"
-        )}
-        style={
-          selected || isPreviewPlaying
-            ? {
-                background: "linear-gradient(to bottom, rgb(59, 130, 246), rgb(37, 99, 235))",
-                boxShadow:
-                  "0 2px 8px 0 rgba(37, 99, 235, 0.4), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 6px 0 rgba(37, 99, 235, 0.5) inset",
-              }
-            : undefined
-        }
-      >
-        {(selected || isPreviewPlaying) && (
-          <span
-            className="pointer-events-none absolute left-1/2 top-0 h-2/5 w-[70%] -translate-x-1/2 rounded-t-full"
-            style={{
-              background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 80%)",
-              filter: "blur(1px)",
-            }}
-          />
-        )}
-        <span className="relative z-10 flex items-center justify-center">
-          {isPreviewLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isPreviewPlaying ? (
-            <Pause className="h-3.5 w-3.5" fill="currentColor" />
-          ) : (
-            <Play className="h-3.5 w-3.5" fill="currentColor" />
-          )}
-        </span>
-      </button>
-    </button>
+    </div>
   );
+}
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }
 
 function formatTime(seconds: number): string {
@@ -499,26 +503,26 @@ function Timeline({
 export function VoiceoverGenerator() {
   const [title, setTitle] = useState("");
   const [script, setScript] = useState("");
-  const [voiceId, setVoiceId] = useState(DEFAULT_VOICE_ID);
+  // `voiceId` is what gets sent: an ElevenLabs id, or `clone:<id>` for a
+  // cloned voice. `elevenLabsVoice` holds the display info for the former.
+  const [voiceId, setVoiceId] = useState(DEFAULT_VOICE.voiceId);
+  const [elevenLabsVoice, setElevenLabsVoice] = useState<ElevenLabsVoice>(DEFAULT_VOICE);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("line_by_line");
   const generationModePillId = useId();
-  const [stylePrompt, setStylePrompt] = useState(DEFAULT_STYLE_PROMPT);
+
+  const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
+  const [isModelListOpen, setIsModelListOpen] = useState(false);
   const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
 
   const [sidebarTab, setSidebarTab] = useState<"settings" | "history">("settings");
   const sidebarTabPillId = useId();
   const [historyRefreshSignal, setHistoryRefreshSignal] = useState(0);
   const [selectingHistoryId, setSelectingHistoryId] = useState<string | null>(null);
 
-  const [isVoiceDrawerOpen, setIsVoiceDrawerOpen] = useState(false);
-  const [voiceSearch, setVoiceSearch] = useState("");
-  const [voiceGenderFilter, setVoiceGenderFilter] = useState<VoiceGenderFilter>("All");
-  const voiceGenderPillId = useId();
-  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
-  const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [voiceClones, setVoiceClones] = useState<VoiceCloneSummary[]>([]);
   const [isAddVoiceModalOpen, setIsAddVoiceModalOpen] = useState(false);
   const [previewingCloneId, setPreviewingCloneId] = useState<string | null>(null);
@@ -592,34 +596,38 @@ export function VoiceoverGenerator() {
     };
   }, []);
 
-  const selectedVoice = getVoiceOption(voiceId) ?? VOICE_OPTIONS[0];
   const selectedClone = voiceId.startsWith("clone:") ? voiceClones.find((clone) => `clone:${clone.id}` === voiceId) : undefined;
 
-  const filteredVoiceClones = useMemo(() => {
-    const query = voiceSearch.trim().toLowerCase();
-    return query ? voiceClones.filter((clone) => clone.name.toLowerCase().includes(query)) : voiceClones;
-  }, [voiceClones, voiceSearch]);
+  const currentModel = ELEVENLABS_MODELS.find((m) => m.id === modelId) ?? ELEVENLABS_MODELS[0];
+  const discreteStability = hasDiscreteStability(currentModel.id);
+  const showLanguage = supportsLanguageSelection(currentModel.id);
 
-  const filteredVoices = useMemo(() => {
-    return VOICE_OPTIONS.filter((voice) => {
-      if (voiceGenderFilter !== "All" && voice.gender !== voiceGenderFilter) return false;
-      if (!voiceSearch.trim()) return true;
-      const query = voiceSearch.trim().toLowerCase();
-      return (
-        voice.id.toLowerCase().includes(query) ||
-        voice.style.toLowerCase().includes(query) ||
-        voice.gender.toLowerCase().includes(query) ||
-        voice.description.toLowerCase().includes(query)
-      );
-    });
-  }, [voiceSearch, voiceGenderFilter]);
+  function selectElevenLabsVoice(voice: ElevenLabsVoice) {
+    setElevenLabsVoice(voice);
+    setVoiceId(voice.voiceId);
+  }
+
+  function selectModel(id: string) {
+    setModelId(id);
+    setIsModelListOpen(false);
+    if (hasDiscreteStability(id)) {
+      setVoiceSettings((prev) => ({ ...prev, stability: nearestDiscreteStability(prev.stability) }));
+    }
+  }
+
+  function updateVoiceSetting<K extends keyof VoiceSettings>(key: K, value: VoiceSettings[K]) {
+    setVoiceSettings((prev) => ({ ...prev, [key]: value }));
+  }
 
   const estimatedSegments = useMemo(() => estimateSegmentTexts(script, generationMode), [script, generationMode]);
   const estimatedCredits = useMemo(
-    () => estimatedSegments.reduce((sum, text) => sum + getVoiceoverSegmentCost(text.length), 0),
-    [estimatedSegments]
+    () => estimatedSegments.reduce((sum, text) => sum + getVoiceoverSegmentCost(text.length, currentModel.costMultiplier), 0),
+    [estimatedSegments, currentModel.costMultiplier]
   );
-  const newSegmentCredits = useMemo(() => getVoiceoverSegmentCost(newSegmentText.length), [newSegmentText]);
+  const newSegmentCredits = useMemo(
+    () => getVoiceoverSegmentCost(newSegmentText.length, currentModel.costMultiplier),
+    [newSegmentText, currentModel.costMultiplier]
+  );
 
   const durations = segments.map((s) => s.durationSeconds);
 
@@ -627,35 +635,18 @@ export function VoiceoverGenerator() {
     return () => pollCancelRef.current?.();
   }, []);
 
-  function resetStyle() {
-    setStylePrompt(DEFAULT_STYLE_PROMPT);
+  function resetSettings() {
+    setVoiceSettings(DEFAULT_VOICE_SETTINGS);
     setLanguageCode(DEFAULT_LANGUAGE_CODE);
   }
 
-  async function playVoicePreview(voice: VoiceOption) {
-    if (playingPreviewId === voice.id) {
-      previewAudioRef.current?.pause();
-      setPlayingPreviewId(null);
-      return;
-    }
-    setPreviewingVoiceId(voice.id);
-    setPreviewError(null);
-    try {
-      const response = await fetch(`/api/voices/preview?voiceId=${encodeURIComponent(voice.id)}`, {
-        signal: AbortSignal.timeout(130_000),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error ?? `Could not load preview (${response.status})`);
-      if (previewAudioRef.current) {
-        previewAudioRef.current.src = data.url;
-        await previewAudioRef.current.play();
-        setPlayingPreviewId(voice.id);
-      }
-    } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : "Could not load preview");
-    } finally {
-      setPreviewingVoiceId(null);
-    }
+  function buildTtsSettings(): TtsSettings {
+    return {
+      modelId: currentModel.id,
+      languageCode: showLanguage ? languageCode : null,
+      voiceSettings,
+      voiceName: selectedClone ? selectedClone.name : elevenLabsVoice.name,
+    };
   }
 
   // Cloned voices have no shared cached clip (see /api/voice-clones/[id]/preview's
@@ -699,7 +690,7 @@ export function VoiceoverGenerator() {
         throw new Error(data?.error ?? "Could not delete that voice");
       }
       setVoiceClones((prev) => prev.filter((c) => c.id !== clone.id));
-      if (voiceId === `clone:${clone.id}`) setVoiceId(DEFAULT_VOICE_ID);
+      if (voiceId === `clone:${clone.id}`) setVoiceId(elevenLabsVoice.voiceId);
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : "Could not delete that voice");
     } finally {
@@ -707,10 +698,16 @@ export function VoiceoverGenerator() {
     }
   }
 
+  // Stable so the modal's Escape-key effect doesn't resubscribe every render.
+  const closeVoiceModal = useCallback(() => {
+    setIsVoiceModalOpen(false);
+    cloneAudioRef.current?.pause();
+    setPlayingCloneId(null);
+  }, []);
+
   function handleVoiceCloneCreated(clone: VoiceCloneSummary) {
     setVoiceClones((prev) => [clone, ...prev]);
     setVoiceId(`clone:${clone.id}`);
-    setIsVoiceDrawerOpen(false);
   }
 
   function pollGeneration(id: string) {
@@ -794,7 +791,7 @@ export function VoiceoverGenerator() {
       const response = await fetch("/api/generate-voiceover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, script, voiceId, stylePrompt, languageCode, generationMode }),
+        body: JSON.stringify({ title, script, voiceId, generationMode, tts: buildTtsSettings() }),
       });
 
       if (response.status === 402) {
@@ -1032,9 +1029,23 @@ export function VoiceoverGenerator() {
 
       setTitle(row.title ?? "");
       setScript(row.script ?? "");
-      setVoiceId(row.voice_id);
-      setStylePrompt(row.style_prompt);
-      setLanguageCode(row.language_code);
+      // Rows from before the ElevenLabs switch have no tts_settings (and a
+      // Gemini voice id), so they keep whatever voice/settings are current.
+      const tts: TtsSettings | null = row.tts_settings ?? null;
+      if (tts) {
+        if (String(row.voice_id).startsWith("clone:")) {
+          setVoiceId(row.voice_id);
+        } else {
+          const voice = getVoice(row.voice_id);
+          if (voice) {
+            setElevenLabsVoice(voice);
+            setVoiceId(voice.voiceId);
+          }
+        }
+        setModelId(tts.modelId);
+        setLanguageCode(tts.languageCode ?? DEFAULT_LANGUAGE_CODE);
+        setVoiceSettings({ ...DEFAULT_VOICE_SETTINGS, ...tts.voiceSettings });
+      }
       setGenerationId(row.id);
       setSegments((row.segments ?? []).map((s: { text: string; durationSeconds: number }) => ({ text: s.text, durationSeconds: s.durationSeconds })));
       setCreditsQuoted(row.credits_quoted ?? null);
@@ -1061,8 +1072,22 @@ export function VoiceoverGenerator() {
 
   return (
     <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
-      <audio ref={previewAudioRef} className="hidden" onEnded={() => setPlayingPreviewId(null)} />
       <audio ref={cloneAudioRef} className="hidden" onEnded={() => setPlayingCloneId(null)} />
+      <VoiceLibraryModal
+        isOpen={isVoiceModalOpen}
+        onClose={closeVoiceModal}
+        selectedVoiceId={voiceId}
+        onSelectVoice={selectElevenLabsVoice}
+        clones={voiceClones}
+        onSelectClone={(clone) => setVoiceId(`clone:${clone.id}`)}
+        onPlayClone={playClonePreview}
+        onDeleteClone={deleteClone}
+        onAddVoice={() => setIsAddVoiceModalOpen(true)}
+        previewingCloneId={previewingCloneId}
+        playingCloneId={playingCloneId}
+        deletingCloneId={deletingCloneId}
+        cloneError={previewError}
+      />
       <AddVoiceModal isOpen={isAddVoiceModalOpen} onClose={() => setIsAddVoiceModalOpen(false)} onCreated={handleVoiceCloneCreated} />
       <audio
         ref={audioRef}
@@ -1117,16 +1142,23 @@ export function VoiceoverGenerator() {
                     </div>
                   ) : (
                     <>
-                      <textarea
+                      <ScriptTextarea
                         value={script}
-                        onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
+                        onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
+                        highlightTags
                         placeholder="Type your script here..."
                         maxLength={MAX_SCRIPT_CHARS}
-                        className="mt-2 min-h-[300px] flex-1 resize-none bg-transparent px-4 pb-3 text-sm font-normal leading-relaxed text-body outline-none placeholder:font-normal placeholder:text-subtle"
+                        className="mt-2 min-h-[300px] flex-1"
+                        paddingClassName="px-4 pb-3"
                       />
-                      <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
-                        <span className="text-xs font-medium text-subtle">
+                      <div className="flex items-center justify-between gap-3 border-t border-hairline px-4 py-3">
+                        <span className="min-w-0 text-xs font-medium text-subtle">
                           {charCount.toLocaleString()}/{MAX_SCRIPT_CHARS.toLocaleString()}
+                          {supportsAudioTags(currentModel.id) && (
+                            <span className="ml-2 hidden text-subtle/70 sm:inline">
+                              Tip: add audio tags like [excited], [whispers] or [laughs]
+                            </span>
+                          )}
                         </span>
                         <Badge>
                           {estimatedCredits} credit{estimatedCredits === 1 ? "" : "s"}
@@ -1201,12 +1233,14 @@ export function VoiceoverGenerator() {
                 {editorTab === "editor" ? (
                   <>
                     <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface dark:bg-[#0D0D10]">
-                      <textarea
+                      <ScriptTextarea
                         value={script}
-                        onChange={(event) => setScript(event.target.value.slice(0, MAX_SCRIPT_CHARS))}
+                        onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
+                        highlightTags
                         placeholder="Type your script here..."
                         maxLength={MAX_SCRIPT_CHARS}
-                        className="min-h-[300px] flex-1 resize-none bg-transparent p-4 text-sm font-normal leading-relaxed text-body outline-none placeholder:font-normal placeholder:text-subtle"
+                        className="min-h-[300px] flex-1"
+                        paddingClassName="p-4"
                       />
                       <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
                         <span className="text-xs font-medium text-subtle">
@@ -1373,183 +1407,8 @@ export function VoiceoverGenerator() {
             )}
           </div>
 
-          {/* ── Right column: sidebar / voice drawer ──────────────────── */}
+          {/* ── Right column: settings / history sidebar ──────────────── */}
           <div className="relative">
-            {isVoiceDrawerOpen ? (
-              <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-hairline bg-app/60 shadow-card dark:bg-white/[0.015]">
-                <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-4">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsVoiceDrawerOpen(false)}
-                      aria-label="Back"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-accent hover:text-primary"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <h2 className="text-sm font-semibold text-heading">Select a Voice</h2>
-                  </div>
-                  <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
-                    {(["All", "Male", "Female"] as const).map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setVoiceGenderFilter(option)}
-                        className="relative rounded-full px-3 py-1.5 text-xs font-semibold"
-                      >
-                        {voiceGenderFilter === option && (
-                          <motion.span
-                            layoutId={`${voiceGenderPillId}-active`}
-                            transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                            className="absolute inset-0 rounded-full bg-surface shadow-card"
-                          />
-                        )}
-                        <span
-                          className={cn(
-                            "relative z-10 transition-colors",
-                            voiceGenderFilter === option ? "text-heading" : "text-subtle hover:text-heading"
-                          )}
-                        >
-                          {option}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="px-4 pt-3.5">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" />
-                    <input
-                      value={voiceSearch}
-                      onChange={(event) => setVoiceSearch(event.target.value)}
-                      placeholder="Search voices"
-                      className="w-full rounded-xl border border-hairline bg-surface py-2.5 pl-9 pr-3 text-sm text-heading shadow-card outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
-                    />
-                  </div>
-                </div>
-
-                {previewError && (
-                  <p className="mx-4 mt-2 rounded-lg bg-danger-tint px-3 py-2 text-xs font-medium text-danger" role="alert">
-                    {previewError}
-                  </p>
-                )}
-
-                {VOICE_CLONING_ENABLED ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddVoiceModalOpen(true)}
-                    className="mx-4 mt-3.5 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-body transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-primary"
-                  >
-                    <Plus className="h-4 w-4" /> Add Your Voice
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    title="Voice cloning is temporarily locked"
-                    className="mx-4 mt-3.5 flex cursor-not-allowed items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-hairline py-3.5 text-sm font-medium text-subtle opacity-70"
-                  >
-                    <Plus className="h-4 w-4" /> Add Your Voice
-                    <Badge>Locked</Badge>
-                  </button>
-                )}
-
-                <div className="mt-3.5 flex-1 space-y-2.5 overflow-y-auto px-4 pb-4 pt-1">
-                  {filteredVoiceClones.length > 0 && (
-                    <div className="space-y-2.5 pb-1">
-                      <p className="px-0.5 text-xs font-semibold uppercase tracking-wide text-subtle">Your Voices</p>
-                      {filteredVoiceClones.map((clone) => {
-                            const cloneVoiceId = `clone:${clone.id}`;
-                            const selected = cloneVoiceId === voiceId;
-                            return (
-                              <div
-                                key={clone.id}
-                                className={cn(
-                                  "group relative flex w-full items-center gap-3 rounded-2xl border p-3.5 transition-all duration-200",
-                                  selected
-                                    ? "border-primary/60 bg-gradient-to-b from-accent to-accent/40 shadow-[0_0_0_1px_var(--color-primary),0_10px_28px_-8px_rgba(51,92,255,0.4)] dark:from-primary/[0.12] dark:to-primary/[0.03]"
-                                    : "border-hairline bg-surface shadow-card hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-hover"
-                                )}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVoiceId(cloneVoiceId);
-                                    setIsVoiceDrawerOpen(false);
-                                    previewAudioRef.current?.pause();
-                                    cloneAudioRef.current?.pause();
-                                    setPlayingPreviewId(null);
-                                    setPlayingCloneId(null);
-                                  }}
-                                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                                >
-                                  <Avatar
-                                    name={clone.name}
-                                    size="md"
-                                    hideInitials
-                                    className={cn("shadow-sm ring-2", selected ? "ring-primary/25" : "ring-surface dark:ring-white/5")}
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-heading">{clone.name}</p>
-                                    <p className="truncate text-xs text-subtle">Cloned from your audio</p>
-                                  </div>
-                                  {selected && (
-                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_2px_6px_rgba(51,92,255,0.5)]">
-                                      <Check className="h-3 w-3" strokeWidth={3} />
-                                    </span>
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => playClonePreview(clone)}
-                                  aria-label={playingCloneId === clone.id ? `Stop ${clone.name} preview` : `Preview ${clone.name}`}
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-app text-subtle ring-1 ring-inset ring-black/[0.06] transition-colors hover:text-primary hover:ring-primary/30 dark:bg-white/5 dark:ring-white/10"
-                                >
-                                  {previewingCloneId === clone.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : playingCloneId === clone.id ? (
-                                    <Pause className="h-3.5 w-3.5" fill="currentColor" />
-                                  ) : (
-                                    <Play className="h-3.5 w-3.5" fill="currentColor" />
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => deleteClone(clone)}
-                                  disabled={deletingCloneId === clone.id}
-                                  aria-label={`Delete ${clone.name}`}
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:text-danger disabled:opacity-50"
-                                >
-                                  {deletingCloneId === clone.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                                </button>
-                              </div>
-                            );
-                          })}
-                    </div>
-                  )}
-                  {filteredVoices.map((voice) => (
-                    <VoiceCard
-                      key={voice.id}
-                      voice={voice}
-                      selected={voice.id === voiceId}
-                      onSelect={() => {
-                        setVoiceId(voice.id);
-                        setIsVoiceDrawerOpen(false);
-                        previewAudioRef.current?.pause();
-                        setPlayingPreviewId(null);
-                      }}
-                      onPlay={() => playVoicePreview(voice)}
-                      isPreviewLoading={previewingVoiceId === voice.id}
-                      isPreviewPlaying={playingPreviewId === voice.id}
-                    />
-                  ))}
-                  {filteredVoices.length === 0 && (
-                    <p className="py-8 text-center text-sm text-subtle">No voices match your search.</p>
-                  )}
-                </div>
-              </div>
-            ) : (
               <div
                 className={cn(
                   "flex flex-col gap-3 rounded-3xl bg-app p-3 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10",
@@ -1593,10 +1452,10 @@ export function VoiceoverGenerator() {
                   ))}
                 </div>
 
-                {sidebarTab === "history" ? (
-                  <HistoryPanel onSelect={(item) => void loadGeneration(item.id)} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
-                ) : (
-                  <div className="rounded-2xl border border-hairline bg-surface shadow-card dark:bg-[#0D0D10]">
+                  {sidebarTab === "history" ? (
+                    <HistoryPanel onSelect={(item) => void loadGeneration(item.id)} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
+                  ) : (
+                    <div className="rounded-2xl border border-hairline bg-surface shadow-card dark:bg-[#0D0D10]">
                     <div className="group p-5">
                       <div className="flex items-center gap-2">
                         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-accent to-primary/15 text-primary">
@@ -1604,28 +1463,83 @@ export function VoiceoverGenerator() {
                         </span>
                         <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Voice Style</h2>
                       </div>
-                  <button
+                    <button
                     type="button"
-                    onClick={() => setIsVoiceDrawerOpen(true)}
+                    onClick={() => setIsVoiceModalOpen(true)}
                     className="group/row mt-3 flex w-full items-center gap-3 rounded-xl border border-hairline bg-app/60 p-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50 dark:bg-white/[0.02]"
-                  >
-                    <Avatar name={selectedClone ? selectedClone.name : selectedVoice.id} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
+                    >
+                    <Avatar name={selectedClone ? selectedClone.name : elevenLabsVoice.name} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-1">
-                        <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : selectedVoice.id}</p>
-                        {!selectedClone && (
-                          <>
-                            <span className="text-subtle">·</span>
-                            <span className="truncate text-sm font-medium text-primary">{selectedVoice.gender}</span>
-                          </>
-                        )}
-                      </div>
-                      <p className="truncate text-xs text-subtle">{selectedClone ? "Your cloned voice" : selectedVoice.description}</p>
+                      <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : elevenLabsVoice.name}</p>
+                      {!selectedClone && voiceMeta(elevenLabsVoice) && (
+                        <p className="truncate text-xs font-medium text-primary">{voiceMeta(elevenLabsVoice)}</p>
+                      )}
+                      <p className="truncate text-xs text-subtle">
+                        {selectedClone ? "Your cloned voice" : elevenLabsVoice.description}
+                      </p>
                     </div>
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-transform duration-200 group-hover/row:translate-x-0.5">
                       <ChevronRight className="h-3.5 w-3.5" />
                     </span>
-                  </button>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-hairline p-5">
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Model</h2>
+                    <button
+                    type="button"
+                    onClick={() => setIsModelListOpen((open) => !open)}
+                    aria-expanded={isModelListOpen}
+                    title={currentModel.description}
+                    className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-hairline bg-app/60 px-3 py-2.5 text-left text-sm font-semibold text-heading transition-colors hover:border-primary/40 dark:bg-white/[0.02]"
+                    >
+                    <span className="truncate">{currentModel.name}</span>
+                    <ChevronDown className={cn("h-4 w-4 shrink-0 text-subtle transition-transform", isModelListOpen && "rotate-180")} />
+                    </button>
+                    {isModelListOpen && (
+                    <div className="mt-1.5 max-h-72 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-card">
+                      {ELEVENLABS_MODELS.map((model) => {
+                        const selected = model.id === currentModel.id;
+                        const details = [
+                          model.costMultiplier < 1 && `${model.costMultiplier}× cost`,
+                          supportsAudioTags(model.id) && "audio tags",
+                        ].filter(Boolean);
+                        return (
+                          <button
+                            key={model.id}
+                            type="button"
+                            onClick={() => selectModel(model.id)}
+                            title={model.description}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
+                              selected ? "bg-primary/10" : "hover:bg-accent/60 dark:hover:bg-white/[0.05]"
+                            )}
+                          >
+                            <span className="min-w-0">
+                              <span className={cn("block truncate text-sm font-medium", selected ? "text-primary" : "text-heading")}>{model.name}</span>
+                              {details.length > 0 && <span className="block truncate text-[11px] text-subtle">{details.join(" · ")}</span>}
+                            </span>
+                            {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={3} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {showLanguage && (
+                    <select
+                      value={languageCode ?? ""}
+                      onChange={(event) => setLanguageCode(event.target.value)}
+                      aria-label="Language"
+                      className="mt-2 w-full cursor-pointer rounded-lg border border-hairline bg-app/60 px-3 py-2.5 text-sm text-heading outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
+                    >
+                      {LANGUAGES.map((language) => (
+                        <option key={language.code} value={language.code}>
+                          {language.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="border-t border-hairline p-5">
@@ -1673,13 +1587,13 @@ export function VoiceoverGenerator() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-primary ring-1 ring-primary/10">
-                        <Wand2 className="h-3.5 w-3.5" />
+                        <SlidersHorizontal className="h-3.5 w-3.5" />
                       </span>
-                      <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Speaking Style</h2>
+                      <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Voice Settings</h2>
                     </div>
                     <button
                       type="button"
-                      onClick={resetStyle}
+                      onClick={resetSettings}
                       className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/10"
                     >
                       <RotateCcw className="h-3 w-3" />
@@ -1687,45 +1601,83 @@ export function VoiceoverGenerator() {
                     </button>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {STYLE_PRESETS.map((preset) => {
-                      const selected = stylePrompt === preset.prompt;
-                      return (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => setStylePrompt(preset.prompt)}
-                          className={cn(
-                            "flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-colors duration-150",
-                            selected
-                              ? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/40 dark:bg-primary/[0.14]"
-                              : "bg-app/60 text-subtle ring-1 ring-inset ring-hairline hover:bg-accent/50 hover:text-heading dark:bg-white/[0.02] dark:hover:bg-white/[0.05]"
-                          )}
-                        >
-                          <span className="truncate">{preset.label}</span>
-                          {selected && <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} />}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {selectedClone ? (
+                    <p className="mt-4 text-xs text-subtle">Cloned voices use their own engine, so these settings don&apos;t apply.</p>
+                  ) : (
+                    <div className="mt-4 space-y-5">
+                      {discreteStability ? (
+                        <div>
+                          <SettingLabel
+                            label="Stability"
+                            hint="Creative is more expressive and emotional but can be less predictable. Robust is very consistent but less responsive to direction."
+                          />
+                          <div className="mt-2">
+                            <SegmentedControl
+                              options={DISCRETE_STABILITY_OPTIONS}
+                              value={voiceSettings.stability}
+                              onChange={(value) => updateVoiceSetting("stability", value)}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <SettingSlider
+                          label="Stability"
+                          hint="Lower values make the delivery more expressive and varied; higher values make it more consistent but can sound monotone."
+                          value={voiceSettings.stability}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          onChange={(value) => updateVoiceSetting("stability", value)}
+                          format={percent}
+                          leftLabel="More variable"
+                          rightLabel="More stable"
+                        />
+                      )}
 
-                  <div className="relative mt-3">
-                    <textarea
-                      value={stylePrompt}
-                      onChange={(event) => setStylePrompt(event.target.value.slice(0, MAX_STYLE_PROMPT_CHARS))}
-                      placeholder="Describe how it should sound, e.g. &quot;Speak with excitement and energy.&quot;"
-                      rows={2}
-                      className="w-full resize-none rounded-xl border border-hairline bg-app/60 p-3 pb-5 text-sm font-normal text-heading outline-none placeholder:font-normal placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
-                    />
-                    <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-medium tabular-nums text-subtle/60">
-                      {stylePrompt.length}/{MAX_STYLE_PROMPT_CHARS}
-                    </span>
-                  </div>
+                      <SettingSlider
+                        label="Similarity"
+                        hint="How closely the output should match the original voice. High values can also reproduce artifacts from the source recording."
+                        value={voiceSettings.similarityBoost}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(value) => updateVoiceSetting("similarityBoost", value)}
+                        format={percent}
+                        leftLabel="Low"
+                        rightLabel="High"
+                      />
+
+                      <SettingSlider
+                        label="Style Exaggeration"
+                        hint="Amplifies the speaking style of the original voice. Adds latency and can reduce stability -- usually best left at 0."
+                        value={voiceSettings.style}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        onChange={(value) => updateVoiceSetting("style", value)}
+                        format={percent}
+                        leftLabel="None"
+                        rightLabel="Exaggerated"
+                      />
+
+                      <SettingSlider
+                        label="Speed"
+                        hint="Speaking rate. 1.0 is the voice's natural pace; extreme values can affect quality."
+                        value={voiceSettings.speed}
+                        min={SPEED_MIN}
+                        max={SPEED_MAX}
+                        step={0.01}
+                        onChange={(value) => updateVoiceSetting("speed", value)}
+                        format={(value) => `${value.toFixed(2)}×`}
+                        leftLabel="Slower"
+                        rightLabel="Faster"
+                      />
+                    </div>
+                  )}
                 </div>
                   </div>
                 )}
               </div>
-            )}
           </div>
         </div>
       </div>

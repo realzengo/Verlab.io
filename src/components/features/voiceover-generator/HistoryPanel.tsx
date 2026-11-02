@@ -20,7 +20,6 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
-import { VOICE_OPTIONS } from "@/lib/config/voices";
 import { exportSegmentsAsWav } from "@/lib/client/audio-export";
 import { cn, downloadBlob } from "@/lib/utils";
 
@@ -28,6 +27,8 @@ export interface VoiceoverHistoryItem {
   id: string;
   title: string;
   voiceId: string;
+  voiceName: string;
+  modelId: string | null;
   generationMode: "line_by_line" | "all_at_once";
   languageCode: string;
   status: "generating" | "completed" | "failed";
@@ -227,6 +228,7 @@ export function HistoryPanel({
   const [playingIndex, setPlayingIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [knownVoices, setKnownVoices] = useState<Map<string, string>>(() => new Map());
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -253,7 +255,15 @@ export function HistoryPanel({
         const response = await fetch(`/api/generate-voiceover?${params.toString()}`, { signal: controller.signal });
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error ?? "Could not load history");
-        setItems(data.generations ?? []);
+        const generations: VoiceoverHistoryItem[] = data.generations ?? [];
+        setItems(generations);
+        // Voices aren't a fixed catalog any more, so the filter offers every
+        // voice seen in this session's history results.
+        setKnownVoices((prev) => {
+          const next = new Map(prev);
+          for (const item of generations) next.set(item.voiceId, item.voiceName);
+          return next.size === prev.size ? prev : next;
+        });
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Could not load history");
@@ -265,8 +275,11 @@ export function HistoryPanel({
   }, [debouncedQuery, voiceFilter, dateFilter, statusFilter, refreshSignal]);
 
   const voiceFilterOptions = useMemo(
-    () => [{ value: "any", label: "Any voice" }, ...VOICE_OPTIONS.map((voice) => ({ value: voice.id, label: voice.id }))],
-    []
+    () => [
+      { value: "any", label: "Any voice" },
+      ...Array.from(knownVoices, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [knownVoices]
   );
 
   const groups = useMemo(() => {
@@ -447,10 +460,10 @@ export function HistoryPanel({
                           disabled={item.status !== "completed"}
                           className="flex min-w-0 flex-1 items-start gap-2.5 text-left disabled:cursor-default"
                         >
-                          <Avatar name={item.voiceId} size="sm" hideInitials className="mt-0.5 shrink-0 ring-2 ring-surface shadow-sm" />
+                          <Avatar name={item.voiceName} size="sm" hideInitials className="mt-0.5 shrink-0 ring-2 ring-surface shadow-sm" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className="truncate text-xs font-semibold text-heading">{item.title || item.voiceId}</p>
+                              <p className="truncate text-xs font-semibold text-heading">{item.title || item.voiceName}</p>
                               {item.status === "failed" && <Badge variant="danger">Failed</Badge>}
                               {item.status === "generating" && <Badge variant="warning">Generating</Badge>}
                             </div>
