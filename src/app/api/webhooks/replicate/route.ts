@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { advanceVideoJob, type VideoJobRow } from "@/lib/server/video-jobs";
+import { advanceVideoJob, VIDEO_JOB_COLUMNS, type VideoJobRow } from "@/lib/server/video-jobs";
 
 export const maxDuration = 120;
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from("video_generations")
-    .select("id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged")
+    .select(VIDEO_JOB_COLUMNS)
     .eq("replicate_prediction_id", predictionId)
     .maybeSingle<VideoJobRow>();
 
@@ -54,7 +54,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true });
   }
 
-  await advanceVideoJob(row, admin);
+  // Passed through for multi-stage jobs (Clone's frame -> video handoff) so
+  // the follow-up prediction also completes via this webhook.
+  await advanceVideoJob(row, admin, { webhookUrl: `${request.nextUrl.origin}/api/webhooks/replicate` });
 
   return NextResponse.json({ ok: true });
 }

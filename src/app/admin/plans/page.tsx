@@ -1,7 +1,7 @@
 import { getPlanDefinitions } from "@/lib/server/admin-queries";
 import { createClient } from "@/lib/supabase/server";
 import { PlansEditor } from "@/components/admin/PlansEditor";
-import { Badge } from "@/components/ui/Badge";
+import { LiveIndicator, PageHeader } from "@/components/admin/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -10,15 +10,13 @@ export default async function AdminPlansPage() {
   const plans = await getPlanDefinitions(supabase);
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
-      <div className="flex items-center gap-2">
-        <h2 className="text-[22px]">Pricing & plans</h2>
-        <Badge variant="success">Live</Badge>
-      </div>
-      <p className="-mt-4 max-w-xl text-sm text-body">
-        Edit plan pricing, copy, and feature bullets. Changes save straight to the database and go live on the public
-        pricing page and every in-app upgrade prompt immediately.
-      </p>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Plans"
+        description="Pricing, copy and feature bullets. Saving publishes straight to the pricing page and every in-app upgrade prompt."
+      >
+        <LiveIndicator label="Published" />
+      </PageHeader>
       <PlansEditor initialPlans={plans} />
     </div>
   );

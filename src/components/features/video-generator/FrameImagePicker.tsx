@@ -23,8 +23,13 @@ export const MAX_FRAME_IMAGE_BYTES = 40 * 1024 * 1024;
 const FRAME_IMAGE_MAX_DIMENSION = 2048;
 const FRAME_IMAGE_JPEG_QUALITY = 0.88;
 
-function bitmapToJpegDataUrl(bitmap: ImageBitmap): string {
-  const scale = Math.min(1, FRAME_IMAGE_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+export interface ImageNormalizeOptions {
+  maxDimension?: number;
+  quality?: number;
+}
+
+function bitmapToJpegDataUrl(bitmap: ImageBitmap, { maxDimension = FRAME_IMAGE_MAX_DIMENSION, quality = FRAME_IMAGE_JPEG_QUALITY }: ImageNormalizeOptions = {}): string {
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
@@ -32,7 +37,7 @@ function bitmapToJpegDataUrl(bitmap: ImageBitmap): string {
   if (!ctx) throw new Error("Canvas is not supported");
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
-  return canvas.toDataURL("image/jpeg", FRAME_IMAGE_JPEG_QUALITY);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 /** Resolves once `src` actually paints, rejects if the browser can't render it (e.g. HEIC in Chrome/Firefox). */
@@ -56,11 +61,11 @@ function canRenderAsImage(src: string): Promise<boolean> {
  * without a decoder) would sit in the slot for a frame, then have the
  * thumbnail's own onError silently clear it right back out.
  */
-export async function processFrameImageFile(file: File): Promise<string> {
+export async function processFrameImageFile(file: File, options?: ImageNormalizeOptions): Promise<string> {
   if (typeof createImageBitmap === "function") {
     try {
       const bitmap = await createImageBitmap(file);
-      return bitmapToJpegDataUrl(bitmap);
+      return bitmapToJpegDataUrl(bitmap, options);
     } catch {
       // Unsupported/undecodable by createImageBitmap -- try a raw read below.
     }

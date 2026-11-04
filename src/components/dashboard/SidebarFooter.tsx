@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Crown, Search } from "lucide-react";
+import { Search, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function SidebarFooter({
@@ -15,8 +15,33 @@ export function SidebarFooter({
   onOpenSearch: () => void;
   onNavigate?: () => void;
 }) {
+  const hideLabel = collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[120px] lg:opacity-100";
+
   return (
-    <div className={cn("p-3", collapsed && "lg:px-2")}>
+    <div className={cn("flex flex-col gap-1 border-t border-hairline p-3", collapsed && "lg:px-2.5")}>
+      <button
+        type="button"
+        onClick={onOpenSearch}
+        aria-label="Search"
+        title={collapsed ? "Search" : undefined}
+        className={cn(
+          "font-ui flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-hairline bg-surface px-2.5 text-[13px] text-subtle transition-colors hover:text-heading dark:bg-white/[0.03]",
+          collapsed && "lg:justify-center lg:gap-0 lg:px-0"
+        )}
+      >
+        <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className={cn("overflow-hidden whitespace-nowrap text-left transition-all duration-300 ease-in-out", hideLabel, !collapsed && "flex-1")}>
+          Search
+        </span>
+        {!collapsed && (
+          <kbd className="ml-auto hidden shrink-0 rounded border border-hairline bg-app px-1.5 py-px font-sans text-[10px] text-subtle lg:inline-block">
+            ⌘K
+          </kbd>
+        )}
+      </button>
+
+      {/* Only admins see this; a plain row like the rest of the rail, so the
+          one privileged link doesn't outshout every tool above it. */}
       {isAdmin && (
         <Link
           href="/admin"
@@ -24,49 +49,14 @@ export function SidebarFooter({
           aria-label="Admin dashboard"
           title={collapsed ? "Admin" : undefined}
           className={cn(
-            "admin-king-btn mb-1 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold",
+            "font-ui group flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[14px] font-medium text-body transition-colors hover:bg-(--app-fill) hover:text-heading",
             collapsed && "lg:justify-center lg:gap-0 lg:px-0"
           )}
         >
-          <Crown
-            className="h-4 w-4 shrink-0 text-[#92650c] dark:text-[#f5c518] dark:drop-shadow-[0_0_6px_rgba(234,179,8,0.55)]"
-            strokeWidth={2.25}
-          />
-          <span
-            className={cn(
-              "overflow-hidden whitespace-nowrap bg-gradient-to-b from-[#92650c] to-[#b45309] bg-clip-text text-transparent transition-all duration-300 ease-in-out dark:from-[#fde68a] dark:to-[#eab308]",
-              collapsed ? "lg:max-w-0 lg:opacity-0" : "flex-1 text-left lg:max-w-[100px] lg:opacity-100"
-            )}
-          >
-            Admin
-          </span>
+          <ShieldCheck className="h-[18px] w-[18px] shrink-0 text-subtle group-hover:text-body" aria-hidden="true" />
+          <span className={cn("overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out", hideLabel)}>Admin</span>
         </Link>
       )}
-      <button
-        type="button"
-        onClick={onOpenSearch}
-        aria-label="Search"
-        title={collapsed ? "Search" : undefined}
-        className={cn(
-          "mb-1 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-hairline bg-app dark:bg-app/60 px-3 py-2.5 text-sm font-medium text-subtle transition-all duration-150 hover:border-accent-line hover:bg-accent hover:text-heading",
-          collapsed && "lg:justify-center lg:gap-0 lg:px-0"
-        )}
-      >
-        <Search className="h-4 w-4 shrink-0" />
-        <span
-          className={cn(
-            "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-            collapsed ? "lg:max-w-0 lg:opacity-0" : "flex-1 text-left lg:max-w-[100px] lg:opacity-100"
-          )}
-        >
-          Search
-        </span>
-        {!collapsed && (
-          <kbd className="ml-auto hidden shrink-0 rounded-md border border-hairline bg-surface px-1.5 py-0.5 text-[10px] font-sans text-subtle lg:inline-block">
-            ⌘K
-          </kbd>
-        )}
-      </button>
     </div>
   );
 }

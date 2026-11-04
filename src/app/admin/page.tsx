@@ -1,93 +1,109 @@
-import { CreditCard, Gauge, Users, Wallet, Wand2 } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, LoaderCircle } from "lucide-react";
 import { getApiProviders, getOverviewData } from "@/lib/server/admin-queries";
 import { ADMIN_NAV } from "@/lib/mock/nav";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import type { UsagePoint } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
-import { StatTile } from "@/components/admin/StatTile";
+import { PageHeader, LiveIndicator } from "@/components/admin/PageHeader";
+import { HeroFigure, MiniStat, Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip, signed } from "@/components/admin/KpiStrip";
 import { ActivityFeed } from "@/components/admin/ActivityFeed";
 import { AdminToolsGrid, type AdminToolCardData } from "@/components/admin/AdminToolsGrid";
-import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
-import { BarChart } from "@/components/charts/BarChart";
-import { RankedBarList } from "@/components/charts/RankedBarList";
-import { StackedShareBar } from "@/components/charts/StackedShareBar";
-import { formatChartDate } from "@/lib/charts";
+import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
+import { ColumnChart } from "@/components/admin/charts/ColumnChart";
+import { BarList } from "@/components/admin/charts/BarList";
+import { ShareBar } from "@/components/admin/charts/ShareBar";
+import { Meter } from "@/components/admin/charts/Meter";
+import { formatStat, sumOf } from "@/components/admin/charts/format";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "/admin/users": "Accounts, plans & usage per user",
-  "/admin/plans": "Edit pricing tiers & features",
-  "/admin/credits": "Balances, spend & manual grants",
-  "/admin/promo-codes": "Discount & referral codes",
-  "/admin/revenue": "MRR, churn & transactions",
-  "/admin/api-costs": "What you owe each API provider monthly",
-  "/admin/usage": "Tool adoption & activity",
-  "/admin/system": "Job queue & endpoint health",
-  "/admin/settings": "Feature flags & admin team",
+  "/admin/users": "Accounts, plans and usage per user",
+  "/admin/plans": "Pricing tiers and plan features",
+  "/admin/niche-channels": "Faceless channel library and classifier",
+  "/admin/credits": "Balances, spend and manual grants",
+  "/admin/promo-codes": "Discount and credit codes",
+  "/admin/revenue": "MRR, churn and transactions",
+  "/admin/api-costs": "What each API provider costs monthly",
+  "/admin/usage": "Tool adoption and activity",
+  "/admin/system": "Job queue and endpoint health",
+  "/admin/settings": "Feature flags and admin team",
+};
+
+// Plan tiers are ordered, so they take the ordinal ramp (lightest = entry tier).
+const TIER_COLOR: Record<string, string> = {
+  core: "var(--viz-tier-1)",
+  pro: "var(--viz-tier-2)",
+  scale: "var(--viz-tier-3)",
 };
 
 export default async function AdminOverviewPage() {
+  const [overview, apiProviders] = await Promise.all([getOverviewData(), getApiProviders()]);
   const {
-    totalUsers: TOTAL_USERS_COUNT,
-    signupSeries: SIGNUP_SERIES,
-    usageSeries: USAGE_SERIES,
-    toolUsageShare: TOOL_USAGE_SHARE,
-    planDistribution: PLAN_DISTRIBUTION,
-    activityLog: ACTIVITY_LOG,
-    systemJobs: SYSTEM_JOBS,
-    jobSuccessRatePct: JOB_SUCCESS_RATE_PCT,
-    creditsOutstanding: CREDITS_OUTSTANDING,
-    creditsSpentToday: CREDITS_SPENT_TODAY,
-    activePromoCodes: ACTIVE_PROMO_CODES,
-    enabledFeatureFlags: ENABLED_FEATURE_FLAGS,
-    currentMrr: CURRENT_MRR,
-    payingUsers: PAYING_USERS,
-  } = await getOverviewData();
-  const API_PROVIDERS = await getApiProviders();
-  const apiMonthlySpend = API_PROVIDERS.filter((p) => p.isActive).reduce((sum, p) => sum + p.monthlyCost, 0);
+    totalUsers,
+    signupSeries,
+    usageSeries,
+    toolUsageShare,
+    planDistribution,
+    activityLog,
+    systemJobs,
+    jobSuccessRatePct,
+    creditsOutstanding,
+    creditsSpentToday,
+    activePromoCodes,
+    enabledFeatureFlags,
+    currentMrr,
+    payingUsers,
+    activeTrials,
+  } = overview;
 
-  const signupLabels = SIGNUP_SERIES.map((p) => p.date);
-  const signups30d = SIGNUP_SERIES.reduce((s, p) => s + p.signups, 0);
+  const apiMonthlySpend = apiProviders.filter((p) => p.isActive).reduce((sum, p) => sum + p.monthlyCost, 0);
 
-  const latestUsage = USAGE_SERIES[USAGE_SERIES.length - 1];
-  const previousUsage = USAGE_SERIES[USAGE_SERIES.length - 2];
-  const sumTools = (p: (typeof USAGE_SERIES)[number]) => p.bend + p.niches + p.transcripts + p.downloader + p.mcp + p.image;
-  const toolRunsToday = sumTools(latestUsage);
-  const toolRunsYesterday = previousUsage ? sumTools(previousUsage) : 0;
+  const dates = signupSeries.map((p) => p.date);
+  const signups = signupSeries.map((p) => p.signups);
+  const signups30d = sumOf(signups);
 
-  const jobsQueued = SYSTEM_JOBS.filter((j) => j.status === "queued" || j.status === "running").length;
-  const jobsFailed = SYSTEM_JOBS.filter((j) => j.status === "failed").length;
+  // Every tool the usage log knows about, not a hand-kept subset.
+  const toolKeys = toolUsageShare.map((t) => t.tool);
+  const runsOn = (p: UsagePoint) => toolKeys.reduce((s, k) => s + p[k], 0);
+  const dailyRuns = usageSeries.map(runsOn);
+  const runs30d = sumOf(dailyRuns);
+  const runsToday = dailyRuns[dailyRuns.length - 1] ?? 0;
+  const runsYesterday = dailyRuns[dailyRuns.length - 2] ?? 0;
+  const runsChange = runsToday - runsYesterday;
 
-  // Cumulative account count over the trailing 30 days, anchored so the
-  // curve ends exactly at today's real total — no fabricated pre-window data.
-  const baseUsers = TOTAL_USERS_COUNT - signups30d;
-  const growthSeries = SIGNUP_SERIES.reduce<{ date: string; value: number }[]>((acc, p) => {
-    const prev = acc[acc.length - 1]?.value ?? baseUsers;
-    acc.push({ date: formatChartDate(p.date), value: prev + p.signups });
-    return acc;
-  }, []);
+  // Cumulative accounts over the window, anchored so the curve ends exactly at
+  // today's real total -- no fabricated pre-window history.
+  const baseUsers = totalUsers - signups30d;
+  const growth = signups.reduce<number[]>((acc, n) => [...acc, (acc[acc.length - 1] ?? baseUsers) + n], []);
 
-  const TOOL_BADGES: Record<string, { badge: string; badgeTone?: AdminToolCardData["badgeTone"] }> = {
-    "/admin/users": { badge: `${formatNumber(TOTAL_USERS_COUNT)} total` },
-    "/admin/plans": { badge: `${PLAN_DISTRIBUTION.length} tiers` },
-    "/admin/credits": { badge: `${formatNumber(CREDITS_OUTSTANDING)} outstanding` },
-    "/admin/promo-codes": {
-      badge: `${ACTIVE_PROMO_CODES} active`,
-      badgeTone: ACTIVE_PROMO_CODES > 0 ? "success" : "default",
-    },
+  const paidConversionPct = totalUsers > 0 ? Number(((payingUsers / totalUsers) * 100).toFixed(1)) : 0;
+
+  const jobCounts = {
+    success: systemJobs.filter((j) => j.status === "success").length,
+    failed: systemJobs.filter((j) => j.status === "failed").length,
+    running: systemJobs.filter((j) => j.status === "running").length,
+    queued: systemJobs.filter((j) => j.status === "queued").length,
+  };
+  const jobsInFlight = jobCounts.running + jobCounts.queued;
+
+  const TOOL_BADGES: Record<string, Pick<AdminToolCardData, "badge" | "badgeTone">> = {
+    "/admin/users": { badge: `${formatNumber(totalUsers)} accounts` },
+    "/admin/plans": { badge: `${planDistribution.length} tiers` },
+    "/admin/credits": { badge: `${formatNumber(creditsOutstanding)} outstanding` },
+    "/admin/promo-codes": { badge: `${activePromoCodes} active`, badgeTone: activePromoCodes > 0 ? "success" : "default" },
     "/admin/revenue":
-      CURRENT_MRR > 0
-        ? { badge: `${formatCurrency(CURRENT_MRR)} MRR`, badgeTone: "success" }
+      currentMrr > 0
+        ? { badge: `${formatCurrency(currentMrr)} MRR`, badgeTone: "success" }
         : { badge: "Awaiting first payment", badgeTone: "warning" },
     "/admin/api-costs": { badge: `${formatCurrency(apiMonthlySpend)}/mo` },
-    "/admin/usage": { badge: `${formatNumber(toolRunsToday)} runs today` },
+    "/admin/usage": { badge: `${formatNumber(runsToday)} runs today` },
     "/admin/system": {
-      badge: jobsFailed > 0 ? `${jobsFailed} failed` : `${jobsQueued} in flight`,
-      badgeTone: jobsFailed > 0 ? "danger" : "default",
+      badge: jobCounts.failed > 0 ? `${jobCounts.failed} failed` : `${jobsInFlight} in flight`,
+      badgeTone: jobCounts.failed > 0 ? "danger" : "success",
     },
-    "/admin/settings": { badge: `${ENABLED_FEATURE_FLAGS} flags on` },
+    "/admin/settings": { badge: `${enabledFeatureFlags} flags on` },
   };
 
   const toolItems: AdminToolCardData[] = ADMIN_NAV.filter((item) => item.href !== "/admin").map((item) => ({
@@ -99,164 +115,146 @@ export default async function AdminOverviewPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-body">Real-time snapshot of accounts, usage, and job health across the workspace.</p>
-        <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-subtle">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
-          </span>
-          Live data
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Overview" description="Accounts, revenue, product usage and job health across the workspace.">
+        <LiveIndicator />
+      </PageHeader>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Total users"
-          value={formatNumber(TOTAL_USERS_COUNT)}
-          icon={Users}
-          tone="blue"
-          delta={{ value: `+${signups30d}`, direction: "up", isGood: true, period: "last 30 days" }}
-          trend={SIGNUP_SERIES.map((p) => p.signups)}
+      <KpiStrip>
+        <Kpi
+          label="Monthly recurring revenue"
+          value={formatCurrency(currentMrr)}
+          footnote={
+            currentMrr > 0
+              ? `${formatNumber(payingUsers)} paying · ${formatNumber(activeTrials)} trialing`
+              : "Awaiting first payment"
+          }
         />
-        <StatTile
+        <Kpi
+          label="Total accounts"
+          value={formatStat(totalUsers)}
+          delta={{ value: signed(signups30d), direction: signups30d > 0 ? "up" : "flat", sentiment: signups30d > 0 ? "positive" : "neutral", label: "last 30 days" }}
+          trend={growth.slice(-14)}
+        />
+        <Kpi
           label="Tool runs today"
-          value={formatNumber(toolRunsToday)}
-          icon={Wand2}
-          tone="violet"
+          value={formatStat(runsToday)}
           delta={{
-            value: `${toolRunsToday - toolRunsYesterday >= 0 ? "+" : ""}${toolRunsToday - toolRunsYesterday}`,
-            direction: toolRunsToday >= toolRunsYesterday ? "up" : "down",
-            isGood: toolRunsToday >= toolRunsYesterday,
-            period: "vs yesterday",
+            value: signed(runsChange),
+            direction: runsChange > 0 ? "up" : runsChange < 0 ? "down" : "flat",
+            sentiment: runsChange > 0 ? "positive" : runsChange < 0 ? "negative" : "neutral",
+            label: "vs yesterday",
           }}
-          trend={USAGE_SERIES.slice(-14).map((p) => sumTools(p))}
+          trend={dailyRuns.slice(-14)}
         />
-        <StatTile
+        <Kpi
           label="Job success rate"
-          value={`${JOB_SUCCESS_RATE_PCT}%`}
-          icon={Gauge}
-          tone="green"
+          value={`${jobSuccessRatePct}%`}
           delta={{
-            value: `${jobsFailed} failed`,
-            direction: jobsFailed > 0 ? "down" : "up",
-            isGood: jobsFailed === 0,
-            period: "recent jobs",
+            value: `${jobCounts.failed} failed`,
+            sentiment: jobCounts.failed > 0 ? "negative" : "positive",
+            label: `of last ${systemJobs.length} jobs`,
           }}
         />
-        <StatTile
-          label="Credits outstanding"
-          value={formatNumber(CREDITS_OUTSTANDING)}
-          icon={Wallet}
-          tone="amber"
-          delta={{ value: `${formatNumber(CREDITS_SPENT_TODAY)} spent`, direction: "down", isGood: true, period: "today" }}
-        />
-      </div>
+      </KpiStrip>
 
-      <Card className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-green rounded-lg">
-            <CreditCard className="h-[18px] w-[18px]" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-heading">
-              {CURRENT_MRR > 0 ? `${formatCurrency(CURRENT_MRR)} MRR from ${PAYING_USERS} subscribers` : "Awaiting your first payment"}
-            </p>
-            <p className="text-sm text-subtle">Whop billing is wired up. MRR, churn, and transactions populate automatically as payments come in.</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button href="/admin/plans" variant="secondary" size="sm">
-            Edit pricing
-          </Button>
-          <Button href="/admin/revenue" variant="ghost" size="sm">
-            View revenue
-          </Button>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <ProgressMetricCard
-            title="User growth"
-            total={formatNumber(TOTAL_USERS_COUNT)}
-            delta={`+${signups30d}`}
-            deltaLabel="new accounts, last 30 days"
-            data={growthSeries}
-            format="number"
-            size="lg"
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel className="xl:col-span-2" title="Tool runs" description="Runs across every tool per day, last 30 days">
+          <HeroFigure
+            value={formatStat(runs30d)}
+            caption={`${formatNumber(Math.round(runs30d / Math.max(dailyRuns.length, 1)))} runs a day on average`}
           />
-        </div>
+          <TimeSeriesChart dates={dates} series={[{ label: "Tool runs", values: dailyRuns }]} ariaLabel="Tool runs per day, last 30 days" />
+        </Panel>
 
-        <Card>
-          <h3 className="text-base">Plan distribution</h3>
-          <p className="mb-5 text-sm text-subtle">{formatNumber(PLAN_DISTRIBUTION.reduce((s, p) => s + p.count, 0))} accounts by plan tier</p>
-          <StackedShareBar segments={PLAN_DISTRIBUTION.map((p) => ({ label: p.label, value: p.count, tone: p.tone }))} />
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="text-base">Signups</h3>
-              <p className="text-sm text-subtle">Daily new accounts, last 30 days</p>
+        <Panel
+          title="Plan mix"
+          description={`${formatNumber(sumOf(planDistribution.map((p) => p.count)))} accounts by plan tier`}
+          bodyClassName="flex flex-col"
+        >
+          <ShareBar
+            segments={planDistribution.map((p) => ({ label: p.label, value: p.count, color: TIER_COLOR[p.plan] }))}
+          />
+          <div className="mt-6">
+            <div className="mb-2 flex items-center justify-between text-[12px]">
+              <span className="text-subtle">Paid conversion</span>
+              <span className="font-medium tabular-nums text-heading">{paidConversionPct}%</span>
             </div>
+            <Meter value={paidConversionPct} label="Share of accounts on a paid subscription" />
           </div>
-          <BarChart labels={signupLabels} data={SIGNUP_SERIES.map((p) => p.signups)} tone="blue" />
-        </Card>
-
-        <Card>
-          <h3 className="text-base">Tool usage (30d)</h3>
-          <p className="mb-5 text-sm text-subtle">Runs by tool, most to least used</p>
-          <RankedBarList
-            items={[...TOOL_USAGE_SHARE].sort((a, b) => b.count - a.count).map((t) => ({ label: t.label, value: t.count, tone: t.tone }))}
-          />
-        </Card>
+          <div className="mt-auto grid grid-cols-2 gap-3 pt-5">
+            <MiniStat label="Paying" value={formatStat(payingUsers)} />
+            <MiniStat label="Trialing" value={formatStat(activeTrials)} />
+          </div>
+        </Panel>
       </div>
 
-      <div>
-        <h3 className="mb-4 text-base">Admin tools</h3>
-        <AdminToolsGrid items={toolItems} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base">Recent activity</h3>
-            <Button href="/admin/system" variant="text" size="sm">
-              View system log
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Panel
+          title="Signups"
+          description={`${formatNumber(signups30d)} new accounts, last 30 days`}
+          action={
+            <Button href="/admin/users" variant="secondary" size="sm">
+              View users
             </Button>
-          </div>
-          <ActivityFeed entries={ACTIVITY_LOG.slice(0, 7)} />
-        </Card>
+          }
+        >
+          <ColumnChart dates={dates} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" />
+        </Panel>
 
-        <Card className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center admin-sticker admin-sticker-purple rounded-lg">
-              <Gauge className="h-[18px] w-[18px]" />
-            </span>
-            <div>
-              <h3 className="text-base">Job pipeline</h3>
-              <p className="text-sm text-subtle">Niche Bend, SOP & transcript jobs</p>
-            </div>
+        <Panel
+          title="Runs by tool"
+          description="Last 30 days, most to least used"
+          action={
+            <Button href="/admin/usage" variant="secondary" size="sm">
+              View usage
+            </Button>
+          }
+        >
+          <BarList
+            items={[...toolUsageShare].sort((a, b) => b.count - a.count).map((t) => ({ label: t.label, value: t.count }))}
+            emptyLabel="No tool runs in the last 30 days"
+          />
+        </Panel>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel
+          className="xl:col-span-2"
+          title="Recent activity"
+          action={
+            <Button href="/admin/system" variant="secondary" size="sm">
+              System log
+            </Button>
+          }
+        >
+          <ActivityFeed entries={activityLog.slice(0, 7)} />
+        </Panel>
+
+        <Panel title="Job pipeline" description={`Last ${systemJobs.length} jobs by status`} bodyClassName="flex flex-col">
+          <ShareBar
+            emptyLabel="No jobs yet"
+            segments={[
+              { label: "Succeeded", value: jobCounts.success, color: "var(--viz-good)", icon: <CircleCheck className="h-4 w-4" /> },
+              { label: "Failed", value: jobCounts.failed, color: "var(--viz-critical)", icon: <CircleX className="h-4 w-4" /> },
+              { label: "Running", value: jobCounts.running, color: "var(--viz-1)", icon: <LoaderCircle className="h-4 w-4" /> },
+              { label: "Queued", value: jobCounts.queued, color: "var(--viz-neutral)", icon: <Clock3 className="h-4 w-4" /> },
+            ]}
+          />
+          <div className="mt-auto grid grid-cols-2 gap-3 pt-5">
+            <MiniStat label="Credits outstanding" value={formatStat(creditsOutstanding)} />
+            <MiniStat label="Credits spent today" value={formatStat(creditsSpentToday)} />
           </div>
-          <div className="flex flex-col gap-2.5 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-body">In progress</span>
-              <Badge variant="default">{jobsQueued} running</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-body">Failed today</span>
-              <Badge variant={jobsFailed > 0 ? "danger" : "success"}>{jobsFailed}</Badge>
-            </div>
-          </div>
-          <Button href="/admin/system" variant="secondary" size="sm" icon={Wand2}>
+          <Button href="/admin/system" variant="secondary" size="sm" className="mt-4 w-full justify-center">
             Open job queue
           </Button>
-        </Card>
+        </Panel>
       </div>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-heading">Admin tools</h2>
+        <AdminToolsGrid items={toolItems} />
+      </section>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { serverError } from "@/lib/server/api-error";
 // migration comment for the `${userId}/...` key convention this relies on.
 // `avatars` has no writer yet (nothing in app code uploads to it today) but
 // is included so this doesn't quietly need updating the day that changes.
-const USER_STORAGE_BUCKETS = ["videos", "voiceovers", "avatars"] as const;
+const USER_STORAGE_BUCKETS = ["videos", "voiceovers", "avatars", "voice-clones", "voice-clone-uploads", "user-preferences"] as const;
 
 export async function DELETE() {
   const supabase = await createServerClient();

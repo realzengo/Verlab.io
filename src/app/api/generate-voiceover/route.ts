@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getModel, parseTtsSettings, readStoredTtsSettings, serializeTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
+import { estimateDurationSeconds } from "@/lib/server/fal-elevenlabs-tts";
 import { generateSpeechForVoice, isValidVoiceId } from "@/lib/server/voice-resolution";
 import { splitScript } from "@/lib/server/voiceover-segmentation";
 import { mapWithConcurrency } from "@/lib/server/concurrency";

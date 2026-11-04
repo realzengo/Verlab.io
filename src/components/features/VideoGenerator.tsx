@@ -12,7 +12,6 @@ import {
   Maximize2,
   MoreVertical,
   Pencil,
-  PersonStanding,
   RotateCcw,
   Trash2,
   Volume2,
@@ -39,8 +38,16 @@ import {
   DEFAULT_EDIT_VIDEO_MODEL,
   EDIT_VIDEO_MODELS,
   getEditVideoModel,
+  CLONE_TOOLS,
+  CLONE_TOOL_MODES,
+  cloneNeedsFrameStage,
+  getCloneMode,
+  getCloneTool,
+  getCloneToolMode,
+  type CloneResolution,
+  type CloneToolId,
 } from "@/lib/config/video-models";
-import { getVideoGenerationCost, getVideoPromptEditCost } from "@/lib/config/pricing";
+import { getVideoCloneCost, getVideoGenerationCost, getVideoPromptEditCost } from "@/lib/config/pricing";
 import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { pollUntilSettled } from "@/lib/polling";
 import { cn, formatDate } from "@/lib/utils";
@@ -55,13 +62,16 @@ import { SourceVideoPicker } from "./video-generator/SourceVideoPicker";
 import { MobileCreatePanel } from "./video-generator/MobileCreatePanel";
 import { MobileEditPanel } from "./video-generator/MobileEditPanel";
 import { LowCreditBanner } from "./video-generator/LowCreditBanner";
+import { CloneComposer, type CloneSourceState } from "./video-generator/CloneComposer";
+import type { NormalizedVideo } from "@/lib/client/video-normalize";
 
 type VideoMode = "create" | "edit" | "motion";
 
 const MODE_TABS: { id: VideoMode; label: string; icon: LucideIcon }[] = [
   { id: "create", label: "Create", icon: Clapperboard },
   { id: "edit", label: "Edit", icon: Pencil },
-  { id: "motion", label: "Motion", icon: PersonStanding },
+  // Stored as mode "motion" in video_generations -- "Clone" is the UI name.
+  { id: "motion", label: "Clone", icon: Copy },
 ];
 
 interface GenerationHistoryItem {
@@ -70,7 +80,15 @@ interface GenerationHistoryItem {
   operation: string;
   model: string;
   prompt: string | null;
-  params: { durationSeconds?: number; aspectRatio?: string; resolution?: string; soundEnabled?: boolean };
+  params: {
+    durationSeconds?: number;
+    aspectRatio?: string;
+    resolution?: string;
+    soundEnabled?: boolean;
+    sourceGenerationId?: string;
+    keepOriginalSound?: boolean;
+    matchBackground?: boolean;
+  };
   output_video_path: string | null;
   thumbnail_path: string | null;
   status: "queued" | "processing" | "completed" | "failed";
@@ -145,6 +163,90 @@ function aspectRatioLabel(ratio: string | undefined): string {
   return ratio;
 }
 
+// Upload limits. Every source clip is re-encoded in the browser before it's
+// stored (see video-normalize.ts), so the original can be large -- it's read
+// lazily, never held whole in memory -- but the converted file must fit
+// Supabase's project-wide ~50MB Storage cap, which rejects bigger uploads
+// regardless of the videos bucket's own limit. The JSON payload cap keeps the
+// frame + up to 12 references under Vercel's ~4.5MB request-body limit.
+const SOURCE_MAX_INPUT_BYTES = 2 * 1024 * 1024 * 1024;
+const SOURCE_MAX_STORED_BYTES = 50 * 1024 * 1024;
+const SOURCE_VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv)$/i;
+const CLONE_MAX_PAYLOAD_CHARS = 4_000_000;
+const CLONE_FRAME_MAX_DIMENSION = 1280;
+const CLONE_ASPECT_RATIOS = ["9:16", "3:4", "1:1", "4:3", "16:9"];
+// The source clip is shared across tools, so uploads are gated on the
+// loosest bounds any tool accepts; each tool then flags a clip outside its own.
+const CLONE_MIN_SOURCE_SECONDS = Math.min(...CLONE_TOOL_MODES.map((mode) => mode.minSourceDurationSeconds));
+const CLONE_MAX_SOURCE_SECONDS = Math.max(...CLONE_TOOL_MODES.map((mode) => mode.maxSourceDurationSeconds));
+
+/** The attached clip plus what the submit path needs: its first frame, ratio hint and pixel size (checked per model). */
+type CloneSourceDetails = CloneSourceState & { frameImage: string; aspectRatio: string; width: number; height: number };
+
+/** Each Clone tool keeps its own inputs, so switching tools never mangles another's (12 references vs one character photo). */
+interface CloneToolDraft {
+  images: string[];
+  prompt: string;
+  resolution: CloneResolution;
+}
+
+function initialCloneDrafts(): Record<CloneToolId, CloneToolDraft> {
+  const drafts = {} as Record<CloneToolId, CloneToolDraft>;
+  for (const tool of CLONE_TOOLS) {
+    drafts[tool.id] = { images: [], prompt: "", resolution: getCloneToolMode(tool, true).resolutions[0] };
+  }
+  return drafts;
+}
+
+function nearestAspectRatio(width: number, height: number): string {
+  const target = Math.log(width / height);
+  return CLONE_ASPECT_RATIOS.reduce((best, ratio) => {
+    const [w, h] = ratio.split(":").map(Number);
+    const [bw, bh] = best.split(":").map(Number);
+    return Math.abs(Math.log(w / h) - target) < Math.abs(Math.log(bw / bh) - target) ? ratio : best;
+  });
+}
+
+// Reads a clip's duration, size and first frame in the browser -- the server
+// has no ffmpeg, and the Clone pipeline's frame stage starts from that first
+// frame (see video-clone.ts). Takes a fresh upload's object URL or a
+// same-origin library URL alike (same-origin keeps the canvas untainted).
+function inspectVideoSource(src: string): Promise<{ durationSeconds: number; width: number; height: number; frameDataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    const release = () => {
+      video.removeAttribute("src");
+      video.load();
+    };
+    const fail = () => {
+      release();
+      reject(new Error("Couldn't read this video in your browser. Try an MP4 (H.264) file."));
+    };
+    video.onerror = fail;
+    video.onloadedmetadata = () => {
+      if (!video.videoWidth || !Number.isFinite(video.duration)) return fail();
+      // A hair past 0 -- some encoders leave the very first frame black.
+      video.currentTime = Math.min(0.05, video.duration / 2);
+    };
+    video.onseeked = () => {
+      const scale = Math.min(1, CLONE_FRAME_MAX_DIMENSION / Math.max(video.videoWidth, video.videoHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return fail();
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const result = { durationSeconds: video.duration, width: video.videoWidth, height: video.videoHeight, frameDataUrl: canvas.toDataURL("image/jpeg", 0.88) };
+      release();
+      resolve(result);
+    };
+    video.src = src;
+  });
+}
+
 // Compact form ("14h ago") for the preview panel -- formatRelativeTime's
 // "14 hours ago" is too wide for the sidebar's two-column info grid.
 function formatCompactRelative(iso: string): string {
@@ -162,10 +264,13 @@ function formatCompactRelative(iso: string): string {
 // Round-robins items across N columns (left-to-right, then wraps) instead of
 // filling one column at a time, so newest-first order still reads across the
 // row -- see the column-count comment above where `galleryColumns` is set.
+// Always renders the full column count, even with fewer items than columns
+// -- collapsing to items.length columns made a lone generation (e.g. a first
+// failed render) stretch across the whole page instead of sitting at the
+// same tile size as every other result.
 function distributeColumns<T>(items: T[], columnCount: number): T[][] {
-  const count = items.length > 0 ? Math.min(columnCount, items.length) : columnCount;
-  const columns: T[][] = Array.from({ length: count }, () => []);
-  items.forEach((item, index) => columns[index % count].push(item));
+  const columns: T[][] = Array.from({ length: columnCount }, () => []);
+  items.forEach((item, index) => columns[index % columnCount].push(item));
   return columns;
 }
 
@@ -296,7 +401,7 @@ function VideoTile({
     );
   }
 
-  const model = getVideoModel(item.model) ?? getEditVideoModel(item.model);
+  const model = getVideoModel(item.model) ?? getEditVideoModel(item.model) ?? getCloneMode(item.model);
 
   return (
     <div
@@ -486,12 +591,13 @@ export function VideoGenerator() {
   // row -- a fixed grid leaves dead space under every shorter tile in a row
   // once a portrait clip sets that row's height. Column count tracks the
   // same breakpoints the old `sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5`
-  // classes used, since the distribution has to happen in JS.
+  // classes used (plus a 6th column at 2xl so tiles stay a sensible size on
+  // very wide screens), since the distribution has to happen in JS.
   const [galleryColumns, setGalleryColumns] = useState(2);
   useEffect(() => {
     function updateGalleryColumns() {
       const width = window.innerWidth;
-      setGalleryColumns(width >= 1280 ? 5 : width >= 1024 ? 4 : width >= 640 ? 3 : 2);
+      setGalleryColumns(width >= 1536 ? 6 : width >= 1280 ? 5 : width >= 1024 ? 4 : width >= 640 ? 3 : 2);
     }
     updateGalleryColumns();
     window.addEventListener("resize", updateGalleryColumns);
@@ -806,54 +912,76 @@ export function VideoGenerator() {
     }
   }
 
-  function readVideoDuration(file: File): Promise<number> {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.onloadedmetadata = () => {
-        URL.revokeObjectURL(video.src);
-        resolve(video.duration);
-      };
-      video.onerror = () => {
-        URL.revokeObjectURL(video.src);
-        reject(new Error("Could not read that video file."));
-      };
-      video.src = URL.createObjectURL(file);
+  // Re-encodes a picked clip into the one shape every video model accepts
+  // (H.264, square pixels, rotation baked in, <=1080p/30fps -- see
+  // video-normalize.ts for the failures this prevents), entirely in the
+  // browser. Shared by the Edit and Clone uploads so neither can store a file
+  // a model will later refuse.
+  async function prepareSourceVideo(
+    file: File,
+    options: { minSeconds: number; maxSeconds: number; onProgress?: (progress: number) => void }
+  ): Promise<NormalizedVideo> {
+    if (!file.type.startsWith("video/") && !SOURCE_VIDEO_EXTENSIONS.test(file.name)) {
+      throw new Error("That file isn't a video. Upload an MP4, MOV or WebM.");
+    }
+    if (file.size > SOURCE_MAX_INPUT_BYTES) throw new Error("That video is too large. Trim it under 2GB first.");
+
+    const { normalizeVideoForProviders } = await import("@/lib/client/video-normalize");
+    const normalized = await normalizeVideoForProviders(file, {
+      onProgress: options.onProgress,
+      beforeConvert: ({ durationSeconds }) => {
+        if (durationSeconds < options.minSeconds || durationSeconds > options.maxSeconds) {
+          throw new Error(`The video must be ${options.minSeconds} to ${options.maxSeconds} seconds (this one is ${formatClipSeconds(durationSeconds)}s).`);
+        }
+      },
     });
+    if (normalized.file.size > SOURCE_MAX_STORED_BYTES) {
+      throw new Error("This clip is still over 50MB after optimizing. Trim it shorter and try again.");
+    }
+    return normalized;
   }
 
-  // Uploads a local video file as an Edit-tab source: reads its duration
-  // client-side (no ffmpeg dependency on the server, see video-jobs.ts's own
-  // "no server-side frame-extraction fallback" note for the same reason),
-  // then uploads the bytes directly to Supabase Storage via a signed URL
-  // (see upload-source/route.ts) rather than through this app's own API --
-  // a raw video file would blow past Vercel's serverless request-body limit
-  // if sent as a JSON body the way reference images are.
+  // Uploads an already-prepared clip straight to Supabase Storage via a
+  // signed URL (see upload-source/route.ts) rather than through this app's
+  // own API -- a video file would blow past Vercel's serverless request-body
+  // limit if sent as a JSON body the way reference images are. `mode` decides
+  // which tab's history the uploaded clip's row is filed under.
+  async function uploadSourceVideo(video: NormalizedVideo, mode: "edit" | "motion"): Promise<{ id: string; path: string }> {
+    const prepResponse = await fetch("/api/generate-video/edit/upload-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ durationSeconds: video.durationSeconds, mode, normalized: true, width: video.width, height: video.height }),
+    });
+    const prepData = await prepResponse.json().catch(() => null);
+    if (!prepResponse.ok) throw new Error(prepData?.error ?? "Could not start upload.");
+
+    const { id, path, token } = prepData as { id: string; path: string; token: string };
+    const supabase = createBrowserClient();
+    const { error: uploadError } = await supabase.storage.from("videos").uploadToSignedUrl(path, token, video.file);
+    if (uploadError) throw new Error(uploadError.message || "Upload failed.");
+
+    const confirmResponse = await fetch("/api/generate-video/edit/upload-source", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!confirmResponse.ok) {
+      const confirmData = await confirmResponse.json().catch(() => null);
+      throw new Error(confirmData?.error ?? "Could not confirm upload.");
+    }
+
+    return { id, path };
+  }
+
   async function handleUploadSourceVideo(file: File) {
     setIsUploadingSource(true);
     setEditError(null);
     try {
-      const durationSeconds = await readVideoDuration(file);
-
-      const prepResponse = await fetch("/api/generate-video/edit/upload-source", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationSeconds }),
-      });
-      const prepData = await prepResponse.json().catch(() => null);
-      if (!prepResponse.ok) throw new Error(prepData?.error ?? "Could not start upload.");
-
-      const { id, path, token } = prepData as { id: string; path: string; token: string };
-      const supabase = createBrowserClient();
-      const { error: uploadError } = await supabase.storage.from("videos").uploadToSignedUrl(path, token, file);
-      if (uploadError) throw new Error(uploadError.message || "Upload failed.");
-
-      const confirmResponse = await fetch("/api/generate-video/edit/upload-source", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (!confirmResponse.ok) throw new Error("Could not confirm upload.");
+      // The Edit models' own per-model length limits are checked at submit;
+      // this only rejects clips no edit model could take.
+      const video = await prepareSourceVideo(file, { minSeconds: 1, maxSeconds: 120 });
+      const durationSeconds = video.durationSeconds;
+      const { id, path } = await uploadSourceVideo(video, "edit");
 
       setEditSource({
         id,
@@ -890,6 +1018,293 @@ export function VideoGenerator() {
     setEditReferenceImages([]);
     setEditPrompt(prefill ? (item.prompt ?? "") : "");
     if (prefill && getEditVideoModel(item.model)) setEditModel(item.model);
+  }
+
+  // ── Clone tab state ──────────────────────────────────────────────────
+  // Same own-state/own-poll-loop pattern as Create and Edit above. Every
+  // clone is one video_generations row (mode "motion"); which tool/model ran
+  // it is the row's `model` (see CLONE_MODES and video-clone.ts).
+  const [cloneToolId, setCloneToolId] = useState<CloneToolId>("motion_transfer");
+  const [cloneDrafts, setCloneDrafts] = useState(initialCloneDrafts);
+  const [cloneKeepOriginalSound, setCloneKeepOriginalSound] = useState(true);
+  const [cloneMatchBackground, setCloneMatchBackground] = useState(true);
+  const cloneTool = getCloneTool(cloneToolId) ?? CLONE_TOOLS[0];
+  const cloneDraft = cloneDrafts[cloneTool.id];
+  // No model picker: each tool runs on its own model (Character's follows the background choice).
+  const cloneMode = getCloneToolMode(cloneTool, cloneMatchBackground);
+  // Derived rather than corrected in an effect: a resolution the current
+  // model doesn't offer (e.g. after a background switch) falls back to its default.
+  const cloneResolution = cloneMode.resolutions.includes(cloneDraft.resolution) ? cloneDraft.resolution : cloneMode.resolutions[0];
+  const cloneImages = cloneDraft.images;
+  const clonePrompt = cloneDraft.prompt;
+  const [cloneSource, setCloneSource] = useState<CloneSourceDetails | null>(null);
+  const [isPreparingCloneSource, setIsPreparingCloneSource] = useState(false);
+  const [cloneSourceStatus, setCloneSourceStatus] = useState<{ label: string; progress: number | null } | null>(null);
+  const [cloneIsGenerating, setCloneIsGenerating] = useState(false);
+  const cloneElapsedSeconds = useElapsedSeconds(cloneIsGenerating);
+  const [clonePendingCount, setClonePendingCount] = useState(0);
+  const [clonePendingAspectRatio, setClonePendingAspectRatio] = useState("9:16");
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const clonePollCancelRef = useRef<(() => void) | null>(null);
+  const clonePendingIdsRef = useRef<Set<string>>(new Set());
+  // Tracks the current upload's object URL so it can be revoked on replace/unmount.
+  const cloneBlobUrlRef = useRef<string | null>(null);
+
+  function updateCloneDraft(patch: Partial<CloneToolDraft>) {
+    setCloneDrafts((prev) => ({ ...prev, [cloneTool.id]: { ...prev[cloneTool.id], ...patch } }));
+  }
+
+  const {
+    data: cloneHistoryData,
+    mutate: mutateCloneHistory,
+  } = useSWR<{ generations: GenerationHistoryItem[] }>("/api/generate-video?mode=motion", {
+    fallbackData: (() => {
+      const cached = readHistoryCache<GenerationHistoryItem>("video-clone");
+      return cached ? { generations: cached } : undefined;
+    })(),
+    onSuccess: (data) => {
+      const items = data.generations ?? [];
+      const stillPending = items
+        .filter((item) => item.operation !== "uploaded" && (item.status === "queued" || item.status === "processing"))
+        .map((item) => item.id);
+      if (stillPending.length > 0 && !clonePollCancelRef.current) {
+        setCloneIsGenerating(true);
+        pollCloneGenerationStatus(stillPending);
+      }
+    },
+  });
+  const cloneHistory = cloneHistoryData?.generations ?? null;
+
+  const cloneDurationValid =
+    cloneSource !== null &&
+    cloneSource.durationSeconds >= cloneMode.minSourceDurationSeconds &&
+    cloneSource.durationSeconds <= cloneMode.maxSourceDurationSeconds;
+  const cloneSourceTooSmall =
+    cloneSource !== null && cloneMode.minSourceSidePx !== undefined && Math.min(cloneSource.width, cloneSource.height) < cloneMode.minSourceSidePx;
+  const clonePromptTooLong = clonePrompt.trim().length > cloneMode.maxPromptLength;
+  const clonePromptUnsafe = clonePrompt.trim().length > 0 && !isSafeFreeText(clonePrompt, FREE_TEXT_MAX);
+  const cloneHasRequiredInputs =
+    cloneTool.id === "object_swap"
+      ? clonePrompt.trim().length > 0
+      : cloneTool.id === "character"
+        ? cloneImages.length === 1
+        : clonePrompt.trim().length > 0 || cloneImages.length > 0;
+  // Images stay attached when switching to a model with a lower cap, so the
+  // user decides which to drop rather than losing the newest ones silently.
+  const cloneTooManyImages = cloneImages.length > cloneMode.maxReferenceImages;
+  const canSubmitClone =
+    cloneDurationValid &&
+    !cloneSourceTooSmall &&
+    !isPreparingCloneSource &&
+    cloneHasRequiredInputs &&
+    !cloneTooManyImages &&
+    !cloneIsGenerating &&
+    !clonePromptUnsafe &&
+    !clonePromptTooLong;
+  const cloneMatchBackgroundActive = cloneTool.id === "character" && cloneMatchBackground;
+  // Before a clip is attached, prices are quoted for the shortest clip the
+  // model accepts ("from N").
+  const cloneCostSeconds = cloneSource?.durationSeconds ?? cloneMode.minSourceDurationSeconds;
+  const cloneResolutionOptions = cloneMode.resolutions.map((value) => ({
+    value,
+    label: value === "auto" ? "Auto" : value,
+    cost: getVideoCloneCost({ mode: cloneMode.id, sourceDurationSeconds: cloneCostSeconds, resolution: value, matchBackground: cloneMatchBackgroundActive }),
+  }));
+  const estimatedCloneCost = cloneResolutionOptions.find((option) => option.value === cloneResolution)?.cost ?? 0;
+
+  function pollCloneGenerationStatus(ids: string[]) {
+    clonePollCancelRef.current?.();
+    clonePendingIdsRef.current = new Set(ids);
+    setClonePendingCount(clonePendingIdsRef.current.size);
+
+    clonePollCancelRef.current = pollUntilSettled<GenerationHistoryItem[]>(
+      async () => {
+        const response = await fetch("/api/generate-video?mode=motion");
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        return data.generations ?? [];
+      },
+      () => clonePendingIdsRef.current.size === 0,
+      (items) => {
+        mutateCloneHistory({ generations: items }, { revalidate: false });
+
+        const settled = [...clonePendingIdsRef.current].filter((id) => {
+          const match = items.find((item) => item.id === id);
+          return match && match.status !== "queued" && match.status !== "processing";
+        });
+
+        if (settled.length > 0) {
+          for (const id of settled) clonePendingIdsRef.current.delete(id);
+          notifyCreditsChanged();
+
+          const failed = settled.map((id) => items.find((item) => item.id === id)).find((item) => item?.status === "failed");
+          if (failed) setCloneError(failed.error_message ?? "Something went wrong. Try again.");
+        }
+
+        setClonePendingCount(clonePendingIdsRef.current.size);
+        if (clonePendingIdsRef.current.size === 0) setCloneIsGenerating(false);
+      },
+      {
+        intervalMs: 5000,
+        // Two renders back to back (frame, then up to 30s of motion
+        // transfer) -- matches CLONE_STALE_JOB_MS in generate-video/route.ts.
+        timeoutMs: 41 * 60 * 1000,
+        onTimeout: () => {
+          setCloneError("This is taking longer than expected. It'll show up here once it finishes.");
+          setCloneIsGenerating(false);
+          setClonePendingCount(0);
+        },
+      }
+    );
+  }
+
+  useEffect(() => {
+    return () => {
+      clonePollCancelRef.current?.();
+      if (cloneBlobUrlRef.current) URL.revokeObjectURL(cloneBlobUrlRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (cloneHistory) writeHistoryCache("video-clone", cloneHistory);
+  }, [cloneHistory]);
+
+  function replaceCloneSource(next: CloneSourceDetails | null) {
+    if (cloneBlobUrlRef.current && cloneBlobUrlRef.current !== next?.previewUrl) URL.revokeObjectURL(cloneBlobUrlRef.current);
+    cloneBlobUrlRef.current = next?.previewUrl.startsWith("blob:") ? next.previewUrl : null;
+    setCloneSource(next);
+  }
+
+  async function handleUploadCloneVideo(file: File) {
+    setCloneError(null);
+    setIsPreparingCloneSource(true);
+    setCloneSourceStatus({ label: "Optimizing video…", progress: 0 });
+    let previewUrl: string | null = null;
+    try {
+      const video = await prepareSourceVideo(file, {
+        minSeconds: CLONE_MIN_SOURCE_SECONDS,
+        maxSeconds: CLONE_MAX_SOURCE_SECONDS,
+        onProgress: (progress) => setCloneSourceStatus({ label: "Optimizing video…", progress }),
+      });
+      setCloneSourceStatus({ label: "Uploading video…", progress: null });
+      previewUrl = URL.createObjectURL(video.file);
+      // The first frame is captured from the converted file, so it matches
+      // exactly what the models receive (rotation and pixel shape included).
+      const info = await inspectVideoSource(previewUrl);
+      const { id } = await uploadSourceVideo(video, "motion");
+      replaceCloneSource({
+        id,
+        previewUrl,
+        durationSeconds: video.durationSeconds,
+        frameImage: info.frameDataUrl,
+        aspectRatio: nearestAspectRatio(video.width, video.height),
+        width: video.width,
+        height: video.height,
+      });
+      mutateCloneHistory();
+    } catch (err) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setCloneError(err instanceof Error ? err.message : "Could not upload that video.");
+    } finally {
+      setIsPreparingCloneSource(false);
+      setCloneSourceStatus(null);
+    }
+  }
+
+  // Re-attaches a previously uploaded clip (Recreate on a Clone tile) --
+  // its first frame is re-captured from the library copy since only the
+  // generated frame, not the original one, is stored server-side.
+  async function attachCloneSourceFromLibrary(id: string) {
+    setIsPreparingCloneSource(true);
+    setCloneError(null);
+    try {
+      const previewUrl = `/api/library/video/${id}`;
+      const info = await inspectVideoSource(previewUrl);
+      replaceCloneSource({
+        id,
+        previewUrl,
+        durationSeconds: info.durationSeconds,
+        frameImage: info.frameDataUrl,
+        aspectRatio: nearestAspectRatio(info.width, info.height),
+        width: info.width,
+        height: info.height,
+      });
+    } catch {
+      setCloneError("Couldn't load the original video. Upload it again.");
+    } finally {
+      setIsPreparingCloneSource(false);
+    }
+  }
+
+  function recreateClone(item: GenerationHistoryItem) {
+    const mode = getCloneMode(item.model);
+    const toolId = mode?.tool ?? "motion_transfer";
+    setActiveTab("motion");
+    setMobileView("generate");
+    setCloneToolId(toolId);
+    setCloneDrafts((prev) => ({
+      ...prev,
+      [toolId]: {
+        prompt: item.prompt ?? "",
+        // References/character photos aren't stored server-side -- re-add them.
+        images: [],
+        resolution: (item.params.resolution as CloneResolution | undefined) ?? prev[toolId].resolution,
+      },
+    }));
+    if (mode?.tool === "character") {
+      setCloneKeepOriginalSound(item.params.keepOriginalSound ?? true);
+      setCloneMatchBackground(item.params.matchBackground ?? true);
+    }
+    if (item.params.sourceGenerationId) void attachCloneSourceFromLibrary(item.params.sourceGenerationId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleGenerateClone() {
+    if (!canSubmitClone || !cloneSource) return;
+
+    // Only models that start with a frame pre-pass need the captured first frame.
+    const frameImage = cloneNeedsFrameStage(cloneMode, cloneMatchBackgroundActive) ? cloneSource.frameImage : undefined;
+    const payloadChars = (frameImage?.length ?? 0) + cloneImages.reduce((sum, image) => sum + image.length, 0);
+    if (payloadChars > CLONE_MAX_PAYLOAD_CHARS) {
+      setCloneError("Those images are too large to send together. Remove a few and try again.");
+      return;
+    }
+
+    setCloneIsGenerating(true);
+    setCloneError(null);
+    setClonePendingAspectRatio(cloneSource.aspectRatio);
+
+    try {
+      const response = await fetch("/api/generate-video/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: cloneMode.id,
+          sourceGenerationId: cloneSource.id,
+          referenceImages: cloneImages,
+          prompt: clonePrompt.trim() || undefined,
+          resolution: cloneResolution,
+          aspectRatio: cloneSource.aspectRatio,
+          ...(cloneTool.id === "character" ? { keepOriginalSound: cloneKeepOriginalSound, matchBackground: cloneMatchBackgroundActive } : {}),
+          frameImage,
+        }),
+      });
+
+      if (response.status === 402) {
+        setShowTopUp(true);
+        setCloneIsGenerating(false);
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Failed to start clone.");
+
+      pollCloneGenerationStatus(data.ids);
+    } catch (err) {
+      setCloneError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setCloneIsGenerating(false);
+      setClonePendingCount(0);
+    }
   }
 
   async function handleGenerate() {
@@ -1036,7 +1451,11 @@ export function VideoGenerator() {
     mutateEditHistory((current) => (current ? { generations: current.generations.filter((item) => item.id !== id) } : current), {
       revalidate: false,
     });
+    mutateCloneHistory((current) => (current ? { generations: current.generations.filter((item) => item.id !== id) } : current), {
+      revalidate: false,
+    });
     setEditSource((prev) => (prev?.id === id ? null : prev));
+    if (cloneSource?.id === id) replaceCloneSource(null);
   }
 
   const durationOptions = useMemo(() => model.durations.map((d) => ({ value: String(d), label: `${d}s` })), [model]);
@@ -1085,6 +1504,27 @@ export function VideoGenerator() {
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const editGalleryItems = [...editPendingTiles, ...completedForEditGallery];
+
+  const clonePendingTiles: GenerationHistoryItem[] = Array.from({ length: clonePendingCount }, (_, i) => ({
+    id: `clone-pending-${i}`,
+    mode: "motion",
+    operation: "motion_transfer",
+    model: cloneMode.id,
+    prompt: null,
+    params: { aspectRatio: clonePendingAspectRatio },
+    output_video_path: null,
+    thumbnail_path: null,
+    status: "processing",
+    error_message: null,
+    credits_quoted: 0,
+    created_at: new Date().toISOString(),
+  }));
+
+  // Uploaded source clips share mode "motion" but aren't results -- keep
+  // them out of the gallery.
+  const completedCloneItems =
+    cloneHistory?.filter((item) => item.operation !== "uploaded" && item.status !== "queued" && item.status !== "processing") ?? [];
+  const cloneGalleryItems = [...clonePendingTiles, ...completedCloneItems];
 
   return (
     <div className="relative">
@@ -1195,9 +1635,75 @@ export function VideoGenerator() {
 
               <div className={cn("min-w-0 flex-1", mobileView === "history" && "hidden lg:block")}>
                 {activeTab === "motion" ? (
-                  <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 text-center dark:border-zinc-800 dark:bg-zinc-950/40">
-                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">Motion is coming in the next update.</p>
-                    <p className="max-w-xs text-xs text-slate-400">Drive a character image using a reference video&apos;s motion.</p>
+                  <div className="relative isolate z-20">
+                    <CloneComposer
+                      tools={CLONE_TOOLS}
+                      tool={cloneTool}
+                      onToolChange={(id) => {
+                        setCloneToolId(id);
+                        setCloneError(null);
+                      }}
+                      mode={cloneMode}
+                      source={cloneSource}
+                      isUploadingSource={isPreparingCloneSource}
+                      sourceStatus={cloneSourceStatus}
+                      onPickVideo={(file) => void handleUploadCloneVideo(file)}
+                      onClearSource={() => replaceCloneSource(null)}
+                      images={cloneImages}
+                      onImagesChange={(images) => updateCloneDraft({ images })}
+                      prompt={clonePrompt}
+                      onPromptChange={(prompt) => updateCloneDraft({ prompt })}
+                      resolution={cloneResolution}
+                      resolutionOptions={cloneResolutionOptions}
+                      onResolutionChange={(value) => updateCloneDraft({ resolution: value as CloneResolution })}
+                      keepOriginalSound={cloneKeepOriginalSound}
+                      onKeepOriginalSoundChange={setCloneKeepOriginalSound}
+                      matchBackground={cloneMatchBackgroundActive}
+                      onMatchBackgroundChange={setCloneMatchBackground}
+                      cost={estimatedCloneCost}
+                      costIsStartingPrice={!cloneSource}
+                      canSubmit={canSubmitClone}
+                      isGenerating={cloneIsGenerating}
+                      onSubmit={handleGenerateClone}
+                      onError={setCloneError}
+                    />
+
+                    {cloneSource && !cloneDurationValid && (
+                      <p className="mt-4 text-sm font-medium text-amber-500" role="alert">
+                        {cloneTool.label} needs a {cloneMode.minSourceDurationSeconds}-{Math.floor(cloneMode.maxSourceDurationSeconds)}s video (this one is{" "}
+                        {formatClipSeconds(cloneSource.durationSeconds)}s).
+                      </p>
+                    )}
+                    {cloneSourceTooSmall && cloneSource && (
+                      <p className="mt-4 text-sm font-medium text-amber-500" role="alert">
+                        {cloneTool.label} needs a video at least {cloneMode.minSourceSidePx}px on each side (this one is {cloneSource.width}×
+                        {cloneSource.height}). Upload it again and it&apos;ll be scaled up automatically.
+                      </p>
+                    )}
+                    {cloneTooManyImages && (
+                      <p className="mt-4 text-sm font-medium text-amber-500" role="alert">
+                        {cloneTool.label} takes up to {cloneMode.maxReferenceImages} images -- remove{" "}
+                        {cloneImages.length - cloneMode.maxReferenceImages} to use it.
+                      </p>
+                    )}
+                    {clonePromptTooLong && (
+                      <p className="mt-4 text-sm font-medium text-red-500" role="alert">
+                        {clonePrompt.trim().length} / {cloneMode.maxPromptLength} characters -- shorten the prompt a little.
+                      </p>
+                    )}
+                    {clonePromptUnsafe && (
+                      <p className="mt-4 text-sm font-medium text-red-500" role="alert">
+                        Prompt contains characters that aren&apos;t allowed (e.g. raw HTML tags or control characters)
+                      </p>
+                    )}
+                    {cloneError && (
+                      <p className="mt-4 text-sm font-medium text-red-500" role="alert">
+                        {cloneError}
+                      </p>
+                    )}
+                    {creditBalance !== null && cloneSource && creditBalance < estimatedCloneCost && (
+                      <LowCreditBanner balance={creditBalance} cost={estimatedCloneCost} onTopUp={() => setShowTopUp(true)} />
+                    )}
                   </div>
                 ) : activeTab === "edit" ? (
                   <>
@@ -1521,7 +2027,14 @@ export function VideoGenerator() {
                     // Unscoped by tab (the mode tabs are hidden in this view,
                     // see above) -- pending tiles from both tabs plus every
                     // completed generation, newest first.
-                    const items = [...pendingTiles, ...editPendingTiles, ...completedForEditGallery];
+                    const items = [
+                      ...pendingTiles,
+                      ...editPendingTiles,
+                      ...clonePendingTiles,
+                      ...[...completedForEditGallery, ...completedCloneItems].sort(
+                        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                      ),
+                    ];
                     if (items.length === 0) {
                       return <p className="py-16 text-center text-sm text-slate-400">No generations yet.</p>;
                     }
@@ -1531,9 +2044,17 @@ export function VideoGenerator() {
                           <VideoTile
                             key={item.id}
                             item={item}
-                            elapsedSeconds={item.mode === "edit" ? editElapsedSeconds : createElapsedSeconds}
+                            elapsedSeconds={
+                              item.mode === "edit" ? editElapsedSeconds : item.mode === "motion" ? cloneElapsedSeconds : createElapsedSeconds
+                            }
                             onPreview={() => setPreviewItem(item)}
-                            onRecreate={() => (item.mode === "edit" ? attachSourceForEdit(item, true) : recreateFromHistory(item))}
+                            onRecreate={() =>
+                              item.mode === "edit"
+                                ? attachSourceForEdit(item, true)
+                                : item.mode === "motion"
+                                  ? recreateClone(item)
+                                  : recreateFromHistory(item)
+                            }
                             onEdit={() => attachSourceForEdit(item, false)}
                             onDownload={() => downloadVideo(item.id)}
                             onDelete={() => setDeleteTargetId(item.id)}
@@ -1560,6 +2081,30 @@ export function VideoGenerator() {
                         elapsedSeconds={createElapsedSeconds}
                         onPreview={() => setPreviewItem(item)}
                         onRecreate={() => recreateFromHistory(item)}
+                        onEdit={() => attachSourceForEdit(item, false)}
+                        onDownload={() => downloadVideo(item.id)}
+                        onDelete={() => setDeleteTargetId(item.id)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "motion" && cloneGalleryItems.length > 0 && (
+            <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
+              <h2 className="mb-4 text-sm font-semibold text-slate-500">Recent Generations</h2>
+              <div className="flex w-full gap-4">
+                {distributeColumns(cloneGalleryItems, galleryColumns).map((column, columnIndex) => (
+                  <div key={columnIndex} className="flex flex-1 flex-col gap-4">
+                    {column.map((item) => (
+                      <VideoTile
+                        key={item.id}
+                        item={item}
+                        elapsedSeconds={cloneElapsedSeconds}
+                        onPreview={() => setPreviewItem(item)}
+                        onRecreate={() => recreateClone(item)}
                         onEdit={() => attachSourceForEdit(item, false)}
                         onDownload={() => downloadVideo(item.id)}
                         onDelete={() => setDeleteTargetId(item.id)}
@@ -1602,7 +2147,7 @@ export function VideoGenerator() {
         <AnimatePresence>
           {previewItem &&
             (() => {
-              const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model);
+              const previewModel = getVideoModel(previewItem.model) ?? getEditVideoModel(previewItem.model) ?? getCloneMode(previewItem.model);
               const videoSrc = `/api/library/video/${previewItem.id}`;
               const closePreview = () => setPreviewItem(null);
               return (
@@ -1688,6 +2233,8 @@ export function VideoGenerator() {
                           // source with its prompt/model prefilled instead.
                           if (previewItem.mode === "edit") {
                             attachSourceForEdit(previewItem, true);
+                          } else if (previewItem.mode === "motion") {
+                            recreateClone(previewItem);
                           } else {
                             recreateFromHistory(previewItem);
                           }

@@ -1,16 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight, ChevronsLeft, X } from "lucide-react";
+import { ChevronDown, ChevronRight, PanelLeftClose, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
 import { useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
 import { cn } from "@/lib/utils";
+
+// One row recipe for every link in the rail. The active row is lifted onto
+// the card surface -- the same material as the page it opens -- instead of
+// being painted in the accent; the accent is left to its icon.
+const ROW = "font-ui group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40";
+const ROW_ACTIVE =
+  "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-hairline)] dark:bg-white/[0.07] dark:shadow-none";
+const ROW_IDLE = "text-body hover:bg-(--app-fill) hover:text-heading";
+const ICON = "h-[18px] w-[18px] shrink-0 transition-colors";
 
 export function Sidebar({
   mobileOpen,
@@ -41,42 +50,6 @@ export function Sidebar({
 
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const asideRef = useRef<HTMLElement | null>(null);
-  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
-  const [hoverIndicator, setHoverIndicator] = useState<{ top: number; height: number } | null>(null);
-
-  const showHoverIndicator = useCallback((el: HTMLElement | null) => {
-    if (!el || !asideRef.current) return;
-    const itemRect = el.getBoundingClientRect();
-    const asideRect = asideRef.current.getBoundingClientRect();
-    setHoverIndicator({ top: itemRect.top - asideRect.top, height: itemRect.height });
-  }, []);
-
-  const getActiveKey = useCallback(() => {
-    for (const item of SIDEBAR_NAV) {
-      if (!item.subItems) {
-        if (pathname === item.href) return item.href;
-      } else if (item.subItems.some((subItem) => pathname === subItem.href)) {
-        return item.label;
-      }
-    }
-    return null;
-  }, [pathname]);
-
-  const syncIndicatorToActive = useCallback(() => {
-    const key = getActiveKey();
-    if (!key) {
-      setHoverIndicator(null);
-      return;
-    }
-    showHoverIndicator(itemRefs.current[key] ?? null);
-  }, [getActiveKey, showHoverIndicator]);
-
-  useEffect(() => {
-    // Measures DOM layout (an external system) to reposition the indicator after navigation/collapse.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    syncIndicatorToActive();
-  }, [syncIndicatorToActive, collapsed]);
 
   useEffect(() => {
     if (!popoverGroup) return;
@@ -93,9 +66,7 @@ export function Sidebar({
   }, [popoverGroup]);
 
   const toggleGroup = (label: string) => {
-    setOpenGroups((prev) =>
-      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
-    );
+    setOpenGroups((prev) => (prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]));
   };
 
   const togglePopover = (label: string) => {
@@ -111,61 +82,57 @@ export function Sidebar({
     setPopoverGroup(label);
   };
 
-  return (
-    <aside
-      ref={asideRef}
+  const label = (text: string) => (
+    <span
       className={cn(
-        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-64 flex-col border-r border-hairline bg-[#FCFCFD] transition-transform duration-300 ease-in-out dark:border-white/5 dark:bg-black/50 dark:backdrop-blur-2xl dark:backdrop-saturate-150 lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
-        mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-16" : "lg:w-64"
+        "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
+        collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
       )}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-0 w-1.5 rounded-r-full bg-primary dark:bg-white transition-all duration-200 ease-out"
-        style={{
-          top: hoverIndicator ? hoverIndicator.top + 6 : 0,
-          height: hoverIndicator ? hoverIndicator.height - 12 : 0,
-          opacity: hoverIndicator ? 1 : 0,
-        }}
-      />
-      <div
-        className={cn(
-          "flex items-center justify-between px-4 py-5",
-          collapsed && "lg:px-3"
-        )}
-      >
+      {text}
+    </span>
+  );
+
+  return (
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-60 flex-col border-r border-hairline bg-app transition-transform duration-300 ease-in-out dark:bg-[#09090b] lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        collapsed ? "lg:w-[60px]" : "lg:w-60"
+      )}
+    >
+      <div className={cn("flex h-16 shrink-0 items-center justify-between px-4", collapsed && "lg:justify-center lg:px-0")}>
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="group hidden items-center outline-none focus-visible:outline-none lg:flex"
+          className="group hidden items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:flex"
         >
           <span
             className={cn(
-              "relative block h-10 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-              collapsed ? "w-10" : "w-[136px]"
+              "relative block h-8 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+              collapsed ? "w-8" : "w-[108px]"
             )}
           >
             <Image
               src="/logo-icon.png"
               alt="Verlab Studio"
-              width={160}
-              height={160}
+              width={128}
+              height={128}
               priority
               draggable={false}
               onContextMenu={(event) => event.preventDefault()}
               className={cn(
-                "absolute left-0 top-0 h-10 w-10 object-contain transition-opacity duration-200 ease-in-out",
+                "absolute left-0 top-0 h-8 w-8 object-contain transition-opacity duration-200 ease-in-out",
                 collapsed ? "opacity-100 group-hover:opacity-0" : "opacity-0"
               )}
             />
             {collapsed && (
               <span
                 aria-hidden="true"
-                className="absolute left-0 top-0 flex h-10 w-10 scale-90 items-center justify-center rounded-xl border border-hairline bg-surface opacity-0 transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
+                className="absolute left-0 top-0 flex h-8 w-8 scale-90 items-center justify-center rounded-lg border border-hairline bg-surface opacity-0 transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
               >
-                <ChevronRight className="h-4 w-4 text-subtle transition-colors duration-200 ease-out group-hover:text-heading" />
+                <ChevronRight className="h-4 w-4 text-subtle" />
               </span>
             )}
             <Image
@@ -177,7 +144,7 @@ export function Sidebar({
               draggable={false}
               onContextMenu={(event) => event.preventDefault()}
               className={cn(
-                "absolute left-0 top-0 h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
+                "absolute left-0 top-0 h-8 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
                 collapsed ? "opacity-0" : "opacity-100"
               )}
             />
@@ -190,61 +157,53 @@ export function Sidebar({
               draggable={false}
               onContextMenu={(event) => event.preventDefault()}
               className={cn(
-                "absolute left-0 top-0 hidden h-10 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
+                "absolute left-0 top-0 hidden h-8 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
                 collapsed ? "opacity-0" : "opacity-100"
               )}
             />
           </span>
         </button>
-        <div className="flex items-center lg:hidden">
-          <span className="relative block h-10 w-[136px] overflow-hidden">
-            <Image
-              src="/logo-full-light.png"
-              alt="Verlab Studio"
-              width={600}
-              height={178}
-              draggable={false}
-              onContextMenu={(event) => event.preventDefault()}
-              className="h-10 w-auto max-w-none dark:hidden"
-            />
-            <Image
-              src="/logo-full-dark.png"
-              alt="Verlab Studio"
-              width={600}
-              height={178}
-              draggable={false}
-              onContextMenu={(event) => event.preventDefault()}
-              className="hidden h-10 w-auto max-w-none dark:block"
-            />
-          </span>
-        </div>
+        <span className="relative block h-8 w-[108px] overflow-hidden lg:hidden">
+          <Image
+            src="/logo-full-light.png"
+            alt="Verlab Studio"
+            width={600}
+            height={178}
+            draggable={false}
+            onContextMenu={(event) => event.preventDefault()}
+            className="h-8 w-auto max-w-none dark:hidden"
+          />
+          <Image
+            src="/logo-full-dark.png"
+            alt="Verlab Studio"
+            width={600}
+            height={178}
+            draggable={false}
+            onContextMenu={(event) => event.preventDefault()}
+            className="hidden h-8 w-auto max-w-none dark:block"
+          />
+        </span>
         <button
           type="button"
           onClick={onCloseMobile}
           aria-label="Close menu"
-          className="text-subtle hover:text-body lg:hidden"
+          className="rounded-md p-1 text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading lg:hidden"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
         {!collapsed && (
           <button
             type="button"
             onClick={() => setCollapsed(true)}
             aria-label="Collapse sidebar"
-            className="hidden h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-app hover:text-heading lg:flex"
+            className="hidden h-7 w-7 items-center justify-center rounded-md text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading lg:flex"
           >
-            <ChevronsLeft className="h-4 w-4" />
+            <PanelLeftClose className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <nav
-        className={cn(
-          "flex flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3",
-          collapsed && "lg:px-2"
-        )}
-        onMouseLeave={syncIndicatorToActive}
-      >
+      <nav aria-label="Main" className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-2", collapsed && "lg:px-2.5")}>
         {SIDEBAR_NAV.map((item) => {
           if (!item.subItems) {
             const active = pathname === item.href;
@@ -252,35 +211,16 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
-                ref={(el) => {
-                  itemRefs.current[item.href] = el;
-                }}
                 onClick={onCloseMobile}
-                onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "font-ui group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[15px] font-semibold outline-none transition-all duration-150 focus:outline-none focus-visible:outline-none",
-                  collapsed && "lg:gap-0 lg:px-3.5",
-                  active
-                    ? "border-hairline bg-surface font-semibold text-heading shadow-card dark:border-0 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)]"
-                    : "border-transparent text-[#434C69] hover:bg-accent hover:text-heading"
-                )}
                 title={collapsed ? item.label : undefined}
+                className={cn(ROW, collapsed && "lg:justify-center lg:gap-0 lg:px-0", active ? ROW_ACTIVE : ROW_IDLE)}
               >
                 <item.icon
-                  className={cn(
-                    "h-5 w-5 shrink-0 transition-colors",
-                    active ? "text-primary dark:text-white" : "text-[#A1AAC8] group-hover:text-primary"
-                  )}
+                  className={cn(ICON, active ? "text-primary dark:text-white" : "text-subtle group-hover:text-body")}
+                  aria-hidden="true"
                 />
-                <span
-                  className={cn(
-                    "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-                    collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
-                  )}
-                >
-                  {item.label}
-                </span>
+                {label(item.label)}
               </Link>
             );
           }
@@ -295,41 +235,29 @@ export function Sidebar({
                 type="button"
                 ref={(el) => {
                   triggerRefs.current[item.label] = el;
-                  itemRefs.current[item.label] = el;
                 }}
                 onClick={() => (collapsed ? togglePopover(item.label) : toggleGroup(item.label))}
-                onMouseEnter={(e) => showHoverIndicator(e.currentTarget)}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
-                className={cn(
-                  "font-ui group flex w-full cursor-pointer items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-[15px] font-semibold transition-all duration-150",
-                  collapsed && "lg:px-3.5",
-                  groupActive
-                    ? "text-heading"
-                    : "text-[#434C69] hover:bg-accent hover:text-heading"
-                )}
                 title={collapsed ? item.label : undefined}
+                className={cn(
+                  ROW,
+                  "w-full cursor-pointer justify-between",
+                  collapsed && "lg:justify-center lg:px-0",
+                  groupActive ? "text-heading" : ROW_IDLE
+                )}
               >
-                <span className={cn("flex items-center gap-3", collapsed && "lg:gap-0")}>
+                <span className={cn("flex items-center gap-2.5", collapsed && "lg:gap-0")}>
                   <item.icon
-                    className={cn(
-                      "h-5 w-5 shrink-0 transition-colors",
-                      groupActive ? "text-primary" : "text-[#A1AAC8] group-hover:text-primary"
-                    )}
+                    className={cn(ICON, groupActive ? "text-primary" : "text-subtle group-hover:text-body")}
+                    aria-hidden="true"
                   />
-                  <span
-                    className={cn(
-                      "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-                      collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
-                    )}
-                  >
-                    {item.label}
-                  </span>
+                  {label(item.label)}
                 </span>
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 shrink-0 text-[#535C76] transition-transform duration-300 ease-in-out",
+                    "h-4 w-4 shrink-0 text-subtle transition-transform duration-300 ease-in-out",
                     collapsed && "lg:hidden",
-                    !isOpen && "rotate-180"
+                    !isOpen && "-rotate-90"
                   )}
                 />
               </button>
@@ -342,8 +270,8 @@ export function Sidebar({
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="ml-[19px] flex flex-col gap-1 border-l border-hairline pl-4 pt-1">
-                      {item.subItems.map((subItem, index) => {
+                    <div className="ml-[19px] flex flex-col gap-0.5 border-l border-hairline py-1 pl-3">
+                      {item.subItems.map((subItem) => {
                         const active = pathname === subItem.href;
                         return (
                           <Link
@@ -351,18 +279,9 @@ export function Sidebar({
                             href={subItem.href}
                             onClick={onCloseMobile}
                             aria-current={active ? "page" : undefined}
-                            style={{ transitionDelay: isOpen ? `${index * 30}ms` : "0ms" }}
-                            className={cn(
-                              "font-ui flex items-center gap-3 rounded-lg border px-3 py-2 text-[13px] font-medium outline-none transition-all duration-200 ease-out focus:outline-none focus-visible:outline-none",
-                              isOpen ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
-                              active
-                                ? "border-hairline bg-surface font-semibold text-heading shadow-card"
-                                : "border-transparent text-[#434C69] hover:bg-accent hover:text-body"
-                            )}
+                            className={cn(ROW, "h-8 text-[13px]", active ? ROW_ACTIVE : ROW_IDLE)}
                           >
-                            <subItem.icon
-                              className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#A1AAC8]")}
-                            />
+                            <subItem.icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-subtle")} />
                             <span className="truncate">{subItem.title}</span>
                           </Link>
                         );
@@ -378,11 +297,9 @@ export function Sidebar({
                   <div
                     ref={popoverRef}
                     style={{ position: "fixed", top: popoverPos.top, left: popoverPos.left }}
-                    className="z-50 flex w-56 flex-col gap-1 rounded-2xl border border-hairline bg-surface p-2 shadow-card-hover"
+                    className="z-50 flex w-56 flex-col gap-0.5 rounded-xl border border-hairline bg-surface p-1.5 shadow-card-hover"
                   >
-                    <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-subtle">
-                      {item.label}
-                    </p>
+                    <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-subtle">{item.label}</p>
                     {item.subItems.map((subItem) => {
                       const active = pathname === subItem.href;
                       return (
@@ -394,16 +311,9 @@ export function Sidebar({
                             setPopoverGroup(null);
                           }}
                           aria-current={active ? "page" : undefined}
-                          className={cn(
-                            "font-ui flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-[13px] font-medium outline-none transition-all focus:outline-none focus-visible:outline-none",
-                            active
-                              ? "border-accent-line bg-accent font-semibold text-heading"
-                              : "text-[#434C69] hover:bg-accent hover:text-body"
-                          )}
+                          className={cn(ROW, "h-8 text-[13px]", active ? "bg-(--app-fill-strong) text-heading" : ROW_IDLE)}
                         >
-                          <subItem.icon
-                            className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-[#A1AAC8]")}
-                          />
+                          <subItem.icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-subtle")} />
                           <span className="truncate">{subItem.title}</span>
                         </Link>
                       );
@@ -423,11 +333,7 @@ export function Sidebar({
         onNavigate={onCloseMobile}
       />
 
-      {searchOpen &&
-        createPortal(
-          <CommandPalette isOpen={searchOpen} onClose={() => setSearchOpen(false)} />,
-          document.body
-        )}
+      {searchOpen && createPortal(<CommandPalette isOpen={searchOpen} onClose={() => setSearchOpen(false)} />, document.body)}
     </aside>
   );
 }

@@ -3,7 +3,7 @@ import { getVideoGenerationCost } from "@/lib/config/pricing";
 import { DEFAULT_VIDEO_MODEL, getVideoModel, type VideoModelConfig } from "@/lib/config/video-models";
 import { getUserCredits } from "@/lib/server/credits";
 import { submitVideoJob } from "@/lib/server/replicate-video";
-import { advanceVideoJob, type VideoJobRow } from "@/lib/server/video-jobs";
+import { advanceVideoJob, VIDEO_JOB_COLUMNS, type VideoJobRow } from "@/lib/server/video-jobs";
 import { validateReferenceImage, validateReferenceImages } from "@/lib/server/video-validation";
 import { describeGenerationFailure, GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
 import { recordUsageEvent } from "@/lib/server/usage";
@@ -22,6 +22,9 @@ export const maxDuration = 30; // this route only submits to Replicate and retur
 // generate-image's 6-minute equivalent because video renders genuinely take
 // minutes, especially on premium models like Veo 3 Quality.
 const STALE_JOB_MS = 20 * 60 * 1000;
+// Clone rows run two predictions back to back (frame, then a motion-transfer
+// render of up to 30s -- see video-clone.ts), so they get a longer window.
+const CLONE_STALE_JOB_MS = 40 * 60 * 1000;
 const STALE_STATUSES = ["queued", "processing"] as const;
 
 interface GenerateVideoRequestBody {
@@ -119,7 +122,7 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
       const admin = createAdminClient();
       const { data: fullRows } = await admin
         .from("video_generations")
-        .select("id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged")
+        .select(VIDEO_JOB_COLUMNS)
         .in("id", inFlightIds)
         .not("replicate_prediction_id", "is", null)
         .returns<VideoJobRow[]>();
@@ -137,7 +140,10 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  await sweepStaleRows(supabase, "video_generations", data, STALE_STATUSES, STALE_JOB_MS);
+  await Promise.all([
+    sweepStaleRows(supabase, "video_generations", data.filter((row) => row.mode !== "motion"), STALE_STATUSES, STALE_JOB_MS),
+    sweepStaleRows(supabase, "video_generations", data.filter((row) => row.mode === "motion"), STALE_STATUSES, CLONE_STALE_JOB_MS),
+  ]);
 
   return NextResponse.json({ generations: data });
 }

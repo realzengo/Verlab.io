@@ -21,7 +21,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
-import { Tabs } from "@/components/ui/Tabs";
+import { SegmentedControl } from "@/components/admin/SegmentedControl";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { cn } from "@/lib/utils";
 import { FREE_TEXT_MAX, NAME_MAX, SHORT_TEXT_MAX, isPlainTextSafe, isSafeFreeText } from "@/lib/validation";
@@ -63,12 +63,12 @@ function clonePlans(plans: PricingPlan[]): PricingPlan[] {
 function SectionHeading({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle?: string }) {
   return (
     <div className="mb-4 flex items-start gap-2.5">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-(--admin-fill) text-subtle">
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div>
-        <h3 className="text-base">{title}</h3>
-        {subtitle && <p className="text-sm text-subtle">{subtitle}</p>}
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-[13px] text-subtle">{subtitle}</p>}
       </div>
     </div>
   );
@@ -452,7 +452,8 @@ export function PlansEditor({ initialPlans }: { initialPlans: PricingPlan[] }) {
           </Button>
         </div>
         <div className="w-fit">
-          <Tabs
+          <SegmentedControl
+            label="Preview billing frequency"
             items={[
               { id: "monthly", label: "Monthly" },
               { id: "yearly", label: "Yearly" },

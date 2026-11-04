@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { ExternalLink, Plug, Plus, Trash2, X } from "lucide-react";
+import { ExternalLink, Plug, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import type { ApiProvider } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { Callout, Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { BarList } from "@/components/admin/charts/BarList";
 import { cn, formatCurrency } from "@/lib/utils";
 import { NAME_MAX, SHORT_TEXT_MAX, URL_MAX, isPlainTextSafe, isValidName, isValidUrl } from "@/lib/validation";
 
@@ -37,6 +40,8 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
   const [deleteTarget, setDeleteTarget] = useState<ApiProvider | null>(null);
 
   const totalMonthly = useMemo(() => providers.filter((p) => p.isActive).reduce((sum, p) => sum + p.monthlyCost, 0), [providers]);
+  const activeProviders = providers.filter((p) => p.isActive);
+  const missingKeys = providers.filter((p) => p.envVar && !p.configured);
 
   function startEdit(provider: ApiProvider) {
     setEditingId(provider.id);
@@ -130,103 +135,139 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base">API providers</h2>
-          <p className="text-sm text-subtle">Every third-party API this app calls, and what you expect to pay each one per month.</p>
-        </div>
+      <PageHeader title="API costs" description="Every third-party API the product calls, and what each one costs per month.">
         <Button icon={Plus} onClick={openModal}>
           Add provider
         </Button>
-      </div>
+      </PageHeader>
 
-      <Card>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>Provider</TableHeaderCell>
-              <TableHeaderCell>Category</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell className="text-right">Monthly cost</TableHeaderCell>
-              <TableHeaderCell className="text-right">Actions</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <tbody>
-            {providers.map((provider) => (
-              <TableRow key={provider.id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-heading">{provider.name}</p>
-                    {provider.websiteUrl && (
-                      <a
-                        href={provider.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`Open ${provider.name} website`}
-                        className="text-subtle transition-colors hover:text-heading"
+      {missingKeys.length > 0 && (
+        <Callout
+          icon={<TriangleAlert className="h-4 w-4" />}
+          title={`${missingKeys.map((p) => p.name).join(", ")} ${missingKeys.length === 1 ? "has" : "have"} no API key on this deployment`}
+        >
+          Add {missingKeys.length === 1 ? "the env var" : "these env vars"} to enable{" "}
+          {missingKeys.length === 1 ? "it" : "them"}:{" "}
+          {missingKeys.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && ", "}
+              <code className="rounded bg-(--admin-fill-strong) px-1 py-0.5 font-mono text-[12px]">{p.envVar}</code>
+            </span>
+          ))}
+        </Callout>
+      )}
+
+      <KpiStrip>
+        <Kpi label="Monthly spend" value={formatCurrency(totalMonthly)} footnote={`${formatCurrency(totalMonthly * 12)} a year`} />
+        <Kpi label="Active providers" value={activeProviders.length} footnote={`of ${providers.length} integrated`} />
+        <Kpi
+          label="Missing API keys"
+          value={missingKeys.length}
+          delta={
+            missingKeys.length > 0
+              ? { value: "Needs attention", sentiment: "negative" }
+              : { value: "All configured", sentiment: "positive" }
+          }
+        />
+      </KpiStrip>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel title="Spend by provider" description="Active providers, per month">
+          <BarList
+            format="currency"
+            items={[...activeProviders].sort((a, b) => b.monthlyCost - a.monthlyCost).map((p) => ({ label: p.name, value: p.monthlyCost }))}
+            emptyLabel="No costs entered yet"
+          />
+        </Panel>
+
+        <Panel className="xl:col-span-2" title="Providers" description="Click a cost to edit it" flush>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Provider</TableHeaderCell>
+                <TableHeaderCell>Category</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell className="text-right">Monthly cost</TableHeaderCell>
+                <TableHeaderCell className="text-right">Actions</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <tbody>
+              {providers.map((provider) => (
+                <TableRow key={provider.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-heading">{provider.name}</p>
+                      {provider.websiteUrl && (
+                        <a
+                          href={provider.websiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open ${provider.name} website`}
+                          className="text-subtle transition-colors hover:text-heading"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                    {provider.notes && <p className="mt-0.5 text-xs text-subtle">{provider.notes}</p>}
+                  </TableCell>
+                  <TableCell className="text-body">{provider.category}</TableCell>
+                  <TableCell>
+                    <Badge variant={provider.configured ? "success" : "warning"}>
+                      {provider.configured ? "Configured" : provider.envVar ? "Missing key" : "N/A"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {editingId === provider.id ? (
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        autoFocus
+                        value={draftCost}
+                        onChange={(event) => setDraftCost(event.target.value)}
+                        onBlur={() => commitEdit(provider)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+                          if (event.key === "Escape") setEditingId(null);
+                        }}
+                        className={cn(inputClass, "ml-auto w-28 text-right")}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(provider)}
+                        className="rounded-md px-2 py-1 font-semibold text-heading transition-colors hover:bg-(--admin-fill-strong)"
                       >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                        {formatCurrency(provider.monthlyCost)}
+                      </button>
                     )}
-                  </div>
-                  {provider.notes && <p className="mt-0.5 text-xs text-subtle">{provider.notes}</p>}
-                </TableCell>
-                <TableCell className="text-body">{provider.category}</TableCell>
-                <TableCell>
-                  <Badge variant={provider.configured ? "success" : "warning"}>
-                    {provider.configured ? "Configured" : provider.envVar ? "Missing key" : "N/A"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {editingId === provider.id ? (
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      autoFocus
-                      value={draftCost}
-                      onChange={(event) => setDraftCost(event.target.value)}
-                      onBlur={() => commitEdit(provider)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
-                        if (event.key === "Escape") setEditingId(null);
-                      }}
-                      className={cn(inputClass, "ml-auto w-28 text-right")}
-                    />
-                  ) : (
+                  </TableCell>
+                  <TableCell className="text-right">
                     <button
                       type="button"
-                      onClick={() => startEdit(provider)}
-                      className="rounded-md px-2 py-1 font-semibold text-heading transition-colors hover:bg-app"
+                      onClick={() => setDeleteTarget(provider)}
+                      aria-label={`Remove ${provider.name}`}
+                      className="text-subtle transition-colors hover:text-danger"
                     >
-                      {formatCurrency(provider.monthlyCost)}
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                  )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <TableCell colSpan={3} className="font-semibold text-heading">
+                  Total (active providers)
                 </TableCell>
-                <TableCell className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(provider)}
-                    aria-label={`Remove ${provider.name}`}
-                    className="text-subtle transition-colors hover:text-danger"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <TableCell colSpan={3} className="font-semibold text-heading">
-                Total (active providers)
-              </TableCell>
-              <TableCell className="text-right font-semibold tabular-nums text-heading">{formatCurrency(totalMonthly)}</TableCell>
-              <TableCell>{null}</TableCell>
-            </tr>
-          </tfoot>
-        </Table>
-      </Card>
+                <TableCell className="text-right font-semibold tabular-nums text-heading">{formatCurrency(totalMonthly)}</TableCell>
+                <TableCell>{null}</TableCell>
+              </tr>
+            </tfoot>
+          </Table>
+        </Panel>
+      </div>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setIsOpen(false)}>

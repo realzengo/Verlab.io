@@ -269,9 +269,12 @@ export const VIDEO_MODELS: VideoModelConfig[] = [
     // control has no prompt-mention UI, unlike the Edit tab's
     // MentionTextarea). Verify all of the above live before the first real
     // deploy, per this file's usual discipline.
+    // UPDATE: the live openapi_schema (2026-11-04) confirms image /
+    // last_frame_image, and that the references field is `reference_images`
+    // -- the earlier "images" guess was silently dropped by Replicate. The
+    // schema also says references can't be combined with first/last frames.
     imageField: "image",
     endFrameField: "last_frame_image",
-    referenceImagesField: "images",
     resolutionMode: "direct",
     tier: "flagship",
     description: "ByteDance's flagship, native audio, up to 30s, huge reference sets",
@@ -501,17 +504,416 @@ export function getEditVideoModel(id: string): PromptEditModelConfig | undefined
   return EDIT_VIDEO_MODELS.find((model) => model.id === id);
 }
 
-// ── Motion tab ───────────────────────────────────────────────────────────
-export interface MotionModelConfig {
+// ── Clone tab (stored as mode "motion" / operation "motion_transfer") ────
+// Competitor-parity "clone this video" tab: three tools, each offering a
+// picker of models (the first listed is the default -- the strongest):
+//
+//   Motion transfer -- only the clip's motion carries over; people and place
+//                      come from the reference images and prompt.
+//   Object swap     -- changes only what's named; everything else stays as
+//                      filmed (length, framing, motion, background).
+//   Character       -- one photo performs the clip's moves, optionally with
+//                      its sound, either in its own background or placed
+//                      into the clip's scene ("Match background").
+//
+// Every model's real limits (clip length, reference count, resolutions) are
+// enforced per model rather than per tool, since they differ a lot (Kling
+// 4.0 takes 30s clips and 10 references; the Omni/O1 editors cap at 10s and
+// 4). Seedance 2.5 stays available but isn't a default: ByteDance's filter
+// rejects real human faces ("flagged as sensitive", E005 -- seen live on the
+// first face-swap attempt), so it's offered for products and scenes.
+//
+// Field names, per engine, and how sure we are of them:
+//   kling4       base_video / reference_videos / reference_images, @video_1 /
+//                @image_N mentions, resolution, duration -- Replicate's page.
+//   kling_omni   reference_video / reference_images / video_reference_type
+//                -- confirmed live for Kling O1 (Edit tab); <<<image_N>>>
+//                mentions per Kling's Omni API docs.
+//   seedance     reference_videos / reference_images, [ImageN] mentions,
+//                duration -1 + "adaptive" for edits -- Replicate's readme.
+//   gemini_omni  video / reference_images -- confirmed live (Edit tab).
+//   kling_motion image / video / character_orientation / keep_original_sound
+//                -- published docs; `mode` values NOT live-verified.
+//   wan_animate  video / character_image / resolution / merge_audio -- NOT
+//                live-verified.
+//   pruna_replace video / images / instruction_prompt / resolution /
+//                save_audio -- prunaai/p-video-replace.
+// UPDATE 2026-11-04: every field and enum above was checked against each
+// model's live openapi_schema, and each tool's default ran end to end.
+// Replicate 422s an unknown enum value on submit, but it silently DROPS an
+// unknown field name, so a wrong field shows up as a job that ignores an input.
+export type CloneToolId = "motion_transfer" | "object_swap" | "character";
+export type CloneResolution = "480p" | "720p" | "1080p" | "auto";
+export type CloneEngine = "kling4" | "kling_omni" | "seedance" | "gemini_omni" | "kling_motion" | "wan_animate" | "pruna_replace";
+
+/** One runnable model choice -- `id` is what video_generations.model stores. */
+export interface CloneModeConfig {
   id: string;
-  replicateModel: string; // TBD, verify live
+  /** Earlier ids this mode was stored under, so old history rows still resolve. */
+  legacyIds?: string[];
+  tool: CloneToolId;
+  /** Name in the model picker. */
+  modelLabel: string;
   description: string;
+  logo?: string;
+  logoFullBleed?: boolean;
+  engine: CloneEngine;
+  replicateModel: string;
+  /** Wan only: the variant that keeps the clip's own scene, used when Match background is on (no frame pre-pass needed). */
+  matchBackgroundReplicateModel?: string;
+  /** Character only: always keeps the clip's own scene, so Photo background isn't offered. */
+  matchBackgroundOnly?: boolean;
+  /** First entry is the default. "auto" = the model has no resolution control. */
+  resolutions: CloneResolution[];
+  /** How the picked resolution reaches the model: a `resolution` field, Kling's `mode` field, or not at all. */
+  resolutionInput: "resolution" | "mode" | "none";
+  /** Literal value sent per resolution when it differs from the label (e.g. Kling's "standard"/"pro"). */
+  resolutionValues?: Partial<Record<CloneResolution, string>>;
+  minSourceDurationSeconds: number;
+  maxSourceDurationSeconds: number;
+  /** Smallest width/height the model ingests; uploads are scaled up to clear the strictest one (see video-normalize.ts). */
+  minSourceSidePx?: number;
+  maxReferenceImages: number;
+  /** Caps the user's text, leaving room for the instructions wrapped around it. */
+  maxPromptLength: number;
+  /** ESTIMATED, per second of SOURCE clip (every engine renders the clip's own length). Correct against real Replicate invoices once live. */
+  pricePerSecondUsd: Partial<Record<CloneResolution, number>>;
 }
 
-export const MOTION_MODELS: MotionModelConfig[] = [
+// Kling's two `mode` enums, read off each model's live Replicate schema:
+// 3.0 Omni takes "standard"/"pro"; Motion Control (3.0 and 2.6) and O1 take
+// "std"/"pro" -- "standard" there 422s before any work is done.
+const KLING_STANDARD_PRO = { "720p": "standard", "1080p": "pro" } as Partial<Record<CloneResolution, string>>;
+const KLING_STD_PRO = { "720p": "std", "1080p": "pro" } as Partial<Record<CloneResolution, string>>;
+
+const KLING_4 = {
+  logo: KLING_ICON,
+  modelLabel: "Kling 4.0",
+  engine: "kling4" as const,
+  replicateModel: "kwaivgi/kling-v4.0",
+  resolutions: ["720p", "1080p"] as CloneResolution[],
+  resolutionInput: "resolution" as const,
+  minSourceDurationSeconds: 3,
+  maxSourceDurationSeconds: 30,
+  minSourceSidePx: 700,
+  maxReferenceImages: 10,
+  maxPromptLength: 1500,
+  // Replicate's published video-input rates are $0.094/s (720p) and
+  // $0.141/s (1080p), billed on output length PLUS the longer of input and
+  // output -- these tools output the clip's own length, so every source
+  // second bills twice.
+  pricePerSecondUsd: { "720p": 0.188, "1080p": 0.282 },
+};
+
+const KLING_3_OMNI = {
+  logo: KLING_ICON,
+  modelLabel: "Kling 3.0 Omni",
+  engine: "kling_omni" as const,
+  replicateModel: "kwaivgi/kling-v3-omni-video",
+  resolutions: ["720p", "1080p"] as CloneResolution[],
+  resolutionInput: "mode" as const,
+  resolutionValues: KLING_STANDARD_PRO,
+  // Kling's Omni models only accept 3-10s reference videos at 720px+ per
+  // side, and 4 images alongside one.
+  minSourceDurationSeconds: 3,
+  maxSourceDurationSeconds: 10,
+  minSourceSidePx: 720,
+  maxReferenceImages: 4,
+  maxPromptLength: 1500,
+  // Same tier as Kling 3.0 video's confirmed standard/pro rates on Replicate.
+  pricePerSecondUsd: { "720p": 0.168, "1080p": 0.224 },
+};
+
+const SEEDANCE_2_5 = {
+  logo: SEEDANCE_ICON,
+  modelLabel: "Seedance 2.5",
+  engine: "seedance" as const,
+  replicateModel: "bytedance/seedance-2.5",
+  resolutions: ["720p", "480p"] as CloneResolution[],
+  resolutionInput: "resolution" as const,
+  minSourceDurationSeconds: 4,
+  maxSourceDurationSeconds: 30,
+  maxReferenceImages: 12,
+  // Seedance rejects prompts over 2000 characters (confirmed live), and the
+  // instructions wrapped around the user's text run up to ~600 of them.
+  maxPromptLength: 1400,
+  // Replicate's published Seedance 2.5 rates WITH a video input (several
+  // times its text/image-only rates used by Create).
+  pricePerSecondUsd: { "480p": 0.4304, "720p": 0.9676 },
+};
+
+const KLING_MOTION = {
+  logo: KLING_ICON,
+  engine: "kling_motion" as const,
+  resolutions: ["720p", "1080p"] as CloneResolution[],
+  resolutionInput: "mode" as const,
+  resolutionValues: KLING_STD_PRO,
+  minSourceDurationSeconds: 3,
+  maxSourceDurationSeconds: 30,
+  maxPromptLength: 1500,
+};
+
+// Borrowed from Kling 3.0 video's confirmed no-audio rates on Replicate
+// (standard $0.168/s, pro $0.224/s) -- the motion-control sibling isn't
+// published separately, and keeping the source soundtrack generates no new audio.
+const KLING_3_MOTION_PRICE = { "720p": 0.168, "1080p": 0.224 };
+
+export const CLONE_MODES: CloneModeConfig[] = [
+  // ── Motion transfer ──
   {
-    id: "Motion Transfer",
-    replicateModel: "kwaivgi/kling-v2.5-turbo-pro", // TBD, verify live -- motion-control/puppeteer specific slug not confirmed
-    description: "Drive a character image using a reference video's motion",
+    ...KLING_4,
+    id: "Motion transfer (Kling 4.0)",
+    legacyIds: ["Motion transfer"],
+    tool: "motion_transfer",
+    description: "Best overall. Clips up to 30s, 10 images.",
+  },
+  {
+    ...KLING_MOTION,
+    id: "Motion transfer (Kling 3.0 Motion)",
+    tool: "motion_transfer",
+    modelLabel: "Kling 3.0 Motion",
+    description: "Sharpest body motion and faces. Clips up to 30s, 12 images.",
+    replicateModel: "kwaivgi/kling-v3-motion-control",
+    // The new first frame comes from Nano Banana Pro, which takes the source
+    // frame plus up to 13 more images.
+    maxReferenceImages: 12,
+    pricePerSecondUsd: KLING_3_MOTION_PRICE,
+  },
+  {
+    ...KLING_3_OMNI,
+    id: "Motion transfer (Kling 3.0 Omni)",
+    tool: "motion_transfer",
+    description: "Tight shot-to-shot consistency. Clips up to 10s, 4 images.",
+  },
+  {
+    ...SEEDANCE_2_5,
+    id: "Motion transfer (Seedance 2.5)",
+    tool: "motion_transfer",
+    description: "Rich scenes and camera work. Can't use photos of real people.",
+  },
+
+  // ── Object swap ──
+  {
+    ...KLING_4,
+    id: "Object swap (Kling 4.0)",
+    tool: "object_swap",
+    description: "Best overall. Clips up to 30s, 10 images.",
+  },
+  {
+    ...KLING_3_OMNI,
+    id: "Object swap (Kling 3.0 Omni)",
+    tool: "object_swap",
+    description: "Precise, local edits. Clips up to 10s, 4 images.",
+  },
+  {
+    ...KLING_3_OMNI,
+    id: "Object swap (Kling O1)",
+    tool: "object_swap",
+    modelLabel: "Kling O1",
+    description: "Reliable everyday edits. Clips up to 10s, 4 images.",
+    replicateModel: "kwaivgi/kling-o1",
+    // No resolution control on Replicate's O1 (the Edit tab never sends one).
+    resolutions: ["auto"],
+    resolutionInput: "none",
+    resolutionValues: undefined,
+    // Kling O1's own 3-10.05s edit window (see Kling Edit above).
+    maxSourceDurationSeconds: 10.05,
+    pricePerSecondUsd: { auto: 0.168 },
+  },
+  {
+    id: "Object swap (Gemini Omni)",
+    tool: "object_swap",
+    modelLabel: "Gemini Omni",
+    description: "Follows detailed instructions closely. Clips up to 10s, 4 images.",
+    logo: GEMINI_ICON,
+    engine: "gemini_omni",
+    replicateModel: "google/gemini-omni-1.1",
+    resolutions: ["auto"],
+    resolutionInput: "none",
+    minSourceDurationSeconds: 1,
+    maxSourceDurationSeconds: 10,
+    maxReferenceImages: 4,
+    maxPromptLength: 1500,
+    // ESTIMATED, same figure as the Edit tab's Gemini Omni Flash tile.
+    pricePerSecondUsd: { auto: 0.2 },
+  },
+  {
+    ...SEEDANCE_2_5,
+    id: "Object swap (Seedance 2.5)",
+    // The first Object swap rows ran on Seedance under the bare tool name.
+    legacyIds: ["Object swap"],
+    tool: "object_swap",
+    description: "Great for products and backgrounds. Can't use photos of real people.",
+  },
+
+  // ── Character ──
+  {
+    // The default: swaps the clip's performer for the photo, keeping the
+    // clip's scene, motion, timing, camera and sound. Tested live against
+    // Kling 3.0's Match background (frame pre-pass + Motion Control) on the
+    // same 6s clip: it placed the character correctly where the rebuilt frame
+    // had him standing on a table, in 51s instead of ~6 minutes, for about a
+    // sixth of the cost. On a fast-cut montage it carries the first shot's
+    // scene through every cut, so edits like that belong in Object swap.
+    id: "Character (P-Video Replace)",
+    tool: "character",
+    modelLabel: "P-Video Replace",
+    description: "Best for putting your character into the video's own scene. Fast.",
+    engine: "pruna_replace",
+    replicateModel: "prunaai/p-video-replace",
+    matchBackgroundOnly: true,
+    resolutions: ["720p", "1080p"],
+    resolutionInput: "resolution",
+    minSourceDurationSeconds: 2,
+    // Not published; 13s ran fine live, and every other Character model stops at 30s.
+    maxSourceDurationSeconds: 30,
+    maxReferenceImages: 1,
+    maxPromptLength: 1500,
+    // Replicate's published rates, billed per second of output (the clip's own length).
+    pricePerSecondUsd: { "720p": 0.03, "1080p": 0.06 },
+  },
+  {
+    ...KLING_MOTION,
+    id: "Character (Kling 3.0)",
+    tool: "character",
+    modelLabel: "Kling 3.0",
+    description: "Smoothest motion. Works with your photo's background too.",
+    replicateModel: "kwaivgi/kling-v3-motion-control",
+    maxReferenceImages: 1,
+    pricePerSecondUsd: KLING_3_MOTION_PRICE,
+  },
+  {
+    ...KLING_MOTION,
+    id: "Character (Kling 2.6)",
+    tool: "character",
+    modelLabel: "Kling 2.6",
+    description: "Faster and cheaper, slightly less consistent.",
+    replicateModel: "kwaivgi/kling-v2.6-motion-control",
+    maxReferenceImages: 1,
+    // Kling 2.6 Motion Control's published standard/pro per-second rates.
+    pricePerSecondUsd: { "720p": 0.07, "1080p": 0.112 },
+  },
+  {
+    id: "Character (Wan 2.2 Animate)",
+    tool: "character",
+    modelLabel: "Wan 2.2 Animate",
+    description: "Budget open model. Matches the scene's lighting natively.",
+    engine: "wan_animate",
+    // "animation" animates the photo; "replace" swaps the clip's performer
+    // for the character, keeping the clip's own scene and lighting.
+    replicateModel: "wan-video/wan-2.2-animate-animation",
+    matchBackgroundReplicateModel: "wan-video/wan-2.2-animate-replace",
+    resolutions: ["720p", "480p"],
+    resolutionInput: "resolution",
+    resolutionValues: { "720p": "720", "480p": "480" },
+    minSourceDurationSeconds: 3,
+    maxSourceDurationSeconds: 30,
+    maxReferenceImages: 1,
+    maxPromptLength: 1500,
+    // ESTIMATED -- Replicate bills Wan Animate per run (~$0.50 reported);
+    // priced per second here, deliberately on the high side.
+    pricePerSecondUsd: { "720p": 0.1, "480p": 0.05 },
   },
 ];
+
+export function getCloneMode(id: string): CloneModeConfig | undefined {
+  return CLONE_MODES.find((mode) => mode.id === id) ?? CLONE_MODES.find((mode) => mode.legacyIds?.includes(id));
+}
+
+/**
+ * Whether a job first rebuilds the clip's opening frame (Nano Banana Pro)
+ * before animating it: Kling Motion Control always animates a still, so it
+ * needs one for Motion transfer (new people/place) and for Character's
+ * Match background (character placed into the clip's scene). Wan does Match
+ * background natively via its replace variant.
+ */
+export function cloneNeedsFrameStage(mode: CloneModeConfig, matchBackground: boolean): boolean {
+  if (mode.engine !== "kling_motion") return false;
+  return mode.tool === "motion_transfer" || (mode.tool === "character" && matchBackground);
+}
+
+/** UI copy for each tool in the mode menu. Limits come from the model the tool runs on. */
+export interface CloneToolConfig {
+  id: CloneToolId;
+  label: string;
+  description: string;
+  videoTitle: string;
+  imagesTitle: string;
+  /** Fixed subline for single-photo tools; multi-image tools show the model's own cap. */
+  imagesSubtitle?: string;
+  placeholder: string;
+  /** The prompt is the edit instruction itself, not an optional extra. */
+  promptRequired: boolean;
+  /**
+   * The model this tool always runs on -- the Clone tab has no model picker,
+   * so each tool uses the one that tested best end to end. The rest of
+   * CLONE_MODES stays so older history rows still resolve.
+   */
+  mode: string;
+  /** Character only: used when the user picks Photo background, since `mode` only does Match background. */
+  photoBackgroundMode?: string;
+}
+
+export const CLONE_TOOLS: CloneToolConfig[] = [
+  {
+    id: "motion_transfer",
+    label: "Motion transfer",
+    description: "Keeps only the motion. The people and the place are new.",
+    videoTitle: "Add the video to copy",
+    imagesTitle: "Add people, outfits, products or places",
+    placeholder: "Describe the new scene (optional), or type @ to use an image",
+    promptRequired: false,
+    mode: "Motion transfer (Kling 4.0)",
+  },
+  {
+    id: "object_swap",
+    label: "Object swap",
+    description: "Changes only what you name. Everything else stays as filmed.",
+    videoTitle: "Add the video to edit",
+    imagesTitle: "Add what to swap in",
+    placeholder: "Say what to change, or type @ to use an image",
+    promptRequired: true,
+    mode: "Object swap (Kling 4.0)",
+  },
+  {
+    id: "character",
+    label: "Character",
+    description: "Your character performs the video's moves from one photo, with its sound if you like.",
+    videoTitle: "Add the video to copy",
+    imagesTitle: "Add your character",
+    imagesSubtitle: "One clear photo",
+    placeholder: "Describe the scene, clothing or camera movement (optional)",
+    promptRequired: false,
+    mode: "Character (P-Video Replace)",
+    photoBackgroundMode: "Character (Kling 3.0)",
+  },
+];
+
+export function getCloneTool(id: string): CloneToolConfig | undefined {
+  return CLONE_TOOLS.find((tool) => tool.id === id);
+}
+
+/** The model a tool runs on for the given background choice (only Character has one). */
+export function getCloneToolMode(tool: CloneToolConfig, matchBackground: boolean): CloneModeConfig {
+  const id = tool.id === "character" && !matchBackground && tool.photoBackgroundMode ? tool.photoBackgroundMode : tool.mode;
+  const mode = getCloneMode(id);
+  if (!mode) throw new Error(`Clone tool "${tool.id}" points at unknown mode "${id}"`);
+  return mode;
+}
+
+/** Every model the Clone tab can actually submit to -- what upload limits are gated on. */
+export const CLONE_TOOL_MODES: CloneModeConfig[] = CLONE_TOOLS.flatMap((tool) =>
+  [tool.mode, tool.photoBackgroundMode].flatMap((id) => {
+    const mode = id ? getCloneMode(id) : undefined;
+    return mode ? [mode] : [];
+  })
+);
+
+/** The frame pre-pass (see cloneNeedsFrameStage): rebuilds the clip's first frame. */
+export const CLONE_FRAME_MODEL = {
+  replicateModel: "google/nano-banana-pro",
+  /** Requested frame resolution per output resolution. */
+  frameResolutions: { "480p": "1K", "720p": "1K", "1080p": "2K", auto: "1K" } as Record<CloneResolution, string>,
+  /** ESTIMATED, one frame render per job. */
+  priceUsd: 0.15,
+};

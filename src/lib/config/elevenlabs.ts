@@ -1,40 +1,51 @@
-// ElevenLabs text-to-speech, served through Replicate's official ElevenLabs
-// models (https://replicate.com/elevenlabs). Shared by the Voiceover
-// Generator UI and the server routes.
+// ElevenLabs text-to-speech, served through fal.ai's ElevenLabs endpoints
+// (https://fal.ai/explore/elevenlabs). Shared by the Voiceover Generator UI
+// and the server routes.
 //
-// Input schema confirmed live against
-// https://api.replicate.com/v1/models/elevenlabs/{v3,v2-multilingual,turbo-v2.5,flash-v2.5}
-// (2026-11-02) -- identical across all four: prompt, voice (enum of the 26
-// names in VOICES below -- Replicate doesn't accept arbitrary ElevenLabs
-// voice ids), stability 0-1, similarity_boost 0-1, style 0-1, speed 0.7-1.2,
-// language_code, previous_text, next_text. Output is an audio file URI.
+// Moved off Replicate (2026-11-03): Replicate's elevenlabs/* models only
+// accept an enum of 26 voice names, while fal's accept any ElevenLabs voice
+// id -- the default voices below, any public Voice Library voice, or one a
+// user pastes in. Verified live: a library voice id works on all five fal
+// endpoints below, and an unknown id is rejected ("Voice not found: ...")
+// rather than silently swapped for a default voice. Input schemas per
+// https://fal.ai/models/<endpoint>/llms.txt -- they differ per model, hence
+// the capability flags.
 
 export interface ElevenLabsModel {
   id: string;
-  /** Replicate model slug, passed to replicate.run(). */
-  replicateModel: `${string}/${string}`;
+  /** fal endpoint id, POSTed to https://fal.run/<falEndpoint>. */
+  falEndpoint: string;
   name: string;
   description: string;
   /** Max input characters per request (ElevenLabs' own per-model limit). */
   maxChars: number;
-  /** Relative per-character price -- Flash/Turbo are half of Multilingual v2. */
+  /** Price relative to Multilingual v2 ($0.10 / 1k chars on fal). */
   costMultiplier: number;
+  /** Inline audio tags like [excited] or [whispers]. */
+  audioTags: boolean;
+  /** Only three stability values (Creative / Natural / Robust). */
+  discreteStability: boolean;
+  /** False for models that detect the language themselves. */
+  languageSelection: boolean;
+  /** previous_text / next_text, for prosody continuity between segments. */
+  requestStitching: boolean;
+  similarity: boolean;
+  style: boolean;
+  speed: boolean;
 }
 
 export interface ElevenLabsVoice {
-  /** Replicate `voice` enum value, sent verbatim (also the display name). */
+  /** ElevenLabs voice id, sent verbatim as fal's `voice`. */
   voiceId: string;
   name: string;
   gender: "male" | "female" | null;
   accent: string | null;
+  /** "young", "middle aged" or "old" -- ElevenLabs' own label. */
+  age: string | null;
+  /** ElevenLabs' tagline for the voice ("Calm, Clear and Informative"), or "" if it has none. */
   description: string;
-}
-
-export interface VoiceSettings {
-  stability: number;
-  similarityBoost: number;
-  style: number;
-  speed: number;
+  /** Static sample clip -- bundled for default voices, ElevenLabs' CDN for library ones. */
+  previewUrl: string | null;
 }
 
 /**
@@ -51,83 +62,166 @@ export interface TtsSettings {
   voiceName: string;
 }
 
+export interface VoiceSettings {
+  stability: number;
+  similarityBoost: number;
+  style: number;
+  speed: number;
+}
+
 export const ELEVENLABS_MODELS: ElevenLabsModel[] = [
   {
+    id: "eleven_v4",
+    falEndpoint: "elevenlabs/tts/eleven-v4",
+    name: "Eleven v4",
+    description: "ElevenLabs' most expressive model, directed with audio tags like [whispers] or [laughs]. 90+ languages.",
+    maxChars: 5000,
+    costMultiplier: 0.8,
+    audioTags: true,
+    discreteStability: false,
+    languageSelection: true,
+    requestStitching: false,
+    similarity: true,
+    style: false,
+    speed: false,
+  },
+  {
+    id: "eleven_v4_turbo",
+    falEndpoint: "elevenlabs/tts/eleven-v4-turbo",
+    name: "Eleven v4 Turbo",
+    description: "The same v4 voices and audio tags at lower latency and half the price.",
+    maxChars: 5000,
+    costMultiplier: 0.4,
+    audioTags: true,
+    discreteStability: false,
+    languageSelection: true,
+    requestStitching: false,
+    similarity: true,
+    style: false,
+    speed: false,
+  },
+  {
     id: "eleven_v3",
-    replicateModel: "elevenlabs/v3",
+    falEndpoint: "fal-ai/elevenlabs/tts/eleven-v3",
     name: "Eleven v3",
-    description: "Most expressive model, with audio tags like [excited], [whispers] or [sighs]. 70+ languages.",
+    description: "Expressive model with audio tags like [excited], [whispers] or [sighs]. 70+ languages.",
     maxChars: 5000,
     costMultiplier: 1,
+    audioTags: true,
+    discreteStability: true,
+    languageSelection: true,
+    requestStitching: false,
+    similarity: false,
+    style: false,
+    speed: false,
   },
   {
     id: "eleven_multilingual_v2",
-    replicateModel: "elevenlabs/v2-multilingual",
+    falEndpoint: "fal-ai/elevenlabs/tts/multilingual-v2",
     name: "Eleven Multilingual v2",
     description: "Lifelike, consistent quality for long-form narration. 29 languages.",
     maxChars: 10000,
     costMultiplier: 1,
+    audioTags: false,
+    discreteStability: false,
+    languageSelection: false,
+    requestStitching: true,
+    similarity: true,
+    style: true,
+    speed: true,
   },
   {
     id: "eleven_turbo_v2_5",
-    replicateModel: "elevenlabs/turbo-v2.5",
+    falEndpoint: "fal-ai/elevenlabs/tts/turbo-v2.5",
     name: "Eleven Turbo v2.5",
     description: "Fast, high-quality model at half the price. 32 languages.",
     maxChars: 40000,
     costMultiplier: 0.5,
-  },
-  {
-    id: "eleven_flash_v2_5",
-    replicateModel: "elevenlabs/flash-v2.5",
-    name: "Eleven Flash v2.5",
-    description: "Ultra-fast, low-cost model. 32 languages.",
-    maxChars: 40000,
-    costMultiplier: 0.5,
+    audioTags: false,
+    discreteStability: false,
+    languageSelection: true,
+    requestStitching: true,
+    similarity: true,
+    style: true,
+    speed: true,
   },
 ];
 
 export const DEFAULT_MODEL_ID = "eleven_multilingual_v2";
 
+// Models dropped in a provider move, mapped to their closest replacement so
+// rows saved on them still load (and can still add/regenerate segments).
+// fal has no Flash v2.5; Turbo v2.5 is the same price tier.
+const LEGACY_MODEL_IDS: Record<string, string> = {
+  eleven_flash_v2_5: "eleven_turbo_v2_5",
+};
+
 export function getModel(id: string): ElevenLabsModel | undefined {
-  return ELEVENLABS_MODELS.find((m) => m.id === id);
+  return ELEVENLABS_MODELS.find((m) => m.id === (LEGACY_MODEL_IDS[id] ?? id));
 }
 
-// The 26 voices Replicate's ElevenLabs models accept. Gender/accent are
-// ElevenLabs' own labels for these default voices where known; null where
-// we couldn't confirm one rather than guess.
+// ElevenLabs' current default ("premade") voices, from the public
+// GET https://api.elevenlabs.io/v1/voices (2026-11-03). Every other voice --
+// the public Voice Library, or an id pasted in -- is looked up at runtime
+// (see src/lib/server/elevenlabs-voices.ts). Preview clips are ElevenLabs'
+// own samples, bundled by scripts/download-voice-previews.mjs.
+function defaultVoice(
+  voiceId: string,
+  name: string,
+  gender: ElevenLabsVoice["gender"],
+  accent: string,
+  age: string,
+  description: string
+): ElevenLabsVoice {
+  return { voiceId, name, gender, accent, age, description, previewUrl: `/voice-previews/${voiceId}.mp3` };
+}
+
 export const VOICES: ElevenLabsVoice[] = [
-  { voiceId: "Rachel", name: "Rachel", gender: "female", accent: "American", description: "Calm, clear narration" },
-  { voiceId: "Drew", name: "Drew", gender: "male", accent: "American", description: "Well-rounded, steady delivery" },
-  { voiceId: "Clyde", name: "Clyde", gender: "male", accent: "American", description: "Gruff, characterful voice" },
-  { voiceId: "Paul", name: "Paul", gender: "male", accent: "American", description: "Authoritative, news-style reporting" },
-  { voiceId: "Aria", name: "Aria", gender: "female", accent: "American", description: "Expressive, husky warmth" },
-  { voiceId: "Domi", name: "Domi", gender: "female", accent: "American", description: "Strong, confident delivery" },
-  { voiceId: "Dave", name: "Dave", gender: "male", accent: "British", description: "Conversational, casual" },
-  { voiceId: "Roger", name: "Roger", gender: "male", accent: "American", description: "Confident, easy-going" },
-  { voiceId: "Fin", name: "Fin", gender: "male", accent: "Irish", description: "Seasoned, characterful storyteller" },
-  { voiceId: "Sarah", name: "Sarah", gender: "female", accent: "American", description: "Soft, reassuring" },
-  { voiceId: "James", name: "James", gender: "male", accent: "Australian", description: "Calm, measured narration" },
-  { voiceId: "Jane", name: "Jane", gender: "female", accent: "British", description: "Polished audiobook reader" },
-  { voiceId: "Juniper", name: "Juniper", gender: "female", accent: "American", description: "Grounded, natural narration" },
-  { voiceId: "Arabella", name: "Arabella", gender: "female", accent: null, description: "Mysterious, emotive storytelling" },
-  { voiceId: "Hope", name: "Hope", gender: "female", accent: "American", description: "Upbeat, bright and friendly" },
-  { voiceId: "Bradford", name: "Bradford", gender: "male", accent: "British", description: "Expressive adult storyteller" },
-  { voiceId: "Reginald", name: "Reginald", gender: "male", accent: null, description: "Dark, intense character voice" },
-  { voiceId: "Gaming", name: "Gaming", gender: null, accent: null, description: "High-energy gaming and hype content" },
-  { voiceId: "Austin", name: "Austin", gender: "male", accent: "American", description: "Laid-back Southern drawl" },
-  { voiceId: "Kuon", name: "Kuon", gender: "female", accent: null, description: "Cheerful, animated character voice" },
-  { voiceId: "Blondie", name: "Blondie", gender: "female", accent: "British", description: "Warm, conversational" },
-  { voiceId: "Priyanka", name: "Priyanka", gender: "female", accent: "Indian", description: "Warm, clear narration" },
-  { voiceId: "Alexandra", name: "Alexandra", gender: "female", accent: "American", description: "Young, chatty and relatable" },
-  { voiceId: "Monika", name: "Monika", gender: "female", accent: "Indian", description: "Smooth, natural delivery" },
-  { voiceId: "Mark", name: "Mark", gender: "male", accent: "American", description: "Natural, relaxed conversations" },
-  { voiceId: "Grimblewood", name: "Grimblewood", gender: "male", accent: "British", description: "Quirky, whimsical character voice" },
+  defaultVoice("EXAVITQu4vr4xnSDxMaL", "Sarah", "female", "American", "young", "Mature, Reassuring, Confident"),
+  defaultVoice("nPczCjzI2devNBz1zQrb", "Brian", "male", "American", "middle aged", "Deep, Resonant and Comforting"),
+  defaultVoice("JBFqnCBsd6RMkjVDRZzb", "George", "male", "British", "middle aged", "Warm, Captivating Storyteller"),
+  defaultVoice("pNInz6obpgDQGcFmaJgB", "Adam", "male", "American", "middle aged", "Dominant, Firm"),
+  defaultVoice("TX3LPaxmHKxFdv7VOQHJ", "Liam", "male", "American", "young", "Energetic, Social Media Creator"),
+  defaultVoice("FGY2WhTYpPnrIDTdsKH5", "Laura", "female", "American", "young", "Enthusiast, Quirky Attitude"),
+  defaultVoice("CwhRBWXzGAHq8TQ4Fs17", "Roger", "male", "American", "middle aged", "Laid-Back, Casual, Resonant"),
+  defaultVoice("cgSgspJ2msm6clMCkdW9", "Jessica", "female", "American", "young", "Playful, Bright, Warm"),
+  defaultVoice("onwK4e9ZLuTAKqWW03F9", "Daniel", "male", "British", "middle aged", "Steady Broadcaster"),
+  defaultVoice("Xb7hH8MSUJpSbSDYk0k2", "Alice", "female", "British", "middle aged", "Clear, Engaging Educator"),
+  defaultVoice("IKne3meq5aSn9XLyUdCD", "Charlie", "male", "Australian", "young", "Deep, Confident, Energetic"),
+  defaultVoice("XrExE9yKIg1WjnnlVkGX", "Matilda", "female", "American", "middle aged", "Knowledgeable, Professional"),
+  defaultVoice("cjVigY5qzO86Huf0OWal", "Eric", "male", "American", "middle aged", "Smooth, Trustworthy"),
+  defaultVoice("hpp4J3VqNfWAUOO0d1Us", "Bella", "female", "American", "middle aged", "Professional, Bright, Warm"),
+  defaultVoice("iP95p4xoKVk53GoZ742B", "Chris", "male", "American", "middle aged", "Charming, Down-to-Earth"),
+  defaultVoice("pFZP5JQG7iQjIQuC4Bku", "Lily", "female", "British", "middle aged", "Velvety Actress"),
+  defaultVoice("bIHbv24MWmeRgasZH58o", "Will", "male", "American", "young", "Relaxed Optimist"),
+  defaultVoice("SAz9YHcvj6GT2YYXdXww", "River", null, "American", "middle aged", "Relaxed, Neutral, Informative"),
+  defaultVoice("N2lVS1w4EtoT3dr4eOWO", "Callum", "male", "American", "middle aged", "Husky Trickster"),
+  defaultVoice("SOYHLrjzK2X1ezoPC6cr", "Harry", "male", "American", "young", "Fierce Warrior"),
+  defaultVoice("pqHfZKP75CvOlQylNhV4", "Bill", "male", "American", "old", "Wise, Mature, Balanced"),
 ];
 
 export const DEFAULT_VOICE = VOICES[0];
 
 export function getVoice(voiceId: string): ElevenLabsVoice | undefined {
   return VOICES.find((v) => v.voiceId === voiceId);
+}
+
+/** "Sarah - Mature, Reassuring, Confident", the way ElevenLabs names its voices. */
+export function voiceTitle(voice: ElevenLabsVoice): string {
+  return voice.description ? `${voice.name} - ${voice.description}` : voice.name;
+}
+
+/** "female · american · young" -- falls back to "ElevenLabs voice" when nothing is known. */
+export function voiceMeta(voice: ElevenLabsVoice): string {
+  const parts = [voice.gender, voice.accent, voice.age].filter(Boolean) as string[];
+  return parts.length ? parts.join(" · ").toLowerCase() : "ElevenLabs voice";
+}
+
+// ElevenLabs voice ids are 20 alphanumeric characters.
+const VOICE_ID_PATTERN = /^[A-Za-z0-9]{20}$/;
+
+export function isElevenLabsVoiceId(value: string): boolean {
+  return VOICE_ID_PATTERN.test(value);
 }
 
 // The languages ElevenLabs' v2.5 models support (ISO 639-1). v3 supports
@@ -171,7 +265,7 @@ export const LANGUAGES: { code: string; name: string }[] = [
 export const DEFAULT_LANGUAGE_CODE = "en";
 
 export function supportsLanguageSelection(modelId: string): boolean {
-  return modelId !== "eleven_multilingual_v2";
+  return getModel(modelId)?.languageSelection ?? false;
 }
 
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
@@ -184,10 +278,8 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
 export const SPEED_MIN = 0.7;
 export const SPEED_MAX = 1.2;
 
-// Eleven v3 only accepts three stability values (Creative / Natural / Robust)
-// and doesn't support request stitching (previous_text/next_text).
 export function hasDiscreteStability(modelId: string): boolean {
-  return modelId === "eleven_v3";
+  return getModel(modelId)?.discreteStability ?? false;
 }
 export const DISCRETE_STABILITY_OPTIONS = [
   { value: 0, label: "Creative" },
@@ -196,12 +288,11 @@ export const DISCRETE_STABILITY_OPTIONS = [
 ] as const;
 
 export function supportsRequestStitching(modelId: string): boolean {
-  return modelId !== "eleven_v3";
+  return getModel(modelId)?.requestStitching ?? false;
 }
 
-// Inline audio tags like [excited] or [whispers].
 export function supportsAudioTags(modelId: string): boolean {
-  return modelId === "eleven_v3";
+  return getModel(modelId)?.audioTags ?? false;
 }
 
 export function nearestDiscreteStability(value: number): number {
@@ -230,8 +321,9 @@ function clamp(value: unknown, min: number, max: number, fallback: number): numb
  */
 export function parseTtsSettings(raw: unknown): TtsSettings | string {
   const input = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const modelId = typeof input.modelId === "string" ? input.modelId : DEFAULT_MODEL_ID;
-  if (!getModel(modelId)) return "modelId must be a supported ElevenLabs model";
+  const requestedModelId = typeof input.modelId === "string" ? input.modelId : DEFAULT_MODEL_ID;
+  const modelId = getModel(requestedModelId)?.id;
+  if (!modelId) return "modelId must be a supported ElevenLabs model";
 
   let languageCode: string | null = null;
   if (supportsLanguageSelection(modelId)) {

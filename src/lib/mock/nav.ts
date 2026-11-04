@@ -44,6 +44,26 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
+// The admin sidebar's grouping of ADMIN_NAV. Kept as hrefs so a page added to
+// ADMIN_NAV but forgotten here still shows up (under "More").
+const ADMIN_NAV_GROUPS: { label: string | null; hrefs: string[] }[] = [
+  { label: null, hrefs: ["/admin"] },
+  { label: "Customers", hrefs: ["/admin/users", "/admin/credits", "/admin/promo-codes"] },
+  { label: "Revenue", hrefs: ["/admin/revenue", "/admin/plans", "/admin/api-costs"] },
+  { label: "Product", hrefs: ["/admin/usage", "/admin/niche-channels"] },
+  { label: "Operations", hrefs: ["/admin/system", "/admin/settings"] },
+];
+
+export const ADMIN_NAV_SECTIONS: { label: string | null; items: NavItem[] }[] = (() => {
+  const grouped = new Set(ADMIN_NAV_GROUPS.flatMap((g) => g.hrefs));
+  const sections = ADMIN_NAV_GROUPS.map((g) => ({
+    label: g.label,
+    items: g.hrefs.map((href) => ADMIN_NAV.find((item) => item.href === href)).filter((item): item is NavItem => !!item),
+  }));
+  const rest = ADMIN_NAV.filter((item) => !grouped.has(item.href));
+  return rest.length ? [...sections, { label: "More", items: rest }] : sections;
+})();
+
 export const LANDING_NAV_LINKS: { label: string; href: string }[] = [
   { label: "Niche Bending", href: "#niche-bending" },
   { label: "Features", href: "#features" },

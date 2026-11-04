@@ -1,15 +1,14 @@
-import { Coins, TrendingDown, Wallet, Zap } from "lucide-react";
 import { getCreditsOverview, getUsersForCreditsAdmin } from "@/lib/server/admin-queries";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { StatTile } from "@/components/admin/StatTile";
-import { ManageUserCreditsCard } from "@/components/admin/ManageUserCreditsCard";
-import ProgressMetricCard from "@/components/ui/ProgressMetricCard";
-import { RankedBarList } from "@/components/charts/RankedBarList";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Avatar } from "@/components/ui/Avatar";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { formatChartDate } from "@/lib/charts";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { HeroFigure, Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { ManageUserCreditsCard } from "@/components/admin/ManageUserCreditsCard";
+import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
+import { BarList } from "@/components/admin/charts/BarList";
+import { formatStat, sumOf } from "@/components/admin/charts/format";
 import { formatDate, formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,95 +18,93 @@ export default async function AdminCreditsPage() {
   const { totalOutstanding, spentToday, spentLast7Days, spentLast30Days, dailySeries, spendByAction, topSpenders, recentTransactions } =
     overview;
 
-  const avgPerDay = spentLast30Days / dailySeries.length;
+  const granted = dailySeries.map((p) => p.granted);
+  const avgPerDay = spentLast30Days / Math.max(dailySeries.length, 1);
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Credits outstanding" value={formatNumber(totalOutstanding)} icon={Wallet} />
-        <StatTile label="Spent today" value={formatNumber(spentToday)} icon={Zap} />
-        <StatTile label="Spent (7d)" value={formatNumber(spentLast7Days)} icon={Coins} trend={dailySeries.slice(-7).map((p) => p.spent)} />
-        <StatTile label="Spent (30d)" value={formatNumber(spentLast30Days)} icon={TrendingDown} trend={dailySeries.map((p) => p.spent)} />
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Credits" description="Balances, daily spend and manual grants across every account." />
 
-      <ProgressMetricCard
-        title="Credits spent per day"
-        total={formatNumber(spentLast30Days)}
-        deltaLabel="total spent, last 30 days"
-        delta={`${formatNumber(Math.round(avgPerDay))}/day avg`}
-        showStats={false}
-        accent="down"
-        data={dailySeries.map((p) => ({ date: formatChartDate(p.date), value: p.spent }))}
-        size="lg"
-      />
+      <KpiStrip>
+        <Kpi label="Outstanding" value={formatStat(totalOutstanding)} footnote="across all balances" />
+        <Kpi label="Spent today" value={formatStat(spentToday)} />
+        <Kpi label="Spent, 7 days" value={formatStat(spentLast7Days)} trend={dailySeries.slice(-7).map((p) => p.spent)} />
+        <Kpi label="Granted, 30 days" value={formatStat(sumOf(granted))} trend={granted.slice(-14)} />
+      </KpiStrip>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card>
-          <h3 className="text-base">Spend by action</h3>
-          <p className="mb-5 text-sm text-subtle">Last 30 days, most to least expensive</p>
-          {spendByAction.length === 0 ? (
-            <p className="text-sm text-body">No credit spend yet.</p>
-          ) : (
-            <RankedBarList items={spendByAction.map((a) => ({ label: a.label, value: a.amount, tone: a.tone }))} />
-          )}
-        </Card>
+      <Panel title="Credits spent" description="Charged across every credit-metered tool, per day">
+        <HeroFigure value={formatStat(spentLast30Days)} caption={`Spent in the last 30 days · ${formatNumber(Math.round(avgPerDay))} a day on average`} />
+        <TimeSeriesChart
+          dates={dailySeries.map((p) => p.date)}
+          series={[{ label: "Credits spent", values: dailySeries.map((p) => p.spent) }]}
+          ariaLabel="Credits spent per day, last 30 days"
+        />
+      </Panel>
 
-        <Card className="xl:col-span-2">
-          <h3 className="text-base">Top spenders</h3>
-          <p className="mb-5 text-sm text-subtle">Ranked by credits spent, last 30 days</p>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel title="Spend by action" description="Last 30 days, most to least credits">
+          <BarList items={spendByAction.map((a) => ({ label: a.label, value: a.amount }))} emptyLabel="No credit spend yet" />
+        </Panel>
+
+        <Panel className="xl:col-span-2" title="Top spenders" description="Ranked by credits spent, last 30 days" flush>
           {topSpenders.length === 0 ? (
-            <EmptyState icon={Coins} title="No spend yet" description="Top spenders will appear once users start using credit-metered tools." />
+            <p className="border-t border-hairline px-5 py-12 text-center text-[13px] text-subtle">
+              Top spenders appear once people start using credit-metered tools.
+            </p>
           ) : (
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeaderCell>User</TableHeaderCell>
+                  <TableHeaderCell className="pl-5">User</TableHeaderCell>
                   <TableHeaderCell>Plan</TableHeaderCell>
                   <TableHeaderCell className="text-right">Spent (30d)</TableHeaderCell>
-                  <TableHeaderCell className="text-right">Balance</TableHeaderCell>
+                  <TableHeaderCell className="pr-5 text-right">Balance</TableHeaderCell>
                 </TableRow>
               </TableHead>
               <tbody>
                 {topSpenders.map((u) => (
                   <TableRow key={u.id}>
-                    <TableCell>
+                    <TableCell className="pl-5">
                       <div className="flex items-center gap-2.5">
                         <Avatar name={u.name} size="sm" />
-                        <span className="truncate font-medium text-heading">{u.name}</span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-heading">{u.name}</p>
+                          <p className="truncate text-xs text-subtle">{u.email}</p>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="capitalize text-body">{u.plan}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(u.spent30d)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatNumber(u.balance)}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">{formatNumber(u.spent30d)}</TableCell>
+                    <TableCell className="pr-5 text-right tabular-nums text-body">{formatNumber(u.balance)}</TableCell>
                   </TableRow>
                 ))}
               </tbody>
             </Table>
           )}
-        </Card>
+        </Panel>
       </div>
 
       <ManageUserCreditsCard initialUsers={users} />
 
-      <Card>
-        <h3 className="text-base">Recent transactions</h3>
-        <p className="mb-5 text-sm text-subtle">Latest 50 ledger entries across all users</p>
+      <Panel title="Ledger" description="Latest 50 entries across all users" flush>
         {recentTransactions.length === 0 ? (
-          <EmptyState icon={Coins} title="No transactions yet" description="Credit charges, refunds, and manual adjustments will show up here." />
+          <p className="border-t border-hairline px-5 py-12 text-center text-[13px] text-subtle">
+            Credit charges, refunds and manual adjustments will show up here.
+          </p>
         ) : (
           <Table>
             <TableHead>
               <TableRow>
-                <TableHeaderCell>User</TableHeaderCell>
+                <TableHeaderCell className="pl-5">User</TableHeaderCell>
                 <TableHeaderCell>Action</TableHeaderCell>
                 <TableHeaderCell className="text-right">Amount</TableHeaderCell>
-                <TableHeaderCell>When</TableHeaderCell>
+                <TableHeaderCell className="pr-5 text-right">When</TableHeaderCell>
               </TableRow>
             </TableHead>
             <tbody>
               {recentTransactions.map((tx) => (
                 <TableRow key={tx.id}>
-                  <TableCell>
+                  <TableCell className="pl-5">
                     <div className="flex items-center gap-2.5">
                       <Avatar name={tx.userName} size="sm" />
                       <span className="truncate font-medium text-heading">{tx.userName}</span>
@@ -123,13 +120,13 @@ export default async function AdminCreditsPage() {
                       {formatNumber(Math.abs(tx.amount))}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-body">{formatDate(tx.createdAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap pr-5 text-right text-body">{formatDate(tx.createdAt)}</TableCell>
                 </TableRow>
               ))}
             </tbody>
           </Table>
         )}
-      </Card>
+      </Panel>
     </div>
   );
 }

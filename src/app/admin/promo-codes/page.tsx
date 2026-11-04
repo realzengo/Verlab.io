@@ -7,7 +7,7 @@ export default async function AdminPromoCodesPage() {
   const codes = await getPromoCodes();
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
+    <div className="flex flex-col gap-6">
       <PromoCodesManager initialCodes={codes} />
     </div>
   );

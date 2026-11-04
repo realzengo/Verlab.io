@@ -51,7 +51,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { durationSeconds?: number };
+  let body: { durationSeconds?: number; mode?: string; normalized?: boolean; width?: number; height?: number };
   try {
     body = await request.json();
   } catch {
@@ -59,6 +59,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { durationSeconds } = body;
+  // Which tab the upload belongs to -- the Clone tab's sources are stored
+  // under mode "motion" so they stay out of the Edit tab's gallery.
+  const mode = body.mode ?? "edit";
+  if (mode !== "edit" && mode !== "motion") {
+    return NextResponse.json({ error: "mode must be edit or motion" }, { status: 400 });
+  }
   if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > MAX_DURATION_SECONDS) {
     return NextResponse.json({ error: `durationSeconds must be a number between 0 and ${MAX_DURATION_SECONDS}` }, { status: 400 });
   }
@@ -67,13 +73,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     .from("video_generations")
     .insert({
       user_id: user.id,
-      mode: "edit",
+      mode,
       operation: "uploaded",
       model: "Uploaded video",
       // No replicate_model/replicate_prediction_id -- this row is never
       // submitted to Replicate, it's just a client-direct-upload record.
       prompt: null,
-      params: { durationSeconds },
+      // `normalized` marks a clip the browser re-encoded into the
+      // provider-safe shape (see src/lib/client/video-normalize.ts) -- the
+      // Clone route refuses older raw uploads rather than letting a paid job
+      // fail on the model's own format checks. Client-reported, so it's a
+      // UX gate, not a security boundary (nothing is billed on failure).
+      params: {
+        durationSeconds,
+        ...(body.normalized === true ? { normalized: true } : {}),
+        ...(Number.isInteger(body.width) && Number.isInteger(body.height) ? { width: body.width, height: body.height } : {}),
+      },
       credits_quoted: 0,
       status: "queued",
     })

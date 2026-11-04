@@ -4,7 +4,7 @@
 // invoices available) -- each entry's derivation is commented so the numbers
 // stay auditable and easy to correct as real invoices come in.
 
-import { getVideoModel, getEditVideoModel } from "./video-models";
+import { getVideoModel, getEditVideoModel, getCloneMode, cloneNeedsFrameStage, CLONE_FRAME_MODEL, type CloneResolution } from "./video-models";
 
 // 1 credit = $0.015 (the $15 / 1000-credit Creator plan rate).
 export const CREDIT_VALUE_USD = 0.015;
@@ -147,10 +147,6 @@ export const TOOL_CREDIT_COSTS = {
     // "Extend" reuses a Create-tab i2v model rather than a dedicated fal
     // app (see video-models.ts) -- priced the same way Create itself is
     // (getVideoGenerationCost below), so no flat entry here.
-  },
-  // Video Generator's Motion tab -- same estimation caveat as videoEdit.
-  videoMotion: {
-    transfer: creditsForCost(0.2),
   },
 } as const;
 
@@ -323,10 +319,32 @@ export function getVideoPromptEditCost(input: { model: string; sourceDurationSec
   return perVideoCredits * outputs;
 }
 
+// ── Video generation (Clone tab) ────────────────────────────────────────
+// Every Clone model bills per second of output, which always runs the full
+// source clip (see CLONE_MODES), plus one frame render whenever the job
+// starts with a frame pre-pass (see cloneNeedsFrameStage). Seconds round up
+// -- a 7.2s clip bills as 8s -- so the estimate never undershoots.
+export function getVideoCloneCost(input: {
+  mode: string;
+  sourceDurationSeconds: number;
+  resolution: CloneResolution;
+  matchBackground?: boolean;
+}): number {
+  const config = getCloneMode(input.mode);
+  const perSecond = config?.pricePerSecondUsd[input.resolution];
+  if (!config || perSecond === undefined) {
+    throw new Error(`No pricing configured for clone mode "${input.mode}" at ${input.resolution}`);
+  }
+
+  const seconds = Math.ceil(input.sourceDurationSeconds);
+  const frameUsd = cloneNeedsFrameStage(config, input.matchBackground === true) ? CLONE_FRAME_MODEL.priceUsd : 0;
+  return creditsForCost(frameUsd + perSecond * seconds);
+}
+
 // ── Voiceover generation ────────────────────────────────────────────────
-// ElevenLabs bills per character, scaled by each model's
-// `character_cost_multiplier` (Flash models are 0.5x -- see /v1/models).
-// ESTIMATED base rate at ElevenLabs' paid-plan per-1k-character pricing,
+// Billed per character, scaled by each model's `costMultiplier` (its fal
+// price relative to Multilingual v2's $0.10 / 1k chars -- see
+// src/lib/config/elevenlabs.ts). ESTIMATED base rate,
 // same discipline as the rest of this file -- correct against a real
 // invoice once live. Charged per segment (each is its own TTS call).
 const VOICEOVER_COST_PER_1K_CHARS_USD = 0.18;

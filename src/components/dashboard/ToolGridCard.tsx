@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,8 @@ interface ToolGridCardProps {
   tone: ToolTone;
   cta?: string;
   badge?: string;
+  /** Coded illustration for the preview slot (see ToolArt.tsx) -- fills the 16:9 slot and takes priority over `video` and `thumbnail`. */
+  art?: ReactNode;
   /** Drop a screenshot/mockup into /public/tools and pass its path here -- falls back to a tinted icon tile until then. Ignored when `video` is set. */
   thumbnail?: string;
   /** Dark-mode variant of `thumbnail`, swapped in via the `.dark` class. Falls back to `thumbnail` when omitted. */
@@ -57,6 +60,7 @@ export function ToolGridCard({
   tone,
   cta = "Try Now",
   badge,
+  art,
   thumbnail,
   thumbnailDark,
   video,
@@ -79,7 +83,9 @@ export function ToolGridCard({
     >
       <div className="flex flex-1 flex-col p-2.5">
         <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-card-sm">
-          {video ? (
+          {art ? (
+            art
+          ) : video ? (
             <ProtectedVideo
               src={video}
               srcDark={videoDark}

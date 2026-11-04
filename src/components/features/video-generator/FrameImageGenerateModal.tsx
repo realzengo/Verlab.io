@@ -74,7 +74,7 @@ function mergeHistoryRow(prev: GenerationHistoryItem[] | null, row: GenerationHi
 
 interface FrameImageGenerateModalProps {
   /** Human label for the frame being filled, used in the empty-state copy. */
-  frameLabel: "first frame" | "last frame" | "reference image";
+  frameLabel: "first frame" | "last frame" | "reference image" | "character";
   defaultAspectRatio: string;
   onClose: () => void;
   onSelect: (dataUrl: string) => void;

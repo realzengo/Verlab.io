@@ -3,7 +3,7 @@ import type { VoiceoverSegment } from "../../../route";
 import { getModel, readStoredTtsSettings } from "@/lib/config/elevenlabs";
 import { getVoiceoverSegmentCost } from "@/lib/config/pricing";
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
-import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
+import { estimateDurationSeconds } from "@/lib/server/fal-elevenlabs-tts";
 import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";

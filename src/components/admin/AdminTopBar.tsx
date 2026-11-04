@@ -1,43 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
-import { ADMIN_NAV } from "@/lib/mock-data";
+import { ChevronRight, Menu } from "lucide-react";
+import { ADMIN_NAV, ADMIN_NAV_SECTIONS } from "@/lib/mock/nav";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
-function heading(pathname: string): string {
-  if (pathname === "/admin") return "Overview";
-  const match = ADMIN_NAV.find((item) => item.href !== "/admin" && pathname.startsWith(item.href));
-  return match?.label ?? "Admin";
+function crumbs(pathname: string): { section: string | null; page: string } {
+  if (pathname === "/admin") return { section: null, page: "Overview" };
+  const item = ADMIN_NAV.find((nav) => nav.href !== "/admin" && pathname.startsWith(nav.href));
+  const section = ADMIN_NAV_SECTIONS.find((s) => s.items.some((i) => i.href === item?.href));
+  return { section: section?.label ?? null, page: item?.label ?? "Admin" };
 }
 
 export function AdminTopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const pathname = usePathname();
+  const { section, page } = crumbs(pathname);
 
   return (
-    <div className="flex items-center justify-between gap-4 px-6 py-6 sm:px-8">
-      <div className="flex min-w-0 items-center gap-3">
+    // Location only: the page's own header carries its title and actions.
+    <div className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-hairline bg-app/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="shrink-0 rounded-md p-1.5 text-body transition-colors hover:bg-black/[0.05] hover:text-heading md:hidden dark:hover:bg-white/[0.06]"
+          className="-ml-1 shrink-0 rounded-md p-1.5 text-body transition-colors hover:bg-(--admin-fill) hover:text-heading md:hidden"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4 w-4" />
         </button>
-        {/* heading-2: the weight-700 headline against calm 400 body copy is the
-            system's primary expressive lever. Tracking is set in globals.css. */}
-        <h1 className="truncate">{heading(pathname)}</h1>
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+          <Link href="/admin" className="shrink-0 text-subtle transition-colors hover:text-heading">
+            Admin
+          </Link>
+          {section && (
+            <>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-subtle/70" aria-hidden="true" />
+              <span className="hidden shrink-0 text-subtle sm:inline">{section}</span>
+              <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-subtle/70 sm:inline" aria-hidden="true" />
+            </>
+          )}
+          {!section && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-subtle/70" aria-hidden="true" />}
+          <span aria-current="page" className="truncate font-medium text-heading">
+            {page}
+          </span>
+        </nav>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
-        {/* badge-pill: white surface, eyebrow type, fully pill. */}
-        <span className="hidden items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1 text-xs font-semibold tracking-[0.125px] text-subtle sm:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          All systems operational
-        </span>
-        <ThemeToggle />
-      </div>
+      <ThemeToggle />
     </div>
   );
 }

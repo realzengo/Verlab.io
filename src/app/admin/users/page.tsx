@@ -1,80 +1,110 @@
-import { Radio, ShieldAlert, UserCheck, UserPlus, Users as UsersIcon } from "lucide-react";
 import { getAdminUsers } from "@/lib/server/admin-queries";
-import { Card } from "@/components/ui/Card";
+import type { AdminUser, AdminUserStatus } from "@/lib/types";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip, signed } from "@/components/admin/KpiStrip";
 import { UsersTable } from "@/components/admin/UsersTable";
+import { ColumnChart } from "@/components/admin/charts/ColumnChart";
+import { ShareBar } from "@/components/admin/charts/ShareBar";
+import { formatStat, sumOf } from "@/components/admin/charts/format";
 import { formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Free sits below the paid tiers on the same ordinal ramp, as its quietest step.
+const PLAN_SEGMENTS: { plan: AdminUser["plan"]; label: string; color: string }[] = [
+  { plan: "free", label: "Free", color: "var(--viz-neutral)" },
+  { plan: "core", label: "Core", color: "var(--viz-tier-1)" },
+  { plan: "pro", label: "Pro", color: "var(--viz-tier-2)" },
+  { plan: "scale", label: "Scale", color: "var(--viz-tier-3)" },
+];
+
+// Status color only where the state is good or bad; neutral states stay gray.
+const STATUS_SEGMENTS: { status: AdminUserStatus; label: string; color: string }[] = [
+  { status: "active", label: "Active", color: "var(--viz-good)" },
+  { status: "trialing", label: "Trialing", color: "var(--viz-1)" },
+  { status: "free", label: "Free", color: "var(--viz-neutral)" },
+  { status: "past_due", label: "Past due", color: "var(--viz-warning)" },
+  { status: "canceled", label: "Canceled", color: "var(--viz-serious)" },
+  { status: "suspended", label: "Suspended", color: "var(--viz-critical)" },
+];
+
+function last30Days(nowIso: string): string[] {
+  const today = new Date(nowIso);
+  return Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - (29 - i));
+    return d.toISOString().slice(0, 10);
+  });
+}
+
 export default async function AdminUsersPage() {
-  const { users: ADMIN_USERS, nowIso: NOW_ISO, activeNowCount: ACTIVE_NOW_COUNT } = await getAdminUsers();
-  const TOTAL_USERS_COUNT = ADMIN_USERS.length;
-  // mrr > 0 (not status === "active") -- "active" also covers free-tier
-  // accounts with no subscription at all, which aren't paying anything.
-  const PAYING_USERS_COUNT = ADMIN_USERS.filter((u) => u.mrr > 0).length;
-  const ACTIVE_TRIALS_COUNT = ADMIN_USERS.filter((u) => u.status === "trialing").length;
-  const suspended = ADMIN_USERS.filter((u) => u.status === "suspended").length;
+  const { users, nowIso, activeNowCount } = await getAdminUsers();
+  const total = users.length;
+  // mrr > 0, not status === "active" -- "active" also covers free accounts
+  // with no subscription at all, which aren't paying anything.
+  const paying = users.filter((u) => u.mrr > 0).length;
+  const trialing = users.filter((u) => u.status === "trialing").length;
+
+  const days = last30Days(nowIso);
+  const signupsByDay = new Map(days.map((d) => [d, 0]));
+  for (const u of users) if (signupsByDay.has(u.signupDate)) signupsByDay.set(u.signupDate, signupsByDay.get(u.signupDate)! + 1);
+  const signups = days.map((d) => signupsByDay.get(d) ?? 0);
+  const signups30d = sumOf(signups);
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-blue rounded-lg">
-            <UsersIcon className="h-[18px] w-[18px]" />
-          </span>
-          <div>
-            <p className="text-sm text-subtle">Total users</p>
-            <p className="text-lg font-semibold text-heading">{formatNumber(TOTAL_USERS_COUNT)}</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3" title="Signed in or ran a tool in the last 5 minutes">
-          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-green rounded-lg">
-            <Radio className="h-[18px] w-[18px]" />
-            <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Users" description="Every account, its plan and how much it uses the product." />
+
+      <KpiStrip>
+        <Kpi
+          label="Total accounts"
+          value={formatStat(total)}
+          delta={{ value: signed(signups30d), direction: signups30d > 0 ? "up" : "flat", sentiment: signups30d > 0 ? "positive" : "neutral", label: "last 30 days" }}
+        />
+        <Kpi
+          label="Active now"
+          value={formatStat(activeNowCount)}
+          footnote="in the last 5 minutes"
+          indicator={
+            <span className="relative flex h-1.5 w-1.5" title="Signed in or ran a tool in the last 5 minutes">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-(--viz-good) opacity-60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-(--viz-good)" />
             </span>
-          </span>
-          <div>
-            <p className="text-sm text-subtle">Active now</p>
-            <p className="text-lg font-semibold text-heading">{formatNumber(ACTIVE_NOW_COUNT)}</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-teal rounded-lg">
-            <UserCheck className="h-[18px] w-[18px]" />
-          </span>
-          <div>
-            <p className="text-sm text-subtle">Paying accounts</p>
-            <p className="text-lg font-semibold text-heading">{formatNumber(PAYING_USERS_COUNT)}</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center admin-sticker admin-sticker-orange rounded-lg">
-            <UserPlus className="h-[18px] w-[18px]" />
-          </span>
-          <div>
-            <p className="text-sm text-subtle">Active trials</p>
-            <p className="text-lg font-semibold text-heading">{formatNumber(ACTIVE_TRIALS_COUNT)}</p>
-          </div>
-        </Card>
+          }
+        />
+        <Kpi
+          label="Paying accounts"
+          value={formatStat(paying)}
+          footnote={total > 0 ? `${Math.round((paying / total) * 100)}% of all accounts` : undefined}
+        />
+        <Kpi label="Active trials" value={formatStat(trialing)} />
+      </KpiStrip>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel className="xl:col-span-2" title="Signups" description={`${formatNumber(signups30d)} new accounts, last 30 days`}>
+          <ColumnChart dates={days} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" />
+        </Panel>
+
+        <div className="flex flex-col gap-6">
+          <Panel title="By plan">
+            <ShareBar
+              segments={PLAN_SEGMENTS.map((s) => ({ label: s.label, value: users.filter((u) => u.plan === s.plan).length, color: s.color }))}
+            />
+          </Panel>
+          <Panel title="By status">
+            <ShareBar
+              segments={STATUS_SEGMENTS.map((s) => ({
+                label: s.label,
+                value: users.filter((u) => u.status === s.status).length,
+                color: s.color,
+              })).filter((s) => s.value > 0)}
+            />
+          </Panel>
+        </div>
       </div>
 
-      <Card>
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h3 className="text-base">All users</h3>
-            <p className="text-sm text-subtle">Search, filter, and manage individual accounts</p>
-          </div>
-          {suspended > 0 && (
-            <span className="flex items-center gap-1.5 rounded-full bg-danger-tint px-3 py-1 text-xs font-medium text-danger">
-              <ShieldAlert className="h-3.5 w-3.5" />
-              {suspended} suspended
-            </span>
-          )}
-        </div>
-        <UsersTable users={ADMIN_USERS} nowIso={NOW_ISO} />
-      </Card>
+      <UsersTable users={users} nowIso={nowIso} />
     </div>
   );
 }

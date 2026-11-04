@@ -6,9 +6,9 @@ import { recordUsageEvent } from "@/lib/server/usage";
 import { TOOL_CREDIT_COSTS, getImageGenerationCost, getVoiceoverSegmentCost, slugifyModelName } from "@/lib/config/pricing";
 import { generateScriptText, buildSystemPrompt } from "@/lib/server/script-generation";
 import { generateImages, IMAGE_MODEL_MAP, resolveQualityModel } from "@/lib/server/cloudflare-image";
-import { estimateDurationSeconds } from "@/lib/server/replicate-elevenlabs-tts";
+import { estimateDurationSeconds } from "@/lib/server/fal-elevenlabs-tts";
 import { generateSpeechForVoice } from "@/lib/server/voice-resolution";
-import { DEFAULT_MODEL_ID, DEFAULT_VOICE, ELEVENLABS_MODELS, VOICES, getModel, parseTtsSettings, serializeTtsSettings } from "@/lib/config/elevenlabs";
+import { DEFAULT_MODEL_ID, DEFAULT_VOICE, ELEVENLABS_MODELS, VOICES, getModel, isElevenLabsVoiceId, parseTtsSettings, serializeTtsSettings } from "@/lib/config/elevenlabs";
 import {
   fetchTranscript,
   fetchDownloadLink,
@@ -951,16 +951,20 @@ const generateVoiceoverTool: McpToolDefinition = {
   title: "Generate a voiceover",
   description:
     "Generates an AI voiceover audio file from a script using Verlab's text-to-speech engine and returns a " +
-    "playable/downloadable audio URL, powered by ElevenLabs. Pick one of the preset voices and models, plus " +
+    "playable/downloadable audio URL, powered by ElevenLabs. Pick one of the default voices (by name) or any " +
+    "ElevenLabs Voice Library voice (by its 20-character voice ID), a model, plus " +
     "optional voice settings (stability, similarity, style, speed). Use this whenever the user " +
     "wants an actual spoken voiceover/narration generated, as opposed to generate_script which only writes text. " +
     "Charges credits (see get_credit_balance).",
   inputSchema: {
     script: z.string().describe(`The text to speak, up to ${MAX_VOICEOVER_SCRIPT_CHARS} characters.`),
     voiceId: z
-      .enum(VOICES.map((v) => v.voiceId) as [string, ...string[]])
+      .string()
       .optional()
-      .describe(`Which ElevenLabs voice to use. Defaults to ${DEFAULT_VOICE.voiceId}.`),
+      .describe(
+        `Which ElevenLabs voice to use: a default voice name (${VOICES.map((v) => v.name).join(", ")}) ` +
+          `or any ElevenLabs voice ID from the Voice Library. Defaults to ${DEFAULT_VOICE.name}.`
+      ),
     modelId: z
       .enum(ELEVENLABS_MODELS.map((m) => m.id) as [string, ...string[]])
       .optional()
@@ -982,13 +986,20 @@ const generateVoiceoverTool: McpToolDefinition = {
       return errorResult(`script must be ${MAX_VOICEOVER_SCRIPT_CHARS} characters or fewer`);
     }
 
-    const voiceId = VOICES.find((v) => v.voiceId === args.voiceId)?.voiceId ?? DEFAULT_VOICE.voiceId;
+    const requestedVoice = typeof args.voiceId === "string" ? args.voiceId.trim() : "";
+    const preset = requestedVoice
+      ? VOICES.find((v) => v.voiceId === requestedVoice || v.name.toLowerCase() === requestedVoice.toLowerCase())
+      : DEFAULT_VOICE;
+    if (!preset && !isElevenLabsVoiceId(requestedVoice)) {
+      return errorResult(`voiceId must be a default voice name (${VOICES.map((v) => v.name).join(", ")}) or a 20-character ElevenLabs voice ID`);
+    }
+    const voiceId = preset?.voiceId ?? requestedVoice;
     const settings = parseTtsSettings(
       {
         modelId: typeof args.modelId === "string" ? args.modelId : DEFAULT_MODEL_ID,
         languageCode: args.languageCode,
         voiceSettings: { stability: args.stability, similarityBoost: args.similarityBoost, style: args.style, speed: args.speed },
-        voiceName: voiceId,
+        voiceName: preset?.name ?? voiceId,
       }
     );
     if (typeof settings === "string") return errorResult(settings);

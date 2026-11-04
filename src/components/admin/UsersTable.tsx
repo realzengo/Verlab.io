@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUpDown, Mail, Search, ShieldCheck, ShieldOff, Users as UsersIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Mail, Search, ShieldAlert, ShieldCheck, ShieldOff } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@/lib/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDate, formatNumber, cn } from "@/lib/utils";
+import { Panel } from "@/components/admin/Panel";
+import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<AdminUserStatus, "success" | "warning" | "danger" | "default"> = {
   active: "success",
@@ -79,17 +79,48 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
     }));
   }
 
+  const suspendedCount = rows.filter((u) => u.status === "suspended").length;
+  const fieldClass =
+    "h-8 border border-hairline bg-surface text-[13px] text-heading outline-none placeholder:text-subtle focus:border-primary";
+
+  const sortButton = (k: SortKey, label: string) => {
+    const Icon = sortKey !== k ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(k)}
+        className={cn("inline-flex items-center gap-1 hover:text-heading", sortKey === k && "text-heading")}
+      >
+        {label}
+        <Icon className={cn("h-3 w-3", sortKey !== k && "opacity-50")} aria-hidden="true" />
+      </button>
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <Panel
+      title="All users"
+      description={`Showing ${filtered.length} of ${users.length} accounts`}
+      action={
+        suspendedCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-tint px-2.5 py-1 text-xs font-medium text-danger">
+            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+            {suspendedCount} suspended
+          </span>
+        )
+      }
+      flush
+    >
+      <div className="flex flex-col gap-2 px-5 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name or email"
-            className="w-full rounded-full border border-hairline bg-surface py-2 pl-9 pr-3.5 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary"
+            aria-label="Search users"
+            className={cn(fieldClass, "w-full pl-8 pr-3")}
           />
         </div>
 
@@ -97,7 +128,8 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
           <select
             value={planFilter}
             onChange={(e) => setPlanFilter(e.target.value as typeof planFilter)}
-            className="rounded-full border border-hairline bg-surface px-3.5 py-2 text-sm text-heading outline-none focus:border-primary"
+            aria-label="Filter by plan"
+            className={cn(fieldClass, "px-2.5")}
           >
             <option value="all">All plans</option>
             <option value="free">Free</option>
@@ -108,7 +140,8 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="rounded-full border border-hairline bg-surface px-3.5 py-2 text-sm text-heading outline-none focus:border-primary"
+            aria-label="Filter by status"
+            className={cn(fieldClass, "px-2.5")}
           >
             <option value="all">All statuses</option>
             <option value="free">Free</option>
@@ -121,46 +154,38 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
         </div>
       </div>
 
-      <p className="text-sm text-subtle">
-        Showing {filtered.length} of {users.length} recent users
-      </p>
-
       {filtered.length === 0 ? (
-        <EmptyState icon={UsersIcon} title="No users match" description="Try a different search term or clear the filters." />
+        <p className="border-t border-hairline px-5 py-12 text-center text-[13px] text-subtle">
+          No users match. Try a different search or clear the filters.
+        </p>
       ) : (
         <Table>
           <TableHead>
             <TableRow>
-              <TableHeaderCell>
-                <button type="button" onClick={() => toggleSort("name")} className="flex items-center gap-1 hover:text-heading">
-                  User <ArrowUpDown className="h-3 w-3" />
-                </button>
+              <TableHeaderCell className="pl-5">
+                {sortButton("name", "User")}
               </TableHeaderCell>
               <TableHeaderCell>Plan</TableHeaderCell>
               <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>
-                <button type="button" onClick={() => toggleSort("mrr")} className="flex items-center gap-1 hover:text-heading">
-                  MRR <ArrowUpDown className="h-3 w-3" />
-                </button>
+              <TableHeaderCell className="text-right">
+                {sortButton("mrr", "MRR")}
               </TableHeaderCell>
-              <TableHeaderCell>Usage (bends / transcripts)</TableHeaderCell>
+              <TableHeaderCell className="text-right">Bends / transcripts</TableHeaderCell>
               <TableHeaderCell>
-                <button type="button" onClick={() => toggleSort("signupDate")} className="flex items-center gap-1 hover:text-heading">
-                  Signed up <ArrowUpDown className="h-3 w-3" />
-                </button>
+                {sortButton("signupDate", "Signed up")}
               </TableHeaderCell>
               <TableHeaderCell>
-                <button type="button" onClick={() => toggleSort("lastActiveAt")} className="flex items-center gap-1 hover:text-heading">
-                  Last active <ArrowUpDown className="h-3 w-3" />
-                </button>
+                {sortButton("lastActiveAt", "Last active")}
               </TableHeaderCell>
-              <TableHeaderCell className="text-right">Actions</TableHeaderCell>
+              <TableHeaderCell className="pr-5 text-right">
+                <span className="sr-only">Actions</span>
+              </TableHeaderCell>
             </TableRow>
           </TableHead>
           <tbody>
             {filtered.map((user) => (
               <TableRow key={user.id}>
-                <TableCell>
+                <TableCell className="pl-5">
                   <div className="flex items-center gap-2.5">
                     <Avatar name={user.name} size="sm" />
                     <div className="min-w-0">
@@ -169,22 +194,24 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="capitalize">{user.plan}</TableCell>
+                <TableCell className="capitalize text-body">{user.plan}</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[user.status]}>{STATUS_LABEL[user.status]}</Badge>
                 </TableCell>
-                <TableCell className="tabular-nums">${user.mrr}</TableCell>
-                <TableCell className="tabular-nums text-body">
+                <TableCell className={cn("text-right tabular-nums", user.mrr > 0 ? "font-medium text-heading" : "text-subtle")}>
+                  {formatCurrency(user.mrr)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-body">
                   {formatNumber(user.usage.bends)} / {formatNumber(user.usage.transcripts)}
                 </TableCell>
-                <TableCell className="text-body">{formatDate(user.signupDate)}</TableCell>
-                <TableCell className="text-body">{timeAgoFromNow(user.lastActiveAt, nowIso)}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap text-body">{formatDate(user.signupDate)}</TableCell>
+                <TableCell className="whitespace-nowrap text-body">{timeAgoFromNow(user.lastActiveAt, nowIso)}</TableCell>
+                <TableCell className="pr-5">
                   <div className="flex items-center justify-end gap-1">
                     <a
                       href={`mailto:${user.email}`}
                       aria-label={`Email ${user.name}`}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-body hover:bg-app hover:text-heading"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-subtle hover:bg-(--admin-fill-strong) hover:text-heading"
                     >
                       <Mail className="h-4 w-4" />
                     </a>
@@ -193,8 +220,8 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
                       onClick={() => toggleSuspend(user)}
                       aria-label={user.status === "suspended" ? `Reactivate ${user.name}` : `Suspend ${user.name}`}
                       className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-lg hover:bg-app",
-                        user.status === "suspended" ? "text-success hover:text-success" : "text-body hover:text-danger"
+                        "flex h-7 w-7 items-center justify-center rounded-md hover:bg-(--admin-fill-strong)",
+                        user.status === "suspended" ? "text-success hover:text-success" : "text-subtle hover:text-danger"
                       )}
                     >
                       {user.status === "suspended" ? <ShieldCheck className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
@@ -206,6 +233,6 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
           </tbody>
         </Table>
       )}
-    </div>
+    </Panel>
   );
 }

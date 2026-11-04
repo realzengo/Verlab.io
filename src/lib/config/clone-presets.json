@@ -1,0 +1,50 @@
+[
+  {
+    "id": "maya",
+    "name": "Maya",
+    "tagline": "Streetwear creator",
+    "prompt": "Full-body photo of a fictional young woman in her twenties with curly dark hair, wearing an oversized cream hoodie, olive cargo pants and white sneakers, standing straight facing the camera with arms relaxed at her sides, neutral friendly expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+  },
+  {
+    "id": "leo",
+    "name": "Leo",
+    "tagline": "Sharp-suited host",
+    "prompt": "Full-body photo of a fictional man in his thirties with short black hair and a trimmed beard, wearing a tailored navy suit, white shirt and brown leather shoes, standing straight facing the camera with arms relaxed at his sides, confident expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+  },
+  {
+    "id": "zara",
+    "name": "Zara",
+    "tagline": "Fitness coach",
+    "prompt": "Full-body photo of a fictional athletic woman in her late twenties with a high ponytail, wearing a black sports bra, high-waisted teal leggings and running shoes, standing straight facing the camera with arms relaxed at her sides, energetic smile, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+  },
+  {
+    "id": "walter",
+    "name": "Walter",
+    "tagline": "Cozy grandpa",
+    "prompt": "Full-body photo of a fictional cheerful man in his seventies with white hair and round glasses, wearing a brown knit cardigan over a checked shirt, beige chinos and loafers, standing straight facing the camera with arms relaxed at his sides, warm smile, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+  },
+  {
+    "id": "marco",
+    "name": "Marco",
+    "tagline": "Restaurant chef",
+    "prompt": "Full-body photo of a fictional chef in his forties with a dark mustache, wearing a white double-breasted chef jacket, black apron, black trousers and a tall white chef hat, standing straight facing the camera with arms relaxed at his sides, friendly expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+  },
+  {
+    "id": "nova",
+    "name": "Nova",
+    "tagline": "Astronaut",
+    "prompt": "Full-body photo of a fictional astronaut in a clean white and orange spacesuit with the helmet visor raised showing a young woman's face, standing straight facing the camera with arms relaxed at her sides, plain light grey studio background, soft even lighting, sharp focus, photorealistic, no logos or text"
+  },
+  {
+    "id": "pip",
+    "name": "Pip",
+    "tagline": "3D cartoon kid",
+    "prompt": "Full-body 3D animated cartoon character of a cheerful kid with big expressive eyes and messy brown hair, wearing a yellow raincoat, blue jeans and red sneakers, standing straight facing the camera with arms relaxed at the sides, plain light grey background, soft studio lighting, high quality 3D render, original character design, no text"
+  },
+  {
+    "id": "rex",
+    "name": "Rex",
+    "tagline": "Dino mascot",
+    "prompt": "Full-body 3D animated cartoon mascot of a friendly bright green dinosaur standing upright on two legs, big smile, small arms relaxed at its sides, facing the camera, plain light grey background, soft studio lighting, high quality 3D render, original character design, no text"
+  }
+]

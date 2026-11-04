@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import Image from "next/image";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
+import { BendIllustration, FormulaIllustration, NicheIllustration } from "@/components/landing/ProcessIllustrations";
 import { APP_URL } from "@/lib/constants";
 
 const TRUST_AVATARS = [
@@ -13,7 +14,12 @@ const TRUST_AVATARS = [
   "/reviewers/reviewer-08.jpeg",
 ];
 
-const PANEL_HEIGHT = 340;
+// The stage slot keeps the illustration canvas's proportions (400 wide,
+// ~320 of drawn height), so it never leaves an empty band at any width.
+const STAGE_ASPECT = "400 / 320";
+
+const STAGE_FADE =
+  "linear-gradient(to bottom, black 0%, black 80%, rgba(0,0,0,0.55) 92%, transparent 100%)";
 
 function StepBadge({ step }: { step: number }) {
   return (
@@ -37,10 +43,10 @@ function StepBadge({ step }: { step: number }) {
   );
 }
 
-/** Full-bleed tinted panel (flush to the card's top corners, no inset
- * border) that fades to white toward the bottom, holding a fixed-height
- * mockup slot so every card in the row matches height regardless of its
- * illustration's native size. */
+/** White double-shell card around a full-bleed light stage: a cool wash
+ * with a faint dot grid and a soft brand-blue glow behind the illustration,
+ * fading to white above the copy. The stage keeps the canvas's proportions
+ * so it never leaves an empty band at any width. */
 function CardShell({
   step,
   title,
@@ -56,29 +62,24 @@ function CardShell({
     <div className="flex h-full flex-col rounded-[24px] border-[3px] border-[#EEF0F3] bg-white p-1 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_14px_28px_-20px_rgba(15,23,42,0.14)] sm:rounded-[28px] sm:border-[4px]">
       <div className="flex flex-1 flex-col overflow-hidden rounded-[20px]">
         <div
-          className="relative shrink-0 overflow-hidden bg-gradient-to-b from-[#4f7cf7] via-[#a6c2ff] to-white"
-          style={{ height: PANEL_HEIGHT }}
+          className="relative shrink-0 overflow-hidden bg-[linear-gradient(180deg,#eaedf3_0%,#f3f5f9_58%,#ffffff_100%)]"
+          style={{ aspectRatio: STAGE_ASPECT }}
         >
           <div
             aria-hidden
-            className="absolute inset-0 opacity-50"
+            className="absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_40%,rgba(51,92,255,0.16)_0%,rgba(51,92,255,0.05)_45%,transparent_75%)]"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-45"
             style={{
-              backgroundImage: "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
+              backgroundImage: "radial-gradient(rgba(15,23,42,0.4) 0.7px, transparent 1px)",
               backgroundSize: "6px 6px",
-              WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 92%)",
-              maskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 92%)",
+              WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 50%, transparent 92%)",
+              maskImage: "linear-gradient(to bottom, black 0%, black 50%, transparent 92%)",
             }}
           />
-
-          <div
-            className="relative z-10 flex h-full flex-col items-center justify-center overflow-hidden px-8"
-            style={{
-              WebkitMaskImage:
-                "linear-gradient(to bottom, black 0%, black 45%, rgba(0,0,0,0.92) 55%, rgba(0,0,0,0.78) 65%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.28) 87%, transparent 100%)",
-              maskImage:
-                "linear-gradient(to bottom, black 0%, black 45%, rgba(0,0,0,0.92) 55%, rgba(0,0,0,0.78) 65%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.28) 87%, transparent 100%)",
-            }}
-          >
+          <div className="absolute inset-0 overflow-hidden" style={{ WebkitMaskImage: STAGE_FADE, maskImage: STAGE_FADE }}>
             {children}
           </div>
         </div>
@@ -95,34 +96,10 @@ function CardShell({
   );
 }
 
-function HookMockup() {
-  return (
-    <div className="relative -mx-8 h-full w-[calc(100%+4rem)] scale-90" aria-hidden>
-      <Image src="/hook-card-1.webp" alt="" fill sizes="480px" quality={90} className="object-contain" />
-    </div>
-  );
-}
-
-function FormulaMockup() {
-  return (
-    <div className="relative -mx-8 h-full w-[calc(100%+4rem)] scale-90" aria-hidden>
-      <Image src="/formula-mockup.png" alt="" fill sizes="480px" quality={90} className="object-contain" />
-    </div>
-  );
-}
-
-function BendMockup() {
-  return (
-    <div className="relative -mx-8 h-full w-[calc(100%+4rem)]" aria-hidden>
-      <Image src="/bend-mockup.png" alt="" fill sizes="520px" quality={90} className="object-contain" />
-    </div>
-  );
-}
-
 function StepOneCard() {
   return (
     <CardShell step={1} title="Find a Viral Niche" description="Start with a proven video that already has millions of views.">
-      <HookMockup />
+      <NicheIllustration />
     </CardShell>
   );
 }
@@ -134,7 +111,7 @@ function StepTwoCard() {
       title="Extract the Formula"
       description="Our AI extracts the template, hook and pattern kept, topic stripped out."
     >
-      <FormulaMockup />
+      <FormulaIllustration />
     </CardShell>
   );
 }
@@ -146,7 +123,7 @@ function StepThreeCard() {
       title="Bend & Dominate"
       description="Keep the psychology, swap the topic, and generate your non-competitive script."
     >
-      <BendMockup />
+      <BendIllustration />
     </CardShell>
   );
 }

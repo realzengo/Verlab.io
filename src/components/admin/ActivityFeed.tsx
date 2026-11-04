@@ -1,6 +1,5 @@
 import { CreditCard, Cog, FileText, UserRound } from "lucide-react";
 import type { ActivityLogEntry, ActivityType } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const TYPE_ICON: Record<ActivityType, typeof UserRound> = {
   billing: CreditCard,
@@ -9,49 +8,55 @@ const TYPE_ICON: Record<ActivityType, typeof UserRound> = {
   content: FileText,
 };
 
-// Category dots, the sticker palette's other sanctioned use alongside icon
-// tiles: one color per activity kind, carried on the plate only.
-const TYPE_STICKER: Record<ActivityType, string> = {
-  billing: "admin-sticker-green",
-  user: "admin-sticker-blue",
-  system: "admin-sticker-orange",
-  content: "admin-sticker-purple",
+const TYPE_LABEL: Record<ActivityType, string> = {
+  billing: "Billing",
+  user: "User",
+  system: "System",
+  content: "Content",
 };
 
+// A timeline: one neutral glyph per kind on a rail, the message in ink, who
+// and when in muted ink. The kind is named in text, never carried by color.
 export function ActivityFeed({ entries }: { entries: ActivityLogEntry[] }) {
+  if (entries.length === 0) {
+    return <p className="py-8 text-center text-[13px] text-subtle">No activity recorded yet.</p>;
+  }
+
   return (
-    <ul className="flex flex-col">
+    <ol className="relative flex flex-col">
       {entries.map((entry, i) => {
         const Icon = TYPE_ICON[entry.type];
+        const last = i === entries.length - 1;
         return (
-          <li
-            key={entry.id}
-            className={cn("flex items-start gap-3 py-3", i !== entries.length - 1 && "border-b border-hairline")}
-          >
-            <span
-              className={cn(
-                "admin-sticker flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                TYPE_STICKER[entry.type]
-              )}
-            >
-              <Icon className="h-4 w-4" />
+          <li key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
+            {!last && <span aria-hidden="true" className="absolute bottom-0 left-[13px] top-7 w-px bg-hairline" />}
+            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-subtle">
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] leading-[1.33] text-heading">{entry.message}</p>
-              <p className="mt-0.5 text-sm text-subtle">{entry.actor}</p>
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 text-[13px] leading-5 text-heading">{entry.message}</p>
+                <time dateTime={entry.timestamp} className="shrink-0 whitespace-nowrap text-[12px] text-subtle">
+                  {timeAgo(entry.timestamp)}
+                </time>
+              </div>
+              <p className="mt-0.5 text-[12px] text-subtle">
+                {TYPE_LABEL[entry.type]} · {entry.actor}
+              </p>
             </div>
-            <span className="shrink-0 whitespace-nowrap text-sm text-subtle">{timeAgo(entry.timestamp)}</span>
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
-  const hours = Math.round(diffMs / 3_600_000);
-  if (hours < 1) return "just now";
+  const minutes = Math.round(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
 }

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Gauge, Loader2 } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, LoaderCircle } from "lucide-react";
 import {
   computeJobSuccessRate,
   getApiErrorRate,
@@ -6,96 +6,103 @@ import {
   getSystemJobs,
   getUptimeStats,
 } from "@/lib/server/admin-queries";
-import { Card } from "@/components/ui/Card";
-import { StatTile } from "@/components/admin/StatTile";
+import type { SystemJob } from "@/lib/types";
+import { PageHeader, LiveIndicator } from "@/components/admin/PageHeader";
+import { Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { formatStat } from "@/components/admin/charts/format";
 import { SystemJobsTable } from "@/components/admin/SystemJobsTable";
+import { JOB_TYPE_LABEL } from "@/components/admin/job-labels";
 import { EndpointHealthTable } from "@/components/admin/EndpointHealthTable";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { ShareBar } from "@/components/admin/charts/ShareBar";
+import { BarList } from "@/components/admin/charts/BarList";
+import { formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSystemPage() {
-  const [SYSTEM_JOBS, uptime, apiErrorRate, endpointHealth] = await Promise.all([
+  const [jobs, uptime, apiErrorRate, endpointHealth] = await Promise.all([
     getSystemJobs(50),
     getUptimeStats(),
     getApiErrorRate(),
     getEndpointHealthToday(),
   ]);
-  const JOB_SUCCESS_RATE_PCT = computeJobSuccessRate(SYSTEM_JOBS);
+  const successRate = computeJobSuccessRate(jobs);
 
-  const running = SYSTEM_JOBS.filter((j) => j.status === "running").length;
-  const queued = SYSTEM_JOBS.filter((j) => j.status === "queued").length;
-  const failed = SYSTEM_JOBS.filter((j) => j.status === "failed").length;
+  const count = (status: SystemJob["status"]) => jobs.filter((j) => j.status === status).length;
+  const running = count("running");
+  const queued = count("queued");
+  const failed = count("failed");
+  const succeeded = count("success");
+
+  const byType = new Map<SystemJob["type"], number>();
+  for (const job of jobs) byType.set(job.type, (byType.get(job.type) ?? 0) + 1);
+  const jobsByType = [...byType.entries()]
+    .map(([type, n]) => ({ label: JOB_TYPE_LABEL[type], value: n }))
+    .sort((a, b) => b.value - a.value);
+
+  const slowest = [...endpointHealth]
+    .sort((a, b) => b.p95Ms - a.p95Ms)
+    .slice(0, 6)
+    .map((row) => ({ label: row.endpoint, value: row.p95Ms }));
 
   return (
-    <div className="flex flex-col gap-6 pt-2">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Uptime (30d)"
-          value={uptime.uptimePct !== null ? `${uptime.uptimePct}%` : "N/A"}
-          icon={CheckCircle2}
-          delta={
-            uptime.uptimePct !== null
-              ? { value: `${uptime.totalChecks} checks`, direction: "up", isGood: true, period: "last 30d" }
-              : { value: "collecting", direction: "up", isGood: true, period: "checks every 5 min" }
-          }
+    <div className="flex flex-col gap-6">
+      <PageHeader title="System" description="Job queue, endpoint latency and uptime.">
+        <LiveIndicator />
+      </PageHeader>
+
+      <KpiStrip>
+        <Kpi
+          label="Uptime, 30 days"
+          value={uptime.uptimePct !== null ? `${uptime.uptimePct}%` : "Collecting"}
+          footnote={uptime.uptimePct !== null ? `${formatNumber(uptime.totalChecks)} checks` : "Checked every 5 minutes"}
         />
-        <StatTile
+        <Kpi
           label="Job success rate"
-          value={`${JOB_SUCCESS_RATE_PCT}%`}
-          icon={Gauge}
-          delta={{ value: `${failed} failed`, direction: failed > 0 ? "down" : "up", isGood: failed === 0, period: "recent jobs" }}
+          value={`${successRate}%`}
+          delta={{ value: `${failed} failed`, sentiment: failed > 0 ? "negative" : "positive", label: `of last ${jobs.length}` }}
         />
-        <StatTile
-          label="Jobs in flight"
-          value={`${running + queued}`}
-          icon={Loader2}
-          delta={{ value: `${running} running`, direction: "up", isGood: true, period: `${queued} queued` }}
-        />
-        <StatTile
-          label="Avg. API error rate"
-          value={apiErrorRate.errorRatePct !== null ? `${apiErrorRate.errorRatePct}%` : "N/A"}
-          icon={AlertTriangle}
+        <Kpi label="Jobs in flight" value={formatStat(running + queued)} footnote={`${running} running · ${queued} queued`} />
+        <Kpi
+          label="API error rate, 24h"
+          value={apiErrorRate.errorRatePct !== null ? `${apiErrorRate.errorRatePct}%` : "No traffic"}
           delta={
             apiErrorRate.errorRatePct !== null
               ? {
-                  value: `${apiErrorRate.totalRequests} requests`,
-                  direction: apiErrorRate.errorRatePct > 0 ? "down" : "up",
-                  isGood: apiErrorRate.errorRatePct === 0,
-                  period: "last 24h",
+                  value: `${formatNumber(apiErrorRate.totalRequests)} requests`,
+                  sentiment: apiErrorRate.errorRatePct > 0 ? "negative" : "positive",
                 }
-              : { value: "no traffic yet", direction: "up", isGood: true, period: "last 24h" }
+              : undefined
           }
         />
+      </KpiStrip>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Panel title="Job status" description={`Last ${jobs.length} jobs`}>
+          <ShareBar
+            emptyLabel="No jobs yet"
+            segments={[
+              { label: "Succeeded", value: succeeded, color: "var(--viz-good)", icon: <CircleCheck className="h-4 w-4" /> },
+              { label: "Failed", value: failed, color: "var(--viz-critical)", icon: <CircleX className="h-4 w-4" /> },
+              { label: "Running", value: running, color: "var(--viz-1)", icon: <LoaderCircle className="h-4 w-4" /> },
+              { label: "Queued", value: queued, color: "var(--viz-neutral)", icon: <Clock3 className="h-4 w-4" /> },
+            ]}
+          />
+        </Panel>
+
+        <Panel title="Jobs by type" description={`Last ${jobs.length} jobs`}>
+          <BarList items={jobsByType} emptyLabel="No jobs yet" />
+        </Panel>
+
+        <Panel title="Slowest endpoints" description="p95 response time, today">
+          <BarList items={slowest} format="ms" showShare={false} emptyLabel="No requests logged today" />
+        </Panel>
       </div>
 
-      <Card>
-        <div className="mb-5">
-          <h3 className="text-base">API & MCP endpoint health</h3>
-          <p className="text-sm text-subtle">Response times and error rates, today</p>
-        </div>
-        {endpointHealth.length === 0 ? (
-          <EmptyState
-            icon={AlertTriangle}
-            title="No requests logged yet"
-            description="Instrumentation is live. Per-endpoint latency and error rates will appear here once traffic comes through the tracked routes."
-          />
-        ) : (
-          <EndpointHealthTable rows={endpointHealth} />
-        )}
-      </Card>
+      <EndpointHealthTable rows={endpointHealth} />
 
-      <Card>
-        <div className="mb-5">
-          <h3 className="text-base">Job queue</h3>
-          <p className="text-sm text-subtle">Niche Bend, SOP, transcript, and download jobs</p>
-        </div>
-        {SYSTEM_JOBS.length === 0 ? (
-          <EmptyState icon={Gauge} title="No jobs yet" description="Jobs will show up here as users run tools." />
-        ) : (
-          <SystemJobsTable jobs={SYSTEM_JOBS} />
-        )}
-      </Card>
+      <SystemJobsTable jobs={jobs} />
     </div>
   );
 }

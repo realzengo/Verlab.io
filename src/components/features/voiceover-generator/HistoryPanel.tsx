@@ -157,11 +157,9 @@ function FilterChip({
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex w-full items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-medium shadow-card outline-none transition-colors",
-          isActive
-            ? "border-primary/30 bg-accent/70 text-primary"
-            : "border-hairline bg-surface text-subtle hover:border-primary/25 hover:text-heading",
-          open && "border-primary/50 ring-2 ring-primary/15"
+          "flex h-7 w-full items-center gap-1 rounded-md px-2 text-xs font-medium outline-none ring-1 ring-inset transition-colors",
+          isActive ? "bg-(--app-fill-strong) text-heading ring-transparent" : "text-subtle ring-hairline hover:bg-(--app-fill) hover:text-heading",
+          open && "bg-(--app-fill)"
         )}
       >
         <Icon className="h-3 w-3 shrink-0" />
@@ -191,7 +189,7 @@ function FilterChip({
                 }}
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
-                  selected ? "bg-accent font-semibold text-primary" : "text-body hover:bg-app"
+                  selected ? "bg-(--app-fill-strong) font-medium text-heading" : "text-body hover:bg-(--app-fill)"
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
@@ -369,7 +367,7 @@ export function HistoryPanel({
   }
 
   return (
-    <div className="flex h-full max-h-[720px] flex-col rounded-2xl border border-hairline bg-white shadow-card dark:bg-white/[0.015]">
+    <div className="flex h-full max-h-[720px] flex-col">
       <audio
         ref={audioRef}
         className="hidden"
@@ -378,14 +376,15 @@ export function HistoryPanel({
         onPause={() => setIsPlaying(false)}
       />
 
-      <div className="space-y-3 border-b border-hairline p-4">
+      <div className="space-y-2.5 border-b border-hairline p-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
           <input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search history..."
-            className="w-full rounded-xl border border-hairline bg-surface py-2.5 pl-9 pr-3 text-sm text-heading shadow-card outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
+            placeholder="Search history"
+            aria-label="Search history"
+            className="h-9 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-sm text-heading outline-none placeholder:text-subtle transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
           />
         </div>
         <div className="flex items-center gap-1.5">
@@ -411,7 +410,7 @@ export function HistoryPanel({
             <button
               type="button"
               onClick={clearFilters}
-              className="flex items-center gap-1 text-[11px] font-semibold text-subtle transition-colors hover:text-danger"
+              className="flex items-center gap-1 text-xs font-medium text-subtle transition-colors hover:text-heading"
             >
               <X className="h-3 w-3" /> Clear filters
             </button>
@@ -442,7 +441,7 @@ export function HistoryPanel({
           <div className="space-y-4">
             {groups.map(([label, groupItems]) => (
               <div key={label}>
-                <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-subtle">{label}</p>
+                <p className="mb-1 px-2.5 text-xs font-medium text-subtle">{label}</p>
                 <div className="space-y-0.5">
                   {groupItems.map((item) => {
                     const isSelecting = selectingId === item.id;
@@ -450,8 +449,8 @@ export function HistoryPanel({
                       <div
                         key={item.id}
                         className={cn(
-                          "group flex w-full items-start gap-2.5 rounded-xl border border-transparent px-2.5 py-2.5 transition-colors",
-                          playingId === item.id ? "border-primary/30 bg-accent/50" : "hover:border-hairline hover:bg-surface"
+                          "group flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2.5 transition-colors",
+                          playingId === item.id ? "bg-(--app-fill-strong)" : "hover:bg-(--app-fill)"
                         )}
                       >
                         <button
@@ -460,17 +459,17 @@ export function HistoryPanel({
                           disabled={item.status !== "completed"}
                           className="flex min-w-0 flex-1 items-start gap-2.5 text-left disabled:cursor-default"
                         >
-                          <Avatar name={item.voiceName} size="sm" hideInitials className="mt-0.5 shrink-0 ring-2 ring-surface shadow-sm" />
+                          <Avatar name={item.voiceName} size="sm" hideInitials className="mt-0.5 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className="truncate text-xs font-semibold text-heading">{item.title || item.voiceName}</p>
+                              <p className="truncate text-[13px] font-medium text-heading">{item.title || item.voiceName}</p>
                               {item.status === "failed" && <Badge variant="danger">Failed</Badge>}
                               {item.status === "generating" && <Badge variant="warning">Generating</Badge>}
                             </div>
-                            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-body">
+                            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-subtle">
                               {item.scriptPreview || "(empty script)"}
                             </p>
-                            <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-subtle">
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] tabular-nums text-subtle">
                               <span>{formatRelativeTime(item.createdAt)}</span>
                               {item.status === "completed" && (
                                 <>

@@ -13,20 +13,23 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackdrop, setShowBackdrop] = useState(false);
 
+  // The backdrop mounts with the open; only its unmount waits for the slide-out.
+  const openMobileNav = () => {
+    setShowBackdrop(true);
+    setMobileNavOpen(true);
+  };
+
   useEffect(() => {
-    if (mobileNavOpen) {
-      setShowBackdrop(true);
-      return;
-    }
+    if (mobileNavOpen) return;
     const timeout = setTimeout(() => setShowBackdrop(false), SIDEBAR_TRANSITION_MS);
     return () => clearTimeout(timeout);
   }, [mobileNavOpen]);
 
   return (
-    // `admin-theme` scopes the Notion token set (globals.css) to this subtree
-    // -- every shared primitive below re-skins off it automatically. The warm
-    // paper canvas under white cards is the whole figure/ground device; there
-    // is no atmospheric decoration behind it.
+    // `admin-theme` scopes the admin token set (globals.css) to this subtree
+    // -- every shared primitive below re-skins off it automatically. White
+    // panels on a near-white canvas are the whole figure/ground device; there
+    // is no atmospheric decoration behind them.
     <div className="admin-theme flex min-h-screen w-full bg-app">
       <AdminSidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
@@ -42,8 +45,10 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <AdminTopBar onMenuClick={() => setMobileNavOpen(true)} />
-        <main className="flex-1 px-6 pb-16 sm:px-8">{children}</main>
+        <AdminTopBar onMenuClick={openMobileNav} />
+        <main className="flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8 lg:px-8">
+          <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+        </main>
       </div>
     </div>
   );

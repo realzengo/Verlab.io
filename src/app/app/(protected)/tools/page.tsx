@@ -1,12 +1,22 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
+import {
+  DownloaderArt,
+  ImageGeneratorArt,
+  NicheBendingArt,
+  ScriptwriterArt,
+  TranscriptArt,
+  VideoGeneratorArt,
+  VoiceoverArt,
+} from "@/components/dashboard/ToolArt";
 
-// Thumbnails: drop a screenshot/mockup at /public/tools/<slug>.png and set
-// `thumbnail` below to "/tools/<slug>.png" -- cards fall back to a tinted
-// icon tile until then, so this can be filled in one tool at a time.
+// Each card's preview is coded art from ToolArt.tsx. A tool without `art`
+// can still use a screenshot (`thumbnail`, /public/tools/<slug>.webp) or
+// falls back to a tinted icon tile.
 const TOOLS: {
   title: string;
   description: string;
@@ -14,6 +24,7 @@ const TOOLS: {
   icon: LucideIcon;
   tone: ToolTone;
   badge?: string;
+  art?: ReactNode;
   thumbnail?: string;
   thumbnailDark?: string;
 }[] = [
@@ -23,8 +34,7 @@ const TOOLS: {
     href: "/bend",
     icon: Wand2,
     tone: "cat-7",
-    thumbnail: "/tools/niche-bending.webp",
-    thumbnailDark: "/tools/niche-bending-dark.webp",
+    art: <NicheBendingArt />,
   },
   {
     title: "Image Generator",
@@ -32,8 +42,7 @@ const TOOLS: {
     href: "/image-generator",
     icon: ImageIcon,
     tone: "cat-3",
-    thumbnail: "/tools/image-generator.webp",
-    thumbnailDark: "/tools/image-generator-dark.webp",
+    art: <ImageGeneratorArt />,
   },
   {
     title: "Video Generator",
@@ -41,8 +50,7 @@ const TOOLS: {
     href: "/video-generator",
     icon: Clapperboard,
     tone: "cat-4",
-    thumbnail: "/tools/video-generator.webp",
-    thumbnailDark: "/tools/video-generator-dark.webp",
+    art: <VideoGeneratorArt />,
   },
   {
     title: "Scriptwriter",
@@ -50,8 +58,7 @@ const TOOLS: {
     href: "/scripts",
     icon: PenLine,
     tone: "cat-6",
-    thumbnail: "/tools/scriptwriter.webp",
-    thumbnailDark: "/tools/scriptwriter-dark.webp",
+    art: <ScriptwriterArt />,
   },
   {
     title: "Transcript Extractor",
@@ -59,8 +66,7 @@ const TOOLS: {
     href: "/transcripts",
     icon: Captions,
     tone: "cat-5",
-    thumbnail: "/tools/transcript-extractor.webp",
-    thumbnailDark: "/tools/transcript-extractor-dark.webp",
+    art: <TranscriptArt />,
   },
   {
     title: "Downloader",
@@ -68,8 +74,7 @@ const TOOLS: {
     href: "/downloads",
     icon: Download,
     tone: "cat-1",
-    thumbnail: "/tools/downloader.webp",
-    thumbnailDark: "/tools/downloader-dark.webp",
+    art: <DownloaderArt />,
   },
   {
     title: "Voiceover",
@@ -77,8 +82,7 @@ const TOOLS: {
     href: "/voiceover-generator",
     icon: Mic2,
     tone: "cat-2",
-    thumbnail: "/tools/voiceover.webp",
-    thumbnailDark: "/tools/voiceover-dark.webp",
+    art: <VoiceoverArt />,
   },
 ];
 
@@ -96,6 +100,7 @@ export default function ToolsPage() {
               icon={tool.icon}
               tone={tool.tone}
               badge={tool.badge}
+              art={tool.art}
               thumbnail={tool.thumbnail}
               thumbnailDark={tool.thumbnailDark}
               priority={index < 3}

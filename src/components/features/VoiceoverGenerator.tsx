@@ -1,40 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   Download,
-  History,
-  Info,
-  List,
-  ListChecks,
   Loader2,
-  Mic2,
   Pause,
   Play,
   Plus,
   RotateCcw,
-  Settings2,
   SkipBack,
   SkipForward,
-  SlidersHorizontal,
-  Sparkles,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
 import { IconButton } from "@/components/ui/IconButton";
-import { PlasticButton } from "@/components/ui/plastic-button";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { HistoryPanel } from "@/components/features/voiceover-generator/HistoryPanel";
-import { AddVoiceModal, type VoiceCloneSummary } from "@/components/features/voiceover-generator/AddVoiceModal";
-import { VoiceLibraryModal, voiceMeta } from "@/components/features/voiceover-generator/VoiceLibraryModal";
+import { CloneVoiceModal } from "@/components/features/voiceover-generator/CloneVoiceModal";
+import { VoiceLibraryModal } from "@/components/features/voiceover-generator/VoiceLibraryModal";
 import { ScriptTextarea } from "@/components/features/voiceover-generator/ScriptTextarea";
-import { VOICE_CLONING_ENABLED } from "@/lib/config/voices";
+import { VOICE_CLONING_ENABLED, type VoiceCloneSummary } from "@/lib/config/voices";
 import {
   DEFAULT_MODEL_ID,
   DEFAULT_VOICE,
@@ -48,6 +37,8 @@ import {
   hasDiscreteStability,
   supportsAudioTags,
   getVoice,
+  isElevenLabsVoiceId,
+  voiceMeta,
   nearestDiscreteStability,
   readStoredTtsSettings,
   supportsLanguageSelection,
@@ -107,6 +98,46 @@ function segmentUrl(generationId: string, index: number): string {
 
 // ── Small presentational pieces ─────────────────────────────────────────
 
+// One filled accent on the page -- the primary action. Everything else is
+// neutral ink on the surface, so the eye lands on Generate / Export.
+const PRIMARY_BUTTON =
+  "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-btn-primary px-4 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.15),inset_0_1px_0_rgba(255,255,255,0.18)] transition-colors hover:bg-btn-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-45";
+const SECONDARY_BUTTON =
+  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-body ring-1 ring-inset ring-hairline transition-colors hover:bg-(--app-fill) hover:text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+const PANEL = "rounded-2xl border border-hairline bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:shadow-none";
+const FIELD =
+  "w-full rounded-lg border border-hairline bg-surface px-3 text-sm text-heading outline-none transition-colors hover:bg-(--app-fill) focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/15";
+const SECTION_LABEL = "text-[13px] font-medium text-heading";
+
+function PrimaryButton({
+  text,
+  loadingText,
+  loading = false,
+  disabled = false,
+  onClick,
+  icon,
+  className,
+}: {
+  text: string;
+  loadingText?: string;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  icon?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || loading} className={cn(PRIMARY_BUTTON, className)}>
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {loading ? (loadingText ?? text) : text}
+    </button>
+  );
+}
+
+function creditsLabel(credits: number): string {
+  return `${credits.toLocaleString()} credit${credits === 1 ? "" : "s"}`;
+}
+
 function SegmentedControl<T extends string | number>({
   options,
   value,
@@ -118,19 +149,19 @@ function SegmentedControl<T extends string | number>({
 }) {
   const pillId = useId();
   return (
-    <div className="relative flex rounded-lg bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+    <div className="relative flex rounded-lg bg-(--app-fill) p-0.5">
       {options.map((option) => (
         <button
           key={String(option.value)}
           type="button"
           onClick={() => onChange(option.value)}
-          className="relative flex-1 rounded-md px-3 py-1.5 text-xs font-semibold"
+          className="relative flex-1 rounded-md px-3 py-1.5 text-xs font-medium"
         >
           {value === option.value && (
             <motion.span
               layoutId={`${pillId}-active`}
               transition={{ type: "spring", stiffness: 500, damping: 34 }}
-              className="absolute inset-0 rounded-md bg-surface shadow-card dark:bg-[#0D0D10]"
+              className={SEGMENT_ACTIVE}
             />
           )}
           <span className={cn("relative z-10 transition-colors", value === option.value ? "text-heading" : "text-subtle hover:text-heading")}>
@@ -142,16 +173,18 @@ function SegmentedControl<T extends string | number>({
   );
 }
 
+// The selected half of every segmented control on the page.
+const SEGMENT_ACTIVE = "absolute inset-0 rounded-md bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-black/[0.04] dark:bg-white/[0.1] dark:ring-white/[0.06]";
+
+// The explanation lives in the label's tooltip rather than an info icon
+// beside every control.
 function SettingLabel({ label, hint, value }: { label: string; hint: string; value?: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1.5 text-xs font-semibold text-heading">
+    <div className="flex items-baseline justify-between gap-3">
+      <span title={hint} className="cursor-help text-[13px] font-medium text-heading">
         {label}
-        <span title={hint}>
-          <Info className="h-3.5 w-3.5 text-subtle/60" />
-        </span>
       </span>
-      {value !== undefined && <span className="font-mono text-[11px] font-medium tabular-nums text-subtle">{value}</span>}
+      {value !== undefined && <span className="text-xs tabular-nums text-subtle">{value}</span>}
     </div>
   );
 }
@@ -190,9 +223,10 @@ function SettingSlider({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label}
-        className="mt-2 w-full cursor-pointer accent-primary"
+        className="voiceover-range mt-2"
+        style={{ "--fill": `${((value - min) / (max - min)) * 100}%` } as CSSProperties}
       />
-      <div className="flex justify-between text-[10px] font-medium text-subtle/70">
+      <div className="mt-1 flex justify-between text-[11px] text-subtle">
         <span>{leftLabel}</span>
         <span>{rightLabel}</span>
       </div>
@@ -314,8 +348,8 @@ function ScrubWaveform({ peaks, progress }: { peaks: number[] | null; progress: 
       const mid = height / 2;
       const playedBars = progress * barCount;
       // A single brand blue at two alphas (rather than two hand-picked hex
-      // colors) so bars read correctly on both the light indigo-tint well
-      // and the dark well without a separate light/dark color pair.
+      // colors) so bars read correctly on the neutral well in both themes
+      // without a separate light/dark color pair.
       ctx.fillStyle = "#335cff";
       for (let i = 0; i < barCount; i++) {
         const peak = peaks[Math.min(peaks.length - 1, Math.floor((i / barCount) * peaks.length))];
@@ -409,9 +443,7 @@ function Timeline({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl border border-hairline bg-surface p-2 shadow-card transition-opacity",
-        "dark:border-transparent dark:bg-gradient-to-b dark:from-[#181a24] dark:to-[#0a0a0f]",
-        "dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.07),0_10px_28px_-12px_rgba(0,0,0,0.6)]",
+        "flex items-center gap-3 transition-opacity",
         disabled && "opacity-50"
       )}
     >
@@ -420,11 +452,7 @@ function Timeline({
         onClick={onTogglePlay}
         disabled={disabled}
         aria-label={isPlaying ? "Pause" : "Play"}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-transform active:scale-95 disabled:cursor-not-allowed"
-        style={{
-          background: "linear-gradient(to bottom, rgb(84, 132, 255), rgb(51, 92, 255))",
-          boxShadow: "0 1.5px 0 0 rgba(255,255,255,0.3) inset, 0 -2px 6px 0 rgba(37,63,199,0.6) inset",
-        }}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-heading text-surface transition-opacity hover:opacity-90 active:scale-95 disabled:cursor-not-allowed"
       >
         {isPlaying ? (
           <Pause className="h-3.5 w-3.5" fill="currentColor" />
@@ -433,17 +461,14 @@ function Timeline({
         )}
       </button>
 
-      {/* Branded-tint well in light mode, recessed near-black well in dark --
-          either way the bars/playhead below are colored to hold contrast
-          against both. */}
+      {/* A neutral well -- the waveform itself carries the color. */}
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={cn(
-          "relative h-9 flex-1 touch-none select-none overflow-hidden rounded-lg bg-accent ring-1 ring-inset ring-accent-line",
-          "dark:bg-[#0c0d13] dark:ring-white/[0.05]",
+          "relative h-10 flex-1 touch-none select-none overflow-hidden rounded-lg bg-(--app-fill)",
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         )}
       >
@@ -485,15 +510,15 @@ function Timeline({
             visible against the well above regardless of theme. */}
         <div
           className={cn(
-            "pointer-events-none absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-heading shadow-[0_0_6px_rgba(51,92,255,0.55)] transition-transform",
+            "pointer-events-none absolute inset-y-1.5 w-0.5 -translate-x-1/2 rounded-full bg-heading transition-transform",
             isScrubbing && "scale-y-125"
           )}
           style={{ left: `${progress * 100}%` }}
         />
       </div>
 
-      <span className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-subtle dark:text-white/45">
-        {formatTime(currentTime)} <span className="text-subtle/60 dark:text-white/25">/ {formatTime(total)}</span>
+      <span className="shrink-0 text-xs tabular-nums text-subtle">
+        <span className="text-heading">{formatTime(currentTime)}</span> / {formatTime(total)}
       </span>
     </div>
   );
@@ -517,7 +542,6 @@ export function VoiceoverGenerator() {
   const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS);
 
   const [sidebarTab, setSidebarTab] = useState<"settings" | "history">("settings");
-  const sidebarTabPillId = useId();
   const [historyRefreshSignal, setHistoryRefreshSignal] = useState(0);
   const [selectingHistoryId, setSelectingHistoryId] = useState<string | null>(null);
 
@@ -541,7 +565,6 @@ export function VoiceoverGenerator() {
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   const [editorTab, setEditorTab] = useState<EditorTab>("audio");
-  const editorTabPillId = useId();
   const [isAddingSegment, setIsAddingSegment] = useState(false);
   const [newSegmentText, setNewSegmentText] = useState("");
   const [isSubmittingSegment, setIsSubmittingSegment] = useState(false);
@@ -650,33 +673,24 @@ export function VoiceoverGenerator() {
     };
   }
 
-  // Cloned voices have no shared cached clip (see /api/voice-clones/[id]/preview's
-  // own comment) -- the endpoint streams fresh audio bytes back directly
-  // rather than a Storage URL, so this decodes a blob instead of setting
-  // `.src` to a JSON-returned link like playVoicePreview does.
+  // A clone's preview was rendered once when it was created and stored; the
+  // route redirects to a fresh link to that file, so it plays as a plain src.
   async function playClonePreview(clone: VoiceCloneSummary) {
+    const audio = cloneAudioRef.current;
+    if (!audio) return;
     if (playingCloneId === clone.id) {
-      cloneAudioRef.current?.pause();
+      audio.pause();
       setPlayingCloneId(null);
       return;
     }
     setPreviewingCloneId(clone.id);
     setPreviewError(null);
     try {
-      const response = await fetch(`/api/voice-clones/${clone.id}/preview`, { signal: AbortSignal.timeout(60_000) });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? `Could not load preview (${response.status})`);
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      if (cloneAudioRef.current) {
-        cloneAudioRef.current.src = url;
-        await cloneAudioRef.current.play();
-        setPlayingCloneId(clone.id);
-      }
-    } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : "Could not load preview");
+      audio.src = `/api/voice-clones/${clone.id}/preview`;
+      await audio.play();
+      setPlayingCloneId(clone.id);
+    } catch {
+      setPreviewError("Could not play that preview");
     } finally {
       setPreviewingCloneId(null);
     }
@@ -705,6 +719,8 @@ export function VoiceoverGenerator() {
     cloneAudioRef.current?.pause();
     setPlayingCloneId(null);
   }, []);
+
+  const closeCloneModal = useCallback(() => setIsAddVoiceModalOpen(false), []);
 
   function handleVoiceCloneCreated(clone: VoiceCloneSummary) {
     setVoiceClones((prev) => [clone, ...prev]);
@@ -1037,7 +1053,13 @@ export function VoiceoverGenerator() {
         if (String(row.voice_id).startsWith("clone:")) {
           setVoiceId(row.voice_id);
         } else {
-          const voice = getVoice(row.voice_id);
+          // A Voice Library or pasted-id voice isn't in VOICES -- rebuild what
+          // the picker row shows from the name stored with the generation.
+          const voice =
+            getVoice(row.voice_id) ??
+            (isElevenLabsVoiceId(row.voice_id)
+              ? { voiceId: row.voice_id, name: tts.voiceName, gender: null, accent: null, age: null, description: "", previewUrl: null }
+              : undefined);
           if (voice) {
             setElevenLabsVoice(voice);
             setVoiceId(voice.voiceId);
@@ -1089,7 +1111,7 @@ export function VoiceoverGenerator() {
         deletingCloneId={deletingCloneId}
         cloneError={previewError}
       />
-      <AddVoiceModal isOpen={isAddVoiceModalOpen} onClose={() => setIsAddVoiceModalOpen(false)} onCreated={handleVoiceCloneCreated} />
+      <CloneVoiceModal isOpen={isAddVoiceModalOpen} onClose={closeCloneModal} onCreated={handleVoiceCloneCreated} />
       <audio
         ref={audioRef}
         className="hidden"
@@ -1101,14 +1123,12 @@ export function VoiceoverGenerator() {
       />
 
       <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-6">
-          <h1 className="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent dark:from-white dark:via-white dark:to-blue-400 sm:text-4xl">
-            {view === "editor" ? "Generate Voiceover" : "Create Voiceover"}
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">
+            {view === "editor" ? "Edit voiceover" : "Create voiceover"}
           </h1>
-          <p className="mt-2 text-xs font-medium tracking-wide text-subtle sm:text-sm">
-            Turn a script into natural-sounding narration.
-          </p>
-        </div>
+          <p className="mt-1.5 text-sm text-subtle">Turn a script into natural-sounding narration.</p>
+        </header>
 
         {generationError && (
           <p className="mb-4 rounded-xl bg-danger-tint px-4 py-2.5 text-sm font-medium text-danger" role="alert">
@@ -1118,24 +1138,23 @@ export function VoiceoverGenerator() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* ── Left column: main workspace ───────────────────────────── */}
-          <div className="relative flex min-h-[600px] flex-col rounded-2xl border border-hairline bg-app p-3 shadow-card dark:bg-surface">
+          <div className={cn(PANEL, "relative flex min-h-[600px] flex-col overflow-hidden")}>
             {view !== "editor" && (
               <>
-                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface dark:bg-[#0D0D10]">
+                <div className="flex flex-1 flex-col">
                   <input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    placeholder="Untitled Script"
+                    placeholder="Untitled script"
+                    aria-label="Title"
                     disabled={view === "loading"}
                     maxLength={NAME_MAX}
-                    className="w-full bg-transparent px-4 pt-4 text-lg font-semibold text-heading outline-none placeholder:text-subtle disabled:opacity-60"
+                    className="w-full bg-transparent px-5 pt-5 text-lg font-semibold tracking-[-0.01em] text-heading outline-none placeholder:text-subtle/70 disabled:opacity-60"
                   />
 
                   {view === "loading" ? (
-                    <div className="relative m-3 mt-2 flex flex-1 flex-col items-center justify-center gap-3 rounded-lg bg-surface px-6">
-                      <span className="absolute right-4 top-4 rounded-full bg-surface px-3 py-1 text-xs font-medium text-subtle shadow-card">
-                        Wait 1-3 minutes...
-                      </span>
+                    <div className="relative flex flex-1 flex-col items-center justify-center gap-3 px-6">
+                      <span className="absolute right-5 top-3 text-xs text-subtle">Usually 1–3 minutes</span>
                       <ProgressiveFluxLoader
                         phases={VOICEOVER_LOADING_PHASES}
                         value={loadingProgress}
@@ -1147,127 +1166,120 @@ export function VoiceoverGenerator() {
                         value={script}
                         onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
                         highlightTags
-                        placeholder="Type your script here..."
+                        placeholder="Type or paste your script…"
                         maxLength={MAX_SCRIPT_CHARS}
                         className="mt-2 min-h-[300px] flex-1"
-                        paddingClassName="px-4 pb-3"
+                        paddingClassName="px-5 pb-4"
                       />
-                      <div className="flex items-center justify-between gap-3 border-t border-hairline px-4 py-3">
-                        <span className="min-w-0 text-xs font-medium text-subtle">
-                          {charCount.toLocaleString()}/{MAX_SCRIPT_CHARS.toLocaleString()}
-                          {supportsAudioTags(currentModel.id) && (
-                            <span className="ml-2 hidden text-subtle/70 sm:inline">
-                              Tip: add audio tags like [excited], [whispers] or [laughs]
-                            </span>
-                          )}
-                        </span>
-                        <Badge>
-                          {estimatedCredits} credit{estimatedCredits === 1 ? "" : "s"}
-                        </Badge>
-                      </div>
                     </>
                   )}
                 </div>
 
-                <PlasticButton
-                  text="Generate"
-                  loading={view === "loading"}
-                  loadingText="Generating…"
-                  disabled={!script.trim()}
-                  onClick={handleGenerate}
-                  className="mt-3 w-full py-3"
-                  trailing={<Sparkles className="h-4 w-4" />}
-                />
+                <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
+                  <span className="min-w-0 truncate text-xs text-subtle">
+                    <span className="tabular-nums">
+                      {charCount.toLocaleString()} / {MAX_SCRIPT_CHARS.toLocaleString()}
+                    </span>
+                    {supportsAudioTags(currentModel.id) && view !== "loading" && (
+                      <span className="ml-3 hidden lg:inline">Audio tags like [excited] or [whispers] work with {currentModel.name}</span>
+                    )}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {script.trim() && <span className="text-xs tabular-nums text-subtle">{creditsLabel(estimatedCredits)}</span>}
+                    <PrimaryButton
+                      text="Generate"
+                      loading={view === "loading"}
+                      loadingText="Generating…"
+                      disabled={!script.trim()}
+                      onClick={handleGenerate}
+                    />
+                  </div>
+                </div>
               </>
             )}
 
             {view === "editor" && generationId && (
               <>
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <h2 className="truncate text-base font-semibold text-heading">{title || "Untitled Script"}</h2>
-                    {creditsQuoted !== null && (
-                      <Badge>
-                        {creditsQuoted} credit{creditsQuoted === 1 ? "" : "s"}
-                      </Badge>
-                    )}
+                <div className="flex items-start justify-between gap-3 px-5 pt-5">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-semibold tracking-[-0.01em] text-heading">{title || "Untitled script"}</h2>
+                    <p className="mt-0.5 text-xs text-subtle">
+                      {[
+                        `${segments.length} segment${segments.length === 1 ? "" : "s"}`,
+                        formatTime(durations.reduce((sum, d) => sum + d, 0)),
+                        creditsQuoted !== null && creditsLabel(creditsQuoted),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={handleGenerateAgain} className={SECONDARY_BUTTON}>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Generate again
+                  </button>
+                </div>
+
+                <div className="mt-4 flex gap-5 border-b border-hairline px-5">
+                  {(
+                    [
+                      { key: "audio", label: "Audio" },
+                      { key: "editor", label: "Script" },
+                    ] as const
+                  ).map(({ key, label }) => (
                     <button
+                      key={key}
                       type="button"
-                      onClick={handleGenerateAgain}
-                      className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-semibold text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
+                      onClick={() => setEditorTab(key)}
+                      aria-pressed={editorTab === key}
+                      className={cn(
+                        "-mb-px border-b-2 pb-2.5 text-sm font-medium transition-colors",
+                        editorTab === key ? "border-heading text-heading" : "border-transparent text-subtle hover:text-heading"
+                      )}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Generate again
+                      {label}
                     </button>
-                    <div className="flex shrink-0 rounded-full bg-app p-1 dark:bg-white/5">
-                      {(["editor", "audio"] as const).map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          onClick={() => setEditorTab(tab)}
-                          className="relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
-                        >
-                          {editorTab === tab && (
-                            <motion.span
-                              layoutId={`${editorTabPillId}-active`}
-                              transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                              className="absolute inset-0 rounded-full bg-surface shadow-card"
-                            />
-                          )}
-                          <span
-                            className={cn(
-                              "relative z-10 flex items-center gap-1.5 transition-colors",
-                              editorTab === tab ? "text-heading" : "text-subtle hover:text-heading"
-                            )}
-                          >
-                            {tab === "editor" ? <List className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
-                            {tab === "editor" ? "Voiceover editor" : "Generated audio"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 {editorTab === "editor" ? (
                   <>
-                    <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-surface dark:bg-[#0D0D10]">
-                      <ScriptTextarea
-                        value={script}
-                        onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
-                        highlightTags
-                        placeholder="Type your script here..."
-                        maxLength={MAX_SCRIPT_CHARS}
-                        className="min-h-[300px] flex-1"
-                        paddingClassName="p-4"
-                      />
-                      <div className="flex items-center justify-between border-t border-hairline px-4 py-3">
-                        <span className="text-xs font-medium text-subtle">
-                          {charCount.toLocaleString()}/{MAX_SCRIPT_CHARS.toLocaleString()}
-                        </span>
-                        <Badge>
-                          {estimatedCredits} credit{estimatedCredits === 1 ? "" : "s"}
-                        </Badge>
+                    <ScriptTextarea
+                      value={script}
+                      onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
+                      highlightTags
+                      placeholder="Type or paste your script…"
+                      maxLength={MAX_SCRIPT_CHARS}
+                      className="min-h-[300px] flex-1"
+                      paddingClassName="px-5 py-4"
+                    />
+                    <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
+                      <span className="text-xs tabular-nums text-subtle">
+                        {charCount.toLocaleString()} / {MAX_SCRIPT_CHARS.toLocaleString()}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-3">
+                        {script.trim() && <span className="text-xs tabular-nums text-subtle">{creditsLabel(estimatedCredits)}</span>}
+                        <PrimaryButton
+                          text="Regenerate"
+                          loading={isGenerating}
+                          loadingText="Regenerating…"
+                          disabled={!script.trim()}
+                          onClick={handleGenerate}
+                        />
                       </div>
                     </div>
-                    <PlasticButton
-                      text="Regenerate"
-                      loading={isGenerating}
-                      loadingText="Regenerating…"
-                      disabled={!script.trim()}
-                      onClick={handleGenerate}
-                      className="mt-3 w-full py-3"
-                      trailing={<Sparkles className="h-4 w-4" />}
-                    />
                   </>
                 ) : (
-                  <div className="mt-4 flex flex-1 flex-col border-t border-hairline pt-4">
-                    <div className="mb-4 flex-1 space-y-2 overflow-y-auto pr-1">
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
                       {segments.map((segment, index) => (
-                        <div key={index} className="flex items-center gap-2.5">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                        <div
+                          key={index}
+                          className={cn(
+                            "group/segment flex items-center gap-2 rounded-lg py-1 pl-2 pr-1 transition-colors",
+                            playingIndex === index ? "bg-(--app-fill-strong)" : "hover:bg-(--app-fill)"
+                          )}
+                        >
+                          <span className={cn("w-6 shrink-0 text-right text-xs tabular-nums", playingIndex === index ? "font-semibold text-primary" : "text-subtle")}>
                             {index + 1}
                           </span>
                           <input
@@ -1278,20 +1290,15 @@ export function VoiceoverGenerator() {
                             }}
                             disabled={regeneratingIndex === index}
                             aria-label={`Segment ${index + 1} text`}
-                            className={cn(
-                              "min-w-0 flex-1 rounded-xl border px-4 py-2.5 text-sm text-body shadow-card outline-none transition-colors disabled:opacity-60",
-                              playingIndex === index ? "border-primary/40 bg-accent/60" : "border-hairline bg-surface",
-                              "focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
-                            )}
+                            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1.5 text-sm text-heading outline-none transition-colors focus:bg-surface focus:ring-1 focus:ring-hairline disabled:opacity-60"
                           />
-                          <div className="flex shrink-0 items-center gap-1">
-                            <IconButton title="Play segment" onClick={() => playSegment(index)} active={playingIndex === index && !isSequenceMode}>
-                              {playingIndex === index && !isSequenceMode && isPlaying ? (
-                                <Pause className="h-3.5 w-3.5" />
-                              ) : (
-                                <Play className="h-3.5 w-3.5" />
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <div
+                              className={cn(
+                                "flex items-center gap-0.5 transition-opacity group-hover/segment:opacity-100 group-focus-within/segment:opacity-100",
+                                regeneratingIndex !== index && deletingIndex !== index && "[@media(hover:hover)]:opacity-0"
                               )}
-                            </IconButton>
+                            >
                             <IconButton
                               title="Regenerate segment"
                               onClick={() => handleRegenerateSegment(index)}
@@ -1311,12 +1318,20 @@ export function VoiceoverGenerator() {
                             >
                               {deletingIndex === index ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                             </IconButton>
+                            </div>
+                            <IconButton title="Play segment" onClick={() => playSegment(index)} active={playingIndex === index && !isSequenceMode}>
+                              {playingIndex === index && !isSequenceMode && isPlaying ? (
+                                <Pause className="h-3.5 w-3.5" />
+                              ) : (
+                                <Play className="h-3.5 w-3.5" />
+                              )}
+                            </IconButton>
                           </div>
                         </div>
                       ))}
 
                       {isAddingSegment ? (
-                        <div className="rounded-xl border border-hairline p-3">
+                        <div className="mx-2 mt-2 rounded-xl border border-hairline bg-surface p-3">
                           <textarea
                             value={newSegmentText}
                             onChange={(event) => setNewSegmentText(event.target.value.slice(0, 1000))}
@@ -1326,9 +1341,7 @@ export function VoiceoverGenerator() {
                           />
                           <div className="mt-2 flex items-center justify-between gap-2">
                             {newSegmentText.trim() ? (
-                              <Badge>
-                                {newSegmentCredits} credit{newSegmentCredits === 1 ? "" : "s"}
-                              </Badge>
+                              <span className="text-xs tabular-nums text-subtle">{creditsLabel(newSegmentCredits)}</span>
                             ) : (
                               <span />
                             )}
@@ -1339,16 +1352,16 @@ export function VoiceoverGenerator() {
                                   setIsAddingSegment(false);
                                   setNewSegmentText("");
                                 }}
-                                className="rounded-lg px-3 py-1.5 text-xs font-medium text-subtle hover:bg-accent hover:text-heading"
+                                className="h-8 rounded-lg px-3 text-xs font-medium text-subtle hover:bg-(--app-fill) hover:text-heading"
                               >
                                 Cancel
                               </button>
-                              <PlasticButton
-                                text="Add"
+                              <PrimaryButton
+                                text="Add segment"
                                 loading={isSubmittingSegment}
                                 disabled={!newSegmentText.trim()}
                                 onClick={handleAddSegment}
-                                className="!px-4 !py-1.5 text-xs"
+                                className="h-8 px-3 text-xs"
                               />
                             </div>
                           </div>
@@ -1357,13 +1370,17 @@ export function VoiceoverGenerator() {
                         <button
                           type="button"
                           onClick={() => setIsAddingSegment(true)}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-hairline bg-surface py-3 text-sm font-medium text-subtle shadow-card transition-colors hover:border-primary/40 hover:text-primary"
+                          className="mt-1 flex w-full items-center gap-2 rounded-lg py-2 pl-2 text-sm text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading"
                         >
-                          <Plus className="h-4 w-4" /> Add Segment
+                          <span className="flex w-6 justify-end">
+                            <Plus className="h-4 w-4" />
+                          </span>
+                          Add segment
                         </button>
                       )}
                     </div>
 
+                    <div className="border-t border-hairline px-5 py-4">
                     <Timeline
                       durations={durations.length > 0 ? durations : [1]}
                       currentTime={currentTime}
@@ -1376,7 +1393,7 @@ export function VoiceoverGenerator() {
                       deletingIndex={deletingIndex}
                     />
                     {exportError && <p className="mt-2 text-xs font-medium text-danger">{exportError}</p>}
-                    <div className="mt-3 flex items-center justify-between">
+                    <div className="mt-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-1.5">
                         <IconButton
                           title="Previous segment"
@@ -1393,14 +1410,15 @@ export function VoiceoverGenerator() {
                           <SkipForward className="h-4 w-4" />
                         </IconButton>
                       </div>
-                      <PlasticButton
-                        text="Export"
+                      <PrimaryButton
+                        text="Download"
                         loading={isExporting}
                         loadingText="Exporting…"
                         disabled={segments.length === 0}
                         onClick={handleExport}
-                        trailing={<Download className="h-3.5 w-3.5" />}
+                        icon={<Download className="h-4 w-4" />}
                       />
+                    </div>
                     </div>
                   </div>
                 )}
@@ -1412,7 +1430,8 @@ export function VoiceoverGenerator() {
           <div className="relative">
               <div
                 className={cn(
-                  "flex flex-col gap-3 rounded-3xl bg-app p-3 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10",
+                  PANEL,
+                  "flex flex-col overflow-hidden",
                   // History needs the full column height to size its own scroll
                   // area (see HistoryPanel's h-full max-h-[720px]); Settings has
                   // no such need and should just hug its content instead of
@@ -1420,35 +1439,24 @@ export function VoiceoverGenerator() {
                   sidebarTab === "history" && "h-full"
                 )}
               >
-                <div className="flex shrink-0 rounded-xl bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+                <div className="flex shrink-0 gap-5 border-b border-hairline px-5 pt-4">
                   {(
                     [
-                      { key: "settings", label: "Settings", icon: Settings2 },
-                      { key: "history", label: "History", icon: History },
+                      { key: "settings", label: "Settings" },
+                      { key: "history", label: "History" },
                     ] as const
-                  ).map(({ key, label, icon: TabIcon }) => (
+                  ).map(({ key, label }) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setSidebarTab(key)}
-                      className="relative flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold"
-                    >
-                      {sidebarTab === key && (
-                        <motion.span
-                          layoutId={`${sidebarTabPillId}-active`}
-                          transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                          className="absolute inset-0 rounded-lg bg-surface shadow-card dark:bg-[#0D0D10]"
-                        />
+                      aria-pressed={sidebarTab === key}
+                      className={cn(
+                        "-mb-px border-b-2 pb-2.5 text-sm font-medium transition-colors",
+                        sidebarTab === key ? "border-heading text-heading" : "border-transparent text-subtle hover:text-heading"
                       )}
-                      <span
-                        className={cn(
-                          "relative z-10 flex items-center gap-1.5 transition-colors",
-                          sidebarTab === key ? "text-heading" : "text-subtle hover:text-heading"
-                        )}
-                      >
-                        <TabIcon className="h-3.5 w-3.5" />
-                        {label}
-                      </span>
+                    >
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -1456,49 +1464,39 @@ export function VoiceoverGenerator() {
                   {sidebarTab === "history" ? (
                     <HistoryPanel onSelect={(item) => void loadGeneration(item.id)} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
                   ) : (
-                    <div className="rounded-2xl border border-hairline bg-surface shadow-card dark:bg-[#0D0D10]">
-                    <div className="group p-5">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-accent to-primary/15 text-primary">
-                          <Mic2 className="h-3.5 w-3.5" />
-                        </span>
-                        <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Voice Style</h2>
-                      </div>
+                    <div>
+                    <div className="p-5">
+                      <h2 className={SECTION_LABEL}>Voice</h2>
                     <button
                     type="button"
                     onClick={() => setIsVoiceModalOpen(true)}
-                    className="group/row mt-3 flex w-full items-center gap-3 rounded-xl border border-hairline bg-app/60 p-3 text-left transition-all duration-200 hover:border-primary/40 hover:bg-accent/50 dark:bg-white/[0.02]"
+                    className="group/row mt-2.5 flex w-full items-center gap-3 rounded-xl border border-hairline p-3 text-left transition-colors hover:bg-(--app-fill)"
                     >
-                    <Avatar name={selectedClone ? selectedClone.name : elevenLabsVoice.name} size="md" hideInitials className="ring-2 ring-surface shadow-sm" />
+                    <Avatar name={selectedClone ? selectedClone.name : elevenLabsVoice.name} size="md" hideInitials />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : elevenLabsVoice.name}</p>
-                      {!selectedClone && voiceMeta(elevenLabsVoice) && (
-                        <p className="truncate text-xs font-medium text-primary">{voiceMeta(elevenLabsVoice)}</p>
-                      )}
-                      <p className="truncate text-xs text-subtle">
-                        {selectedClone ? "Your cloned voice" : elevenLabsVoice.description}
+                      <p className="mt-0.5 truncate text-xs text-subtle">
+                        {selectedClone ? "Your cloned voice" : voiceMeta(elevenLabsVoice)}
                       </p>
                     </div>
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-primary transition-transform duration-200 group-hover/row:translate-x-0.5">
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </span>
+                    <span className="shrink-0 text-xs font-medium text-subtle transition-colors group-hover/row:text-heading">Change</span>
                     </button>
                   </div>
 
                   <div className="border-t border-hairline p-5">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Model</h2>
+                    <h2 className={SECTION_LABEL}>Model</h2>
                     <button
                     type="button"
                     onClick={() => setIsModelListOpen((open) => !open)}
                     aria-expanded={isModelListOpen}
-                    title={currentModel.description}
-                    className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-hairline bg-app/60 px-3 py-2.5 text-left text-sm font-semibold text-heading transition-colors hover:border-primary/40 dark:bg-white/[0.02]"
+                    className={cn(FIELD, "mt-2.5 flex h-10 items-center justify-between gap-2 text-left font-medium")}
                     >
                     <span className="truncate">{currentModel.name}</span>
                     <ChevronDown className={cn("h-4 w-4 shrink-0 text-subtle transition-transform", isModelListOpen && "rotate-180")} />
                     </button>
+                    {!isModelListOpen && <p className="mt-2 text-xs leading-relaxed text-subtle">{currentModel.description}</p>}
                     {isModelListOpen && (
-                    <div className="mt-1.5 max-h-72 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-card">
+                    <div className="mt-1.5 max-h-80 overflow-y-auto rounded-lg border border-hairline bg-surface p-1 shadow-[0_8px_24px_rgba(16,24,40,0.08)]">
                       {ELEVENLABS_MODELS.map((model) => {
                         const selected = model.id === currentModel.id;
                         const details = [
@@ -1513,14 +1511,14 @@ export function VoiceoverGenerator() {
                             title={model.description}
                             className={cn(
                               "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition-colors",
-                              selected ? "bg-primary/10" : "hover:bg-accent/60 dark:hover:bg-white/[0.05]"
+                              selected ? "bg-(--app-fill-strong)" : "hover:bg-(--app-fill)"
                             )}
                           >
                             <span className="min-w-0">
-                              <span className={cn("block truncate text-sm font-medium", selected ? "text-primary" : "text-heading")}>{model.name}</span>
-                              {details.length > 0 && <span className="block truncate text-[11px] text-subtle">{details.join(" · ")}</span>}
+                              <span className="block truncate text-sm font-medium text-heading">{model.name}</span>
+                              {details.length > 0 && <span className="mt-0.5 block truncate text-xs text-subtle">{details.join(" · ")}</span>}
                             </span>
-                            {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={3} />}
+                            {selected && <Check className="h-4 w-4 shrink-0 text-heading" />}
                           </button>
                         );
                       })}
@@ -1528,30 +1526,28 @@ export function VoiceoverGenerator() {
                   )}
 
                   {showLanguage && (
-                    <select
-                      value={languageCode ?? ""}
-                      onChange={(event) => setLanguageCode(event.target.value)}
-                      aria-label="Language"
-                      className="mt-2 w-full cursor-pointer rounded-lg border border-hairline bg-app/60 px-3 py-2.5 text-sm text-heading outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/15 dark:bg-white/[0.02]"
-                    >
-                      {LANGUAGES.map((language) => (
-                        <option key={language.code} value={language.code}>
-                          {language.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative mt-2">
+                      <select
+                        value={languageCode ?? ""}
+                        onChange={(event) => setLanguageCode(event.target.value)}
+                        aria-label="Language"
+                        className={cn(FIELD, "h-10 cursor-pointer appearance-none pr-9 font-medium")}
+                      >
+                        {LANGUAGES.map((language) => (
+                          <option key={language.code} value={language.code}>
+                            {language.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+                    </div>
                   )}
                 </div>
 
                 <div className="border-t border-hairline p-5">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Generation Mode</h2>
-                    <span title="Line by line generates each sentence as its own clip you can edit and regenerate individually. All at once sends the full script as a single take.">
-                      <Info className="h-3.5 w-3.5 text-subtle/60" />
-                    </span>
-                  </div>
+                  <h2 className={SECTION_LABEL}>Generation mode</h2>
 
-                  <div className="relative mt-3 flex shrink-0 rounded-lg bg-app p-1 ring-1 ring-inset ring-black/[0.06] dark:bg-white/5 dark:ring-white/10">
+                  <div className="relative mt-2.5 flex shrink-0 rounded-lg bg-(--app-fill) p-0.5">
                     {(
                       [
                         { key: "line_by_line", label: "Line by line" },
@@ -1562,13 +1558,13 @@ export function VoiceoverGenerator() {
                         key={key}
                         type="button"
                         onClick={() => setGenerationMode(key)}
-                        className="relative flex-1 rounded-md px-3.5 py-2 text-xs font-semibold"
+                        className="relative flex-1 rounded-md px-3.5 py-1.5 text-xs font-medium"
                       >
                         {generationMode === key && (
                           <motion.span
                             layoutId={`${generationModePillId}-active`}
                             transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                            className="absolute inset-0 rounded-md bg-surface shadow-card dark:bg-[#0D0D10]"
+                            className={SEGMENT_ACTIVE}
                           />
                         )}
                         <span
@@ -1582,20 +1578,20 @@ export function VoiceoverGenerator() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-xs leading-relaxed text-subtle">
+                    {generationMode === "line_by_line"
+                      ? "Each sentence becomes its own clip you can edit and regenerate."
+                      : "The whole script is generated as a single take."}
+                  </p>
                 </div>
 
                 <div className="border-t border-hairline p-5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 text-primary ring-1 ring-primary/10">
-                        <SlidersHorizontal className="h-3.5 w-3.5" />
-                      </span>
-                      <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">Voice Settings</h2>
-                    </div>
+                    <h2 className={SECTION_LABEL}>Voice settings</h2>
                     <button
                       type="button"
                       onClick={resetSettings}
-                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-primary outline-none transition-colors hover:bg-primary/10"
+                      className="-mr-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-subtle outline-none transition-colors hover:bg-(--app-fill) hover:text-heading"
                     >
                       <RotateCcw className="h-3 w-3" />
                       Reset
@@ -1603,7 +1599,7 @@ export function VoiceoverGenerator() {
                   </div>
 
                   {selectedClone ? (
-                    <p className="mt-4 text-xs text-subtle">Cloned voices use their own engine, so these settings don&apos;t apply.</p>
+                    <p className="mt-3 text-xs text-subtle">Cloned voices use their own engine, so these settings don&apos;t apply.</p>
                   ) : (
                     <div className="mt-4 space-y-5">
                       {discreteStability ? (
@@ -1635,6 +1631,7 @@ export function VoiceoverGenerator() {
                         />
                       )}
 
+                      {currentModel.similarity && (
                       <SettingSlider
                         label="Similarity"
                         hint="How closely the output should match the original voice. High values can also reproduce artifacts from the source recording."
@@ -1647,9 +1644,11 @@ export function VoiceoverGenerator() {
                         leftLabel="Low"
                         rightLabel="High"
                       />
+                      )}
 
+                      {currentModel.style && (
                       <SettingSlider
-                        label="Style Exaggeration"
+                        label="Style exaggeration"
                         hint="Amplifies the speaking style of the original voice. Adds latency and can reduce stability -- usually best left at 0."
                         value={voiceSettings.style}
                         min={0}
@@ -1660,7 +1659,9 @@ export function VoiceoverGenerator() {
                         leftLabel="None"
                         rightLabel="Exaggerated"
                       />
+                      )}
 
+                      {currentModel.speed && (
                       <SettingSlider
                         label="Speed"
                         hint="Speaking rate. 1.0 is the voice's natural pace; extreme values can affect quality."
@@ -1673,6 +1674,7 @@ export function VoiceoverGenerator() {
                         leftLabel="Slower"
                         rightLabel="Faster"
                       />
+                      )}
                     </div>
                   )}
                 </div>

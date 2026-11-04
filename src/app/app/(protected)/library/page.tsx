@@ -10,15 +10,16 @@ import {
   Check,
   Download,
   ExternalLink,
+  FileText,
   Film,
   Filter,
+  FolderOpen,
   ImageIcon,
   type LucideIcon,
   Mic2,
   MoreHorizontal,
   Pause,
   Play,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -65,21 +66,6 @@ function generateWaveform(seed: string, count: number): number[] {
   });
 }
 
-// Sweeps the filled waveform bars from a lighter blue into the brand primary
-// -- a flat fill reads flat, this reads as a premium gradient without
-// needing an actual CSS gradient across dozens of separate bar elements.
-const WAVEFORM_GRADIENT_FROM: [number, number, number] = [125, 176, 255];
-const WAVEFORM_GRADIENT_TO: [number, number, number] = [51, 92, 255];
-
-function waveformFillColor(fraction: number): string {
-  const [r1, g1, b1] = WAVEFORM_GRADIENT_FROM;
-  const [r2, g2, b2] = WAVEFORM_GRADIENT_TO;
-  const r = Math.round(r1 + (r2 - r1) * fraction);
-  const g = Math.round(g1 + (g2 - g1) * fraction);
-  const b = Math.round(b1 + (b2 - b1) * fraction);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
 async function fetchVoiceoverSegmentDurations(generationId: string): Promise<number[]> {
   const response = await fetch(`/api/generate-voiceover?id=${generationId}`);
   const data = await response.json().catch(() => null);
@@ -109,11 +95,13 @@ const TABS: { value: TabValue; label: string }[] = [
   { value: "voiceover", label: "Voiceovers" },
 ];
 
-const TYPE_BADGE: Record<LibraryAssetType, { label: string; icon: LucideIcon; chip: string; text: string }> = {
-  image: { label: "Image", icon: ImageIcon, chip: "bg-cat-1-tint", text: "text-cat-1" },
-  video: { label: "Video", icon: Film, chip: "bg-cat-6-tint", text: "text-cat-6" },
-  sop: { label: "SOP", icon: Sparkles, chip: "bg-cat-7-tint", text: "text-cat-7" },
-  voiceover: { label: "Voiceover", icon: Mic2, chip: "bg-cat-2-tint", text: "text-cat-2" },
+// Type is said once: the tabs filter by it, and on a tile only the non-image
+// kinds carry a tag (a picture already reads as a picture).
+const TYPE_META: Record<LibraryAssetType, { label: string; icon: LucideIcon }> = {
+  image: { label: "Image", icon: ImageIcon },
+  video: { label: "Video", icon: Film },
+  sop: { label: "SOP", icon: FileText },
+  voiceover: { label: "Voiceover", icon: Mic2 },
 };
 
 const SORT_OPTIONS: { value: "newest" | "oldest"; label: string }[] = [
@@ -137,52 +125,32 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 }
 
 function AssetPlaceholder({ type }: { type: LibraryAssetType }) {
-  const badge = TYPE_BADGE[type];
-  const Icon = badge.icon;
+  const Icon = TYPE_META[type].icon;
   return (
-    <div className={cn("absolute inset-0 flex items-center justify-center overflow-hidden", badge.chip)}>
-      <div
-        className="absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
-      <div className={cn("absolute -right-6 -bottom-8 h-28 w-28 rounded-full opacity-[0.08]", badge.text, "bg-current")} />
-      <span
-        className={cn(
-          "relative flex h-11 w-11 items-center justify-center rounded-xl bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]",
-          badge.text
-        )}
-      >
-        <Icon className="h-5 w-5" />
-      </span>
+    <div className="absolute inset-0 flex items-center justify-center">
+      <Icon className="h-6 w-6 text-subtle" aria-hidden="true" />
     </div>
   );
 }
 
 // Voiceover generations have no visual source (no thumbnailUrl, no fileUrl
-// to snapshot), so the grid can't show "the thing" the way image/video cards
-// do -- instead this renders a per-asset waveform silhouette (same seeded
-// generator as VoiceoverPreviewPlayer's waveform, so a given voiceover looks
-// the same in the grid as it does in the preview) over a dark, glowing card
-// so it reads as a deliberate audio treatment rather than a placeholder.
+// to snapshot), so the tile draws a per-asset waveform silhouette instead --
+// same seeded generator as VoiceoverPreviewPlayer's, so a given voiceover
+// looks the same in the grid as in the preview. Drawn in quiet ink on the
+// tile's neutral ground so it sits with the image tiles around it.
 function VoiceoverThumbnail({ asset }: { asset: LibraryAsset }) {
   const bars = useMemo(() => generateWaveform(asset.id, 22), [asset.id]);
   return (
-    <div className="absolute inset-0 overflow-hidden bg-accent dark:bg-[radial-gradient(120%_140%_at_50%_115%,#182556_0%,#0b1230_45%,#05070f_100%)]">
-      <div className="absolute inset-x-0 bottom-0 flex h-[62%] items-end justify-center gap-[3px] px-7 pb-7">
+    <div className="absolute inset-0 flex items-center justify-center px-[14%]">
+      <div className="flex h-[36%] w-full items-center justify-center gap-[3px]">
         {bars.map((value, i) => (
           <span
             key={i}
-            className="w-full rounded-full bg-primary dark:bg-gradient-to-t dark:from-primary/50 dark:via-primary dark:to-sky-300"
-            style={{ height: `${10 + value * 90}%`, opacity: 0.5 + value * 0.5 }}
+            className="w-full max-w-[5px] rounded-full bg-heading/25 transition-colors duration-200 group-hover:bg-primary/70"
+            style={{ height: `${16 + value * 84}%` }}
           />
         ))}
       </div>
-      <span className="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-white text-subtle ring-1 ring-hairline dark:bg-white/10 dark:text-white dark:ring-white/15">
-        <Mic2 className="h-3.5 w-3.5" />
-      </span>
     </div>
   );
 }
@@ -254,42 +222,42 @@ function AssetThumbnail({ asset, width }: { asset: LibraryAsset; width: number }
       : asset.thumbnailUrl;
 
     return (
-      <>
-        {isOwnOrigin && (
-          // eslint-disable-next-line @next/next/no-img-element -- pre-resized by our own route; next/image can't reach an authenticated route (its internal fetch drops cookies)
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-lg"
-          />
+      // Generated media is shown whole (contain) on the tile's neutral ground
+      // rather than cropped or padded out with a blurred copy of itself.
+      // eslint-disable-next-line @next/next/no-img-element -- pre-resized by our own route (own-origin) or a small third-party avatar (SOP)
+      <img
+        src={src}
+        alt={asset.title}
+        loading="lazy"
+        decoding="async"
+        className={cn(
+          "absolute inset-0 h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.02]",
+          isOwnOrigin ? "object-contain" : "object-cover"
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element -- pre-resized by our own route (own-origin) or a small third-party avatar (SOP) */}
-        <img
-          src={src}
-          alt={asset.title}
-          loading="lazy"
-          decoding="async"
-          className={cn(
-            "absolute inset-0 h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.03]",
-            isOwnOrigin ? "object-contain" : "object-cover"
-          )}
-        />
-      </>
+      />
     );
   }
 
   return <AssetPlaceholder type={asset.type} />;
 }
 
-function PlayIndicator({ icon: Icon }: { icon: LucideIcon }) {
+function PlayIndicator() {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
-        <Icon className="h-4 w-4" />
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100">
+        <Play className="h-4 w-4 translate-x-px" fill="currentColor" aria-hidden="true" />
       </span>
     </div>
+  );
+}
+
+function TypeTag({ type }: { type: LibraryAssetType }) {
+  const { label, icon: Icon } = TYPE_META[type];
+  return (
+    <span className="pointer-events-none absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      {label}
+    </span>
   );
 }
 
@@ -436,12 +404,13 @@ function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
         onClick={togglePlayPause}
         disabled={!durations}
         aria-label={isPlaying ? "Pause" : "Play"}
-        className="group relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-accent to-accent/60 text-primary shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.04] transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.97] disabled:opacity-40 dark:ring-white/[0.06]"
+        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-btn-primary text-white shadow-[0_1px_2px_rgba(16,24,40,0.15),inset_0_1px_0_rgba(255,255,255,0.18)] transition-colors hover:bg-btn-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.97] disabled:opacity-40"
       >
-        <Mic2 className="h-8 w-8 transition-opacity group-hover:opacity-0" />
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-hover text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
-          {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 translate-x-0.5" />}
-        </span>
+        {isPlaying ? (
+          <Pause className="h-5 w-5" fill="currentColor" aria-hidden="true" />
+        ) : (
+          <Play className="h-5 w-5 translate-x-0.5" fill="currentColor" aria-hidden="true" />
+        )}
       </button>
 
       <div className="flex w-full flex-col gap-2">
@@ -461,27 +430,52 @@ function VoiceoverPreviewPlayer({ asset }: { asset: LibraryAsset }) {
           )}
         >
           {waveform.map((height, index) => {
-            const barFraction = index / (waveform.length - 1);
-            const filled = durations !== null && barFraction <= progress;
+            const filled = durations !== null && index / (waveform.length - 1) <= progress;
             return (
               <span
                 key={index}
-                className={cn("min-w-[2px] flex-1 rounded-full transition-colors duration-150", !filled && "bg-slate-200 dark:bg-white/10")}
-                style={{ height: `${12 + height * 88}%`, backgroundColor: filled ? waveformFillColor(barFraction) : undefined }}
+                className={cn(
+                  "min-w-[2px] flex-1 rounded-full transition-colors duration-150",
+                  filled ? "bg-primary" : "bg-heading/15"
+                )}
+                style={{ height: `${12 + height * 88}%` }}
               />
             );
           })}
         </div>
-        <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-zinc-500">
+        <div className="flex items-center justify-between text-xs font-medium tabular-nums text-subtle">
           <span>{formatSeconds(currentTime)}</span>
           <span>{durations ? formatSeconds(totalDuration) : "--:--"}</span>
         </div>
       </div>
 
-      {loadError && <p className="text-xs font-medium text-red-500">Could not load this voiceover&rsquo;s audio.</p>}
+      {loadError && <p className="text-xs font-medium text-danger">Could not load this voiceover&rsquo;s audio.</p>}
     </div>
   );
 }
+
+const GRID = "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6";
+
+// The media sits straight on a neutral square -- no card around it. The
+// inset ring is drawn on ::after so it stays crisp over the image itself.
+const TILE =
+  "relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl bg-(--app-fill-strong) after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/[0.06] after:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:after:ring-white/[0.06]";
+
+const TOOLBAR_BUTTON =
+  "flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 text-[13px] font-medium text-body transition-colors hover:text-heading dark:bg-white/[0.03]";
+
+const MENU_PANEL = "absolute top-full right-0 z-20 mt-1.5 rounded-xl border border-hairline bg-surface p-1 shadow-card-hover";
+
+const MENU_ROW =
+  "flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors";
+
+const EMPTY_TITLE: Record<TabValue, string> = {
+  all: "Nothing here yet",
+  image: "No images yet",
+  video: "No videos yet",
+  sop: "No SOPs yet",
+  voiceover: "No voiceovers yet",
+};
 
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("all");
@@ -508,10 +502,6 @@ export default function LibraryPage() {
   const assets = libraryData?.assets ?? null;
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const error = deleteError ?? (libraryError ? "Couldn't load your library." : null);
-
-  useEffect(() => {
-    setCategory("all");
-  }, [activeTab]);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -612,26 +602,30 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pt-2">
-      <div>
-        <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
-          Library
-        </h1>
-        <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
-          Every image, video, and SOP you&rsquo;ve generated, in one place.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6 pt-2 sm:pt-4">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">Library</h1>
+        <p className="mt-1.5 text-sm text-subtle">Every image, video and voiceover you&rsquo;ve generated, in one place.</p>
+      </header>
 
-      <div className="mt-4 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div className="flex w-full gap-6 border-b border-hairline md:w-auto">
+      <div className="flex flex-col-reverse gap-3 border-b border-hairline md:flex-row md:items-end md:justify-between">
+        <div className="-mb-px flex gap-5 overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                setActiveTab(tab.value);
+                // Categories come from the tab's own assets, so a pick from
+                // the previous tab may not exist in this one.
+                setCategory("all");
+              }}
+              aria-pressed={activeTab === tab.value}
               className={cn(
-                "cursor-pointer pb-2 text-sm font-medium transition-colors",
-                activeTab === tab.value ? "border-b-2 border-primary text-heading" : "text-body/70 hover:text-heading"
+                "cursor-pointer border-b-2 pb-2.5 text-sm font-medium whitespace-nowrap transition-colors",
+                activeTab === tab.value
+                  ? "border-heading text-heading"
+                  : "border-transparent text-subtle hover:text-heading"
               )}
             >
               {tab.label}
@@ -639,49 +633,46 @@ export default function LibraryPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 md:pb-2">
+          {visibleAssets && visibleAssets.length > 0 && (
+            <span className="mr-auto text-[13px] tabular-nums text-subtle md:mr-1">
+              {visibleAssets.length} {visibleAssets.length === 1 ? "item" : "items"}
+            </span>
+          )}
+
           <div ref={categoryMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setCategoryMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-body shadow-card transition-colors hover:text-heading"
+              aria-haspopup="menu"
+              aria-expanded={categoryMenuOpen}
+              className={TOOLBAR_BUTTON}
             >
-              <Filter className="h-3.5 w-3.5" />
-              {category === "all" ? "All categories" : category}
+              <Filter className="h-3.5 w-3.5 text-subtle" aria-hidden="true" />
+              <span className="max-w-[140px] truncate">{category === "all" ? "All categories" : category}</span>
             </button>
             {categoryMenuOpen && (
-              <div className="absolute top-full right-0 z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCategory("all");
-                    setCategoryMenuOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                    category === "all" ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
-                  )}
-                >
-                  All categories
-                  {category === "all" && <Check className="h-3.5 w-3.5 text-primary" />}
-                </button>
-                {categories.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setCategory(value);
-                      setCategoryMenuOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                      category === value ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
-                    )}
-                  >
-                    <span className="truncate">{value}</span>
-                    {category === value && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                  </button>
-                ))}
+              <div className={cn(MENU_PANEL, "max-h-64 w-52 overflow-y-auto")}>
+                {[{ value: "all", label: "All categories" }, ...categories.map((value) => ({ value, label: value }))].map(
+                  (option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setCategory(option.value);
+                        setCategoryMenuOpen(false);
+                      }}
+                      className={cn(
+                        MENU_ROW,
+                        "justify-between hover:bg-(--app-fill)",
+                        category === option.value ? "font-medium text-heading" : "text-body hover:text-heading"
+                      )}
+                    >
+                      <span className="truncate">{option.label}</span>
+                      {category === option.value && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                    </button>
+                  )
+                )}
               </div>
             )}
           </div>
@@ -690,13 +681,15 @@ export default function LibraryPage() {
             <button
               type="button"
               onClick={() => setSortMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-body shadow-card transition-colors hover:text-heading"
+              aria-haspopup="menu"
+              aria-expanded={sortMenuOpen}
+              className={TOOLBAR_BUTTON}
             >
-              <ArrowUpDown className="h-3.5 w-3.5" />
+              <ArrowUpDown className="h-3.5 w-3.5 text-subtle" aria-hidden="true" />
               {SORT_OPTIONS.find((option) => option.value === sort)?.label}
             </button>
             {sortMenuOpen && (
-              <div className="absolute top-full right-0 z-20 mt-2 w-40 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover">
+              <div className={cn(MENU_PANEL, "w-44")}>
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option.value}
@@ -706,12 +699,13 @@ export default function LibraryPage() {
                       setSortMenuOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                      sort === option.value ? "bg-accent font-medium text-heading" : "text-body hover:bg-accent/60"
+                      MENU_ROW,
+                      "justify-between hover:bg-(--app-fill)",
+                      sort === option.value ? "font-medium text-heading" : "text-body hover:text-heading"
                     )}
                   >
                     {option.label}
-                    {sort === option.value && <Check className="h-3.5 w-3.5 text-primary" />}
+                    {sort === option.value && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
                   </button>
                 ))}
               </div>
@@ -720,150 +714,132 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {error && <p className="mt-4 text-sm font-medium text-red-500">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {visibleAssets === null ? (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="overflow-hidden rounded-lg border border-hairline bg-surface p-2.5 shadow-card">
-              <div className="aspect-[4/3] animate-pulse rounded-md bg-accent" />
-              <div className="flex flex-col gap-2 px-1 pt-3 pb-1">
-                <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-accent" />
-                <div className="h-3 w-1/2 animate-pulse rounded-full bg-accent" />
+        <div className={GRID} aria-hidden="true">
+          {Array.from({ length: 10 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-2.5">
+              <div className="aspect-square animate-pulse rounded-xl bg-(--app-fill-strong)" />
+              <div className="flex flex-col gap-1.5">
+                <div className="h-3 w-3/4 animate-pulse rounded-full bg-(--app-fill-strong)" />
+                <div className="h-2.5 w-1/3 animate-pulse rounded-full bg-(--app-fill)" />
               </div>
             </div>
           ))}
         </div>
       ) : visibleAssets.length === 0 ? (
-        <div className="mt-6 flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-hairline text-body/60">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-primary">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <p className="text-sm font-medium text-heading">Nothing here yet</p>
-          <p className="text-xs text-body/70">Generate an image, video, or SOP to see it show up here.</p>
+        <div className="flex flex-col items-center py-20 text-center">
+          <FolderOpen className="h-6 w-6 text-subtle" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-heading">{EMPTY_TITLE[activeTab]}</p>
+          <p className="mt-1 text-[13px] text-subtle">What you generate with the tools shows up here.</p>
+          <Link href="/tools" className={cn(TOOLBAR_BUTTON, "mt-5 px-3")}>
+            Browse tools
+          </Link>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className={GRID}>
           {visibleAssets.map((asset) => {
-            const badge = TYPE_BADGE[asset.type];
-            const BadgeIcon = badge.icon;
+            const media = (
+              <>
+                <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
+                {asset.type === "voiceover" && <PlayIndicator />}
+                {asset.type !== "image" && <TypeTag type={asset.type} />}
+              </>
+            );
             return (
               <div
                 key={asset.id}
-                className={cn(
-                  "group relative flex flex-col rounded-lg border border-hairline bg-surface p-2.5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
-                  openMenuId === asset.id && "z-30"
-                )}
+                className={cn("group relative flex min-w-0 flex-col gap-2.5", openMenuId === asset.id && "z-30")}
               >
                 {asset.type === "sop" ? (
-                  <Link
-                    href={asset.fileUrl ?? "#"}
-                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
-                  >
-                    <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
+                  <Link href={asset.fileUrl ?? "#"} aria-label={`Open ${asset.title}`} className={TILE}>
+                    {media}
                   </Link>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setPreviewAsset(asset)}
-                    className="relative block aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md border border-hairline/60 bg-accent"
+                    aria-label={`Preview ${asset.title}`}
+                    className={TILE}
                   >
-                    <AssetThumbnail asset={asset} width={GRID_THUMB_WIDTH} />
-                    {asset.type === "video" && <PlayIndicator icon={Film} />}
-                    {asset.type === "voiceover" && <PlayIndicator icon={Play} />}
+                    {media}
                   </button>
                 )}
 
-                <div className="flex flex-col gap-1.5 px-1 pt-3 pb-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="max-w-[62%] truncate text-sm font-semibold text-heading">{asset.title}</p>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase",
-                          badge.chip,
-                          badge.text
-                        )}
-                      >
-                        <BadgeIcon className="h-2.5 w-2.5" />
-                        {badge.label}
-                      </span>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setOpenMenuId((prev) => (prev === asset.id ? null : asset.id))}
-                          aria-label="Asset actions"
-                          className="flex h-6 w-6 items-center justify-center rounded-full text-body/60 hover:bg-accent hover:text-primary"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </button>
-                        {openMenuId === asset.id && (
-                          <div
-                            ref={actionMenuRef}
-                            className="absolute top-full right-0 z-20 mt-1 w-44 rounded-2xl border border-hairline bg-surface p-1.5 shadow-card-hover"
+                <div className="flex items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-heading" title={asset.title}>
+                      {asset.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-subtle">
+                      {formatRelativeTime(asset.createdAt)}
+                      {asset.sizeBytes != null && ` · ${formatBytes(asset.sizeBytes)}`}
+                    </p>
+                  </div>
+
+                  <div className="relative -mt-0.5 -mr-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenuId((prev) => (prev === asset.id ? null : asset.id))}
+                      aria-label="Asset actions"
+                      aria-haspopup="menu"
+                      aria-expanded={openMenuId === asset.id}
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading"
+                    >
+                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    {openMenuId === asset.id && (
+                      <div ref={actionMenuRef} className={cn(MENU_PANEL, "w-40")}>
+                        {asset.type === "sop" ? (
+                          <Link
+                            href={asset.fileUrl ?? "#"}
+                            onClick={() => setOpenMenuId(null)}
+                            className={cn(MENU_ROW, "text-body hover:bg-(--app-fill) hover:text-heading")}
                           >
-                            {asset.type === "sop" ? (
-                              <Link
-                                href={asset.fileUrl ?? "#"}
-                                onClick={() => setOpenMenuId(null)}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                Open
-                              </Link>
-                            ) : asset.type === "voiceover" ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenMenuId(null);
-                                    setPreviewAsset(asset);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
-                                >
-                                  <Play className="h-3.5 w-3.5" />
-                                  Play
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDownload(asset)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                  Download
-                                </button>
-                              </>
-                            ) : (
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                            Open
+                          </Link>
+                        ) : (
+                          <>
+                            {asset.type === "voiceover" && (
                               <button
                                 type="button"
-                                onClick={() => handleDownload(asset)}
-                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-body hover:bg-accent/60"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setPreviewAsset(asset);
+                                }}
+                                className={cn(MENU_ROW, "text-body hover:bg-(--app-fill) hover:text-heading")}
                               >
-                                <Download className="h-3.5 w-3.5" />
-                                Download
+                                <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                                Play
                               </button>
                             )}
                             <button
                               type="button"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setPendingDeleteId(asset.id);
-                              }}
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                              onClick={() => handleDownload(asset)}
+                              className={cn(MENU_ROW, "text-body hover:bg-(--app-fill) hover:text-heading")}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Delete
+                              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                              Download
                             </button>
-                          </div>
+                          </>
                         )}
+                        <div className="mx-1 my-1 h-px bg-hairline" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setPendingDeleteId(asset.id);
+                          }}
+                          className={cn(MENU_ROW, "text-danger hover:bg-danger-tint")}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          Delete
+                        </button>
                       </div>
-                    </div>
+                    )}
                   </div>
-
-                  <p className="text-xs text-body/70">
-                    Created {formatRelativeTime(asset.createdAt)}
-                    {asset.sizeBytes != null && ` • ${formatBytes(asset.sizeBytes)}`}
-                  </p>
                 </div>
               </div>
             );
@@ -885,18 +861,21 @@ export default function LibraryPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md dark:bg-black/80"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm dark:bg-black/70"
             onClick={() => {
               setPreviewAsset(null);
             }}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 4 }}
+              exit={{ opacity: 0, scale: 0.98, y: 4 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               onClick={(event) => event.stopPropagation()}
-              className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_40px_120px_-24px_rgba(15,23,42,0.25),0_0_0_1px_rgba(15,23,42,0.03)] dark:border-white/10 dark:bg-[#0b0b0e] dark:shadow-[0_40px_120px_-24px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.05)]"
+              role="dialog"
+              aria-modal="true"
+              aria-label={previewAsset.title}
+              className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-[0_24px_64px_-16px_rgba(16,24,40,0.28)] dark:shadow-[0_24px_64px_-16px_rgba(0,0,0,0.8)]"
             >
               <button
                 type="button"
@@ -904,23 +883,25 @@ export default function LibraryPage() {
                   setPreviewAsset(null);
                 }}
                 aria-label="Close"
-                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur-md transition-colors hover:bg-white hover:text-slate-900 active:scale-[0.96] dark:border-white/10 dark:bg-black/50 dark:text-white/70 dark:hover:bg-black/70 dark:hover:text-white"
+                className="absolute top-3 right-3 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
 
-              <div className="flex min-h-[30vh] flex-1 items-center justify-center bg-slate-100 p-6 dark:bg-black">
+              <div className="flex min-h-[30vh] items-center justify-center bg-zinc-100 dark:bg-black">
                 {previewAsset.type === "voiceover" ? (
-                  <VoiceoverPreviewPlayer key={previewAsset.id} asset={previewAsset} />
+                  <div className="flex w-full justify-center px-6 py-10">
+                    <VoiceoverPreviewPlayer key={previewAsset.id} asset={previewAsset} />
+                  </div>
                 ) : (
-                  <div className="relative aspect-[4/3] max-h-full w-full overflow-hidden rounded-xl">
+                  <div className="relative aspect-[4/3] max-h-[62vh] w-full">
                     {previewAsset.type === "video" && previewAsset.fileUrl ? (
                       <video
                         key={previewAsset.id}
                         src={previewAsset.fileUrl}
                         controls
                         autoPlay
-                        className="h-full w-full object-contain"
+                        className="absolute inset-0 h-full w-full object-contain"
                       />
                     ) : (
                       <AssetThumbnail asset={previewAsset} width={PREVIEW_THUMB_WIDTH} />
@@ -929,43 +910,46 @@ export default function LibraryPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-4 border-t border-slate-200 p-5 dark:border-white/[0.08]">
-                <div>
-                  <p className="line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white/90">
-                    {previewAsset.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-zinc-500">
-                    {previewAsset.category} · Created {formatRelativeTime(previewAsset.createdAt)}
+              <div className="flex flex-col gap-4 border-t border-hairline p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-sm font-medium text-heading">{previewAsset.title}</p>
+                  <p className="mt-1 text-xs text-subtle">
+                    {[TYPE_META[previewAsset.type].label, previewAsset.category, formatRelativeTime(previewAsset.createdAt)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <button
                     type="button"
                     onClick={() => setPendingDeleteId(previewAsset.id)}
                     aria-label="Delete"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-red-500 transition-colors hover:border-red-200 hover:bg-red-50 active:scale-[0.98] dark:border-white/15 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                    title="Delete"
+                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-hairline text-subtle transition-colors hover:bg-danger-tint hover:text-danger"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
+                  {(previewAsset.fileUrl ?? previewAsset.thumbnailUrl) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = previewAsset.fileUrl ?? previewAsset.thumbnailUrl;
+                        if (url) window.open(url, "_blank");
+                      }}
+                      className={cn(TOOLBAR_BUTTON, "h-9 flex-1 justify-center px-3.5 sm:flex-none")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-subtle" aria-hidden="true" />
+                      View
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleDownload(previewAsset)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_rgba(59,130,246,0.6)] transition-colors hover:bg-blue-400 active:scale-[0.98]"
+                    className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-btn-primary px-3.5 text-[13px] font-medium text-white transition-colors hover:bg-btn-primary-hover active:scale-[0.98] sm:flex-none"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
                     Download
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url = previewAsset.fileUrl ?? previewAsset.thumbnailUrl;
-                      if (url) window.open(url, "_blank");
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98] dark:border-white/15 dark:bg-white/[0.04] dark:text-white/90 dark:hover:border-white/25 dark:hover:bg-white/[0.08]"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    View
                   </button>
                 </div>
               </div>

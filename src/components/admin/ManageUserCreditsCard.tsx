@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Coins, Minus, Plus, Search, X } from "lucide-react";
 import type { CreditsAdminUser } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
+import { Panel } from "@/components/admin/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -95,13 +95,7 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
   }
 
   return (
-    <Card>
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-base">Manage user credits</h3>
-          <p className="text-sm text-subtle">Search a user to grant or remove credits manually</p>
-        </div>
-      </div>
+    <Panel title="Manage user credits" description="Search for someone to grant or remove credits by hand">
 
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
@@ -116,13 +110,13 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
       {filtered.length === 0 ? (
         <EmptyState icon={Coins} title="No users found" description="Try a different name or email." />
       ) : (
-        <div className="flex flex-col divide-y divide-hairline">
+        <div className="flex flex-col">
           {filtered.map((user) => (
             <button
               key={user.id}
               type="button"
               onClick={() => openModal(user)}
-              className="flex w-full items-center gap-3 py-3 text-left first:pt-0 last:pb-0"
+              className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-(--admin-fill)"
             >
               <Avatar name={user.name} size="sm" />
               <div className="min-w-0 flex-1">
@@ -236,6 +230,6 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
           </div>
         </div>
       )}
-    </Card>
+    </Panel>
   );
 }

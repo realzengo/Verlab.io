@@ -54,7 +54,8 @@ export function AppShell({
     <SWRConfig value={{ fetcher, dedupingInterval: 5000, revalidateOnFocus: true }}>
       <SidebarCollapsedProvider>
         <NicheSidebarProvider>
-          <div className="flex min-h-screen w-full bg-app">
+          {/* `app-theme` turns on the sidebar's fill tokens (globals.css). */}
+          <div className="app-theme flex min-h-screen w-full bg-app">
             <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
             {showBackdrop && (

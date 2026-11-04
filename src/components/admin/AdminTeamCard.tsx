@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { ShieldCheck, UserPlus, Users as UsersIcon, X } from "lucide-react";
 import type { AdminRole, AdminTeamMember } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
+import { Panel } from "@/components/admin/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -88,16 +88,15 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
   }
 
   return (
-    <Card>
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-base">Admin team</h3>
-          <p className="text-sm text-subtle">People with access to this dashboard</p>
-        </div>
+    <Panel
+      title="Admin team"
+      description="People with access to this dashboard"
+      action={
         <Button variant="secondary" size="sm" icon={UserPlus} onClick={() => setIsOpen(true)}>
           Invite admin
         </Button>
-      </div>
+      }
+    >
 
       {team.length === 0 ? (
         <EmptyState
@@ -197,6 +196,6 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
           </div>
         </div>
       )}
-    </Card>
+    </Panel>
   );
 }

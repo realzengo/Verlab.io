@@ -17,6 +17,7 @@ import { chargeUser } from "./credits";
 import { recordUsageEvent } from "./usage";
 import { slugifyModelName } from "@/lib/config/pricing";
 import { describeGenerationFailure } from "./generation-error";
+import { advanceCloneToVideoStage, type CloneJobParams } from "./video-clone";
 
 const STORAGE_BUCKET = "videos";
 
@@ -30,7 +31,13 @@ export interface VideoJobRow {
   status: "queued" | "processing" | "completed" | "failed";
   credits_quoted: number;
   credits_charged: number | null;
+  /** Only read for Clone rows (params.cloneStage) -- see video-clone.ts. */
+  params?: Partial<CloneJobParams> | null;
 }
+
+/** Column list every advanceVideoJob caller selects -- shared so the webhook, cron and dev reconcile can't drift. */
+export const VIDEO_JOB_COLUMNS =
+  "id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged, params";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -41,7 +48,11 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * "already settled" short-circuit and the credit charge are idempotent) --
  * the webhook and cron sweep can and will race each other for the same job.
  */
-export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = createAdminClient()): Promise<void> {
+export async function advanceVideoJob(
+  row: VideoJobRow,
+  admin: AdminClient = createAdminClient(),
+  options: { webhookUrl?: string } = {}
+): Promise<void> {
   if (row.status === "completed" || row.status === "failed") return;
   if (!row.replicate_prediction_id) return; // submit always sets this before the row is visible to either caller
 
@@ -64,6 +75,13 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
     }
 
     if (!result.videoUrl) throw new Error("Replicate reported success but returned no video output");
+
+    // A Clone row's first prediction renders a still frame, not the video --
+    // hand it off to the motion-transfer stage instead of storing it as output.
+    if (row.mode === "motion" && row.params?.cloneStage === "frame") {
+      await advanceCloneToVideoStage({ ...row, replicate_prediction_id: row.replicate_prediction_id }, result.videoUrl, admin, options.webhookUrl);
+      return;
+    }
     const video = await downloadVideoAsset(result.videoUrl);
 
     const outputPath = `${row.user_id}/${row.id}/output.mp4`;
@@ -75,8 +93,9 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
     // Replicate doesn't hand back a separate thumbnail the way fal's
     // response shape sometimes did -- v1 has no server-side frame-extraction
     // fallback (no ffmpeg dependency added for this), so the UI falls back
-    // to the <video> element's own first-frame render instead.
-    const thumbnailPath: string | null = null;
+    // to the <video> element's own first-frame render instead. thumbnail_path
+    // is left untouched rather than nulled: Clone rows already set it to
+    // their generated first frame during the frame stage.
 
     // Record the completed row -- and, critically, output_video_path --
     // right after the upload succeeds and before any further step that can
@@ -92,7 +111,7 @@ export async function advanceVideoJob(row: VideoJobRow, admin: AdminClient = cre
     // the completion write and the cleanup below.
     const { error: completeError } = await admin
       .from("video_generations")
-      .update({ status: "completed", output_video_path: outputPath, thumbnail_path: thumbnailPath })
+      .update({ status: "completed", output_video_path: outputPath })
       .eq("id", row.id);
 
     if (completeError) {

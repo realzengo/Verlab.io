@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { EyeOff, Loader2, Plus, RefreshCw, Sparkles, X, Zap } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Sparkles, X, Zap } from "lucide-react";
 import type {
   AdminNicheChannel,
   FacelessCategory,
@@ -10,11 +10,11 @@ import type {
   FacelessComplexity,
   NicheBendPlatform,
 } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { Panel } from "@/components/admin/Panel";
 import { cn, formatDate } from "@/lib/utils";
 import { NAME_MAX, URL_MAX, isSafeFreeText, isValidName, isValidUrl } from "@/lib/validation";
 
@@ -106,6 +106,10 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
   const [youtubeSyncRunning, setYoutubeSyncRunning] = useState(false);
   const [youtubeSyncProgress, setYoutubeSyncProgress] = useState<DiscoverySyncProgress | null>(null);
   const [youtubeSyncError, setYoutubeSyncError] = useState<string | null>(null);
+  const hasStatus = Boolean(
+    batchProgress || batchError || tiktokSyncRunning || tiktokSyncProgress || tiktokSyncError ||
+      youtubeSyncRunning || youtubeSyncProgress || youtubeSyncError
+  );
 
   function openIngestModal() {
     setIngestForm(EMPTY_INGEST_FORM);
@@ -337,78 +341,77 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base">Niche Channels</h2>
-          <p className="text-sm text-subtle">
-            Ingest channels -- raw, unclassified, visible on Niche Finder immediately. Classify manually below if you
-            want a faceless verdict on a channel.
-          </p>
+      <PageHeader
+        title="Niche channels"
+        description="Ingested channels show on Niche Finder right away, unclassified. Classify one to get a faceless verdict."
+      >
+        <Button
+          variant="secondary"
+          icon={tiktokSyncRunning ? Loader2 : RefreshCw}
+          onClick={handleSyncTikTok}
+          disabled={tiktokSyncRunning}
+          className={tiktokSyncRunning ? "[&_svg]:animate-spin" : undefined}
+        >
+          {tiktokSyncRunning ? "Syncing…" : "Sync TikTok trends"}
+        </Button>
+        <Button
+          variant="secondary"
+          icon={youtubeSyncRunning ? Loader2 : RefreshCw}
+          onClick={handleSyncYoutube}
+          disabled={youtubeSyncRunning}
+          className={youtubeSyncRunning ? "[&_svg]:animate-spin" : undefined}
+        >
+          {youtubeSyncRunning ? "Syncing…" : "Sync YouTube trends"}
+        </Button>
+        <Button
+          variant="secondary"
+          icon={batchRunning ? Loader2 : Zap}
+          onClick={handleBatchClassify}
+          disabled={batchRunning}
+          className={batchRunning ? "[&_svg]:animate-spin" : undefined}
+        >
+          {batchRunning ? "Classifying…" : "Classify all channels"}
+        </Button>
+        <Button icon={Plus} onClick={openIngestModal}>
+          Ingest channel
+        </Button>
+      </PageHeader>
+
+      {hasStatus && (
+        <div role="status" className="flex flex-col gap-1 rounded-card border border-hairline bg-surface px-4 py-3">
           {batchRunning && batchProgress && (
-            <p className="mt-1 text-xs font-medium text-primary">
+            <p className="text-xs font-medium text-primary">
               Classified {batchProgress.classified}/{batchProgress.total} channels
               {batchProgress.failed > 0 ? ` · ${batchProgress.failed} failed` : ""}…
             </p>
           )}
           {!batchRunning && batchProgress && (
-            <p className="mt-1 text-xs font-medium text-body">
+            <p className="text-xs font-medium text-body">
               Done. Classified {batchProgress.classified}/{batchProgress.total} channels
               {batchProgress.failed > 0 ? ` (${batchProgress.failed} failed)` : ""}.
             </p>
           )}
-          {batchError && <p className="mt-1 text-xs text-danger">{batchError}</p>}
-          {tiktokSyncRunning && <p className="mt-1 text-xs font-medium text-primary">Syncing TikTok trends…</p>}
+          {batchError && <p className="text-xs text-danger">{batchError}</p>}
+          {tiktokSyncRunning && <p className="text-xs font-medium text-primary">Syncing TikTok trends…</p>}
           {!tiktokSyncRunning && tiktokSyncProgress && (
-            <p className="mt-1 text-xs font-medium text-body">
+            <p className="text-xs font-medium text-body">
               Done. Ingested {tiktokSyncProgress.ingestedCount} TikTok channels (raw, unclassified).
             </p>
           )}
-          {tiktokSyncError && <p className="mt-1 text-xs text-danger">{tiktokSyncError}</p>}
-          {youtubeSyncRunning && <p className="mt-1 text-xs font-medium text-primary">Syncing YouTube trends…</p>}
+          {tiktokSyncError && <p className="text-xs text-danger">{tiktokSyncError}</p>}
+          {youtubeSyncRunning && <p className="text-xs font-medium text-primary">Syncing YouTube trends…</p>}
           {!youtubeSyncRunning && youtubeSyncProgress && (
-            <p className="mt-1 text-xs font-medium text-body">
+            <p className="text-xs font-medium text-body">
               Done. Ingested {youtubeSyncProgress.ingestedCount} YouTube channels (raw, unclassified).
             </p>
           )}
-          {youtubeSyncError && <p className="mt-1 text-xs text-danger">{youtubeSyncError}</p>}
+          {youtubeSyncError && <p className="text-xs text-danger">{youtubeSyncError}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            icon={tiktokSyncRunning ? Loader2 : RefreshCw}
-            onClick={handleSyncTikTok}
-            disabled={tiktokSyncRunning}
-            className={tiktokSyncRunning ? "[&_svg]:animate-spin" : undefined}
-          >
-            {tiktokSyncRunning ? "Syncing…" : "Sync Real TikTok Trends"}
-          </Button>
-          <Button
-            variant="secondary"
-            icon={youtubeSyncRunning ? Loader2 : RefreshCw}
-            onClick={handleSyncYoutube}
-            disabled={youtubeSyncRunning}
-            className={youtubeSyncRunning ? "[&_svg]:animate-spin" : undefined}
-          >
-            {youtubeSyncRunning ? "Syncing…" : "Sync Real YouTube Trends"}
-          </Button>
-          <Button
-            variant="secondary"
-            icon={batchRunning ? Loader2 : Zap}
-            onClick={handleBatchClassify}
-            disabled={batchRunning}
-            className={batchRunning ? "[&_svg]:animate-spin" : undefined}
-          >
-            {batchRunning ? "Classifying…" : "Run Faceless Classifier on All Channels"}
-          </Button>
-          <Button icon={Plus} onClick={openIngestModal}>
-            Ingest Channel
-          </Button>
-        </div>
-      </div>
+      )}
 
-      <Card>
+      <Panel flush>
         {channels.length === 0 ? (
-          <EmptyState icon={EyeOff} title="No channels yet" description="Ingest a channel URL to start classifying it." />
+          <p className="px-5 py-12 text-center text-[13px] text-subtle">No channels yet. Ingest a channel URL to start classifying it.</p>
         ) : (
           <Table>
             <TableHead>
@@ -469,7 +472,7 @@ export function NicheChannelsManager({ initialChannels }: { initialChannels: Adm
             </tbody>
           </Table>
         )}
-      </Card>
+      </Panel>
 
       {isIngestOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setIsIngestOpen(false)}>

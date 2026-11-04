@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Check, Copy, Plus, Ticket, Trash2, X } from "lucide-react";
+import { Check, Copy, Plus, Trash2, X } from "lucide-react";
 import type { PromoCode, PromoRewardType } from "@/lib/types";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { Panel } from "@/components/admin/Panel";
+import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { formatStat } from "@/components/admin/charts/format";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { CODE_MAX, isValidCode } from "@/lib/validation";
 
@@ -38,9 +40,9 @@ function rewardLabel(code: PromoCode): string {
   return code.rewardType === "credits" ? `${formatNumber(code.rewardValue)} credits` : `${code.rewardValue}% off`;
 }
 
-function statusOf(code: PromoCode): { label: string; variant: "success" | "danger" } {
-  if (!code.isActive) return { label: "Inactive", variant: "danger" };
-  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return { label: "Expired", variant: "danger" };
+function statusOf(code: PromoCode): { label: string; variant: "success" | "warning" | "default" } {
+  if (!code.isActive) return { label: "Inactive", variant: "default" };
+  if (code.expiresAt && new Date(code.expiresAt) < new Date()) return { label: "Expired", variant: "warning" };
   return { label: "Active", variant: "success" };
 }
 
@@ -51,6 +53,9 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const liveCodes = codes.filter((c) => statusOf(c).label === "Active");
+  const redemptions = codes.reduce((sum, c) => sum + c.usedCount, 0);
+  const topCode = [...codes].sort((a, b) => b.usedCount - a.usedCount)[0];
   const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
 
   async function handleCopy(code: PromoCode) {
@@ -133,19 +138,25 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base">Promo Codes</h2>
-          <p className="text-sm text-subtle">Manage discounts and credit grants.</p>
-        </div>
+      <PageHeader title="Promo codes" description="Codes that grant credits or a discount at checkout.">
         <Button icon={Plus} onClick={openModal}>
-          Create Promo Code
+          New code
         </Button>
-      </div>
+      </PageHeader>
 
-      <Card>
+      <KpiStrip>
+        <Kpi label="Active codes" value={formatStat(liveCodes.length)} footnote={`of ${formatNumber(codes.length)} created`} />
+        <Kpi label="Redemptions" value={formatStat(redemptions)} footnote="across every code" />
+        <Kpi
+          label="Most redeemed"
+          value={topCode && topCode.usedCount > 0 ? topCode.code : "None yet"}
+          footnote={topCode && topCode.usedCount > 0 ? `${formatNumber(topCode.usedCount)} uses` : undefined}
+        />
+      </KpiStrip>
+
+      <Panel flush>
         {codes.length === 0 ? (
-          <EmptyState icon={Ticket} title="No promo codes yet" description="Create a code to grant credits or a discount." />
+          <p className="px-5 py-12 text-center text-[13px] text-subtle">No promo codes yet. Create one to grant credits or a discount.</p>
         ) : (
           <Table>
             <TableHead>
@@ -200,7 +211,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
             </tbody>
           </Table>
         )}
-      </Card>
+      </Panel>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
