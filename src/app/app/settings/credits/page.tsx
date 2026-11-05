@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight, Coins, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 import { RefreshHistoryButton } from "./RefreshHistoryButton";
 import { TopUpButton } from "./TopUpButton";
 

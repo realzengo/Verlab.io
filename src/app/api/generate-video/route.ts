@@ -14,6 +14,7 @@ import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdminEmail } from "@/lib/server/admin";
 
 export const maxDuration = 30; // this route only submits to Replicate and returns -- it never waits for a render (see replicate-video.ts / video-jobs.ts)
 
@@ -178,8 +179,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // The model picker UI already hides this behind an upgrade prompt for
   // non-Pro/non-Scale users -- this is the enforcement boundary, since the UI
-  // check alone doesn't stop a direct API call.
-  if (model.requiresPro || model.requiresScale) {
+  // check alone doesn't stop a direct API call. Admins (ADMIN_EMAILS) can use
+  // every model regardless of plan.
+  if ((model.requiresPro || model.requiresScale) && !isAdminEmail(user.email)) {
     const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
     if (model.requiresScale) {
       if (profile?.plan !== "scale") {

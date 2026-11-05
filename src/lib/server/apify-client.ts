@@ -1,3 +1,4 @@
+import "server-only";
 import convertHeic from "heic-convert";
 import { fetchTranscript, scrapeCreatorsGet } from "./video-provider";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
@@ -64,11 +65,13 @@ async function runActor<T>(actorSlug: string, input: unknown, timeoutMs = 120_00
 
   let response: Response;
   try {
+    // Token goes in the Authorization header, not a ?token= query param, so
+    // it never lands in request-URL logs or traces.
     response = await fetchWithRetry(
-      `${APIFY_BASE_URL}/acts/${actorSlug}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}`,
+      `${APIFY_BASE_URL}/acts/${actorSlug}/run-sync-get-dataset-items`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(input),
         signal: AbortSignal.timeout(timeoutMs),
       }

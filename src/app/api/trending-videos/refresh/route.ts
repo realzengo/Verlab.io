@@ -5,6 +5,10 @@ import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 import { batchUpsertTrendingVideos } from "@/lib/server/trending-videos-batch-upsert";
 
+export const maxDuration = 300;
+
+const TIKTOK_STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
   // fall back to a bearer token so the route can also be triggered manually
@@ -80,17 +84,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (summary.upsertedRows === 0) throw new Error("Batch upsert failed for every chunk");
 
-    // Now that the current trending set has been written (each row stamped
-    // with refreshedAt above), anything still carrying an older refreshed_at
-    // is a video that fell out of trending this cycle -- prune it. Scoped to
-    // platform='tiktok' so this doesn't touch the YouTube pool, which is
-    // refreshed independently (and far less often, due to quota) by
-    // /api/youtube-videos/refresh.
+    // Prune TikTok rows that no scrape has touched in a week -- this run's
+    // upsert re-stamps every video still trending, and on-demand niche warms
+    // and searches stamp their own rows too. Pruning by age (rather than
+    // "anything not in this exact run") means a partial or failed scrape
+    // can't wipe the pool down to a sliver, and the niche warms that fill
+    // the long tail survive between refreshes. Scoped to platform='tiktok';
+    // the YouTube pool is refreshed independently by /api/youtube-videos/refresh.
+    const staleBefore = new Date(Date.now() - TIKTOK_STALE_AFTER_MS).toISOString();
     const { error: deleteStaleError } = await admin
       .from("trending_videos")
       .delete()
       .eq("platform", "tiktok")
-      .lt("refreshed_at", refreshedAt);
+      .lt("refreshed_at", staleBefore);
     if (deleteStaleError) throw new Error(deleteStaleError.message);
 
     return NextResponse.json({
@@ -105,3 +111,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
+
+// Vercel Cron invokes scheduled routes with GET (see vercel.json); POST stays
+// for manual runs with `Authorization: Bearer $CRON_SECRET`. This route used
+// to export POST only, so every scheduled run was rejected with a 405.
+export const GET = POST;

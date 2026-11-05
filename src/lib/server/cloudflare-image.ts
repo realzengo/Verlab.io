@@ -1,3 +1,4 @@
+import "server-only";
 import { generateImageWithReplicate, hasReplicateFallback } from "./replicate-image";
 
 // Cloudflare Workers AI text-to-image models. There is no @cf/google/

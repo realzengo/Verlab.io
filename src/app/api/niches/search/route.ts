@@ -46,7 +46,7 @@ async function routePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (!(await requireNicheFinderAccess(supabase, user.id))) {
+  if (!(await requireNicheFinderAccess(supabase, user))) {
     return NextResponse.json({ error: "Niche Finder requires the Pro plan or higher." }, { status: 403 });
   }
 

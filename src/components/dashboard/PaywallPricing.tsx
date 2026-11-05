@@ -3,43 +3,10 @@
 import { useEffect, useState } from "react";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
-import { createClient } from "@/lib/supabase/client";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
+import { fetchPricingPlans } from "@/lib/pricing-plans";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
-
-// Mirrors planRowToPricingPlan in UpgradeModal.tsx -- kept in sync there since
-// it can't be shared without pulling the service-role client into a bundle.
-// PLAN_DEFINITION_SELECT below mirrors admin-queries.ts's column list too --
-// the table also has `updated_at`, which nothing here renders.
-const PLAN_DEFINITION_SELECT = "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
-
-interface PlanDefinitionRow {
-  id: string;
-  name: string;
-  info: string;
-  price_monthly: number;
-  price_yearly: number;
-  recommended: boolean;
-  monthly_only: boolean;
-  cta: string;
-  features: { text: string; tooltip?: string }[];
-  limits: string | null;
-}
-
-function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
-  return {
-    id: row.id as PricingPlan["id"],
-    name: row.name,
-    info: row.info,
-    price: { monthly: row.price_monthly, yearly: row.price_yearly },
-    recommended: row.recommended || undefined,
-    monthlyOnly: row.monthly_only || undefined,
-    cta: row.cta,
-    features: row.features,
-    limits: row.limits ?? undefined,
-  };
-}
 
 function maxYearlyPercentOff(plans: PricingPlan[]): number {
   return plans.reduce((max, plan) => {
@@ -67,11 +34,8 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const supabase = createClient();
-      const { data } = await supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order");
-      if (!cancelled && data && data.length > 0) {
-        setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
-      }
+      const livePlans = await fetchPricingPlans();
+      if (!cancelled && livePlans) setPlans(livePlans);
     })();
     return () => {
       cancelled = true;

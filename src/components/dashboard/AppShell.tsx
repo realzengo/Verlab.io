@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext";
 import { SidebarCollapsedProvider } from "@/components/dashboard/SidebarCollapsedContext";
+import { IsAdminProvider } from "@/components/dashboard/IsAdminContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { fetcher } from "@/lib/client/fetcher";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export function AppShell({
     // fetcher and a dedup window so rapid remounts/StrictMode double-invokes
     // don't double-fire the same request.
     <SWRConfig value={{ fetcher, dedupingInterval: 5000, revalidateOnFocus: true }}>
+      <IsAdminProvider value={isAdmin}>
       <SidebarCollapsedProvider>
         <NicheSidebarProvider>
           {/* `app-theme` turns on the sidebar's fill tokens (globals.css). */}
@@ -73,6 +75,7 @@ export function AppShell({
           </div>
         </NicheSidebarProvider>
       </SidebarCollapsedProvider>
+      </IsAdminProvider>
     </SWRConfig>
   );
 }

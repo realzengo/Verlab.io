@@ -1,3 +1,4 @@
+import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // MCP App widgets run in a sandboxed iframe with a static per-resource CSP

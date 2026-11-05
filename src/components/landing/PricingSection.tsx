@@ -1,7 +1,7 @@
 import { COMPARISON_ROWS } from "@/lib/mock-data";
 import { getCachedPlanDefinitions } from "@/lib/server/admin-queries";
 import { createClient } from "@/lib/supabase/server";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 import { PricingSectionClient } from "@/components/landing/PricingSectionClient";
 
 export async function PricingSection({ showComparison = true }: { showComparison?: boolean } = {}) {

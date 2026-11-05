@@ -1,3 +1,4 @@
+import "server-only";
 import { anthropic } from "@ai-sdk/anthropic";
 
 // Reads ANTHROPIC_API_KEY from the environment automatically.

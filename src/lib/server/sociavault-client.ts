@@ -1,3 +1,4 @@
+import "server-only";
 import { humanizeViewCount } from "@/lib/server/apify-client";
 import { isKnownHashtag } from "@/lib/niches-catalog";
 import { filterEnglishOnly } from "@/lib/server/language-filter";

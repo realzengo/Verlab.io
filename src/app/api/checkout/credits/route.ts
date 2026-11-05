@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCreditPacks, getWhopClient, type CreditPackId } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();

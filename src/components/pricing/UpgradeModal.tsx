@@ -9,48 +9,14 @@ import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTop
 import { CreditTopupPanel } from "@/components/pricing/CreditTopupPanel";
 import type { PackId } from "@/components/TopUpModal";
 import { createClient } from "@/lib/supabase/client";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
+import { fetchPricingPlans } from "@/lib/pricing-plans";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 import { cn } from "@/lib/utils";
 
 type Tab = PlanTopupTab;
-
-// Mirrors planRowToPricingPlan in src/lib/server/admin-queries.ts, which
-// can't be imported here -- it pulls in the service-role Supabase client,
-// which must never reach a client bundle. plan_definitions has a public-read
-// RLS policy, so the browser client can query it directly instead.
-// PLAN_DEFINITION_SELECT mirrors admin-queries.ts's column list too -- the
-// table also has `updated_at`, which nothing here renders.
-const PLAN_DEFINITION_SELECT = "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
-
-interface PlanDefinitionRow {
-  id: string;
-  name: string;
-  info: string;
-  price_monthly: number;
-  price_yearly: number;
-  recommended: boolean;
-  monthly_only: boolean;
-  cta: string;
-  features: { text: string; tooltip?: string }[];
-  limits: string | null;
-}
-
-function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
-  return {
-    id: row.id as PricingPlan["id"],
-    name: row.name,
-    info: row.info,
-    price: { monthly: row.price_monthly, yearly: row.price_yearly },
-    recommended: row.recommended || undefined,
-    monthlyOnly: row.monthly_only || undefined,
-    cta: row.cta,
-    features: row.features,
-    limits: row.limits ?? undefined,
-  };
-}
 
 function goToCheckoutUrl(url: string) {
   window.location.href = url;
@@ -119,8 +85,8 @@ export function UpgradeModal({
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
-      const [{ data }, profileResult] = await Promise.all([
-        supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order"),
+      const [livePlans, profileResult] = await Promise.all([
+        fetchPricingPlans(),
         authUser
           ? supabase
               .from("profiles")
@@ -130,9 +96,7 @@ export function UpgradeModal({
           : Promise.resolve({ data: null }),
       ]);
       if (cancelled) return;
-      if (data && data.length > 0) {
-        setPlans((data as PlanDefinitionRow[]).map(planRowToPricingPlan));
-      }
+      if (livePlans) setPlans(livePlans);
       // profiles.plan defaults to "core" and keeps its last paid value after
       // a subscription lapses -- only mark a card "Current Plan" when
       // there's an actual active subscription behind it (same check the

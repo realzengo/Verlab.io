@@ -7,6 +7,7 @@
 // importing this file never throws before the routes that need it are
 // actually invoked -- e.g. during `next build`'s page-data collection, which
 // imports route modules to inspect their exports.
+import "server-only";
 import Whop from "@whop/sdk";
 
 export type CreditPackId = "500" | "1000" | "3000" | "10000";

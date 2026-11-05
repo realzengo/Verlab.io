@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 import { cn } from "@/lib/utils";
 
 interface NavEntry {

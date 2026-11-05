@@ -1,3 +1,4 @@
+import "server-only";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 // OpenRouter's OpenAI-compatible endpoint. Reads OPENROUTER_API_KEY from the

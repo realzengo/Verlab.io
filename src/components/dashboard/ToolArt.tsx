@@ -431,6 +431,17 @@ function LinkBadge({ left, top, pickDelay }: { left: number; top: number; pickDe
   );
 }
 
+// The tiles were cut from a light still, so their edges carry a white fringe and
+// the badge corner is squared off. On dark that reads as a halo, so there each
+// tile is scaled a touch past a clean rounded clip.
+function PlatformTile({ name, sizes, radius }: { name: string; sizes: string; radius: string }) {
+  return (
+    <span className={cn("absolute inset-0 dark:overflow-hidden", radius)}>
+      <Image src={`${DL}/${name}.png`} alt="" fill sizes={sizes} className="object-contain dark:scale-[1.06] dark:object-cover" />
+    </span>
+  );
+}
+
 const DL_CARD = "absolute rounded-[18px] border border-[#dedede] bg-white dark:border-zinc-700 dark:bg-zinc-800";
 
 export function DownloaderArt() {
@@ -440,7 +451,7 @@ export function DownloaderArt() {
       {GRID.map((t, i) => (
         <motion.div key={t.name} variants={rise(0.1 + i * 0.06, 6)} className="absolute" style={{ left: t.left, top: t.top, width: 57, height: 57 }}>
           <span className="tool-art-dl-pick absolute inset-0" style={{ animationDelay: beatDelay(t.name) }}>
-            <Image src={`${DL}/${t.name}.png`} alt="" fill sizes="160px" className="object-contain" />
+            <PlatformTile name={t.name} sizes="160px" radius="dark:rounded-[9px]" />
             <LinkBadge left={t.badge.left} top={t.badge.top} pickDelay={beatDelay(t.name)} />
           </span>
         </motion.div>
@@ -454,7 +465,7 @@ export function DownloaderArt() {
             className="tool-art-dl-tile absolute inset-0"
             style={{ animationDelay: beatDelay(name), opacity: i === 0 ? 1 : 0 }}
           >
-            <Image src={`${DL}/${name}.png`} alt="" fill sizes="170px" className="object-contain" />
+            <PlatformTile name={name} sizes="170px" radius="dark:rounded-[10px]" />
           </span>
         ))}
         {/* the downloader's own badge: link while it fetches, check once saved */}

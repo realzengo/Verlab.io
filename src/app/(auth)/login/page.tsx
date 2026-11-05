@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, type FormEvent, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -16,8 +17,8 @@ import { usePostHog } from "posthog-js/react";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import {
   AUTH_INPUT_CLASSES,
+  AUTH_LABEL_CLASSES,
   AUTH_OAUTH_BUTTON_CLASSES,
-  AUTH_PRIMARY_BUTTON_CLASSES,
   AUTH_SIGNIN_BUTTON_CLASSES,
 } from "@/components/auth/authStyles";
 import { createClient } from "@/lib/supabase/client";
@@ -135,10 +136,10 @@ function LoginForm() {
         <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
-        <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em] text-heading">
           Check your inbox
         </h1>
-        <p className="mt-1.5 text-sm text-body">
+        <p className="mt-2 text-[15px] text-body">
           We sent a password reset link to{" "}
           <span className="font-medium text-heading">{email}</span>.
         </p>
@@ -172,37 +173,43 @@ function LoginForm() {
           Back
         </button>
 
-        <h1 className="text-center text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+        <h1 className="text-center text-[28px] font-bold leading-tight tracking-[-0.025em] text-heading">
           Reset your password
         </h1>
-        <p className="mt-1.5 text-center text-sm text-body">
+        <p className="mt-2 text-center text-[15px] text-body">
           Enter your email and we&apos;ll send you a reset link.
         </p>
 
-        <form onSubmit={handleForgotPassword} className="mt-6 flex flex-col gap-3.5">
-          <label className="sr-only" htmlFor="forgot-email">
-            Email address
-          </label>
-          <input
-            id="forgot-email"
-            type="email"
-            required
-            maxLength={EMAIL_MAX}
-            autoComplete="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={AUTH_INPUT_CLASSES}
-          />
+        <form onSubmit={handleForgotPassword} className="mt-8 flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="forgot-email" className={AUTH_LABEL_CLASSES}>
+              Email
+            </label>
+            <input
+              id="forgot-email"
+              type="email"
+              required
+              maxLength={EMAIL_MAX}
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={AUTH_INPUT_CLASSES}
+            />
+          </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
+            <div className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting} className={AUTH_PRIMARY_BUTTON_CLASSES}>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`${AUTH_SIGNIN_BUTTON_CLASSES} mt-2`}
+          >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
           </button>
         </form>
@@ -217,96 +224,115 @@ function LoginForm() {
         exit={{ opacity: 0, y: -6 }}
         transition={FADE_TRANSITION}
       >
-        <h1 className="text-center text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+        {/* The showcase panel carries the logo on desktop; below lg it's
+            hidden, so the app icon anchors the form instead. */}
+        <Image
+          src="/logo-icon.png"
+          alt="Verlab"
+          width={44}
+          height={44}
+          priority
+          className="mx-auto mb-6 h-11 w-11 lg:hidden"
+        />
+        <h1 className="text-center text-[28px] font-bold leading-tight tracking-[-0.025em] text-heading">
           Sign in to Verlab
         </h1>
-        <p className="mt-1.5 text-center text-sm text-body">
-          Welcome back! Sign in to your account below.
+        <p className="mt-2 text-center text-[15px] text-body">
+          Welcome back. Pick up where you left off.
         </p>
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isGoogleLoading}
-          className={`${AUTH_OAUTH_BUTTON_CLASSES} mt-6`}
+          className={`${AUTH_OAUTH_BUTTON_CLASSES} mt-8`}
         >
           {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
           Continue with Google
         </button>
 
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-hairline" />
-          <span className="text-xs font-medium text-subtle">or sign in with email</span>
-          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-hairline" />
+          <div className="h-px flex-1 bg-hairline" />
+          <span className="text-xs font-medium text-subtle">or</span>
+          <div className="h-px flex-1 bg-hairline" />
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-          <label className="sr-only" htmlFor="login-email">
-            Email address
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            required
-            maxLength={EMAIL_MAX}
-            autoComplete="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={AUTH_INPUT_CLASSES}
-          />
-
-          <label className="sr-only" htmlFor="login-password">
-            Password
-          </label>
-          <div className="relative">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="login-email" className={AUTH_LABEL_CLASSES}>
+              Email
+            </label>
             <input
-              id="login-password"
-              type={showPassword ? "text" : "password"}
+              id="login-email"
+              type="email"
               required
-              autoComplete="current-password"
-              placeholder="Password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className={`${AUTH_INPUT_CLASSES} pr-10`}
+              maxLength={EMAIL_MAX}
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={AUTH_INPUT_CLASSES}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setView("forgot");
-            }}
-            className="self-start text-sm font-semibold text-[#0075ff] hover:underline"
-          >
-            Forgot password?
-          </button>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="login-password" className={AUTH_LABEL_CLASSES}>
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setView("forgot");
+                }}
+                className="text-[13px] font-medium text-[#0075ff] hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                id="login-password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={`${AUTH_INPUT_CLASSES} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-subtle transition-colors hover:bg-zinc-100 hover:text-heading"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
+            <div className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-sm text-danger">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
               {error}
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting} className={AUTH_SIGNIN_BUTTON_CLASSES}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`${AUTH_SIGNIN_BUTTON_CLASSES} mt-2`}
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-body">
+        <p className="mt-8 text-center text-sm text-body">
           Don&apos;t have an account?{" "}
           <Link href="/signup" className="font-semibold text-[#0075ff] hover:underline">
-            Sign up here
+            Sign up
           </Link>
         </p>
       </motion.div>

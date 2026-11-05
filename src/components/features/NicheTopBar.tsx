@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpDown,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,11 @@ import { SHORT_TEXT_MAX } from "@/lib/validation";
 
 export type VideoPlatformFilter = "all" | "tiktok" | "youtube";
 export type VideoTimeWindow = "all" | "24h" | "7d" | "30d" | "90d" | "365d";
+
+/** The feed's starting window. Must match DEFAULT_FEED_WINDOW_DAYS in
+ * src/lib/server/trending-videos.ts, which renders the first page on the
+ * server. Not counted as an active filter while it's still the default. */
+export const DEFAULT_VIDEO_TIME_WINDOW: VideoTimeWindow = "90d";
 export type VideoSort = "views" | "newest";
 
 export interface VideoRangeFilters {
@@ -81,12 +87,17 @@ const SORT_OPTIONS: { id: VideoSort; label: string }[] = [
   { id: "newest", label: "Newest" },
 ];
 
-// Neutral, boxy chrome shared by every row-1 trigger button (Search,
-// Filters, Presets) -- deliberately no brand-blue anywhere in this bar, to
-// match the flat gray/white toolbar it's cloned from.
+// Quiet chrome shared by every toolbar trigger (Filters, Niches, Sort) --
+// hairline + fill only, no shadow and no brand-blue at rest, so the
+// thumbnails below stay the loudest thing on the page. `data-open` keeps a
+// trigger pressed while its menu or panel is open.
 const TOOLBAR_BUTTON =
-  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-hairline bg-surface px-3.5 text-[13px] font-semibold text-heading shadow-card transition-colors hover:bg-[#F2F2F9] dark:hover:bg-[#242428]";
-const TOOLBAR_BUTTON_ICON = "h-4 w-4 shrink-0 text-body/50";
+  "inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill) data-[open=true]:bg-(--app-fill-strong) dark:bg-white/[0.03]";
+const TOOLBAR_BUTTON_ICON = "h-4 w-4 shrink-0 text-subtle";
+
+const MENU_PANEL = "absolute top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-surface p-1 shadow-card-hover";
+const MENU_ROW =
+  "flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-(--app-fill)";
 
 function useClickOutside(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
@@ -106,11 +117,15 @@ export function SegmentedControl<T extends string>({
   items,
   value,
   onChange,
+  stretchBelowXl = false,
 }: {
   ariaLabel: string;
   items: { id: T; label: string; icon?: LucideIcon }[];
   value: T;
   onChange: (value: T) => void;
+  /** On a phone-width toolbar (below its container's @xl), take a full row
+   * of its own as the last line, segments sharing the width evenly. */
+  stretchBelowXl?: boolean;
 }) {
   const layoutId = useId();
 
@@ -118,7 +133,10 @@ export function SegmentedControl<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex h-9 items-center gap-0.5 rounded-xl border border-hairline bg-app p-1"
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center gap-0.5 rounded-lg bg-(--app-fill) p-[3px]",
+        stretchBelowXl && "order-last w-full @xl:order-none @xl:w-auto"
+      )}
     >
       {items.map((item) => {
         const isActive = item.id === value;
@@ -130,19 +148,22 @@ export function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(item.id)}
-            className="relative flex h-full items-center whitespace-nowrap rounded-lg px-3.5 text-[12.5px] font-semibold sm:px-4 sm:text-[13px]"
+            className={cn(
+              "relative flex h-full cursor-pointer items-center whitespace-nowrap rounded-md px-3 text-[13px] font-medium",
+              stretchBelowXl && "flex-1 justify-center @xl:flex-none"
+            )}
           >
             {isActive && (
               <motion.span
                 layoutId={`${layoutId}-active`}
                 transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                className="absolute inset-0 rounded-lg bg-surface shadow-card"
+                className="absolute inset-0 rounded-md bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)] dark:bg-white/[0.1] dark:shadow-none"
               />
             )}
             <span
               className={cn(
                 "relative z-10 flex items-center gap-1.5 transition-colors",
-                isActive ? "text-heading" : "text-body hover:text-heading"
+                isActive ? "text-heading" : "text-subtle hover:text-heading"
               )}
             >
               {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
@@ -172,19 +193,19 @@ function FilterCard({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-hairline bg-app p-4">
+    <div className="rounded-xl border border-hairline p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-heading">{label}</p>
+        <p className="text-[13px] font-semibold text-heading">{label}</p>
         <button
           type="button"
           onClick={onReset}
           disabled={!active}
-          className="text-xs font-semibold text-body transition-colors hover:text-heading disabled:pointer-events-none disabled:opacity-40"
+          className="cursor-pointer text-xs font-medium text-body transition-colors hover:text-heading disabled:pointer-events-none disabled:opacity-40"
         >
           Reset
         </button>
       </div>
-      {subtitle && <p className="mt-0.5 text-[11px] font-medium text-body/70">{subtitle}</p>}
+      {subtitle && <p className="mt-0.5 text-xs text-subtle">{subtitle}</p>}
       <div className="mt-4">{children}</div>
     </div>
   );
@@ -588,13 +609,14 @@ function FiltersToggleButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(TOOLBAR_BUTTON, open && "border-primary text-primary")}
-    >
-      <SlidersHorizontal className={cn(TOOLBAR_BUTTON_ICON, open && "text-primary")} />
-      Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+    <button type="button" onClick={onClick} aria-expanded={open} data-open={open} className={TOOLBAR_BUTTON}>
+      <SlidersHorizontal className={TOOLBAR_BUTTON_ICON} />
+      Filters
+      {activeCount > 0 && (
+        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold tabular-nums text-white">
+          {activeCount}
+        </span>
+      )}
     </button>
   );
 }
@@ -666,9 +688,9 @@ function FiltersPanel({
 
   function handleResetAll() {
     setPending(EMPTY_VIDEO_RANGE_FILTERS);
-    setPendingWindow("all");
+    setPendingWindow(DEFAULT_VIDEO_TIME_WINDOW);
     onClear();
-    onTimeWindowChange("all");
+    onTimeWindowChange(DEFAULT_VIDEO_TIME_WINDOW);
   }
 
   return (
@@ -796,19 +818,23 @@ function PresetsDropdown() {
 
   return (
     <div ref={containerRef} className="relative">
-      <button type="button" onClick={() => setOpen((prev) => !prev)} className={TOOLBAR_BUTTON}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-open={open}
+        className={TOOLBAR_BUTTON}
+      >
         <Layers className={TOOLBAR_BUTTON_ICON} />
-        {activeNiche ?? "Niches"}
+        <span className="max-w-[140px] truncate">{activeNiche ?? "All niches"}</span>
         <ChevronDown className={cn(TOOLBAR_BUTTON_ICON, "transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-20 max-h-80 w-64 overflow-y-auto rounded-2xl border border-hairline bg-surface p-2 shadow-card-hover">
-          <div className="flex items-center justify-between px-2 py-1.5">
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-subtle">
-              <Layers className="h-3.5 w-3.5 shrink-0" />
-              Niches
-            </p>
+        <div className={cn(MENU_PANEL, "left-0 max-h-80 w-60 overflow-y-auto")}>
+          <div className="flex items-center justify-between px-2.5 pb-1 pt-1.5">
+            <p className="text-xs font-medium text-subtle">Niches</p>
             {activeNiche && (
               <button
                 type="button"
@@ -816,7 +842,7 @@ function PresetsDropdown() {
                   clear();
                   setOpen(false);
                 }}
-                className="text-[11px] font-medium text-body hover:text-heading"
+                className="cursor-pointer text-xs font-medium text-body hover:text-heading"
               >
                 Clear
               </button>
@@ -834,14 +860,14 @@ function PresetsDropdown() {
                   toggle(niche);
                   setOpen(false);
                 }}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold transition-colors",
-                  isActive ? "bg-app text-heading" : "text-body font-medium hover:bg-app hover:text-heading"
-                )}
+                className={cn(MENU_ROW, isActive ? "font-medium text-heading" : "text-body hover:text-heading")}
               >
                 <span className="truncate">{niche}</span>
-                {typeof count === "number" && count > 0 && (
-                  <span className="shrink-0 text-[11px] font-semibold text-subtle">{count}</span>
+                {isActive ? (
+                  <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  typeof count === "number" &&
+                  count > 0 && <span className="shrink-0 text-xs tabular-nums text-subtle">{formatNumber(count)}</span>
                 )}
               </button>
             );
@@ -857,16 +883,27 @@ function SortDropdown({ sort, onSortChange }: { sort: VideoSort; onSortChange: (
   const containerRef = useClickOutside(open, () => setOpen(false));
   const activeLabel = SORT_OPTIONS.find((o) => o.id === sort)?.label ?? "Sort";
 
+  // ml-auto: when the toolbar wraps, Sort sits at the right end of its row,
+  // so its right-anchored menu always opens on screen. On a phone-width bar
+  // it drops to its icon (the menu still names the order).
   return (
-    <div ref={containerRef} className="relative">
-      <button type="button" onClick={() => setOpen((prev) => !prev)} className={TOOLBAR_BUTTON}>
+    <div ref={containerRef} className="relative ml-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Sort by ${activeLabel}`}
+        data-open={open}
+        className={TOOLBAR_BUTTON}
+      >
         <ArrowUpDown className={TOOLBAR_BUTTON_ICON} />
-        <span className="text-body">Sort by</span> {activeLabel}
+        <span className="hidden @lg:inline">{activeLabel}</span>
         <ChevronDown className={cn(TOOLBAR_BUTTON_ICON, "transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-20 w-44 overflow-hidden rounded-xl border border-hairline bg-surface p-1 shadow-card-hover">
+        <div className={cn(MENU_PANEL, "right-0 w-44")}>
           {SORT_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -875,12 +912,10 @@ function SortDropdown({ sort, onSortChange }: { sort: VideoSort; onSortChange: (
                 onSortChange(option.id);
                 setOpen(false);
               }}
-              className={cn(
-                "w-full rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors",
-                option.id === sort ? "bg-app text-heading" : "text-body font-medium hover:bg-app hover:text-heading"
-              )}
+              className={cn(MENU_ROW, option.id === sort ? "font-medium text-heading" : "text-body hover:text-heading")}
             >
               {option.label}
+              {option.id === sort && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
             </button>
           ))}
         </div>
@@ -901,29 +936,27 @@ export function PaginationControls({
   onPageChange: (page: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page === 1}
         aria-label="Previous page"
-        className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        className={cn(TOOLBAR_BUTTON, "h-8 pl-2 pr-2.5 text-body hover:text-heading disabled:pointer-events-none disabled:opacity-40")}
       >
-        <ChevronLeft className="h-3.5 w-3.5" />
-        Prev
+        <ChevronLeft className="h-4 w-4" />
+        Previous
       </button>
-      <span className="flex h-7 min-w-7 items-center justify-center rounded-lg border border-hairline bg-surface px-2 text-xs font-semibold text-heading shadow-card">
-        {page}
-      </span>
+      <span className="min-w-14 text-center text-[13px] tabular-nums text-subtle">Page {page}</span>
       <button
         type="button"
         onClick={() => onPageChange(page + 1)}
         disabled={!hasMore}
         aria-label="Next page"
-        className="flex h-7 items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-semibold text-body shadow-card transition-colors hover:text-heading disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        className={cn(TOOLBAR_BUTTON, "h-8 pl-2.5 pr-2 text-body hover:text-heading disabled:pointer-events-none disabled:opacity-40")}
       >
         Next
-        <ChevronRight className="h-3.5 w-3.5" />
+        <ChevronRight className="h-4 w-4" />
       </button>
     </div>
   );
@@ -967,7 +1000,8 @@ export function NicheTopBar({
   onSortChange: (sort: VideoSort) => void;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = countActiveRangeFilters(rangeFilters) + (timeWindow !== "all" ? 1 : 0);
+  const activeFilterCount =
+    countActiveRangeFilters(rangeFilters) + (timeWindow !== "all" && timeWindow !== DEFAULT_VIDEO_TIME_WINDOW ? 1 : 0);
 
   // Country only ever narrows YouTube results (TikTok has no region
   // concept) -- once the pill switches away from YouTube, drop any applied
@@ -982,13 +1016,20 @@ export function NicheTopBar({
 
   return (
     <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-      <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
+      {/* Search, then every control that narrows or orders the feed: one
+          row once the page is wide enough, the field over the controls
+          below that. Breakpoints are container queries on NicheFinder's
+          section, since the sidebar decides how wide this bar really is.
+          Submitting is Enter (the phone keyboard's Search key, via
+          enterKeyHint) rather than a separate button beside the field. */}
+      <div className="flex flex-wrap items-center gap-2 py-3">
         <form
+          role="search"
           onSubmit={(e) => {
             e.preventDefault();
             onSearchSubmit();
           }}
-          className="relative min-w-[220px] flex-1"
+          className="relative w-full @4xl:w-auto @4xl:min-w-[240px] @4xl:flex-1"
         >
           {loading ? (
             <Loader2 className={cn(TOOLBAR_BUTTON_ICON, "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 animate-spin")} />
@@ -997,11 +1038,13 @@ export function NicheTopBar({
           )}
           <input
             type="text"
+            enterKeyHint="search"
+            aria-label="Search videos"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Search videos, creators, hashtags…"
             maxLength={SHORT_TEXT_MAX}
-            className="w-full rounded-xl border border-hairline bg-surface py-2 pl-9 pr-8 text-[13px] text-heading shadow-card placeholder:text-body/60 transition-shadow focus:outline-none focus:ring-2 focus:ring-heading/15 focus:shadow-card-hover"
+            className="h-9 w-full rounded-lg border border-hairline bg-surface pl-9 pr-8 text-[13px] text-heading transition-[border-color,box-shadow] placeholder:text-subtle focus:border-heading/25 focus:outline-none focus:ring-3 focus:ring-heading/[0.06] dark:bg-white/[0.03] dark:focus:border-white/25 dark:focus:ring-white/[0.06]"
           />
           {query && (
             <button
@@ -1011,25 +1054,15 @@ export function NicheTopBar({
                 onSearchSubmit();
               }}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-body/60 hover:text-heading"
+              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-subtle hover:bg-(--app-fill) hover:text-heading"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
           {queryError && (
-            <p className="absolute left-1 top-full mt-1 text-[11px] font-medium text-body/60">{queryError}</p>
+            <p className="absolute left-1 top-full mt-1 text-[11px] font-medium text-subtle">{queryError}</p>
           )}
         </form>
-
-        <button
-          type="button"
-          onClick={onSearchSubmit}
-          aria-label="Search"
-          className={cn(TOOLBAR_BUTTON, "px-2.5 sm:px-3.5")}
-        >
-          <Search className={cn(TOOLBAR_BUTTON_ICON, "sm:hidden")} />
-          <span className="sr-only sm:not-sr-only">Search</span>
-        </button>
 
         <FiltersToggleButton
           open={filtersOpen}
@@ -1039,10 +1072,14 @@ export function NicheTopBar({
 
         <PresetsDropdown />
 
-        <SegmentedControl ariaLabel="Platform" items={PLATFORM_PILLS} value={platform} onChange={handlePlatformChange} />
-      </div>
+        <SegmentedControl
+          ariaLabel="Platform"
+          items={PLATFORM_PILLS}
+          value={platform}
+          onChange={handlePlatformChange}
+          stretchBelowXl
+        />
 
-      <div className="flex items-center gap-2 border-t border-hairline/70 py-2 text-xs text-subtle">
         <SortDropdown sort={sort} onSortChange={onSortChange} />
       </div>
 

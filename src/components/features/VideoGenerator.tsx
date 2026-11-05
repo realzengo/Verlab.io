@@ -66,6 +66,7 @@ import { MobileEditPanel } from "./video-generator/MobileEditPanel";
 import { LowCreditBanner } from "./video-generator/LowCreditBanner";
 import { CloneComposer, type CloneSourceState } from "./video-generator/CloneComposer";
 import type { NormalizedVideo } from "@/lib/client/video-normalize";
+import { useIsAdmin } from "@/components/dashboard/IsAdminContext";
 
 type VideoMode = "create" | "edit" | "motion";
 
@@ -612,8 +613,12 @@ export function VideoGenerator() {
   const [pendingAspectRatio, setPendingAspectRatio] = useState(aspectRatio);
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
-  const [isPro, setIsPro] = useState(false);
-  const [isScale, setIsScale] = useState(false);
+  const [planIsPro, setIsPro] = useState(false);
+  const [planIsScale, setIsScale] = useState(false);
+  // Admins get every model unlocked regardless of plan (the server allows it too).
+  const isAdmin = useIsAdmin();
+  const isPro = planIsPro || isAdmin;
+  const isScale = planIsScale || isAdmin;
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   const { data: creditsSummary, mutate: mutateCredits } = useSWR<{ balance: number }>("/api/credits/summary");

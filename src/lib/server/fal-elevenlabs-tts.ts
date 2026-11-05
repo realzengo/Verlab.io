@@ -3,6 +3,7 @@
 // fal.run is fal's synchronous endpoint -- the request blocks until the audio
 // is ready, which a short script chunk is within seconds, so there's no
 // separate submit/poll queue machinery.
+import "server-only";
 import { getModel, type ElevenLabsModel, type TtsSettings } from "@/lib/config/elevenlabs";
 
 export class ElevenLabsTtsError extends Error {

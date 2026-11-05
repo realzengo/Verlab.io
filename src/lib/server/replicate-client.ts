@@ -1,6 +1,7 @@
 // Shared Replicate SDK plumbing -- used by replicate-tts.ts, replicate-image.ts,
 // and replicate-video.ts so the auth/output-unwrapping logic isn't
 // triplicated across all three.
+import "server-only";
 import Replicate from "replicate";
 
 export class ReplicateApiError extends Error {

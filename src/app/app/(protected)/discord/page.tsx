@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Check } from "lucide-react";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
+import { button3d, BUTTON_3D_MOTION } from "@/components/landing/button3d";
+import { cn } from "@/lib/utils";
 import { OnlineCount } from "./OnlineCount";
 
 export const metadata: Metadata = {
@@ -84,17 +86,18 @@ export default function DiscordPage() {
         ))}
       </div>
 
+      {/* Landing's 3D blue CTA face (button3d), kept in this full-width shape. */}
       <a
         href={DISCORD_INVITE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="group relative isolate mt-8 inline-flex w-full items-center justify-center overflow-hidden rounded-2xl bg-[radial-gradient(220%_220%_at_28%_18%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] px-11 py-3.5 text-base font-bold text-white shadow-[0_4px_0_0_#1a37c4,0_10px_24px_-8px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_0_0_#1a37c4,0_12px_28px_-8px_rgba(28,63,214,0.55),inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,0_4px_10px_-6px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
+        className={cn(
+          "mt-8 inline-flex w-full items-center justify-center rounded-2xl px-11 py-3.5 text-base font-bold text-white",
+          BUTTON_3D_MOTION
+        )}
+        style={button3d(4)}
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(140%_140%_at_50%_50%,#6d9bff_0%,#335cff_65%,#1c3fd6_100%)] opacity-0 transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:opacity-100"
-        />
-        <span className="relative">Join Discord</span>
+        Join Discord
       </a>
     </div>
   );

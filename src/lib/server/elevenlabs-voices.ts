@@ -9,6 +9,7 @@
 // rejects `search`/`gender` with "You must be logged in to use filters"), so
 // it needs ELEVENLABS_API_KEY -- any account works, a free one included.
 // Without it the picker still offers the defaults and pasting a voice id.
+import "server-only";
 import type { ElevenLabsVoice } from "@/lib/config/elevenlabs";
 
 const API_BASE = "https://api.elevenlabs.io/v1";

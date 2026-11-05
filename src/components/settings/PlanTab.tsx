@@ -4,18 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { hasActiveSubscription } from "@/lib/server/subscription";
+import { hasActiveSubscription } from "@/lib/subscription-status";
+import { fetchPricingPlans } from "@/lib/pricing-plans";
+import type { PricingPlan } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 
-interface PlanDefinition {
-  id: string;
-  name: string;
-  info: string;
-  price_monthly: number;
-}
-
 export function PlanTab() {
-  const [currentPlan, setCurrentPlan] = useState<PlanDefinition | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<PricingPlan | null>(null);
   const [isEnding, setIsEnding] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -44,12 +39,8 @@ export function PlanTab() {
         // hasActiveSubscription() the /app paywall itself uses (proxy.ts),
         // so this never shows a plan the paywall would disagree with.
         if (profile?.plan && hasActiveSubscription(profile)) {
-          const { data: planDef } = await supabase
-            .from("plan_definitions")
-            .select("id, name, info, price_monthly")
-            .eq("id", profile.plan)
-            .single();
-          setCurrentPlan(planDef);
+          const plans = await fetchPricingPlans();
+          setCurrentPlan(plans?.find((plan) => plan.id === profile.plan) ?? null);
         }
       }
 
@@ -80,7 +71,7 @@ export function PlanTab() {
               <Loader2 className="h-4 w-4 animate-spin text-subtle" />
             ) : currentPlan ? (
               <span className="font-semibold">
-                {currentPlan.name} · ${currentPlan.price_monthly}/month
+                {currentPlan.name} · ${currentPlan.price.monthly}/month
               </span>
             ) : (
               "No active plan"

@@ -655,9 +655,9 @@ function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
 }
 
 /**
- * plan_definitions has a public read RLS policy, so this works with either
- * the caller's regular (cookie-scoped) client or the service-role client —
- * pass whichever the caller already has on hand.
+ * plan_definitions has no client RLS policy, so pass the service-role
+ * client — a cookie-scoped client reads zero rows and silently gets the
+ * PRICING_PLANS fallback.
  *
  * Falls back to the static PRICING_PLANS until the plan_definitions
  * migration is applied and payment (Whop) is wired up.

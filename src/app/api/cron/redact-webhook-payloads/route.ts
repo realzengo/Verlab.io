@@ -51,3 +51,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ redacted: data?.length ?? 0 });
 }
+
+// Vercel Cron invokes scheduled routes with GET (see vercel.json); POST stays
+// for manual runs with `Authorization: Bearer $CRON_SECRET`. This route used
+// to export POST only, so every scheduled run was rejected with a 405.
+export const GET = POST;

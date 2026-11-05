@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * Comma-separated allowlist of emails permitted into /admin and /api/admin/*.
  * Single source of truth — imported by both src/proxy.ts (page-level gate,

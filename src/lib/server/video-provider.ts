@@ -1,3 +1,4 @@
+import "server-only";
 import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
 
 export type TranscriptPlatform = "tiktok" | "reels" | "shorts";

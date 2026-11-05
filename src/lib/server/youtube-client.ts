@@ -1,3 +1,4 @@
+import "server-only";
 import { humanizeViewCount } from "@/lib/server/apify-client";
 import { filterByLanguage } from "@/lib/server/language-filter";
 
@@ -57,9 +58,13 @@ async function youtubeGet<T>(path: string, params: Record<string, string>): Prom
   for (const [key, value] of Object.entries(params)) {
     endpoint.searchParams.set(key, value);
   }
-  endpoint.searchParams.set("key", apiKey);
 
-  const response = await fetch(endpoint, { signal: AbortSignal.timeout(30_000) });
+  // Google APIs accept the key as an x-goog-api-key header -- kept out of the
+  // URL so it never lands in request-URL logs or traces.
+  const response = await fetch(endpoint, {
+    headers: { "x-goog-api-key": apiKey },
+    signal: AbortSignal.timeout(30_000),
+  });
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as YoutubeApiError | null;

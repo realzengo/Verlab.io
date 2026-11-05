@@ -4,6 +4,8 @@ import { GLOBAL_REGION, refreshNicheVideoCache } from "@/lib/server/niche-video-
 import { NICHE_ORDER, type NicheName } from "@/lib/niches-catalog";
 import { serverError } from "@/lib/server/api-error";
 
+export const maxDuration = 300;
+
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
   // fall back to a bearer token so the route can also be triggered manually
@@ -73,3 +75,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ ok: true, results });
 }
+
+// Vercel Cron invokes scheduled routes with GET (see vercel.json); POST stays
+// for manual runs with `Authorization: Bearer $CRON_SECRET`. This route used
+// to export POST only, so every scheduled run was rejected with a 405.
+export const GET = POST;

@@ -11,7 +11,7 @@ export default async function NichesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !(await requireNicheFinderAccess(supabase, user.id))) {
+  if (!user || !(await requireNicheFinderAccess(supabase, user))) {
     return (
       <div className="flex flex-col gap-6 sm:gap-10">
         <NicheFinderLocked />

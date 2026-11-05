@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import type { TranscriptAnalysis, TrendingVideo } from "@/lib/types";
-import { nicheForHashtag } from "@/lib/niches-catalog";
+import { NICHE_ORDER, nicheForHashtag } from "@/lib/niches-catalog";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface TrendingVideoRow {
@@ -76,6 +76,14 @@ export const TRENDING_VIDEOS_CACHE_TAG = "trending-videos";
  * cached yet.
  */
 export const DEFAULT_VIRAL_VIEW_FLOOR = 50_000;
+
+/**
+ * Days of history the default feed covers (the client's DEFAULT_VIDEO_TIME_WINDOW
+ * is "90d"). Hashtag scrapes surface plenty of videos that went viral a few
+ * weeks back, so a 30-day window threw most of the pool away -- only ~300
+ * viral videos and 6 of 31 niches made it into the default view.
+ */
+export const DEFAULT_FEED_WINDOW_DAYS = 90;
 const NICHE_FEED_CACHE_TTL_SECONDS = 300;
 
 // unstable_cache only coalesces concurrent callers when a (possibly stale)
@@ -103,11 +111,11 @@ function dedupeInFlight<T>(key: string, run: () => Promise<T>): Promise<T> {
 const getCachedInitialNicheFeedInner = unstable_cache(
   async (limit: number): Promise<{ rows: TrendingVideoRow[]; hasMore: boolean }> => {
     const admin = createAdminClient();
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const windowStart = new Date(Date.now() - DEFAULT_FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await admin
       .from("trending_videos")
       .select(TRENDING_VIDEO_COLUMNS)
-      .gte("posted_at", thirtyDaysAgo)
+      .gte("posted_at", windowStart)
       // Same default viral floor the client's own fetches apply (see
       // DEFAULT_VIRAL_VIEW_FLOOR) -- without it, first paint showed a feed
       // this page's very first client-side refetch would then replace.
@@ -128,7 +136,7 @@ const getCachedInitialNicheFeedInner = unstable_cache(
 );
 
 /**
- * First page of the "all niches" feed (last 30 days, ranked by views) -- the
+ * First page of the "all niches" feed (default window, ranked by views) -- the
  * query that blocks first paint on every /niches visit. Unauthenticated and
  * identical for every visitor (no per-user filtering), so it's cached
  * globally rather than per caller. Uses the service-role client since the
@@ -139,53 +147,36 @@ export function getCachedInitialNicheFeed(limit: number): Promise<{ rows: Trendi
   return dedupeInFlight(`niches-initial-feed:${limit}`, () => getCachedInitialNicheFeedInner(limit));
 }
 
-// Fallback tally for when the RPC below is unavailable: an unordered,
-// undated .limit(5000) sample counted in JS. Kept only as a safety net --
-// it silently truncates once trending_videos outgrows 5000 rows, and counts
-// rows the 30-day feed never shows, so the badge disagrees with the grid.
-async function tallyNicheCountsFromSample(): Promise<Record<string, number>> {
-  const admin = createAdminClient();
-  const { data } = await admin.from("trending_videos").select("niche_category").limit(5000);
-
-  const counts: Record<string, number> = {};
-  for (const row of (data as { niche_category: string | null }[]) ?? []) {
-    if (!row.niche_category) continue;
-    counts[row.niche_category] = (counts[row.niche_category] ?? 0) + 1;
-  }
-  return counts;
-}
-
 const getCachedNicheCountsInner = unstable_cache(
   async (): Promise<Record<string, number>> => {
     const admin = createAdminClient();
-    // niche_video_counts_30d() aggregates in Postgres over the same 30-day
-    // window the feed itself uses. It shipped with the faceless-rank
-    // migration specifically to replace the truncating JS sample below, but
-    // nothing was ever pointed at it -- so the sidebar kept reporting counts
-    // that could both undercount (5000-row ceiling) and overcount (no date
-    // filter) relative to what the grid actually renders.
-    const { data, error } = await admin.rpc("niche_video_counts_30d");
-    if (error) {
-      // The migration may not have reached this environment yet -- fall back
-      // rather than leaving the sidebar with no counts at all.
-      console.warn("[trending-videos] niche_video_counts_30d unavailable, falling back to sample:", error);
-      return tallyNicheCountsFromSample();
-    }
-
-    const counts: Record<string, number> = {};
-    for (const row of (data as { niche_category: string | null; video_count: number }[]) ?? []) {
-      if (!row.niche_category) continue;
-      counts[row.niche_category] = Number(row.video_count) || 0;
-    }
-    return counts;
+    const windowStart = new Date(Date.now() - DEFAULT_FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // One exact head-count per niche, over the same window and viral floor
+    // the default feed applies, so a niche's badge matches what selecting it
+    // shows. Replaces a niche_video_counts_30d() RPC that was never migrated
+    // into production and a 5000-row JS sample that PostgREST silently capped
+    // at 1000 rows.
+    const results = await Promise.all(
+      NICHE_ORDER.map(async (niche) => {
+        const { count, error } = await admin
+          .from("trending_videos")
+          .select("id", { count: "exact", head: true })
+          .eq("niche_category", niche)
+          .gte("posted_at", windowStart)
+          .gte("view_count", DEFAULT_VIRAL_VIEW_FLOOR);
+        if (error) console.warn(`[trending-videos] count failed for ${niche}:`, error.message);
+        return [niche, count ?? 0] as const;
+      })
+    );
+    return Object.fromEntries(results);
   },
-  ["niches-category-counts"],
+  ["niches-category-counts-v2"],
   { tags: [TRENDING_VIDEOS_CACHE_TAG], revalidate: NICHE_FEED_CACHE_TTL_SECONDS }
 );
 
 /**
- * Per-niche video counts for the sidebar, aggregated in Postgres over the
- * feed's own 30-day window so the dropdown badges and the grid agree. Takes
+ * Per-niche video counts for the sidebar, over the feed's own default window
+ * and viral floor so the dropdown badges and the grid agree. Takes
  * zero request-specific parameters and is identical for every visitor, so
  * it's cached globally.
  */

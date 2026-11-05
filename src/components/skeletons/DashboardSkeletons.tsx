@@ -90,32 +90,39 @@ export function ToolsSkeleton() {
   );
 }
 
-/** Stand-in for NicheFinder's TrendingVideoCard -- same 9:16 cover and
- * footer rhythm, so the grid doesn't reflow when real cards arrive. */
+/** NicheFinder's results grid, shared with its skeletons so the two can't
+ * drift. Columns follow the grid's own width (its nearest `@container`), not
+ * the viewport, so collapsing the sidebar never leaves covers oversized:
+ * 2 / 3 / 4 / 6 across keeps each 9:16 cover roughly 170-280px wide, and
+ * every count divides VIDEOS_PER_PAGE (36). */
+export const VIDEO_GRID = "grid grid-cols-2 gap-x-4 gap-y-6 @xl:grid-cols-3 @3xl:grid-cols-4 @6xl:grid-cols-6";
+
+/** Stand-in for NicheFinder's TrendingVideoCard -- same 9:16 cover and the
+ * two meta lines under it, so the grid doesn't reflow when real cards arrive. */
 export function VideoCardSkeleton() {
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-hairline bg-surface dark:bg-black">
-      <Skeleton className="aspect-[9/16] w-full" />
-      <div className="flex flex-col gap-3 p-3.5 sm:p-4">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-3.5 w-24 rounded-full" />
-          <Skeleton className="ml-auto h-3 w-10 rounded-full" />
+    <div className="flex flex-col gap-2.5">
+      <Skeleton className="aspect-[9/16] w-full rounded-xl" />
+      <div className="flex flex-col gap-1 px-0.5">
+        <div className="flex h-[19.5px] items-center gap-2">
+          <Skeleton className="h-3 w-24 max-w-[60%] rounded-full" />
+          <Skeleton className="ml-auto h-2.5 w-9 rounded-full" />
         </div>
-        <div className="h-px bg-hairline" />
-        <div className="flex items-center gap-2.5">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-3 w-8 rounded-full" />
-          ))}
-          <Skeleton className="ml-auto h-3 w-10 rounded-full" />
+        <div className="flex h-[18px] items-center gap-2.5">
+          <Skeleton className="h-2.5 w-9 rounded-full" />
+          <Skeleton className="h-2.5 w-9 rounded-full" />
+          <Skeleton className="ml-auto h-2.5 w-10 rounded-full" />
         </div>
       </div>
     </div>
   );
 }
 
-export function VideoGridSkeleton({ count = 8 }: { count?: number }) {
+/** Must render inside an `@container` (NicheFinder's section, or
+ * NichesSkeleton's root) -- VIDEO_GRID's columns are container queries. */
+export function VideoGridSkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+    <div className={VIDEO_GRID}>
       {Array.from({ length: count }, (_, i) => (
         <VideoCardSkeleton key={i} />
       ))}
@@ -125,27 +132,27 @@ export function VideoGridSkeleton({ count = 8 }: { count?: number }) {
 
 export function NichesSkeleton() {
   return (
-    <div role="status" aria-label="Loading">
+    <div role="status" aria-label="Loading" className="@container">
       {/* Discover / Liked */}
-      <div className="-mx-4 bg-surface px-4 pb-4 pt-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-        <Skeleton className="h-9 w-44 rounded-xl" />
+      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+        <div className="flex gap-6 border-b border-hairline">
+          <Skeleton className="mb-3 h-4 w-16 rounded-full" />
+          <Skeleton className="mb-3 h-4 w-12 rounded-full" />
+        </div>
       </div>
 
       {/* Search + filters bar */}
       <div className="-mx-4 bg-surface px-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-        <div className="flex flex-wrap items-center gap-2 py-3 sm:gap-2.5">
-          <Skeleton className="h-9 min-w-[220px] flex-1 rounded-xl" />
-          <Skeleton className="h-9 w-10 rounded-xl sm:w-[74px]" />
-          <Skeleton className="h-9 w-24 rounded-xl" />
-          <Skeleton className="h-9 w-28 rounded-xl" />
-          <Skeleton className="h-9 w-48 rounded-xl" />
-        </div>
-        <div className="flex items-center border-t border-hairline/70 py-2">
-          <Skeleton className="h-5 w-28 rounded-md" />
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          <Skeleton className="h-9 w-full rounded-lg @4xl:w-auto @4xl:min-w-[240px] @4xl:flex-1" />
+          <Skeleton className="h-9 w-[86px] rounded-lg" />
+          <Skeleton className="h-9 w-[118px] rounded-lg" />
+          <Skeleton className="order-last h-9 w-full rounded-lg @xl:order-none @xl:w-[196px]" />
+          <Skeleton className="ml-auto h-9 w-[62px] rounded-lg @lg:w-[140px]" />
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card sm:p-6 md:p-8">
+      <div className="mt-3">
         <VideoGridSkeleton />
       </div>
     </div>

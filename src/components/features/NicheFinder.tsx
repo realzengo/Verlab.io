@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
+import { Eye, Heart, MessageCircle, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
-import { VideoGridSkeleton } from "@/components/skeletons/DashboardSkeletons";
+import { VIDEO_GRID, VideoGridSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import {
+  DEFAULT_VIDEO_TIME_WINDOW,
   EMPTY_VIDEO_RANGE_FILTERS,
   NicheTopBar,
   PaginationControls,
-  SegmentedControl,
   type VideoPlatformFilter,
   type VideoRangeFilters,
   type VideoSort,
@@ -23,11 +23,18 @@ import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 import type { FormatTag, TrendingVideo } from "@/lib/types";
 
 // Chosen to divide evenly into every breakpoint of the results grid
-// (2/3/4 columns), so a full page never leaves a ragged last row. Raised from
+// (2/3/4/6 columns, see VIDEO_GRID), so a full page never leaves a ragged
+// last row. Raised from
 // 20 -- with deep paging now actually reaching the whole cached pool, a
 // bigger page is the difference between the feed reading as a sample and
 // reading as a catalog.
 export const VIDEOS_PER_PAGE = 36;
+
+// A card's save and Bend buttons wait for the pointer on devices that can
+// hover, so a grid of 36 covers isn't 72 floating buttons at rest. Touch
+// screens (no hover to reveal them) always show them.
+const HOVER_REVEAL =
+  "pointer-fine:opacity-0 pointer-fine:group-hover/card:opacity-100 pointer-fine:group-focus-visible/card:opacity-100 focus-visible:opacity-100";
 
 const FORMAT_TAG_LABEL: Partial<Record<FormatTag, string>> = {
   top5_ranking: "Top 5 Ranking",
@@ -129,9 +136,12 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
         }
       }}
       aria-label={`View details for "${video.title}"`}
-      className="group/card flex cursor-pointer flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card transition-all duration-300 ease-out hover:-translate-y-1 hover:border-primary/25 hover:shadow-card-hover dark:bg-black"
+      className="group/card @container flex min-w-0 cursor-pointer flex-col gap-2.5 rounded-xl outline-none"
     >
-      <div className="group relative aspect-[9/16] w-full overflow-hidden bg-ink">
+      {/* The cover sits straight on the page -- no card around it, the way
+          TikTok and YouTube lay out a grid of shorts. The inset ring is drawn
+          on ::after so it stays crisp over the image itself. */}
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-ink after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/[0.06] after:ring-inset group-focus-visible/card:ring-2 group-focus-visible/card:ring-primary/50 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-surface dark:after:ring-white/[0.08]">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
         {coverSrc && !coverFailed && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -142,19 +152,20 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
             onError={handleCoverError}
             loading="lazy"
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover/card:scale-[1.03]"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/50" />
+        {/* Only as dark as the white type on it needs: a foot for the view
+            count, a faint top for the platform mark and the save button. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/0 via-35% to-black/20" />
 
-        <div className="absolute left-2.5 top-2.5 z-10 flex items-center gap-1.5">
-          <span className="flex items-center gap-1 rounded-full bg-black/45 py-1 pl-2 pr-2 ring-1 ring-inset ring-white/15 backdrop-blur-md">
-            <PlatformIcon className="h-3 w-3 shrink-0" />
-            <span className="text-[9px] font-bold uppercase tracking-wide text-white">
-              {PLATFORM_BADGE[video.platform].label}
-            </span>
-          </span>
-        </div>
+        <span
+          className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/0.2)]"
+          title={PLATFORM_BADGE[video.platform].label}
+        >
+          <PlatformIcon className="h-3 w-3" />
+          <span className="sr-only">{PLATFORM_BADGE[video.platform].label}</span>
+        </span>
 
         <button
           type="button"
@@ -162,48 +173,73 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
             e.stopPropagation();
             toggleSave(video);
           }}
-          aria-label="Save video"
+          aria-label={saved ? "Remove from liked" : "Save video"}
           aria-pressed={saved}
-          className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-inset ring-white/15 backdrop-blur-md transition-all hover:bg-black/55 active:scale-90"
+          className={cn(
+            "absolute right-2 top-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white ring-1 ring-white/15 ring-inset backdrop-blur-md transition-[opacity,background-color,scale] hover:bg-black/60 active:scale-90",
+            !saved && HOVER_REVEAL
+          )}
         >
           <Heart className={cn("h-3.5 w-3.5 transition-colors", saved && "fill-red-500 text-red-500")} />
         </button>
 
-        <div className="absolute inset-0 flex items-center justify-center opacity-90 transition-opacity group-hover:opacity-100">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-card-hover ring-1 ring-inset ring-black/5 transition-transform duration-200 group-hover:scale-110">
-            <Play className="h-4.5 w-4.5 translate-x-0.5 fill-ink text-ink" />
-          </div>
-        </div>
+        <span className="absolute bottom-2 left-2.5 flex items-center gap-1 text-xs font-semibold tabular-nums text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.35)]">
+          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+          {video.views}
+          <span className="sr-only"> views</span>
+        </span>
 
-        <div className="absolute bottom-2.5 left-2.5 right-11">
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 ring-1 ring-inset ring-white/10 backdrop-blur-md">
-            <Eye className="h-3 w-3 text-white/80" />
-            <span className="text-[10px] font-bold tabular-nums text-white">{video.views} views</span>
-          </span>
-        </div>
-
-        <div className="absolute bottom-2.5 right-2.5 z-10">
-          <Link
-            href="/bend"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Bend this script"
-            title="Bend this script"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary shadow-card transition-all hover:scale-110 hover:bg-accent"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        <Link
+          href="/bend"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Bend this script"
+          title="Bend this script"
+          className={cn(
+            "absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary shadow-card transition-[opacity,scale] hover:scale-105",
+            HOVER_REVEAL
+          )}
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
-      <div className="flex flex-col gap-3 p-3.5 sm:p-4">
+      <div className="flex min-w-0 flex-col gap-1 px-0.5">
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-heading">@{video.author}</span>
+          {video.followerCount > 0 && (
+            <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-subtle" title="Followers">
+              <Users className="h-3 w-3" aria-hidden="true" />
+              {formatCompactNumber(video.followerCount)}
+            </span>
+          )}
+        </div>
+
+        {/* Views already sit on the cover; comments and shares join as the
+            card gets wide enough to keep this to one line. */}
+        <div className="flex items-center gap-2.5 overflow-hidden text-xs tabular-nums text-subtle">
+          <span className="flex items-center gap-1" title="Likes">
+            <Heart className="h-3 w-3" aria-hidden="true" />
+            {formatCompactNumber(video.likeCount)}
+          </span>
+          <span className="hidden items-center gap-1 @[11.5rem]:flex" title="Comments">
+            <MessageCircle className="h-3 w-3" aria-hidden="true" />
+            {formatCompactNumber(video.commentCount)}
+          </span>
+          <span className="hidden items-center gap-1 @[13.5rem]:flex" title="Shares">
+            <Share2 className="h-3 w-3" aria-hidden="true" />
+            {formatCompactNumber(video.shareCount)}
+          </span>
+          {timeAgo && <span className="ml-auto shrink-0">{timeAgo}</span>}
+        </div>
+
         {(analysis?.is_faceless || analysis?.format_tags?.length) && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {analysis?.is_faceless && (
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold leading-none text-white"
+                className="inline-flex items-center gap-1 rounded-md bg-accent px-1.5 py-[3px] text-[11px] font-medium leading-none text-primary"
                 title="AI-verified: no real face on camera"
               >
-                <VenetianMask className="h-3 w-3" />
+                <VenetianMask className="h-3 w-3" aria-hidden="true" />
                 Faceless
               </span>
             )}
@@ -212,7 +248,7 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
               .map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center rounded-full border-2 border-accent-line bg-accent px-2 py-0.5 text-[10px] font-bold leading-none text-primary"
+                  className="inline-flex items-center rounded-md bg-(--app-fill-strong) px-1.5 py-[3px] text-[11px] font-medium leading-none text-body"
                   title="AI-verified format"
                 >
                   {FORMAT_TAG_LABEL[tag]}
@@ -220,40 +256,6 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
               ))}
           </div>
         )}
-
-        <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-heading">@{video.author}</span>
-          {video.followerCount > 0 && (
-            <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-subtle" title="Followers">
-              <Users className="h-3 w-3" />
-              {formatCompactNumber(video.followerCount)}
-            </span>
-          )}
-        </div>
-
-        <div className="h-px bg-hairline" />
-
-        <div className="flex items-center justify-between gap-2 text-[11px] font-medium tabular-nums text-body">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Views">
-              <Eye className="h-3 w-3" />
-              {video.views}
-            </span>
-            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Likes">
-              <Heart className="h-3 w-3" />
-              {formatCompactNumber(video.likeCount)}
-            </span>
-            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Comments">
-              <MessageCircle className="h-3 w-3" />
-              {formatCompactNumber(video.commentCount)}
-            </span>
-            <span className="flex items-center gap-1 transition-colors hover:text-heading" title="Shares">
-              <Share2 className="h-3 w-3" />
-              {formatCompactNumber(video.shareCount)}
-            </span>
-          </div>
-          {timeAgo && <span className="shrink-0 text-subtle">{timeAgo}</span>}
-        </div>
       </div>
     </div>
   );
@@ -269,37 +271,29 @@ function LikedVideosSection({
   onOpen: (video: TrendingVideo) => void;
 }) {
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-bold text-heading sm:text-lg">Liked videos</h2>
-          <p className="mt-0.5 text-xs font-medium text-body sm:text-sm">
-            {loading
-              ? "Loading your saved videos…"
-              : videos.length > 0
-                ? `${videos.length} video${videos.length === 1 ? "" : "s"} saved for later`
-                : "Videos you save from Discover land here"}
-          </p>
-        </div>
-      </div>
-
+    <div className="pt-4">
       {loading ? (
         <VideoGridSkeleton />
       ) : videos.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-          {videos.map((video) => (
-            <TrendingVideoCard key={video.id} video={video} onOpen={onOpen} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-hairline bg-surface p-10 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10">
-            <Heart className="h-6 w-6 text-danger" />
+        <>
+          <p className="mb-4 text-[13px] tabular-nums text-subtle">
+            {videos.length} video{videos.length === 1 ? "" : "s"} saved for later
+          </p>
+          <div className={VIDEO_GRID}>
+            {videos.map((video) => (
+              <TrendingVideoCard key={video.id} video={video} onOpen={onOpen} />
+            ))}
           </div>
+        </>
+      ) : (
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline p-10 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-(--app-fill-strong) text-subtle">
+            <Heart className="h-[18px] w-[18px]" />
+          </span>
           <div className="space-y-1">
-            <p className="text-sm font-bold text-heading">No liked videos yet</p>
-            <p className="mx-auto max-w-sm text-sm text-body">
-              Tap the heart on any video in Discover to save it here for quick reference later.
+            <p className="text-sm font-medium text-heading">No liked videos yet</p>
+            <p className="mx-auto max-w-xs text-[13px] text-subtle">
+              Tap the heart on any video in Discover to save it here for later.
             </p>
           </div>
         </div>
@@ -349,7 +343,7 @@ function NicheFinderInner({
   const { savedVideos, savedVideosLoading } = useSavedVideos();
 
   const [videoPlatform, setVideoPlatform] = useState<VideoPlatformFilter>("all");
-  const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>("30d");
+  const [videoTimeWindow, setVideoTimeWindow] = useState<VideoTimeWindow>(DEFAULT_VIDEO_TIME_WINDOW);
   const [videoRangeFilters, setVideoRangeFilters] = useState<VideoRangeFilters>(EMPTY_VIDEO_RANGE_FILTERS);
   const [videoSort, setVideoSort] = useState<VideoSort>("views");
   // The input box updates this on every keystroke; videoQuery (the value
@@ -499,15 +493,36 @@ function NicheFinderInner({
     };
   }, [activeNiche, videoPlatform, videoTimeWindow, videoSort, videoQuery, videoRangeFilters, effectiveVideoPage, filtersKey]);
 
-  const viewTabs: { id: NicheFinderView; label: string; icon: typeof Compass }[] = [
-    { id: "discover", label: "Discover", icon: Compass },
-    { id: "liked", label: savedVideos.length > 0 ? `Liked · ${savedVideos.length}` : "Liked", icon: Heart },
+  const viewTabs: { id: NicheFinderView; label: string; count?: number }[] = [
+    { id: "discover", label: "Discover" },
+    { id: "liked", label: "Liked", count: savedVideos.length },
   ];
 
   return (
-    <section ref={sectionRef}>
-      <div className="-mx-4 bg-surface px-4 pb-4 pt-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-        <SegmentedControl ariaLabel="Niche Finder view" items={viewTabs} value={activeView} onChange={setActiveView} />
+    // @container: VIDEO_GRID's columns follow this section's width, so the
+    // covers stay the same size whether the sidebar is open or collapsed.
+    <section ref={sectionRef} className="@container">
+      {/* Page-level switch: underline tabs (as on Library), a level above
+          the toolbar's own segmented Platform control. */}
+      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+        <div role="tablist" aria-label="Niche Finder view" className="flex gap-6 border-b border-hairline">
+          {viewTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeView === tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={cn(
+                "-mb-px flex cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:text-heading",
+                activeView === tab.id ? "border-heading text-heading" : "border-transparent text-subtle hover:text-heading"
+              )}
+            >
+              {tab.label}
+              {tab.count ? <span className="text-[13px] tabular-nums text-subtle">{tab.count}</span> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeView === "liked" ? (
@@ -531,14 +546,14 @@ function NicheFinderInner({
             onSortChange={setVideoSort}
           />
 
-          <div className="mt-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card sm:p-6 md:p-8">
+          <div className="mt-3">
             {/* Priority order: a real error always wins (even if stale videos
                 are still in state), then the loading skeleton — which is
                 guaranteed to resolve to one of the other branches within
                 FETCH_TIMEOUT_MS — then videos, then the empty fallback.
                 Nothing here can spin forever. */}
             {videosError ? (
-              <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
+              <div className="rounded-xl border border-dashed border-danger/40 p-8 text-center text-sm text-danger">
                 {videosError}
               </div>
             ) : videosLoading ? (
@@ -547,7 +562,7 @@ function NicheFinderInner({
                     enough to warrant saying so -- only when nothing was on
                     screen yet, since a cached niche swaps in near-instantly. */}
                 {activeNiche && videos.length === 0 && (
-                  <p className="mb-4 text-sm text-body">
+                  <p className="mb-4 text-[13px] text-subtle">
                     Fetching fresh {activeNiche} videos, first look at a niche can take up to a minute.
                   </p>
                 )}
@@ -556,28 +571,27 @@ function NicheFinderInner({
             ) : videos.length > 0 ? (
               <div>
                 {videosRelaxedFilters && (
-                  <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
+                  <p className="mb-4 rounded-lg bg-(--app-fill) px-3 py-2 text-[13px] text-body">
                     No videos matched your view-count filter, showing the closest matches instead.
-                  </div>
+                  </p>
                 )}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                <div className={VIDEO_GRID}>
                   {videos.map((video) => (
                     <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">
+              <div className="rounded-xl border border-dashed border-hairline p-8 text-center text-sm text-subtle">
                 No live videos match the current filters.
               </div>
             )}
 
-            {/* Mirrors the pager in NicheTopBar -- after scrolling through a
-                full page of results, reaching all the way back up to the
-                sticky bar just to turn the page is annoying, so it's
-                repeated here too. */}
+            {/* After scrolling through a full page of results, reaching all
+                the way back up to the toolbar just to turn the page is
+                annoying, so the pager sits at the foot of the grid. */}
             {!videosError && videos.length > 0 && (effectiveVideoPage > 1 || hasMore) && (
-              <div className="mt-6 flex justify-center">
+              <div className="mt-10 flex justify-center">
                 <PaginationControls page={effectiveVideoPage} hasMore={hasMore} onPageChange={handleVideoPageChange} />
               </div>
             )}
