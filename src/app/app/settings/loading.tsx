@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/PageLoader";
+import { AccountSettingsSkeleton } from "@/components/skeletons/SettingsSkeletons";
 
 export default function Loading() {
-  return <PageLoader />;
+  return <AccountSettingsSkeleton />;
 }

@@ -1,0 +1,381 @@
+import { Skeleton } from "@/components/ui/Skeleton";
+
+// Route-level loading screens for the tool pages. Each one mirrors its
+// page's real wrappers and panel shapes so the content swaps in without the
+// layout jumping -- if a tool's layout changes, update its skeleton too.
+
+/** The gradient h1 + one-line subtitle most tool pages open with. */
+function PageTitleSkeleton() {
+  return (
+    <div>
+      <Skeleton className="h-8 w-60 max-w-full rounded-full sm:h-10 sm:w-72" />
+      <Skeleton className="mt-3 h-3.5 w-48 max-w-full rounded-full sm:h-4 sm:w-60" />
+    </div>
+  );
+}
+
+/** Two short lines standing in for an empty prompt textarea. */
+function PromptLinesSkeleton() {
+  return (
+    <div className="flex flex-col gap-2.5 pt-1">
+      <Skeleton className="h-3.5 w-2/3 rounded-full" />
+      <Skeleton className="h-3.5 w-1/2 rounded-full" />
+    </div>
+  );
+}
+
+export function BendSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="pt-2">
+      <div className="flex flex-col gap-8">
+        {/* Stepper */}
+        <div className="mt-6 py-5">
+          <div className="mx-auto flex max-w-3xl items-center gap-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex flex-1 items-center gap-2.5 last:flex-none">
+                <Skeleton className="h-6 w-6 shrink-0 rounded-full" />
+                <Skeleton className="hidden h-3.5 w-24 rounded-full sm:block" />
+                {i < 2 && <div className="h-px flex-1 bg-hairline" />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hero + link input */}
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-7 pb-10 pt-4 sm:pt-8">
+          <div className="flex w-full flex-col items-center">
+            <Skeleton className="mb-6 h-5 w-36 rounded-md" />
+            <Skeleton className="h-9 w-80 max-w-full rounded-xl sm:h-12 sm:w-[30rem]" />
+            <Skeleton className="mt-3 h-9 w-56 max-w-full rounded-xl sm:h-12 sm:w-72" />
+            <Skeleton className="mt-5 h-3.5 w-96 max-w-full rounded-full" />
+            <Skeleton className="mt-2 h-3.5 w-72 max-w-full rounded-full" />
+          </div>
+          <Skeleton className="h-[104px] w-full rounded-2xl sm:h-[52px] sm:rounded-full" />
+        </div>
+
+        {/* Past bends */}
+        <div className="mx-auto w-full max-w-5xl border-t border-hairline pt-10">
+          <div className="mb-4 flex items-center gap-2">
+            <Skeleton className="h-3.5 w-3.5 rounded-full" />
+            <Skeleton className="h-3 w-28 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-card-lg border border-hairline bg-surface p-5 shadow-card">
+                <div className="flex items-start gap-3.5">
+                  <Skeleton className="h-[52px] w-[52px] shrink-0 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-2 pt-1.5">
+                    <Skeleton className="h-3.5 w-2/3 rounded-full" />
+                    <Skeleton className="h-2.5 w-1/2 rounded-full" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-hairline pt-4">
+                  <Skeleton className="h-4 w-20 rounded-full" />
+                  <Skeleton className="h-7 w-16 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function DownloaderSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      className="mx-auto flex min-h-[calc(100dvh-4.5rem)] w-full max-w-2xl flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24"
+    >
+      <div className="flex flex-col items-center">
+        <Skeleton className="h-9 w-64 max-w-full rounded-xl sm:h-16 sm:w-[28rem]" />
+        <Skeleton className="mt-3 h-4 w-72 max-w-full rounded-full sm:h-5 sm:w-96" />
+      </div>
+
+      <div className="mt-6 rounded-[2rem] border border-hairline bg-surface p-5 shadow-card sm:mt-12 sm:p-9">
+        <Skeleton className="h-14 w-full rounded-full sm:h-16" />
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:mt-9 sm:flex-row">
+          <Skeleton className="h-3 w-16 rounded-full" />
+          <div className="flex items-center gap-1 sm:gap-2">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-6 w-20 rounded-full sm:h-7 sm:w-24" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ImageGeneratorSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="pt-2">
+      <div className="w-full px-0 pt-8 pb-20 sm:px-6 sm:pt-12">
+        <div className="mx-auto w-full max-w-4xl md:max-w-[960px]">
+          <PageTitleSkeleton />
+
+          {/* Mobile: Generate/History toggle + stacked setting sections */}
+          <div className="mt-6 md:hidden">
+            <Skeleton className="h-10 w-full rounded-full" />
+            <div className="mt-6 flex flex-col gap-4">
+              {["h-[140px]", "h-16", "h-16"].map((height, i) => (
+                <div key={i} className="rounded-3xl border border-hairline bg-surface p-5">
+                  <Skeleton className="h-3 w-20 rounded-full" />
+                  <Skeleton className={`mt-3 w-full rounded-2xl ${height}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: prompt composer */}
+          <div className="mt-8 hidden rounded-[28px] border border-hairline bg-surface px-9 py-5 shadow-card md:block">
+            <div className="min-h-[96px]">
+              <PromptLinesSkeleton />
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {["w-32", "w-20", "w-28", "w-24"].map((width) => (
+                <Skeleton key={width} className={`h-8 rounded-full ${width}`} />
+              ))}
+              <Skeleton className="ml-auto h-10 w-36 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: Recent Generations */}
+        <div className="mt-22 hidden md:block">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-4 w-36 rounded-full" />
+            <Skeleton className="h-10 w-10 rounded-xl" />
+          </div>
+          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {Array.from({ length: 10 }, (_, i) => (
+              <Skeleton key={i} className="aspect-square rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Recent Generations mixes portrait and landscape clips, so the masonry
+// placeholder alternates both instead of a uniform grid.
+const VIDEO_TILE_ASPECTS = ["aspect-[9/16]", "aspect-video", "aspect-video", "aspect-[9/16]", "aspect-video", "aspect-[9/16]"];
+
+export function VideoGeneratorSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="pt-2">
+      <div className="w-full px-0 pt-8 pb-20 sm:px-6 sm:pt-12">
+        <div className="mx-auto w-full max-w-6xl">
+          <PageTitleSkeleton />
+
+          {/* Generate/History toggle -- mobile only */}
+          <Skeleton className="mt-6 h-11 w-full rounded-2xl lg:hidden" />
+
+          <div className="mt-4 flex flex-col gap-4 lg:mt-6 lg:flex-row lg:items-start">
+            {/* Mode rail -- desktop */}
+            <div className="hidden shrink-0 flex-col gap-1 rounded-2xl border border-hairline bg-surface p-1.5 lg:flex">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5 px-4 py-2">
+                  <Skeleton className="h-4 w-4 rounded-md" />
+                  <Skeleton className="h-2.5 w-9 rounded-full" />
+                </div>
+              ))}
+            </div>
+
+            {/* Mode tabs -- mobile */}
+            <Skeleton className="h-11 w-full rounded-2xl lg:hidden" />
+
+            {/* Composer */}
+            <div className="flex min-h-[180px] min-w-0 flex-1 flex-col gap-4 rounded-[2rem] border border-hairline bg-surface p-5 shadow-sm">
+              <div className="flex flex-1 items-start gap-3">
+                <Skeleton className="h-16 w-16 shrink-0 rounded-xl" />
+                <div className="flex-1">
+                  <PromptLinesSkeleton />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {["w-28", "w-20", "w-24"].map((width) => (
+                  <Skeleton key={width} className={`h-8 rounded-full ${width}`} />
+                ))}
+                <Skeleton className="ml-auto h-10 w-36 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Generations -- desktop */}
+        <div className="mt-10 hidden w-full px-4 sm:px-8 lg:block">
+          <Skeleton className="mb-4 h-4 w-36 rounded-full" />
+          <div className="columns-4 gap-4 xl:columns-5 2xl:columns-6">
+            {Array.from({ length: 12 }, (_, i) => (
+              <Skeleton
+                key={i}
+                className={`mb-4 w-full break-inside-avoid rounded-2xl ${VIDEO_TILE_ASPECTS[i % VIDEO_TILE_ASPECTS.length]}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const VOICEOVER_PANEL = "rounded-2xl border border-hairline bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:shadow-none";
+
+export function VoiceoverSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="pt-2">
+      <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
+        <div className="mx-auto w-full max-w-7xl">
+          <header className="mb-6">
+            <Skeleton className="h-7 w-56 rounded-full sm:h-8" />
+            <Skeleton className="mt-2.5 h-4 w-72 max-w-full rounded-full" />
+          </header>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Script workspace */}
+            <div className={`${VOICEOVER_PANEL} flex min-h-[600px] flex-col overflow-hidden`}>
+              <div className="flex flex-1 flex-col px-5 pt-5">
+                <Skeleton className="h-6 w-48 rounded-full" />
+                <div className="mt-6 flex flex-col gap-3">
+                  <Skeleton className="h-3.5 w-full rounded-full" />
+                  <Skeleton className="h-3.5 w-11/12 rounded-full" />
+                  <Skeleton className="h-3.5 w-4/5 rounded-full" />
+                  <Skeleton className="h-3.5 w-2/3 rounded-full" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
+                <Skeleton className="h-3 w-24 rounded-full" />
+                <Skeleton className="h-9 w-28 rounded-lg" />
+              </div>
+            </div>
+
+            {/* Settings sidebar */}
+            <div className={`${VOICEOVER_PANEL} flex flex-col overflow-hidden`}>
+              <div className="flex gap-5 border-b border-hairline px-5 pt-4">
+                <Skeleton className="mb-3 h-4 w-16 rounded-full" />
+                <Skeleton className="mb-3 h-4 w-14 rounded-full" />
+              </div>
+              <div className="p-5">
+                <Skeleton className="h-3 w-12 rounded-full" />
+                <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-hairline p-3">
+                  <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Skeleton className="h-3.5 w-28 rounded-full" />
+                    <Skeleton className="h-3 w-20 rounded-full" />
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-hairline p-5">
+                <Skeleton className="h-3 w-12 rounded-full" />
+                <Skeleton className="mt-2.5 h-10 w-full rounded-lg" />
+                <Skeleton className="mt-3 h-3 w-4/5 rounded-full" />
+              </div>
+              <div className="flex flex-col gap-5 border-t border-hairline p-5">
+                {[0, 1, 2].map((i) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-3 w-20 rounded-full" />
+                      <Skeleton className="h-3 w-8 rounded-full" />
+                    </div>
+                    <Skeleton className="mt-3 h-1 w-full rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ScriptsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading">
+      <div className="mx-auto w-full max-w-3xl pt-8 sm:pt-12">
+        <PageTitleSkeleton />
+
+        {/* Prompter: textarea + transcript/file drop zones */}
+        <div className="mt-8 flex flex-col gap-6 rounded-2xl border border-hairline bg-surface p-5 shadow-sm md:flex-row">
+          <div className="min-h-[150px] flex-1">
+            <PromptLinesSkeleton />
+          </div>
+          <div className="hidden w-px self-stretch bg-hairline md:block" />
+          <div className="flex w-full flex-col gap-3 md:w-[280px]">
+            <div className="flex gap-3">
+              <Skeleton className="aspect-square min-w-0 flex-1 rounded-2xl" />
+              <Skeleton className="aspect-square min-w-0 flex-1 rounded-2xl" />
+            </div>
+            <Skeleton className="h-11 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+
+      {/* History */}
+      <div className="mt-12 w-full px-4 md:px-8">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-5 rounded-md" />
+          <Skeleton className="h-5 w-32 rounded-full" />
+        </div>
+        <Skeleton className="mt-4 h-11 w-full rounded-xl" />
+        <div className="mt-4 rounded-2xl border border-hairline bg-(--app-fill) p-4 sm:p-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-card" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TranscriptsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading" className="flex flex-col gap-6 pt-2 pb-12">
+      <PageTitleSkeleton />
+
+      {/* Link card */}
+      <div className="flex flex-col gap-5 rounded-card border border-hairline bg-surface p-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Skeleton className="h-3.5 w-24 rounded-full" />
+            <Skeleton className="h-3 w-72 max-w-full rounded-full" />
+          </div>
+        </div>
+        <Skeleton className="h-[50px] w-full rounded-2xl" />
+        <div className="flex flex-col gap-4 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-3 w-16 rounded-full" />
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-7 w-7 rounded-full sm:w-20" />
+            ))}
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl sm:w-44" />
+        </div>
+      </div>
+
+      {/* History */}
+      <div className="flex items-center justify-between gap-3">
+        <Skeleton className="h-5 w-40 rounded-full" />
+        <Skeleton className="h-8 w-24 rounded-lg" />
+      </div>
+      <div className="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+            <div className="flex flex-1 flex-col gap-2">
+              <Skeleton className="h-3.5 w-1/3 rounded-full" />
+              <Skeleton className="h-3 w-1/5 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

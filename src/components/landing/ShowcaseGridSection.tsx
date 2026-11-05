@@ -1,80 +1,91 @@
 "use client";
 
-import Image from "next/image";
 import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/600.css";
+import {
+  DownloaderArt,
+  ImageGeneratorArt,
+  NicheBendingArt,
+  NicheFinderArt,
+  ScriptwriterArt,
+  TranscriptArt,
+  VideoGeneratorArt,
+  VoiceoverArt,
+} from "@/components/dashboard/ToolArt";
+import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { APP_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 interface ToolCardData {
   title: string;
-  image?: string;
-  footer?: ReactNode;
-  /** Renders a looping video instead of a static screenshot. The clip's flat
-   * gray backdrop is brightened to pure white here so it blends into this
-   * card -- landing-page-only treatment, the source file is untouched. */
-  video?: string;
-  videoPoster?: string;
+  description: string;
+  /** Coded preview art shared with the app's tool cards (see ToolArt.tsx). */
+  art: ReactNode;
 }
 
 const ROW_1: ToolCardData[] = [
-  { title: "Video Transcripts", image: "/tools/light/transcript.webp" },
-  { title: "AI Image Generator", image: "/tools/light/image-generator.webp" },
-  { title: "AI Voice Over", image: "/tools/light/voice-over.webp" },
+  {
+    title: "Video Transcripts",
+    description: "Pull clean, timestamped transcripts from any TikTok, Reels, or Shorts video instantly.",
+    art: <TranscriptArt />,
+  },
+  {
+    title: "AI Image Generator",
+    description: "Generate scroll-stopping thumbnails and cover images for your videos with AI.",
+    art: <ImageGeneratorArt />,
+  },
+  {
+    title: "AI Voice Over",
+    description: "Turn scripts into natural-sounding voiceovers with AI voices in seconds.",
+    art: <VoiceoverArt />,
+  },
 ];
 
 const ROW_2: ToolCardData[] = [
-  { title: "Download Any Video", image: "/tools/light/downloader.webp" },
-  { title: "Niche Bend", image: "/tools/light/niche-bend.webp" },
-  { title: "Niche Finder", image: "/tools/light/niche-finder.webp" },
+  {
+    title: "Download Any Video",
+    description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
+    art: <DownloaderArt />,
+  },
+  {
+    title: "Niche Bend",
+    description: "Reverse-engineer a winning channel's format and bend it into a fresh, non-competing niche.",
+    art: <NicheBendingArt />,
+  },
+  {
+    title: "Niche Finder",
+    description: "Spot trending faceless niches and outlier videos before they get crowded.",
+    art: <NicheFinderArt />,
+  },
 ];
 
 const ROW_3: ToolCardData[] = [
   {
     title: "AI Script Writer",
-    video: "/videos/script-generator.mp4",
-    videoPoster: "/videos/script-generator-poster.jpg",
+    description: "Create engaging scripts for your videos with AI-powered writing assistance.",
+    art: <ScriptwriterArt />,
   },
   {
     title: "AI Video Generator",
-    video: "/videos/ai-video-generator-marquee.mp4",
-    videoPoster: "/videos/ai-video-generator-marquee-poster.jpg",
+    description: "Create, edit, and animate watermark-free AI videos from a text prompt or image.",
+    art: <VideoGeneratorArt />,
   },
 ];
 
-function ToolCard({ title, image, footer, video, videoPoster }: ToolCardData) {
+function ToolCard({ title, description, art }: ToolCardData) {
   return (
-    <div className="flex h-full flex-col rounded-[14px] border border-[#E4E7EC] bg-white p-1 sm:rounded-[16px] sm:border-[1.5px]">
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[10px] bg-white p-5 sm:rounded-[13px] sm:p-6">
-        <h3 className="relative text-lg font-bold tracking-tight text-heading sm:text-2xl">{title}</h3>
-        <div className="relative mt-4 flex flex-1 flex-col items-center justify-center gap-4">
-          <div className="relative w-full" style={{ aspectRatio: "16 / 10" }}>
-            {video ? (
-              <video
-                src={video}
-                poster={videoPoster}
-                autoPlay
-                loop
-                muted
-                playsInline
-                controlsList="nodownload noremoteplayback"
-                disablePictureInPicture
-                className="absolute inset-0 h-full w-full object-contain"
-                style={{
-                  filter: "brightness(1.15) contrast(1.03)",
-                }}
-              />
-            ) : (
-              <Image
-                src={image!}
-                alt={title}
-                fill
-                sizes="(max-width: 768px) 90vw, 33vw"
-                className="object-contain"
-              />
-            )}
-          </div>
-          {footer}
-        </div>
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#e9e9e9] bg-white">
+      <div className="px-4 pt-4 sm:px-[18px] sm:pt-5">
+        <h3 className="text-lg font-semibold leading-7 text-[#505050] sm:text-[20px]">{title}</h3>
+        <p className="mt-0.5 text-[13.5px] leading-[18px] text-[#5c5c5f]">{description}</p>
+      </div>
+      {/* The art's 400x225 canvas scales up to 1.4x at most, so the slot caps at
+          that height (315px) -- wide two-up cards get gray side margins instead
+          of an empty band under the canvas. */}
+      <div className="mt-auto p-3 pt-4">
+        <div className="relative aspect-video max-h-[315px] w-full overflow-hidden rounded-lg">{art}</div>
       </div>
     </div>
   );
@@ -95,23 +106,30 @@ export function ShowcaseGridSection() {
           </div>
           <a
             href={APP_URL}
-            className="relative isolate inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[#335CFF] px-9 py-3.5 text-lg font-bold text-white shadow-[0_4px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-y-0.5 hover:bg-[#3d68ff] hover:shadow-[0_2px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
+            className={cn("inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl px-9 py-3.5 text-lg font-bold text-white", BUTTON_3D_MOTION)}
+            style={button3d(4)}
           >
-            <span className="relative">Try Verlab Now</span>
-            <ArrowRight className="relative h-4 w-4" />
+            Try Verlab Now
+            <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </a>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-2 sm:mt-10 sm:gap-2.5 md:grid-cols-3">
-          {[...ROW_1, ...ROW_2].map((tool) => (
-            <ToolCard key={tool.title} {...tool} />
-          ))}
-        </div>
+        {/* Tray: one soft gray panel holding every card, 14px inset and 18px gutters. */}
+        <div
+          className="mt-8 rounded-2xl border border-[#f1f2f4] bg-[#fbfbfb] p-2.5 sm:mt-10 md:p-3.5"
+          style={{ fontFamily: '"Inter", -apple-system, system-ui, sans-serif' }}
+        >
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-[18px]">
+            {[...ROW_1, ...ROW_2].map((tool) => (
+              <ToolCard key={tool.title} {...tool} />
+            ))}
+          </div>
 
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:mt-2.5 sm:gap-2.5 md:grid-cols-2 md:items-start">
-          {ROW_3.map((tool) => (
-            <ToolCard key={tool.title} {...tool} />
-          ))}
+          <div className="mt-2.5 grid grid-cols-1 gap-2.5 md:mt-[18px] md:grid-cols-2 md:gap-[18px]">
+            {ROW_3.map((tool) => (
+              <ToolCard key={tool.title} {...tool} />
+            ))}
+          </div>
         </div>
       </div>
     </section>

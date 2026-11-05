@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/PageLoader";
+import { BendSkeleton } from "@/components/skeletons/ToolSkeletons";
 
 export default function Loading() {
-  return <PageLoader />;
+  return <BendSkeleton />;
 }

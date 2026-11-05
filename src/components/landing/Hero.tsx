@@ -1,99 +1,167 @@
 "use client";
 
-import { useRef } from "react";
-import { useScroll, useTransform } from "framer-motion";
-import { Sparkle } from "lucide-react";
-import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
-import { PayPalNotification } from "@/components/landing/PayPalNotification";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
 import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-export function Hero() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  // Tracks scroll from the hero's top hitting the viewport top (progress 0,
-  // i.e. page load) to its bottom hitting the viewport top (progress 1, i.e.
-  // fully scrolled past) -- so the floating notifications drift and fade as
-  // a direct function of scroll position rather than a one-shot reveal.
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
-  const leftY = useTransform(scrollYProgress, [0, 1], [0, -140]);
-  const leftOpacity = useTransform(scrollYProgress, [0, 0.7, 1], [1, 1, 0]);
-  const rightY = useTransform(scrollYProgress, [0, 1], [0, -220]);
-  const rightOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [1, 1, 0]);
+// Dotted world-map fragments flanking the heading. One character per grid cell,
+// "o" = dot; each cluster renders at a fixed CSS pitch (see DotCluster).
+const LEFT_MAP = [
+  ".....oo......oooo.",
+  ".....ooo.....oooo.",
+  ".....oooooo....oo.",
+  "....oooo.o..oo....",
+  "....ooo..o..o.....",
+  ".....oo.oooo..oo..",
+  "...oooo..o....oo..",
+  ".....o...ooooooo..",
+  "....oo....oooooo..",
+  ".....oo...oooooo..",
+  "..........oooooo..",
+  ".........ooooooo..",
+  ".oo.....ooo...oooo",
+  ".o..oo..oooo..ooo.",
+  ".ooooo...oo...oo..",
+  "oooooo...oo...oo..",
+  ".ooo..........oo..",
+  "...o..............",
+  "...oooo...........",
+  "....ooooo.........",
+  ".....oo...........",
+  "......oo..........",
+  "......oo..........",
+];
 
+const RIGHT_MAP = [
+  "...............o......",
+  "............ooooo.....",
+  "............o.ooo.....",
+  "......o.......ooooo...",
+  "...oo.o.o....ooo..oo..",
+  "oooooooooo...ooo..ooo.",
+  "ooooooo..o........oooo",
+  ".ooo...............o.o",
+  "..o..o......oo.....o..",
+  "..oooooo...ooooo......",
+  "..o..o.ooooooooo......",
+  ".....o.ooooo.o........",
+  "...oo..ooooo..........",
+  "oo.o...ooooo..........",
+  "oo...oooooooooooo.....",
+  "ooo..oooooooooooo.....",
+  "o.o.........oo........",
+  "............o.........",
+];
+
+function DotCluster({ rows, pitch, className }: { rows: string[]; pitch: number; className?: string }) {
+  const cols = rows[0].length;
+  return (
+    <svg
+      aria-hidden
+      viewBox={`0 0 ${cols} ${rows.length}`}
+      width={cols * pitch}
+      height={rows.length * pitch}
+      className={className}
+    >
+      {rows.flatMap((row, r) =>
+        [...row].map((cell, c) =>
+          cell === "o" ? <circle key={`${r}-${c}`} cx={c + 0.5} cy={r + 0.5} r={0.25} fill="#e1e2ec" /> : null,
+        ),
+      )}
+    </svg>
+  );
+}
+
+function Star() {
+  return (
+    <svg aria-hidden viewBox="0.49 0 19.02 18.09" className="h-[13.8px] w-[14.5px]">
+      <polygon
+        points="10,0 12.25,6.91 19.51,6.91 13.63,11.18 15.88,18.09 10,13.82 4.12,18.09 6.37,11.18 0.49,6.91 7.75,6.91"
+        fill="#eab308"
+      />
+    </svg>
+  );
+}
+
+export function Hero() {
   return (
     <>
-    {/* The White Frame: outermost layer matches the page background and gives the sky
-        canvas below a uniform margin on every side. */}
-    <div ref={heroRef} className="bg-white px-0 py-3 sm:p-3">
+    {/* The White Frame: outermost layer matches the page background and gives the
+        hero a uniform margin on every side. */}
+    <div className="bg-white px-0 py-3 sm:p-3">
       <section
         className="relative isolate flex flex-col overflow-hidden rounded-none sm:rounded-2xl sm:min-h-[calc(100vh-1.5rem)]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to bottom, #ffffff 0%, #ffffff 32%, #eaf2ff 50%, #6fa3f2 74%, #335cff 100%)",
-        }}
       >
-        {/* Halftone dot texture, matching the reference's grain over the gradient. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-20 opacity-[0.5]"
-          style={{
-            backgroundImage:
-              "radial-gradient(rgba(15,23,42,0.45) 0.7px, transparent 1px)",
-            backgroundSize: "6px 6px",
-            maskImage: "linear-gradient(to bottom, transparent 0%, transparent 25%, black 85%)",
-            WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, transparent 25%, black 85%)",
-          }}
-        />
+        {/* Map fragments: desktop only, top edge 3px above the rating pill (the
+            content starts at md:pt-44). Scaled down at xl so the right cluster
+            keeps clear of the heading's first line on 1280px screens. */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[173px] hidden xl:block">
+          <DotCluster
+            rows={LEFT_MAP}
+            pitch={10.3}
+            className="absolute left-16 top-0 origin-top-left scale-[0.8] min-[1440px]:scale-100"
+          />
+          <DotCluster
+            rows={RIGHT_MAP}
+            pitch={10}
+            className="absolute right-[51px] top-0 origin-top-right scale-[0.8] min-[1440px]:scale-100"
+          />
+        </div>
 
-        {/* Fades the blue gradient into the page background at the bottom edge on
-            mobile, where the section's height is content-driven instead of viewport-filled
-            so a solid band of blue would otherwise hard-cut into the next section. Uses an
-            eased (non-linear) set of stops rather than a flat alpha ramp -- a plain
-            transparent-to-opaque gradient reads as a hard edge partway through because
-            alpha blends perceptually faster in the middle; easing it out front-loads the
-            transparency for a softer, slower-dissolving look. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-48 sm:hidden"
-          style={{
-            backgroundImage:
-              "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.013) 8.1%, rgba(255,255,255,0.049) 15.5%, rgba(255,255,255,0.104) 22.5%, rgba(255,255,255,0.175) 29%, rgba(255,255,255,0.259) 35.3%, rgba(255,255,255,0.352) 41.2%, rgba(255,255,255,0.45) 47.1%, rgba(255,255,255,0.55) 52.9%, rgba(255,255,255,0.648) 58.8%, rgba(255,255,255,0.741) 64.7%, rgba(255,255,255,0.825) 71%, rgba(255,255,255,0.896) 77.5%, rgba(255,255,255,0.951) 84.5%, rgba(255,255,255,0.987) 91.9%, rgba(255,255,255,1) 100%)",
-          }}
-        />
-
-        {/* Content layer: sits above the gradient and cloud edges. Bottom padding
+        {/* Content layer: sits above the map fragments. Bottom padding
             from sm up mirrors the preview card's pull-up magnitude below (both
             keyed off the same 40vh term) plus a fixed ~2rem buffer, so the card
             can never climb high enough to cover the CTA button -- if it grew to
             match the pull exactly, a tall/short viewport edge case could still
             close the gap to zero. */}
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-40 text-center sm:px-6 sm:pb-[clamp(12rem,40vh,32rem)] sm:pt-32 lg:px-8 md:pt-44">
-          <div className="relative flex w-full justify-center">
-            <h1 className="relative max-w-6xl font-display text-[clamp(24px,8vw,30px)] font-bold leading-[1.1] tracking-[-0.5px] text-heading sm:text-[62px] sm:leading-[1.05] sm:tracking-[-2px] lg:text-[72px]">
-              <span className="whitespace-nowrap">
-                Build a Non-Competitive
-              </span>
-              <br />
-              Faceless Page
-            </h1>
+        <div
+          className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-24 text-center sm:px-6 sm:pb-[clamp(12rem,40vh,32rem)] sm:pt-32 lg:px-8 md:pt-44"
+          style={{ fontFamily: '"Inter", -apple-system, system-ui, sans-serif' }}
+        >
+          <div className="inline-flex h-[29px] items-center gap-3 rounded-full bg-[#f5f6fc] px-2 text-[12px] font-medium text-[#0f172a]">
+            <span className="inline-flex gap-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} />
+              ))}
+            </span>
+            100k+ users worldwide
           </div>
 
-          <p className="mt-5 max-w-xl text-sm font-bold leading-relaxed text-subtle sm:hidden">
+          <h1 className="mt-[22px] text-[clamp(24px,7.4vw,34px)] font-semibold leading-[1.1] text-[#0f172a] sm:text-[48px] sm:leading-[0.97] lg:text-[56px]">
+            <span className="whitespace-nowrap">
+              Build a Non-Competitive
+            </span>
+            <br />
+            Faceless Page
+          </h1>
+
+          <p className="mt-[22px] max-w-xs text-[15px] leading-[1.6] text-[#8f97a3] sm:hidden">
             Everything you need to grow and profit.
           </p>
-          <p className="mt-7 hidden max-w-2xl text-lg font-bold leading-relaxed text-subtle sm:block">
+          <p className="mt-[22px] hidden max-w-[420px] text-base leading-[1.6] text-balance text-[#8f97a3] sm:block">
             Everything you need to make money with social media, all in one place.
           </p>
 
-          <div className="relative z-20 mt-8 flex justify-center sm:mt-14">
-            <GlassCtaButton
+          <div className="relative z-20 mt-8 flex justify-center sm:mt-[29px]">
+            {/* Flat blue pill in a pale-blue ring, lit from below by a soft cyan
+                glow sitting a little left of center. Proportions are keyed off
+                the font size: face height ~2.85em, side padding ~1.45em, ring ~0.2em. */}
+            <a
               href={APP_URL}
-              radius={999}
-              icon={<Sparkle size={20} className="fill-current sm:h-5 sm:w-5" />}
-              className="px-8 py-4.5 text-lg font-bold! sm:px-10 sm:py-5 sm:text-lg"
+              className="group inline-flex rounded-full bg-[#dbe5ff] p-1 shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-transform duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3771ff]/40 focus-visible:ring-offset-2 sm:p-[5px]"
             >
-              Try Verlab Now
-            </GlassCtaButton>
+              <span
+                className="flex h-[54px] items-center rounded-full bg-[#3771ff] px-7 text-[18px] font-semibold text-white transition-colors duration-200 group-hover:bg-[#3f78ff] sm:h-[68px] sm:px-[35px] sm:text-[24px]"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(ellipse 39% 69% at 39% 100%, #7cd3ff 0%, rgba(124,211,255,0.58) 50%, rgba(124,211,255,0) 100%)",
+                }}
+              >
+                Try Verlab Now
+              </span>
+            </a>
           </div>
 
         </div>
@@ -107,25 +175,10 @@ export function Hero() {
         after it in flow, up into content it shouldn't touch. The clamp keeps the
         normal ~40vh feel at ordinary viewport heights but can never pull further
         than -30rem or less than -10rem. */}
-    <div className="relative z-20 mx-auto -mt-72 w-full max-w-6xl px-3 sm:mt-[clamp(-30rem,-40vh,-10rem)] sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute left-0 top-[16%] z-30 hidden -translate-x-[10%] xl:block 2xl:-translate-x-[32%]">
-        <PayPalNotification amount="577.94" style={{ y: leftY, opacity: leftOpacity }} />
-      </div>
-      <div className="pointer-events-none absolute right-0 top-[40%] z-30 hidden translate-x-[10%] xl:block 2xl:translate-x-[32%]">
-        <PayPalNotification amount="1,284.50" style={{ y: rightY, opacity: rightOpacity }} />
-      </div>
-      <div className="relative rounded-xl p-2.5 sm:rounded-[32px] sm:p-4">
-        {/* Glass frame: border + blur only -- masked to fade out toward the bottom.
-            The video below carries its own (smaller) fade so the footage dissolves
-            into the white page background instead of hard-cutting at the corner. */}
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-0 -z-10 rounded-xl border border-hairline bg-surface/30 backdrop-blur-xl sm:rounded-[32px]",
-            "[mask-image:none] sm:[mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
-            "[-webkit-mask-image:none] sm:[-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]",
-          )}
-        />
+    <div className="relative z-20 mx-auto -mt-80 w-full max-w-6xl px-3 sm:mt-[clamp(-30rem,-40vh,-10rem)] sm:px-6 lg:px-8">
+      <div className="relative p-2.5 sm:p-4">
+        {/* The video carries a small bottom fade so the footage dissolves into the
+            white page background instead of hard-cutting at the corner. */}
         <div
           className={cn(
             "relative overflow-hidden rounded-lg bg-surface sm:rounded-[22px]",

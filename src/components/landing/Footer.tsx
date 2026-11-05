@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { europaGrotesk } from "@/lib/fonts";
 import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -77,7 +78,8 @@ export function Footer({ backgroundClassName = "bg-white" }: { backgroundClassNa
               <div className="flex items-center gap-2.5">
                 <Link
                   href={APP_URL}
-                  className="group inline-flex items-center gap-1.5 rounded-full border border-[#333] bg-black px-4 py-2.5 text-sm font-medium tracking-[-0.02em] text-white shadow-[0_10px_14px_-3px_rgba(0,0,0,0.22),0_2.3px_3.2px_-2px_rgba(0,0,0,0.3)] transition-transform duration-200 hover:scale-[1.03]"
+                  className={cn("group inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold tracking-[-0.02em] text-white", BUTTON_3D_MOTION)}
+                  style={button3d(3)}
                 >
                   Get Started
                   <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-45" />

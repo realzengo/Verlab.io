@@ -72,13 +72,9 @@ function Views({ children, large }: { children: ReactNode; large?: boolean }) {
   );
 }
 
+/** White ring plus a soft neutral drop shadow lifting the focused clip. */
 const FOCUS_RING =
-  "ring-[3px] ring-white shadow-[0_0_0_4px_rgba(51,92,255,0.22),0_28px_50px_-18px_rgba(51,92,255,0.6),0_14px_26px_-14px_rgba(15,23,42,0.45)]";
-
-/** Soft brand-blue pool of light under a focused clip. */
-function Glow({ style }: { style: CSSProperties }) {
-  return <div className="absolute rounded-[100%] bg-[#3a62ff] opacity-35 blur-[30px]" style={style} />;
-}
+  "ring-[3px] ring-white shadow-[0_0_0_4px_rgba(15,23,42,0.05),0_24px_48px_-18px_rgba(15,23,42,0.3),0_10px_20px_-10px_rgba(15,23,42,0.16)]";
 
 /* ─── Step 1 · Find a Viral Niche ─────────────────────────────────────── */
 
@@ -117,8 +113,6 @@ export function NicheIllustration() {
           <Views>{clip.views}</Views>
         </motion.div>
       ))}
-
-      <Glow style={{ left: 150, top: 250, width: 100, height: 46 }} />
       <motion.div
         variants={rise(0.45, 18)}
         className={cn("absolute overflow-hidden rounded-[14px] bg-slate-800", FOCUS_RING)}
@@ -168,7 +162,6 @@ function FormulaRow({ tag, delay, children }: { tag: string; delay: number; chil
 export function FormulaIllustration() {
   return (
     <Stage>
-      <Glow style={{ left: 40, top: 230, width: 110, height: 44 }} />
       <motion.div
         variants={rise(0, 16)}
         className={cn("absolute overflow-hidden rounded-[14px] bg-slate-800", FOCUS_RING)}
@@ -268,8 +261,6 @@ export function BendIllustration() {
           </Glass>
         </motion.div>
       </div>
-
-      <Glow style={{ left: 148, top: 260, width: 104, height: 46 }} />
       <motion.div
         variants={rise(0.3, 18)}
         className={cn("absolute overflow-hidden rounded-[14px] bg-slate-800", FOCUS_RING)}

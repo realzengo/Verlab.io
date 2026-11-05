@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/PageLoader";
+import { CreditsSettingsSkeleton } from "@/components/skeletons/SettingsSkeletons";
 
 export default function Loading() {
-  return <PageLoader />;
+  return <CreditsSettingsSkeleton />;
 }

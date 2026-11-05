@@ -1,5 +1,4 @@
 import { ScrollAnimationPauser } from "@/components/ScrollAnimationPauser";
-import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
 import { VerlabProcess } from "@/components/landing/VerlabProcess";
@@ -14,7 +13,6 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <ScrollAnimationPauser />
-      <SmoothScroll />
       <Nav />
       <main className="flex-1">
         <Hero />

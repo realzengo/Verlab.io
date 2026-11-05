@@ -96,6 +96,28 @@ function segmentUrl(generationId: string, index: number): string {
   return `/api/generate-voiceover/${generationId}/segments/${index}`;
 }
 
+// The id of the generation this tab is waiting on, so leaving the page (or
+// reloading) mid-generation can resume watching it on return. Cleared once
+// the generation settles.
+const PENDING_GENERATION_KEY = "clypa:voiceover-pending";
+
+function readPendingGeneration(): string | null {
+  try {
+    return sessionStorage.getItem(PENDING_GENERATION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writePendingGeneration(id: string | null): void {
+  try {
+    if (id) sessionStorage.setItem(PENDING_GENERATION_KEY, id);
+    else sessionStorage.removeItem(PENDING_GENERATION_KEY);
+  } catch {
+    // Storage unavailable -- resuming is a nicety, not required.
+  }
+}
+
 // ── Small presentational pieces ─────────────────────────────────────────
 
 // One filled accent on the page -- the primary action. Everything else is
@@ -727,7 +749,10 @@ export function VoiceoverGenerator() {
     setVoiceId(`clone:${clone.id}`);
   }
 
-  function pollGeneration(id: string) {
+  // `resumed`: picked back up after leaving the page (see readPendingGeneration),
+  // so the form no longer holds this generation's title/script/voice --
+  // loadGeneration restores all of that along with the finished audio.
+  function pollGeneration(id: string, resumed = false) {
     pollCancelRef.current?.();
     pollCancelRef.current = pollUntilSettled<{
       status: string;
@@ -743,8 +768,18 @@ export function VoiceoverGenerator() {
       },
       (row) => !row || row.status !== "generating",
       (row) => {
-        if (!row) return;
-        if (row.status === "completed") {
+        if (!row) {
+          writePendingGeneration(null);
+          setView("input");
+          setIsGenerating(false);
+          return;
+        }
+        if (row.status !== "generating") writePendingGeneration(null);
+        if (row.status === "completed" && resumed) {
+          setIsGenerating(false);
+          setHistoryRefreshSignal((n) => n + 1);
+          void loadGeneration(id);
+        } else if (row.status === "completed") {
           setSegments(row.segments.map((s) => ({ text: s.text, durationSeconds: s.durationSeconds })));
           setCreditsQuoted(row.credits_quoted ?? null);
           setView("editor");
@@ -761,6 +796,7 @@ export function VoiceoverGenerator() {
         intervalMs: 2500,
         timeoutMs: 5 * 60 * 1000,
         onTimeout: () => {
+          writePendingGeneration(null);
           setGenerationError("This is taking longer than expected. Please try again.");
           setView("input");
           setIsGenerating(false);
@@ -822,6 +858,7 @@ export function VoiceoverGenerator() {
       if (!response.ok) throw new Error(data?.error ?? "Failed to generate voiceover.");
 
       setGenerationId(data.id);
+      writePendingGeneration(data.id);
       pollGeneration(data.id);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : "Something went wrong. Try again.");
@@ -1086,10 +1123,24 @@ export function VoiceoverGenerator() {
   // that generation straight into the editor instead of landing on the
   // blank input screen.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from the URL's ?id=, not a derived/external sync
     if (deepLinkId) void loadGeneration(deepLinkId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once for the id present at mount; loadGeneration is stable enough for this one-shot deep link
   }, [deepLinkId]);
+
+  // A generation keeps running server-side (after() in generate-voiceover)
+  // when the user leaves the page -- coming back resumes watching it rather
+  // than landing on a blank form while it finishes unseen in History.
+  useEffect(() => {
+    if (deepLinkId) return;
+    const pendingId = readPendingGeneration();
+    if (!pendingId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from sessionStorage, not a derived/external sync
+    setGenerationId(pendingId);
+    setIsGenerating(true);
+    setView("loading");
+    pollGeneration(pendingId, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only resume
+  }, []);
 
   const charCount = script.length;
 

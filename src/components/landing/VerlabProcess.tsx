@@ -2,9 +2,12 @@
 
 import { type ReactNode } from "react";
 import Image from "next/image";
+import { ArrowUpRight } from "lucide-react";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { BendIllustration, FormulaIllustration, NicheIllustration } from "@/components/landing/ProcessIllustrations";
+import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { APP_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 const TRUST_AVATARS = [
   "/reviewers/reviewer-01.jpeg",
@@ -65,10 +68,6 @@ function CardShell({
           className="relative shrink-0 overflow-hidden bg-[linear-gradient(180deg,#eaedf3_0%,#f3f5f9_58%,#ffffff_100%)]"
           style={{ aspectRatio: STAGE_ASPECT }}
         >
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(70%_55%_at_50%_40%,rgba(51,92,255,0.16)_0%,rgba(51,92,255,0.05)_45%,transparent_75%)]"
-          />
           <div
             aria-hidden
             className="absolute inset-0 opacity-45"
@@ -157,9 +156,11 @@ export function VerlabProcess() {
         <div className="mt-8 flex flex-col items-center text-center sm:mt-10">
           <a
             href={APP_URL}
-            className="relative isolate inline-flex items-center justify-center overflow-hidden rounded-2xl bg-[#335CFF] px-11 py-3.5 text-lg font-bold text-white shadow-[0_4px_0_0_#1a37c4,0_10px_24px_-8px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-y-0.5 hover:bg-[#3d68ff] hover:shadow-[0_2px_0_0_#1a37c4,0_14px_30px_-8px_rgba(28,63,214,0.6),inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,0_4px_10px_-6px_rgba(28,63,214,0.5),inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100 sm:px-14 sm:py-4"
+            className={cn("inline-flex items-center justify-center gap-2 rounded-2xl px-11 py-3.5 text-lg font-bold text-white sm:px-14 sm:py-4", BUTTON_3D_MOTION)}
+            style={button3d(4)}
           >
-            <span className="relative">Try Verlab Now</span>
+            Try Verlab Now
+            <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </a>
 
           <div className="mt-5 flex items-center -space-x-3">

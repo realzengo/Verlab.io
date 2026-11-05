@@ -9,6 +9,7 @@ import { ArrowRight, ArrowUpRight, Menu, Sparkle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/constants";
 import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
+import { button3d } from "@/components/landing/button3d";
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
@@ -120,20 +121,18 @@ export function Nav() {
               ))}
             </div>
 
+            {/* Same 3D blue as the Verlab Studio card's button, kept rectangular:
+                face glows lighter at the bottom centre, a thin bright rim along the
+                top, and a solid darker lip underneath. */}
             <GlassCtaButton
               href={APP_URL}
               radius={14}
-              className="-mr-2 hidden! shrink-0 whitespace-nowrap text-white! sm:flex!"
-              style={{
-                backgroundImage: "none",
-                backgroundColor: "#335cff",
-                backgroundBlendMode: "normal",
-                boxShadow: "none",
-              }}
+              className="-mr-2 hidden! shrink-0 whitespace-nowrap font-semibold! text-white! sm:flex!"
+              style={{ ...button3d(3), backgroundBlendMode: "normal" }}
             >
               <span className="sm:hidden">Get Started</span>
               <span className="hidden sm:inline">Try Verlab Now</span>
-              <ArrowRight size={16} className="relative -mb-px ml-1 inline shrink-0" />
+              <ArrowUpRight size={16} strokeWidth={2.25} className="relative ml-1.5 inline shrink-0" />
             </GlassCtaButton>
 
             <button
@@ -233,7 +232,8 @@ export function Nav() {
                 onClick={() => setMobileOpen(false)}
                 radius={12}
                 icon={<Sparkle size={14} className="shrink-0 fill-current" />}
-                className="w-full! justify-center px-4! py-3.5! text-base!"
+                className="w-full! justify-center px-4! py-3.5! text-base! font-semibold!"
+                style={{ ...button3d(4), backgroundBlendMode: "normal" }}
               >
                 Get Started
                 <ArrowRight size={16} className="relative -mb-px ml-1 inline shrink-0" />

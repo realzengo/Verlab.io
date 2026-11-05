@@ -7,14 +7,6 @@ html {
   scroll-padding-top: 96px;
 }
 
-/* Lenis drives scroll position itself on the landing page (see
-   SmoothScroll.tsx) -- letting the browser's native smooth-scroll fight it
-   over the same scroll produces visible stutter, so it's disabled whenever
-   Lenis is mounted. */
-html.lenis-active {
-  scroll-behavior: auto !important;
-}
-
 :root {
   --background: #ffffff;
   --foreground: #111827;
@@ -2095,8 +2087,8 @@ html[data-scrolling="true"] *::after {
 /* Dashboard tool-card art (ToolArt.tsx): one quiet loop per card showing
    the tool at work -- a blinking caret, flowing connector lines, a script
    line typing itself, a transcript highlight stepping down its rows (row
-   pitch from --row) in time with the clip's progress bar, a click ripple on
-   Download, and a voiceover's playhead and spoken words in step. All sit inside an .anim-gate, so they freeze while off screen. */
+   pitch from --row) in time with the clip's progress bar, a link being
+   downloaded, and a voiceover's playhead and spoken words in step. All sit inside an .anim-gate, so they freeze while off screen. */
 @keyframes tool-art-blink {
   0%,
   49% {
@@ -2189,23 +2181,197 @@ html[data-scrolling="true"] *::after {
 .tool-art-dash {
   animation: tool-art-dash 1.2s linear infinite;
 }
-@keyframes tool-art-click {
+/* Downloader card: five 2.4s beats in a 12s loop. Per platform (12s
+   animations, offset per tile by a negative delay): its grid tile lifts and
+   its link badge lights blue, then its icon pops into the downloader. Every
+   beat (2.4s animations): the hand taps Download, the button fills, and the
+   downloader's link badge flips to a check. Base styles are the resting
+   still, so reduced motion shows the original frame. */
+@keyframes tool-art-dl-pick {
   0%,
-  20% {
+  8%,
+  100% {
+    transform: none;
+  }
+  1%,
+  6% {
+    transform: translateY(-2px) scale(1.05);
+  }
+}
+.tool-art-dl-pick {
+  animation: tool-art-dl-pick 12s ease-out infinite;
+}
+@keyframes tool-art-dl-pick-badge {
+  0%,
+  8%,
+  100% {
+    opacity: 0;
+  }
+  1%,
+  6% {
+    opacity: 1;
+  }
+}
+.tool-art-dl-pick-badge {
+  opacity: 0;
+  animation: tool-art-dl-pick-badge 12s ease-out infinite;
+}
+@keyframes tool-art-dl-tile {
+  0%,
+  0.6% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  2% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  3%,
+  19% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  20.4%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.tool-art-dl-tile {
+  animation: tool-art-dl-tile 12s ease-out infinite;
+}
+@keyframes tool-art-dl-hand {
+  0%,
+  28% {
+    transform: translate(7px, 9px);
+  }
+  42% {
+    transform: translate(0, 0) scale(1);
+  }
+  46% {
+    transform: translate(0, 0) scale(0.88);
+  }
+  52%,
+  72% {
+    transform: translate(0, 0) scale(1);
+  }
+  92%,
+  100% {
+    transform: translate(7px, 9px);
+  }
+}
+.tool-art-dl-hand {
+  animation: tool-art-dl-hand 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes tool-art-dl-press {
+  0%,
+  44% {
+    transform: scale(1);
+  }
+  47% {
+    transform: scale(0.95);
+  }
+  52%,
+  100% {
+    transform: scale(1);
+  }
+}
+.tool-art-dl-press {
+  animation: tool-art-dl-press 2.4s ease-out infinite;
+}
+@keyframes tool-art-dl-ripple {
+  0%,
+  45% {
     transform: scale(0.4);
     opacity: 0;
   }
-  30% {
-    opacity: 0.9;
+  49% {
+    opacity: 0.8;
   }
-  70%,
+  72%,
   100% {
-    transform: scale(1.9);
+    transform: scale(2);
     opacity: 0;
   }
 }
-.tool-art-click {
-  animation: tool-art-click 2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+.tool-art-dl-ripple {
+  opacity: 0;
+  animation: tool-art-dl-ripple 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+@keyframes tool-art-dl-fill {
+  0%,
+  50% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  82% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  92%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+.tool-art-dl-fill {
+  opacity: 0;
+  animation: tool-art-dl-fill 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes tool-art-dl-linkout {
+  0%,
+  82%,
+  100% {
+    opacity: 1;
+  }
+  85%,
+  97% {
+    opacity: 0;
+  }
+}
+.tool-art-dl-linkout {
+  animation: tool-art-dl-linkout 2.4s ease-out infinite;
+}
+@keyframes tool-art-dl-check {
+  0%,
+  82% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  86% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  89%,
+  97% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.tool-art-dl-check {
+  opacity: 0;
+  animation: tool-art-dl-check 2.4s ease-out infinite;
+}
+/* Video generator card: the send button gives a small press every 6s. */
+@keyframes tool-art-vg-press {
+  0%,
+  6% {
+    transform: scale(1);
+  }
+  8% {
+    transform: scale(0.88);
+  }
+  11%,
+  100% {
+    transform: scale(1);
+  }
+}
+.tool-art-vg-press {
+  animation: tool-art-vg-press 6s ease-out infinite;
 }
 /* Scriptwriter card: the Generate button is pressed, then each line of the
    script draws on in turn (paths use pathLength="1"), holds, and fades so

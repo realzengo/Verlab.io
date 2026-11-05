@@ -44,6 +44,8 @@ import {
   getCloneMode,
   getCloneTool,
   getCloneToolMode,
+  type CloneRequest,
+  type CloneRequestBase,
   type CloneResolution,
   type CloneToolId,
 } from "@/lib/config/video-models";
@@ -1274,20 +1276,27 @@ export function VideoGenerator() {
     setCloneError(null);
     setClonePendingAspectRatio(cloneSource.aspectRatio);
 
+    // The tool, not the model: the route picks the model (getCloneToolMode).
+    const base: CloneRequestBase = {
+      sourceGenerationId: cloneSource.id,
+      referenceImages: cloneImages,
+      prompt: clonePrompt.trim() || undefined,
+      resolution: cloneResolution,
+      aspectRatio: cloneSource.aspectRatio,
+      frameImage,
+    };
+    const cloneRequest: CloneRequest =
+      cloneTool.id === "character"
+        ? { ...base, tool: "character", keepOriginalSound: cloneKeepOriginalSound, matchBackground: cloneMatchBackgroundActive }
+        : cloneTool.id === "object_swap"
+          ? { ...base, tool: "object_swap", prompt: clonePrompt.trim() }
+          : { ...base, tool: "motion_transfer" };
+
     try {
       const response = await fetch("/api/generate-video/clone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: cloneMode.id,
-          sourceGenerationId: cloneSource.id,
-          referenceImages: cloneImages,
-          prompt: clonePrompt.trim() || undefined,
-          resolution: cloneResolution,
-          aspectRatio: cloneSource.aspectRatio,
-          ...(cloneTool.id === "character" ? { keepOriginalSound: cloneKeepOriginalSound, matchBackground: cloneMatchBackgroundActive } : {}),
-          frameImage,
-        }),
+        body: JSON.stringify(cloneRequest),
       });
 
       if (response.status === 402) {
@@ -1535,24 +1544,26 @@ export function VideoGenerator() {
               <h1 className="bg-gradient-to-br from-heading via-heading to-primary bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
                 AI Video Generator
               </h1>
-              <p className="mt-2 text-xs font-medium tracking-wide text-body/60 sm:text-sm">
+              <p className="mt-2 text-[13px] font-medium text-body/60 sm:text-sm sm:tracking-wide">
                 Generate stunning, watermark-free AI videos.
               </p>
             </div>
 
-            {/* Generate/History toggle -- mobile only. Desktop shows history
-                as the "Recent Generations" grid below the form instead. */}
-            <div className="mt-6 flex gap-1 rounded-2xl bg-slate-100 p-1 dark:bg-white/[0.05] lg:hidden">
+            {/* Generate/History -- mobile only (desktop shows history as the
+                "Recent Generations" grid below the form). Underline tabs,
+                not a second segmented control, so this page-level switch
+                reads a level above the Create/Edit/Clone mode control. */}
+            <div role="tablist" aria-label="View" className="mt-5 flex gap-6 border-b border-hairline lg:hidden">
               {(["generate", "history"] as const).map((view) => (
                 <button
                   key={view}
                   type="button"
+                  role="tab"
+                  aria-selected={mobileView === view}
                   onClick={() => setMobileView(view)}
                   className={cn(
-                    "flex-1 rounded-xl py-2.5 text-sm font-bold capitalize transition-colors",
-                    mobileView === view
-                      ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-                      : "text-slate-400 dark:text-slate-500"
+                    "-mb-px border-b-2 pb-2.5 text-sm font-semibold capitalize outline-none transition-colors focus-visible:text-heading",
+                    mobileView === view ? "border-heading text-heading" : "border-transparent text-subtle"
                   )}
                 >
                   {view}
@@ -1597,9 +1608,12 @@ export function VideoGenerator() {
 
               {/* Mode tabs -- mobile, full width. Hidden in the History view: that's
                   just a plain gallery of everything, not scoped per-tab. */}
+              {/* Track radius 14 = the pill's 10 + the 4px padding. */}
               <div
+                role="tablist"
+                aria-label="Mode"
                 className={cn(
-                  "w-full gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 lg:hidden",
+                  "w-full gap-1 rounded-[14px] bg-slate-100 p-1 dark:bg-white/[0.06] lg:hidden",
                   mobileView === "history" ? "hidden" : "flex"
                 )}
               >
@@ -1609,19 +1623,23 @@ export function VideoGenerator() {
                     <motion.button
                       key={tab.id}
                       type="button"
+                      role="tab"
+                      aria-selected={active}
                       onClick={() => setActiveTab(tab.id)}
                       whileTap={{ scale: 0.96 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       className={cn(
-                        "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold",
-                        active ? "text-slate-900 dark:text-white" : "text-slate-400 transition-colors duration-300 ease-out dark:text-slate-500"
+                        // outline-none: iOS draws its own focus ring on a
+                        // tapped button; keyboard focus keeps a ring.
+                        "relative flex h-9 flex-1 items-center justify-center rounded-[10px] text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50",
+                        active ? "text-slate-900 dark:text-white" : "text-slate-500 transition-colors duration-300 ease-out dark:text-slate-400"
                       )}
                     >
                       {active && (
                         <motion.span
                           layoutId="mode-tab-mobile-active"
                           transition={{ type: "spring", stiffness: 450, damping: 38, mass: 0.9 }}
-                          className="absolute inset-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15),inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:ring-white/[0.06]"
+                          className="absolute inset-0 rounded-[10px] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.04)] dark:bg-white/[0.12] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                         />
                       )}
                       <span className="relative z-10 flex items-center justify-center gap-1.5">
@@ -1635,7 +1653,8 @@ export function VideoGenerator() {
 
               <div className={cn("min-w-0 flex-1", mobileView === "history" && "hidden lg:block")}>
                 {activeTab === "motion" ? (
-                  <div className="relative isolate z-20">
+                  // pb-8 on phones clears CloneComposer's fixed action bar.
+                  <div className="relative isolate z-20 pb-8 lg:pb-0">
                     <CloneComposer
                       tools={CLONE_TOOLS}
                       tool={cloneTool}
@@ -1728,6 +1747,7 @@ export function VideoGenerator() {
                           onClear={() => setEditSource(null)}
                           onUploadFile={handleUploadSourceVideo}
                           isUploading={isUploadingSource}
+                          durationRange={{ min: editModelConfig.minSourceDurationSeconds, max: editModelConfig.maxSourceDurationSeconds }}
                           library={completedForEditGallery
                             .filter((item) => item.status === "completed" && item.output_video_path)
                             .map((item) => ({

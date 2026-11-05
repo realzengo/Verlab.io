@@ -43,3 +43,9 @@ export const OPENROUTER_MAX_OUTPUT_TOKENS = 16000;
 // tier rather than the newest/least-proven one).
 export const FACELESS_CLASSIFIER_MODEL = "google/gemini-2.5-flash";
 export const facelessClassifierModel = openrouter(FACELESS_CLASSIFIER_MODEL);
+
+// Same Gemini Flash tier, for the image dialogs' one-click "Enhance" prompt
+// rewrite (/api/generate-image/enhance) -- the user is waiting on it, so
+// latency matters more than prose quality.
+export const PROMPT_ENHANCE_MODEL = "google/gemini-2.5-flash";
+export const promptEnhanceModel = openrouter(PROMPT_ENHANCE_MODEL);

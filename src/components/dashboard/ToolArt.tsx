@@ -3,14 +3,14 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUp, Check, Clapperboard, Copy, Play, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Copy, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
 import { Short, Stage, rise } from "@/components/illustration/stage";
 import { cn } from "@/lib/utils";
 
 /* Coded preview art for the dashboard tool cards: a few large elements per
- * card, specific to the tool, on a flat #EFEFEF ground. White surfaces with
- * layered soft shadows, real short-form clips that cast a soft glow of their
- * own colors, brand blue only on the thing the tool produces, and one quiet
+ * card, specific to the tool, on a flat #EFEFEF ground. Flat white surfaces
+ * (a hairline edge, no drop shadows or glows), real short-form clips, brand
+ * blue only on the thing the tool produces, and one quiet
  * loop per card that shows the tool working (tool-art-* in globals.css,
  * paused off screen by the Stage's .anim-gate). Drawn at a fixed 400 × 225
  * (the card's 16:9 slot) and scaled to fit; dark variants follow `.dark`. */
@@ -19,13 +19,13 @@ const W = 400;
 const H = 225;
 
 const SURFACE =
-  "bg-white shadow-[inset_0_1px_0_#fff,0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.05),0_8px_18px_-8px_rgba(0,0,0,0.12),0_24px_44px_-24px_rgba(0,0,0,0.18)] dark:bg-zinc-800 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_18px_40px_-20px_rgba(0,0,0,0.85)]";
+  "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05)] dark:bg-zinc-800 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]";
 const TILE =
-  "overflow-hidden rounded-[14px] bg-zinc-200 ring-[3px] ring-white shadow-[0_2px_4px_rgba(0,0,0,0.06),0_20px_38px_-18px_rgba(0,0,0,0.4)] dark:bg-zinc-800 dark:ring-zinc-700";
+  "overflow-hidden rounded-[14px] bg-zinc-200 ring-[3px] ring-white dark:bg-zinc-800 dark:ring-zinc-700";
 const INK = "text-zinc-900 dark:text-zinc-50";
 const MUTED = "text-zinc-500 dark:text-zinc-400";
 const BLUE_BUTTON =
-  "bg-[linear-gradient(180deg,#4a6fff_0%,#335cff_100%)] text-white shadow-[0_4px_10px_-4px_rgba(51,92,255,0.8),inset_0_1px_0_rgba(255,255,255,0.25)]";
+  "bg-[linear-gradient(180deg,#4a6fff_0%,#335cff_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]";
 
 /** Sets a CSS custom property inline (animation delays, row pitch). */
 function vars(v: Record<string, string | number>): CSSProperties {
@@ -93,8 +93,7 @@ function Avatar({ src, size }: { src: string; size: number }) {
   );
 }
 
-/** A white-framed clip that casts a soft glow of its own colors onto the
- * ground beneath it. */
+/** A white-framed short-form clip, flat on the ground (no glow or shadow). */
 function Clip({
   poster,
   video,
@@ -115,19 +114,10 @@ function Clip({
   children?: ReactNode;
 }) {
   return (
-    <>
-      <motion.div
-        variants={rise(delay + 0.15, 0)}
-        className="absolute overflow-hidden rounded-[20px] opacity-60 blur-[18px] saturate-150 dark:opacity-40"
-        style={{ left: left + 8, top: top + 16, width: width - 16, height: height - 8 }}
-      >
-        <Image src={poster} alt="" fill sizes="60px" className="object-cover" />
-      </motion.div>
-      <motion.div variants={rise(delay, 10)} className={cn("absolute", TILE)} style={{ left, top, width, height }}>
-        <Short poster={poster} video={video} sizes="220px" />
-        {children}
-      </motion.div>
-    </>
+    <motion.div variants={rise(delay, 10)} className={cn("absolute", TILE)} style={{ left, top, width, height }}>
+      <Short poster={poster} video={video} sizes="220px" />
+      {children}
+    </motion.div>
   );
 }
 
@@ -160,7 +150,7 @@ export function NicheBendingArt() {
       </motion.svg>
 
       <Clip poster="/videos/einstein-poster.jpg" left={36} top={28} width={96} height={170}>
-        <span className="absolute bottom-2 left-2 inline-flex h-[22px] items-center whitespace-nowrap rounded-md bg-white/95 px-2 text-[10.5px] font-semibold text-zinc-800 shadow-[0_1px_3px_rgba(0,0,0,0.15)]">
+        <span className="absolute bottom-2 left-2 inline-flex h-[22px] items-center whitespace-nowrap rounded-md bg-white/95 px-2 text-[10.5px] font-semibold text-zinc-800">
           History Facts
         </span>
       </Clip>
@@ -233,36 +223,42 @@ export function ImageGeneratorArt() {
 
 /* ─── Video Generator ─────────────────────────────────────────────────── */
 
+// A prompt box with its model, length and ratio, and the clip it produced,
+// playing as Ready. The send button's press is the card's one quiet loop
+// (tool-art-vg-press in globals.css).
+const VG_OPTION = "inline-flex h-6 items-center gap-1 rounded-md bg-zinc-100 px-1.5 text-[10.5px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300";
+
 export function VideoGeneratorArt() {
   return (
     <ToolStage>
-      <Panel left={24} top={50} width={160} height={124} className="flex flex-col p-3.5">
-        <span className={cn("flex items-center gap-1.5 text-[10.5px] font-semibold", MUTED)}>
-          <Clapperboard className="h-3.5 w-3.5 text-[#335cff]" strokeWidth={2.25} />
-          Prompt
-        </span>
-        <p className={cn("mt-1.5 text-[12.5px] font-medium leading-[1.4] tracking-[-0.01em]", INK)}>
+      <Panel left={16} top={52} width={238} height={121} className="flex flex-col p-3.5">
+        <p className={cn("text-[12.5px] font-medium leading-[1.45] tracking-[-0.01em]", INK)}>
           A boy under a flickering hallway light, Pixar style
           <Caret />
         </p>
-        <span className="mt-auto inline-flex h-6 w-fit items-center gap-1 rounded-md bg-zinc-100 px-1.5 text-[10.5px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-          <Image src="/logos/ai/kling.svg" alt="" width={11} height={11} className="h-[11px] w-[11px]" />
-          Kling 3.0
-        </span>
+        <div className="mt-auto flex items-center gap-1">
+          <span className={VG_OPTION}>
+            <Image src="/logos/ai/kling.svg" alt="" width={11} height={11} className="h-[11px] w-[11px]" />
+            Kling 4.0
+          </span>
+          <span className={VG_OPTION}>
+            <Timer className="h-[11px] w-[11px]" strokeWidth={2.25} />
+            5s
+          </span>
+          <span className={VG_OPTION}>
+            <RectangleVertical className="h-[11px] w-[11px]" strokeWidth={2.25} />
+            9:16
+          </span>
+          <span className={cn("tool-art-vg-press ml-auto grid h-7 w-7 shrink-0 place-items-center rounded-[9px]", BLUE_BUTTON)}>
+            <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </span>
+        </div>
       </Panel>
-
-      <motion.span
-        variants={rise(0.3, 0)}
-        className={cn("absolute grid h-8 w-8 place-items-center rounded-full ring-4 ring-[#EFEFEF] dark:ring-[#1c1c1f]", BLUE_BUTTON)}
-        style={{ left: 194, top: 96 }}
-      >
-        <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
-      </motion.span>
 
       <Clip
         poster="/videos/video-generator-showcase-poster.jpg"
         video="/videos/video-generator-showcase.mp4"
-        left={238}
+        left={270}
         top={13}
         width={112}
         height={199}
@@ -337,7 +333,7 @@ export function ScriptwriterArt() {
       <motion.div variants={rise(0.15, 8)} className="absolute" style={{ left: 66, top: 140, width: 268 }}>
         <Surface className="flex h-[50px] items-center justify-between rounded-[16px] pl-5 pr-[7px]">
           <span className="text-[17px] font-semibold tracking-[-0.02em] text-zinc-700 dark:text-zinc-200">Generate Script</span>
-          <span className="tool-script-press grid h-9 w-9 place-items-center rounded-[10px] bg-[linear-gradient(180deg,#6b9bff_0%,#3a6bff_100%)] text-white shadow-[0_4px_10px_-4px_rgba(51,92,255,0.8),inset_0_1px_0_rgba(255,255,255,0.3)]">
+          <span className="tool-script-press grid h-9 w-9 place-items-center rounded-[10px] bg-[linear-gradient(180deg,#6b9bff_0%,#3a6bff_100%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]">
             <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </span>
         </Surface>
@@ -396,15 +392,110 @@ export function TranscriptArt() {
 
 /* ─── Downloader ──────────────────────────────────────────────────────── */
 
-// The landing page's own downloader art (transparent, 16:9), with a click
-// ripple where the hand presses Download.
+// The platform grid and the downloader card, set in motion: one platform at a
+// time lights its link badge, lands in the downloader, the hand taps Download,
+// the button fills, and the link badge turns into a check. Five 2.4s beats
+// make one 12s loop (tool-art-dl-* in globals.css); with reduced motion it
+// rests on YouTube. Tiles and hand are cut from the original still.
+const DL = "/tools/art/downloader";
+const BEAT = 2.4;
+const CYCLE = ["youtube", "tiktok", "instagram", "facebook", "snapchat"];
+const LOOP = BEAT * CYCLE.length;
+const GRID = [
+  { name: "tiktok", left: 48, top: 52, badge: { left: 40, top: -3 } },
+  { name: "instagram", left: 112, top: 52, badge: { left: 41.5, top: -3.5 } },
+  { name: "facebook", left: 48, top: 117, badge: { left: 40, top: -3.5 } },
+  { name: "snapchat", left: 112, top: 117, badge: { left: 44, top: -6 } },
+];
+
+/** Negative delay that lines a 12s animation's window up with this platform's beat. */
+function beatDelay(name: string) {
+  return `${-((LOOP - CYCLE.indexOf(name) * BEAT) % LOOP)}s`;
+}
+
+function LinkBadge({ left, top, pickDelay }: { left: number; top: number; pickDelay?: string }) {
+  return (
+    <span className="absolute h-[18.5px] w-[18.5px]" style={{ left, top }}>
+      <span className="absolute inset-0 grid place-items-center rounded-[5px] border border-[#e2e2e2] bg-white dark:border-zinc-600 dark:bg-zinc-700">
+        <Link className="h-[11px] w-[11px] text-[#9d9d9d]" strokeWidth={2.75} />
+      </span>
+      {pickDelay && (
+        <span
+          className="tool-art-dl-pick-badge absolute inset-0 grid place-items-center rounded-[5px] bg-[#335cff]"
+          style={{ animationDelay: pickDelay }}
+        >
+          <Link className="h-[11px] w-[11px] text-white" strokeWidth={2.75} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+const DL_CARD = "absolute rounded-[18px] border border-[#dedede] bg-white dark:border-zinc-700 dark:bg-zinc-800";
+
 export function DownloaderArt() {
   return (
     <ToolStage>
-      <motion.div variants={rise(0, 10)} className="absolute inset-0">
-        <Image src="/tools/light/downloader.webp" alt="" fill sizes="(min-width: 1024px) 440px, 100vw" className="object-contain" />
+      <motion.div variants={rise(0, 8)} className={DL_CARD} style={{ left: 35, top: 38, width: 148, height: 148 }} />
+      {GRID.map((t, i) => (
+        <motion.div key={t.name} variants={rise(0.1 + i * 0.06, 6)} className="absolute" style={{ left: t.left, top: t.top, width: 57, height: 57 }}>
+          <span className="tool-art-dl-pick absolute inset-0" style={{ animationDelay: beatDelay(t.name) }}>
+            <Image src={`${DL}/${t.name}.png`} alt="" fill sizes="160px" className="object-contain" />
+            <LinkBadge left={t.badge.left} top={t.badge.top} pickDelay={beatDelay(t.name)} />
+          </span>
+        </motion.div>
+      ))}
+
+      <motion.div variants={rise(0.15, 8)} className={DL_CARD} style={{ left: 216, top: 38, width: 149, height: 148 }} />
+      <motion.div variants={rise(0.3, 6)} className="absolute" style={{ left: 260, top: 68, width: 62, height: 59.5 }}>
+        {CYCLE.map((name, i) => (
+          <span
+            key={name}
+            className="tool-art-dl-tile absolute inset-0"
+            style={{ animationDelay: beatDelay(name), opacity: i === 0 ? 1 : 0 }}
+          >
+            <Image src={`${DL}/${name}.png`} alt="" fill sizes="170px" className="object-contain" />
+          </span>
+        ))}
+        {/* the downloader's own badge: link while it fetches, check once saved */}
+        <span className="tool-art-dl-linkout absolute" style={{ left: 50, top: -8.5 }}>
+          <LinkBadge left={0} top={0} />
+        </span>
+        <span
+          className="tool-art-dl-check absolute grid h-[18.5px] w-[18.5px] place-items-center rounded-[5px] bg-[#335cff]"
+          style={{ left: 50, top: -8.5 }}
+        >
+          <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.5} />
+        </span>
       </motion.div>
-      <span className="tool-art-click absolute h-7 w-7 rounded-full border-2 border-[#335cff]" style={{ left: 320, top: 151 }} />
+
+      <motion.div variants={rise(0.4, 6)} className="absolute" style={{ left: 229, top: 143.5, width: 124, height: 30.5 }}>
+        <span className="tool-art-dl-press relative grid h-full w-full place-items-center overflow-hidden rounded-[8px] bg-[#1e5cfd] text-[18px] font-bold tracking-[-0.01em] text-white">
+          <span className="tool-art-dl-fill absolute inset-0 origin-left bg-white/25" />
+          <span className="relative">Download</span>
+        </span>
+      </motion.div>
+
+      {/* the tap: ripple under the fingertip, then the hand itself */}
+      <span className="tool-art-dl-ripple absolute h-6 w-6 rounded-full border-2 border-[#335cff]" style={{ left: 321, top: 152 }} />
+      <motion.div variants={rise(0.55, 8)} className="absolute" style={{ left: 331, top: 160.5, width: 48.5, height: 40.5 }}>
+        <span className="tool-art-dl-hand absolute inset-0 origin-[4px_3px]">
+          <Image src={`${DL}/hand.png`} alt="" fill sizes="140px" className="object-contain" />
+        </span>
+      </motion.div>
+    </ToolStage>
+  );
+}
+
+/* ─── Niche Finder ────────────────────────────────────────────────────── */
+
+// The landing page's niche-search art (transparent, 16:9) on the shared ground.
+export function NicheFinderArt() {
+  return (
+    <ToolStage>
+      <motion.div variants={rise(0, 10)} className="absolute inset-0">
+        <Image src="/tools/light/niche-finder.webp" alt="" fill sizes="(min-width: 1024px) 440px, 100vw" className="object-contain" />
+      </motion.div>
     </ToolStage>
   );
 }
@@ -448,9 +539,6 @@ export function VoiceoverArt() {
 
       <Panel left={30} top={92} width={340} height={104} delay={0.2} className="flex items-center gap-3 px-4">
         <span className="relative h-14 w-14 shrink-0">
-          <span className="absolute inset-1 translate-y-2 overflow-hidden rounded-full opacity-60 blur-md">
-            <Image src="/tools/art/voice-maya.jpg" alt="" fill sizes="56px" className="object-cover" />
-          </span>
           <span className="absolute inset-0 overflow-hidden rounded-full ring-[3px] ring-white dark:ring-zinc-700">
             <Image src="/tools/art/voice-maya.jpg" alt="" fill sizes="112px" className="object-cover object-top" />
           </span>

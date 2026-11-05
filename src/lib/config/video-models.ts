@@ -561,8 +561,6 @@ export interface CloneModeConfig {
   replicateModel: string;
   /** Wan only: the variant that keeps the clip's own scene, used when Match background is on (no frame pre-pass needed). */
   matchBackgroundReplicateModel?: string;
-  /** Character only: always keeps the clip's own scene, so Photo background isn't offered. */
-  matchBackgroundOnly?: boolean;
   /** First entry is the default. "auto" = the model has no resolution control. */
   resolutions: CloneResolution[];
   /** How the picked resolution reaches the model: a `resolution` field, Kling's `mode` field, or not at all. */
@@ -761,7 +759,6 @@ export const CLONE_MODES: CloneModeConfig[] = [
     description: "Best for putting your character into the video's own scene. Fast.",
     engine: "pruna_replace",
     replicateModel: "prunaai/p-video-replace",
-    matchBackgroundOnly: true,
     resolutions: ["720p", "1080p"],
     resolutionInput: "resolution",
     minSourceDurationSeconds: 2,
@@ -882,7 +879,8 @@ export const CLONE_TOOLS: CloneToolConfig[] = [
     videoTitle: "Add the video to copy",
     imagesTitle: "Add your character",
     imagesSubtitle: "One clear photo",
-    placeholder: "Describe the scene, clothing or camera movement (optional)",
+    // Not the scene: Match background keeps the clip's (see buildPrunaReplaceInput), Photo background uses the photo's.
+    placeholder: "Describe the outfit, hair or style (optional)",
     promptRequired: false,
     mode: "Character (P-Video Replace)",
     photoBackgroundMode: "Character (Kling 3.0)",
@@ -900,6 +898,32 @@ export function getCloneToolMode(tool: CloneToolConfig, matchBackground: boolean
   if (!mode) throw new Error(`Clone tool "${tool.id}" points at unknown mode "${id}"`);
   return mode;
 }
+
+/** What every Clone request carries, whatever the tool. */
+export interface CloneRequestBase {
+  /** The attached clip: an upload or an earlier render in the user's library. */
+  sourceGenerationId: string;
+  /** Data URLs, in @ImageN order. */
+  referenceImages: string[];
+  prompt?: string;
+  resolution: CloneResolution;
+  /** Display hint for tiles, and Motion transfer's output orientation (snapped to what Kling renders). */
+  aspectRatio?: string;
+  /** The clip's first frame, captured client-side -- only sent when the tool's model starts with a frame pre-pass. */
+  frameImage?: string;
+}
+
+/**
+ * The body of POST /api/generate-video/clone, one shape per tool. It names
+ * the tool, never the model: the route picks that with getCloneToolMode, so
+ * which pipeline runs is decided in one place on the server.
+ */
+export type CloneRequest =
+  | (CloneRequestBase & { tool: "motion_transfer" })
+  /** The prompt names what to change -- an image alone doesn't say what to replace. */
+  | (CloneRequestBase & { tool: "object_swap"; prompt: string })
+  /** Match background (the default) keeps the clip's scene; Photo background takes the photo's. */
+  | (CloneRequestBase & { tool: "character"; keepOriginalSound: boolean; matchBackground: boolean });
 
 /** Every model the Clone tab can actually submit to -- what upload limits are gated on. */
 export const CLONE_TOOL_MODES: CloneModeConfig[] = CLONE_TOOLS.flatMap((tool) =>

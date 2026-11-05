@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { preload } from "react-dom";
 import Link from "next/link";
 import { Compass, Eye, Heart, MessageCircle, Play, Share2, Users, VenetianMask, Wand2 } from "lucide-react";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
-import { SearchLoadingLogo } from "@/components/ui/SearchLoadingLogo";
+import { VideoGridSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import {
   EMPTY_VIDEO_RANGE_FILTERS,
   NicheTopBar,
@@ -260,23 +259,6 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
   );
 }
 
-/** Placeholder tile shown in place of a card while saved videos are still
- * loading -- mirrors TrendingVideoCard's proportions so the grid doesn't
- * visibly reflow once the real cards swap in. */
-function LikedVideoCardSkeleton() {
-  return (
-    <div className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-hairline bg-surface">
-      <div className="aspect-[9/16] w-full bg-app" />
-      <div className="flex flex-col gap-3 p-3.5 sm:p-4">
-        <div className="h-4 w-16 rounded-full bg-app" />
-        <div className="h-3 w-2/3 rounded-full bg-app" />
-        <div className="h-px bg-hairline" />
-        <div className="h-3 w-full rounded-full bg-app" />
-      </div>
-    </div>
-  );
-}
-
 function LikedVideosSection({
   videos,
   loading,
@@ -302,11 +284,7 @@ function LikedVideosSection({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <LikedVideoCardSkeleton key={i} />
-          ))}
-        </div>
+        <VideoGridSkeleton />
       ) : videos.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {videos.map((video) => (
@@ -367,11 +345,6 @@ function NicheFinderInner({
   nicheCounts: Record<string, number>;
   availableNiches: string[];
 }) {
-  // Warms the browser cache for the loading logo the moment this page
-  // mounts, so by the time a search actually triggers the loading overlay
-  // the image paints instantly instead of racing a fresh network request.
-  preload("/logo-circle.png", { as: "image" });
-
   const [activeView, setActiveView] = useState<NicheFinderView>("discover");
   const { savedVideos, savedVideosLoading } = useSavedVideos();
 
@@ -560,57 +533,38 @@ function NicheFinderInner({
 
           <div className="mt-4 rounded-2xl border border-hairline bg-surface p-4 shadow-card sm:p-6 md:p-8">
             {/* Priority order: a real error always wins (even if stale videos
-                are still in state), then videos, then the loading spinner —
-                which is now guaranteed to resolve to one of the other three
-                branches within FETCH_TIMEOUT_MS — then the platform-specific
-                and generic empty fallbacks. Nothing here can spin forever. */}
+                are still in state), then the loading skeleton — which is
+                guaranteed to resolve to one of the other branches within
+                FETCH_TIMEOUT_MS — then videos, then the empty fallback.
+                Nothing here can spin forever. */}
             {videosError ? (
               <div className="rounded-xl border border-dashed border-danger/40 bg-surface p-8 text-center text-sm text-danger">
                 {videosError}
               </div>
+            ) : videosLoading ? (
+              <div role="status" aria-label="Loading videos">
+                {/* An uncached niche is scraped on demand, which is slow
+                    enough to warrant saying so -- only when nothing was on
+                    screen yet, since a cached niche swaps in near-instantly. */}
+                {activeNiche && videos.length === 0 && (
+                  <p className="mb-4 text-sm text-body">
+                    Fetching fresh {activeNiche} videos, first look at a niche can take up to a minute.
+                  </p>
+                )}
+                <VideoGridSkeleton count={12} />
+              </div>
             ) : videos.length > 0 ? (
-              <div className="relative">
+              <div>
                 {videosRelaxedFilters && (
                   <div className="mb-4 rounded-lg border border-dashed border-hairline bg-surface px-4 py-2 text-xs text-body">
                     No videos matched your view-count filter, showing the closest matches instead.
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4",
-                    videosLoading && "opacity-40"
-                  )}
-                >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                   {videos.map((video) => (
                     <TrendingVideoCard key={video.id} video={video} onOpen={setDetailVideo} />
                   ))}
                 </div>
-                {videosLoading && (
-                  // Scoped to the grid's own box (not the full page) so the
-                  // header and filters stay sharp -- z-10 keeps it strictly
-                  // below the top bar's own z-20, so it can never paint over
-                  // it even mid-scroll. Bleeds out on all four sides by the
-                  // same -4/6/8 amount as the card's own p-4/6/8 padding,
-                  // so the overlay reaches the card's true edge on every
-                  // side instead of just left/right -- an inset-y-0 top
-                  // edge would stop short of that padding and leave a
-                  // visible sharp margin above a hard-cut blur line.
-                  // `sticky` keeps the spinner centered on whatever part of
-                  // the grid is in view, even when the grid itself is
-                  // taller than the viewport.
-                  <div className="absolute -inset-4 z-10 overflow-hidden rounded-2xl bg-app/60 backdrop-blur-md sm:-inset-6 md:-inset-8">
-                    <div className="sticky top-1/2 flex -translate-y-1/2 items-center justify-center">
-                      <SearchLoadingLogo size={140} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : videosLoading ? (
-              <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-hairline bg-surface p-10 text-center text-sm text-body">
-                <SearchLoadingLogo size={140} />
-                {activeNiche
-                  ? `Fetching fresh ${activeNiche} videos, first look at a niche can take up to a minute.`
-                  : "Loading videos…"}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-hairline bg-surface p-8 text-center text-sm text-body">

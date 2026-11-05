@@ -17,7 +17,7 @@ import { chargeUser } from "./credits";
 import { recordUsageEvent } from "./usage";
 import { slugifyModelName } from "@/lib/config/pricing";
 import { describeGenerationFailure } from "./generation-error";
-import { advanceCloneToVideoStage, type CloneJobParams } from "./video-clone";
+import { advanceCloneToVideoStage, restoreSourceAudio, type CloneJobParams } from "./video-clone";
 
 const STORAGE_BUCKET = "videos";
 
@@ -33,11 +33,13 @@ export interface VideoJobRow {
   credits_charged: number | null;
   /** Only read for Clone rows (params.cloneStage) -- see video-clone.ts. */
   params?: Partial<CloneJobParams> | null;
+  /** Clone rows' source clip -- Object swap copies its soundtrack onto the render. */
+  source_video_path?: string | null;
 }
 
 /** Column list every advanceVideoJob caller selects -- shared so the webhook, cron and dev reconcile can't drift. */
 export const VIDEO_JOB_COLUMNS =
-  "id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged, params";
+  "id, user_id, mode, model, replicate_model, replicate_prediction_id, status, credits_quoted, credits_charged, params, source_video_path";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -83,11 +85,17 @@ export async function advanceVideoJob(
       return;
     }
     const video = await downloadVideoAsset(result.videoUrl);
+    // Object swap keeps everything but the named change, sound included --
+    // Kling composes a soundtrack of its own, so the clip's is put back.
+    const bytes =
+      row.mode === "motion" && row.params?.tool === "object_swap" && row.source_video_path
+        ? await restoreSourceAudio(video.bytes, row.source_video_path, admin)
+        : video.bytes;
 
     const outputPath = `${row.user_id}/${row.id}/output.mp4`;
     const { error: uploadError } = await admin.storage
       .from(STORAGE_BUCKET)
-      .upload(outputPath, video.bytes, { contentType: video.contentType, upsert: true });
+      .upload(outputPath, bytes, { contentType: video.contentType, upsert: true });
     if (uploadError) throw new Error(`Video storage upload failed: ${uploadError.message}`);
 
     // Replicate doesn't hand back a separate thumbnail the way fal's

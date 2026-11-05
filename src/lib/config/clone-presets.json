@@ -1,50 +1,170 @@
 [
   {
-    "id": "maya",
-    "name": "Maya",
-    "tagline": "Streetwear creator",
-    "prompt": "Full-body photo of a fictional young woman in her twenties with curly dark hair, wearing an oversized cream hoodie, olive cargo pants and white sneakers, standing straight facing the camera with arms relaxed at her sides, neutral friendly expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+    "id": "ava",
+    "name": "Ava Torres",
+    "gender": "female",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Latina woman in her mid twenties with long wavy dark-brown hair and small gold hoop earrings, wearing a white ribbed tank top under an open light-blue denim shirt. Setting: a bright minimalist bedroom with a linen-covered bed and a potted plant."
   },
   {
-    "id": "leo",
-    "name": "Leo",
-    "tagline": "Sharp-suited host",
-    "prompt": "Full-body photo of a fictional man in his thirties with short black hair and a trimmed beard, wearing a tailored navy suit, white shirt and brown leather shoes, standing straight facing the camera with arms relaxed at his sides, confident expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+    "id": "mina",
+    "name": "Mina Park",
+    "gender": "female",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Korean woman in her early twenties with straight black hair and curtain bangs, wearing an oversized baby-blue knit cardigan over a white tee. Setting: a cozy coffee shop with warm wooden shelves."
   },
   {
-    "id": "zara",
-    "name": "Zara",
-    "tagline": "Fitness coach",
-    "prompt": "Full-body photo of a fictional athletic woman in her late twenties with a high ponytail, wearing a black sports bra, high-waisted teal leggings and running shoes, standing straight facing the camera with arms relaxed at her sides, energetic smile, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+    "id": "jade",
+    "name": "Jade Okafor",
+    "gender": "female",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Nigerian woman in her mid twenties with shoulder-length box braids, wearing an olive utility jacket over a black fitted top. Setting: a sunny city sidewalk with red brick buildings."
   },
   {
-    "id": "walter",
-    "name": "Walter",
-    "tagline": "Cozy grandpa",
-    "prompt": "Full-body photo of a fictional cheerful man in his seventies with white hair and round glasses, wearing a brown knit cardigan over a checked shirt, beige chinos and loafers, standing straight facing the camera with arms relaxed at his sides, warm smile, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+    "id": "lena",
+    "name": "Lena Fischer",
+    "gender": "female",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a German woman in her late twenties with honey-blonde hair in a loose bun, wearing a soft heather-grey hoodie. Setting: a modern apartment kitchen with a white marble counter."
   },
   {
-    "id": "marco",
-    "name": "Marco",
-    "tagline": "Restaurant chef",
-    "prompt": "Full-body photo of a fictional chef in his forties with a dark mustache, wearing a white double-breasted chef jacket, black apron, black trousers and a tall white chef hat, standing straight facing the camera with arms relaxed at his sides, friendly expression, plain light grey studio background, soft even lighting, sharp focus, photorealistic"
+    "id": "priya",
+    "name": "Priya Nair",
+    "gender": "female",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: an Indian woman in her early thirties with long glossy black hair, wearing a mustard linen button-up blouse. Setting: a tidy home office with a wooden bookshelf."
   },
   {
-    "id": "nova",
-    "name": "Nova",
-    "tagline": "Astronaut",
-    "prompt": "Full-body photo of a fictional astronaut in a clean white and orange spacesuit with the helmet visor raised showing a young woman's face, standing straight facing the camera with arms relaxed at her sides, plain light grey studio background, soft even lighting, sharp focus, photorealistic, no logos or text"
+    "id": "sofia",
+    "name": "Sofia Marin",
+    "gender": "female",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Spanish woman in her mid thirties with a chestnut-brown bob, wearing a black satin slip dress under a cropped denim jacket. Setting: a sunlit living room with terracotta decor."
   },
   {
-    "id": "pip",
-    "name": "Pip",
-    "tagline": "3D cartoon kid",
-    "prompt": "Full-body 3D animated cartoon character of a cheerful kid with big expressive eyes and messy brown hair, wearing a yellow raincoat, blue jeans and red sneakers, standing straight facing the camera with arms relaxed at the sides, plain light grey background, soft studio lighting, high quality 3D render, original character design, no text"
+    "id": "hana",
+    "name": "Hana Sato",
+    "gender": "female",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Japanese woman in her late thirties with dark hair in a low ponytail, wearing a beige trench coat over a cream sweater. Setting: a minimalist clothing boutique with garment rails."
   },
   {
-    "id": "rex",
-    "name": "Rex",
-    "tagline": "Dino mascot",
-    "prompt": "Full-body 3D animated cartoon mascot of a friendly bright green dinosaur standing upright on two legs, big smile, small arms relaxed at its sides, facing the camera, plain light grey background, soft studio lighting, high quality 3D render, original character design, no text"
+    "id": "claire",
+    "name": "Claire Dubois",
+    "gender": "female",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a French woman in her mid forties with shoulder-length light-brown hair, wearing a navy-and-white striped Breton top. Setting: a rustic kitchen with hanging copper pans."
+  },
+  {
+    "id": "nadia",
+    "name": "Nadia Haddad",
+    "gender": "female",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Lebanese woman in her mid forties with voluminous dark curly hair, wearing a tailored cream blazer over a white top. Setting: a bright office lounge with large plants."
+  },
+  {
+    "id": "rosa",
+    "name": "Rosa Alvarez",
+    "gender": "female",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Mexican woman in her late forties with long black hair in a side braid, wearing a white blouse with colorful floral embroidery. Setting: a leafy patio with terracotta pots."
+  },
+  {
+    "id": "margaret",
+    "name": "Margaret Hale",
+    "gender": "female",
+    "age": "60s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a white woman in her early sixties with a silver chin-length bob and pearl stud earrings, wearing a soft lilac cardigan. Setting: a cozy living room with a reading lamp and an armchair."
+  },
+  {
+    "id": "grace",
+    "name": "Grace Mensah",
+    "gender": "female",
+    "age": "60s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Ghanaian woman in her mid sixties with short natural grey hair, wearing an emerald-green wrap dress. Setting: a blooming backyard garden."
+  },
+  {
+    "id": "noah",
+    "name": "Noah Bennett",
+    "gender": "male",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a white man in his mid twenties with messy light-brown hair, wearing a faded black graphic t-shirt. Setting: a small apartment with a record player and vinyl shelf."
+  },
+  {
+    "id": "kai",
+    "name": "Kai Nakamura",
+    "gender": "male",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Japanese-American man in his early twenties with textured black hair, wearing an oversized beige hoodie. Setting: an urban street with a skate shop storefront."
+  },
+  {
+    "id": "tyler",
+    "name": "Tyler Brooks",
+    "gender": "male",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Black man in his mid twenties with short twists and a thin silver chain, wearing a white crewneck sweatshirt. Setting: a sunny rooftop terrace overlooking the city."
+  },
+  {
+    "id": "mateo",
+    "name": "Mateo Silva",
+    "gender": "male",
+    "age": "20s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Brazilian man in his late twenties with curly dark hair, wearing an open sand-colored linen shirt over a white tee. Setting: a beach cafe with palm leaves."
+  },
+  {
+    "id": "daniel",
+    "name": "Daniel Kim",
+    "gender": "male",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Korean man in his early thirties with neat side-parted black hair, wearing a light-blue oxford shirt. Setting: a home office with a desk monitor and plants."
+  },
+  {
+    "id": "omar",
+    "name": "Omar Farouk",
+    "gender": "male",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: an Egyptian man in his mid thirties with short dark hair and a full trimmed beard, wearing a charcoal knit polo. Setting: a coffee roastery with burlap sacks."
+  },
+  {
+    "id": "lucas",
+    "name": "Lucas Meyer",
+    "gender": "male",
+    "age": "30s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a white man in his late thirties with short sandy hair, wearing a navy quarter-zip sweater. Setting: a modern kitchen with oak cabinets."
+  },
+  {
+    "id": "james",
+    "name": "James Whitaker",
+    "gender": "male",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a white man in his mid forties with salt-and-pepper hair and light stubble, wearing a worn denim shirt. Setting: a garage workshop with tools on a pegboard."
+  },
+  {
+    "id": "ravi",
+    "name": "Ravi Mehta",
+    "gender": "male",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: an Indian man in his mid forties with short black hair greying at the temples and thin-rimmed glasses, wearing an olive bomber jacket over a grey tee. Setting: an independent bookstore."
+  },
+  {
+    "id": "andre",
+    "name": "Andre Costa",
+    "gender": "male",
+    "age": "40s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: an Afro-Brazilian man in his late forties with a shaved head and short beard, wearing a white linen shirt. Setting: a sunlit stone terrace with plants."
+  },
+  {
+    "id": "henry",
+    "name": "Henry Collins",
+    "gender": "male",
+    "age": "60s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a white man in his early sixties with neat white hair, wearing a brown quilted vest over a plaid flannel shirt. Setting: a cozy study with bookshelves."
+  },
+  {
+    "id": "samuel",
+    "name": "Samuel Adeyemi",
+    "gender": "male",
+    "age": "60s",
+    "prompt": "Candid photo taken by a friend on a smartphone from a few steps away, not a selfie. Framed from mid-thigh up, standing relaxed and facing the camera with both arms down at the sides, looking straight into the lens with a natural, approachable expression. Soft natural window light, realistic skin texture with visible pores, true-to-life colors, gentle background blur, authentic UGC creator look, photorealistic. An original fictional person, not resembling any celebrity. No text, no watermark. Subject: a Nigerian man in his mid sixties with short grey hair and a grey beard, wearing a burgundy sweater over a collared shirt. Setting: a warm living room with family photos on the wall."
   }
 ]

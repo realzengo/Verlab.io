@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/PageLoader";
+import { VideoGeneratorSkeleton } from "@/components/skeletons/ToolSkeletons";
 
 export default function Loading() {
-  return <PageLoader />;
+  return <VideoGeneratorSkeleton />;
 }

@@ -1,5 +1,5 @@
-import { PageLoader } from "@/components/ui/PageLoader";
+import { McpSkeleton } from "@/components/skeletons/DashboardSkeletons";
 
 export default function Loading() {
-  return <PageLoader />;
+  return <McpSkeleton />;
 }

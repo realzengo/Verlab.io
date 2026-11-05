@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
@@ -23,7 +23,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
-import { notifyCreditsChanged } from "@/lib/client/credits-bus";
+import {
+  SCRIPT_JOB_MAX_AGE_MS,
+  dismissScriptJob,
+  failScriptJob,
+  getScriptJob,
+  getServerScriptJob,
+  restoreScriptJob,
+  settleScriptJob,
+  startScriptGeneration,
+  subscribeScriptJob,
+} from "@/lib/client/script-generation";
 import { formatRelativeTime, parseScriptOutput, type ScriptRecord } from "@/lib/script-format";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
@@ -321,24 +331,20 @@ function ScriptWriterPageInner() {
   // param is read once, at first render, without an extra setState-in-effect
   // render pass.
   const [prompt, setPrompt] = useState(() => searchParams.get("idea") ?? "");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [popupDismissed, setPopupDismissed] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null);
   const [uploadingKind, setUploadingKind] = useState<"sop" | null>(null);
   const [isUploadingTranscript, setIsUploadingTranscript] = useState(false);
   const [viewingScript, setViewingScript] = useState<ScriptHistoryItem | null>(null);
-  const [generatedScript, setGeneratedScript] = useState<ScriptHistoryItem | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingScript, setDeletingScript] = useState<ScriptHistoryItem | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showBriefModal, setShowBriefModal] = useState(false);
+  const job = useSyncExternalStore(subscribeScriptJob, getScriptJob, getServerScriptJob);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const sopInputRef = useRef<HTMLInputElement>(null);
   const transcriptInputRef = useRef<HTMLInputElement>(null);
 
@@ -355,10 +361,41 @@ function ScriptWriterPageInner() {
     error: scriptsError,
     isLoading: isLoadingHistory,
     mutate: mutateHistory,
-  } = useSWR<ScriptsResponse>("/api/scripts");
+  } = useSWR<ScriptsResponse>("/api/scripts", {
+    // A generation resumed after a reload has no stream to watch -- its
+    // script just shows up in history once the server saves it.
+    refreshInterval: (data) =>
+      job?.resumed && job.status === "generating" && !data?.scripts.some((s) => s.id === job.id) ? 3000 : 0,
+  });
   const history = useMemo(() => scriptsData?.scripts ?? [], [scriptsData]);
+
+  // Generation state lives outside this component (lib/client/script-generation)
+  // so it keeps running -- and stays visible -- across leaving and returning.
+  const generatedScript = job ? (history.find((item) => item.id === job.id) ?? null) : null;
+  const isGenerating = job?.status === "generating" && !generatedScript;
+  const isReady = Boolean(job && job.status !== "failed" && !isGenerating);
+  const result = job?.text ?? "";
+
+  useEffect(() => {
+    restoreScriptJob();
+  }, []);
+
+  useEffect(() => {
+    if (generatedScript) settleScriptJob(generatedScript.id);
+  }, [generatedScript]);
+
+  useEffect(() => {
+    if (!job?.resumed || job.status !== "generating" || generatedScript) return;
+    const timer = setTimeout(
+      () => failScriptJob(job.id, "Your script didn't finish generating. Please try again."),
+      Math.max(0, job.startedAt + SCRIPT_JOB_MAX_AGE_MS - Date.now())
+    );
+    return () => clearTimeout(timer);
+  }, [job, generatedScript]);
+
   const error =
     actionError ??
+    (job?.status === "failed" ? job.error : null) ??
     (scriptsError
       ? "Couldn't load your script history. Try refreshing the page."
       : referencesError
@@ -515,13 +552,7 @@ function ScriptWriterPageInner() {
       return;
     }
 
-    setIsGenerating(true);
     setActionError(null);
-    setResult("");
-    setPopupDismissed(false);
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
 
     // Multiple transcripts get concatenated into the one <COMPETITOR_TRANSCRIPTS>
     // block the model expects, each clearly labeled by source file so it can
@@ -531,45 +562,8 @@ function ScriptWriterPageInner() {
         ? transcriptFiles.map((file) => `--- ${file.name} ---\n${file.content}`).join("\n\n")
         : undefined;
 
-    try {
-      const response = await fetch("/api/generate-script", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sop: sopFile?.content, transcripts }),
-        signal: abortController.signal,
-      });
-
-      if (!response.ok || !response.body) {
-        if (response.status === 402) {
-          setShowTopUp(true);
-          return;
-        }
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? "Failed to generate script.");
-      }
-
-      // generate-script/route.ts charges before it ever starts streaming, so
-      // the balance has already changed by the time this response resolves
-      // — no need to wait for the stream to finish reading.
-      notifyCreditsChanged();
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        setResult((prev) => prev + decoder.decode(value, { stream: true }));
-      }
-
-      const refreshed = await mutateHistory();
-      setGeneratedScript(refreshed?.scripts[0] ?? null);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setActionError(err instanceof Error ? err.message : "Something went wrong. Try again.");
-    } finally {
-      setIsGenerating(false);
-    }
+    const outcome = await startScriptGeneration({ message, sop: sopFile?.content, transcripts });
+    if (outcome === "insufficient-credits") setShowTopUp(true);
   }
 
   // Nudges toward a better brief before spending the credits, rather than
@@ -585,13 +579,7 @@ function ScriptWriterPageInner() {
     handleSubmit();
   }
 
-  function cancelGeneration() {
-    abortControllerRef.current?.abort();
-    setIsGenerating(false);
-    setPopupDismissed(true);
-  }
-
-  async function handleCopy(text: string = result) {
+  async function handleCopy(text: string = generatedScript?.content ?? result) {
     await navigator.clipboard.writeText(text);
     setCopiedResult(true);
     setTimeout(() => setCopiedResult(false), 1500);
@@ -605,7 +593,6 @@ function ScriptWriterPageInner() {
 
   async function handleDeleteScript(item: ScriptHistoryItem) {
     if (viewingScript?.id === item.id) setViewingScript(null);
-    if (generatedScript?.id === item.id) setGeneratedScript(null);
     try {
       await mutateHistory(
         async (current) => {
@@ -627,7 +614,7 @@ function ScriptWriterPageInner() {
   }
 
   function handleViewScript() {
-    setPopupDismissed(true);
+    dismissScriptJob();
     if (generatedScript) setViewingScript(generatedScript);
   }
 
@@ -706,10 +693,10 @@ function ScriptWriterPageInner() {
         </div>
       </div>
 
-      {(isGenerating || (result && !error)) && !popupDismissed && (
+      {job && !job.dismissed && (isGenerating || isReady) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
-          onClick={() => setPopupDismissed(true)}
+          onClick={dismissScriptJob}
         >
           <div
             className="w-full max-w-md overflow-hidden rounded-2xl border border-hairline bg-surface text-center shadow-2xl"
@@ -731,14 +718,14 @@ function ScriptWriterPageInner() {
                             Generating your script
                           </h3>
                           <p className="mt-0.5 text-xs leading-snug text-subtle">
-                            Usually takes under a minute
+                            Usually under a minute · safe to leave this page
                           </p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={cancelGeneration}
-                        aria-label="Cancel generation"
+                        onClick={dismissScriptJob}
+                        aria-label="Hide — keeps generating in the background"
                         className="shrink-0 rounded-full p-1.5 text-subtle transition-colors hover:bg-app hover:text-heading"
                       >
                         <X className="h-4 w-4" />
@@ -757,10 +744,10 @@ function ScriptWriterPageInner() {
                     <div className="mt-5 flex justify-center">
                       <button
                         type="button"
-                        onClick={cancelGeneration}
+                        onClick={dismissScriptJob}
                         className="text-xs font-semibold text-subtle transition-colors hover:text-heading"
                       >
-                        Cancel
+                        Hide · keeps generating in the background
                       </button>
                     </div>
                   </div>
@@ -772,7 +759,7 @@ function ScriptWriterPageInner() {
                   <h3 className="text-base font-semibold text-slate-900 dark:text-white">Script Ready</h3>
                   <button
                     type="button"
-                    onClick={() => setPopupDismissed(true)}
+                    onClick={dismissScriptJob}
                     aria-label="Close"
                     className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
                   >
@@ -958,7 +945,6 @@ function ScriptWriterPageInner() {
               { revalidate: false }
             );
             setViewingScript(updated);
-            setGeneratedScript((prev) => (prev?.id === updated.id ? updated : prev));
           }}
         />
       )}

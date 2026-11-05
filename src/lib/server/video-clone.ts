@@ -24,6 +24,7 @@ import {
 } from "@/lib/config/video-models";
 import { submitVideoJob, downloadVideoAsset } from "./replicate-video";
 import { describeGenerationFailure } from "./generation-error";
+import { replaceAudioWithSource } from "./video-audio";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -234,6 +235,11 @@ export function buildWanAnimateInput(mode: CloneModeConfig, ctx: CloneJobContext
   };
 }
 
+// Match background keeps the clip's own scene; a different one is what the
+// Photo background switch is for, so a prompt may only restyle the character.
+const CHARACTER_SCENE_LOCK =
+  "Change only the character's appearance. Keep the video's background, setting, props, lighting, camera movement and any other people exactly as filmed.";
+
 /** P-Video Replace: swaps the clip's performer for the photo; the clip supplies scene, motion and sound. */
 export function buildPrunaReplaceInput(mode: CloneModeConfig, ctx: CloneJobContext): Record<string, unknown> {
   const input: Record<string, unknown> = {
@@ -242,8 +248,10 @@ export function buildPrunaReplaceInput(mode: CloneModeConfig, ctx: CloneJobConte
     resolution: resolutionValue(mode, ctx.resolution),
     save_audio: ctx.keepOriginalSound,
   };
+  // With no prompt the field stays empty: the model's default placement
+  // already leaves the scene alone, and that's the setup tested live.
   const prompt = rewriteMentions(ctx.prompt, () => "the character");
-  if (prompt) input.instruction_prompt = prompt;
+  if (prompt) input.instruction_prompt = `${prompt}\n${CHARACTER_SCENE_LOCK}`;
   return input;
 }
 
@@ -321,6 +329,23 @@ export function buildCloneSubmission(mode: CloneModeConfig, ctx: CloneJobContext
         }),
         stage: "video",
       };
+  }
+}
+
+/**
+ * Object swap's render with the source clip's own soundtrack (see
+ * video-audio.ts) -- the edit changes only what was named, sound included.
+ * Falls back to the render as delivered if that fails: a paid render is
+ * never thrown away over its audio.
+ */
+export async function restoreSourceAudio(render: Uint8Array, sourceVideoPath: string, admin: AdminClient): Promise<Uint8Array> {
+  try {
+    const { data, error } = await admin.storage.from(STORAGE_BUCKET).download(sourceVideoPath);
+    if (error || !data) throw new Error(`Could not download source clip: ${error?.message}`);
+    return await replaceAudioWithSource(render, new Uint8Array(await data.arrayBuffer()));
+  } catch (error) {
+    console.error("[video-clone] Kept the render's own audio:", error);
+    return render;
   }
 }
 

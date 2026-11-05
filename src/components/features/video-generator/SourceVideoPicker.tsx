@@ -5,6 +5,7 @@ import { Clock, Folder, Loader2, Upload, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { UploadOrb } from "./UploadOrb";
 
 export interface SourceVideoOption {
   id: string;
@@ -27,7 +28,9 @@ interface SourceVideoPickerProps {
   onUploadFile: (file: File) => void;
   isUploading: boolean;
   library: SourceVideoOption[];
-  /** "lg" is a full-width square tile for the mobile Edit panel (MobileEditPanel); default "sm" is the compact desktop-card tile. */
+  /** The selected edit model's accepted clip length, shown under the title. */
+  durationRange: { min: number; max: number };
+  /** "lg" is a full-width square tile for the mobile Edit panel (MobileEditPanel); default "sm" is the desktop card, sized like the Clone tab's video card. */
   size?: "sm" | "lg";
 }
 
@@ -38,7 +41,7 @@ interface SourceVideoPickerProps {
  * "Upload video" or "Your generated videos" instead of the previous static,
  * non-interactive placeholder text.
  */
-export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isUploading, library, size = "sm" }: SourceVideoPickerProps) {
+export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isUploading, library, durationRange, size = "sm" }: SourceVideoPickerProps) {
   const lg = size === "lg";
   const [open, setOpen] = useState(false);
   const [libraryModalOpen, setLibraryModalOpen] = useState(false);
@@ -114,7 +117,7 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
       <div
         className={cn(
           "relative shrink-0 overflow-hidden rounded-2xl bg-black ring-1 ring-slate-200 dark:ring-white/10",
-          lg ? "aspect-square w-full" : "h-28 w-24"
+          lg ? "aspect-square w-full" : "h-[168px] w-[200px]"
         )}
       >
         <video
@@ -129,21 +132,13 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
           type="button"
           onClick={onClear}
           aria-label="Remove attached video"
-          className={cn(
-            "absolute flex items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80",
-            lg ? "right-2 top-2 h-7 w-7" : "right-1 top-1 h-5 w-5"
-          )}
+          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
         >
-          <X className={lg ? "h-3.5 w-3.5" : "h-3 w-3"} />
+          <X className="h-3.5 w-3.5" />
         </button>
         {source.durationSeconds != null && (
-          <span
-            className={cn(
-              "pointer-events-none absolute flex items-center gap-0.5 rounded-full bg-black/60 font-semibold text-white backdrop-blur-sm",
-              lg ? "bottom-2 left-2 px-2 py-1 text-xs" : "bottom-1 left-1 px-1.5 py-0.5 text-[10px]"
-            )}
-          >
-            <Clock className={lg ? "h-3 w-3" : "h-2.5 w-2.5"} /> {formatClipDuration(source.durationSeconds)}
+          <span className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-0.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <Clock className="h-3 w-3" /> {formatClipDuration(source.durationSeconds)}
           </span>
         )}
       </div>
@@ -165,16 +160,28 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
         aria-expanded={open}
         disabled={isUploading}
         className={cn(
-          "flex shrink-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed text-center font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-70",
-          lg ? "aspect-square w-full px-4 text-sm" : "h-28 w-24 px-3 text-[11px]",
-          "border-slate-300 text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500",
-          "dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06] dark:hover:text-blue-400",
-          (open || isDragOver) && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
+          "flex shrink-0 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-3 text-center outline-none transition-colors duration-200 disabled:cursor-not-allowed",
+          lg ? "aspect-square w-full" : "h-[168px] w-[200px]",
+          open || isDragOver
+            ? "border-blue-400 bg-blue-50/60 dark:border-blue-400/60 dark:bg-blue-500/[0.08]"
+            : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40 dark:border-white/[0.10] dark:bg-white/[0.02] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.04]",
+          "focus-visible:ring-2 focus-visible:ring-blue-400/50"
         )}
       >
-        {isUploading ? <Loader2 className={lg ? "h-6 w-6 animate-spin" : "h-4 w-4 animate-spin"} /> : <Video className={lg ? "h-6 w-6" : "h-4 w-4"} />}
-        <span className="leading-tight">{isUploading ? "Uploading..." : isDragOver ? "Drop video" : "Video to edit"}</span>
-        {!isUploading && <span className={cn("font-normal text-slate-400 dark:text-slate-500", lg ? "text-xs" : "text-[10px]")}>3-10s clips</span>}
+        {isUploading ? (
+          <>
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            <span className="mt-2 text-[13px] font-medium text-slate-600 dark:text-slate-300">Uploading…</span>
+          </>
+        ) : (
+          <>
+            <UploadOrb icon={Video} className="h-12 w-12" />
+            <span className="mt-3 text-[13px] font-medium text-slate-900 dark:text-white">{isDragOver ? "Drop video" : "Add the video to edit"}</span>
+            <span className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {durationRange.min} to {Math.floor(durationRange.max)} seconds
+            </span>
+          </>
+        )}
       </button>
 
       <AnimatePresence>

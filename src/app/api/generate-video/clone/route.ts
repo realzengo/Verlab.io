@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVideoCloneCost } from "@/lib/config/pricing";
-import { CLONE_TOOL_MODES, cloneNeedsFrameStage, getCloneMode, type CloneResolution } from "@/lib/config/video-models";
+import {
+  CLONE_TOOLS,
+  cloneNeedsFrameStage,
+  getCloneMode,
+  getCloneTool,
+  getCloneToolMode,
+  type CloneRequestBase,
+  type CloneResolution,
+} from "@/lib/config/video-models";
 import { getUserCredits } from "@/lib/server/credits";
 import { submitVideoJob } from "@/lib/server/replicate-video";
 import { buildCloneSubmission, CLONE_INPUT_URL_TTL_SECONDS, type CloneJobParams } from "@/lib/server/video-clone";
@@ -19,22 +27,14 @@ export const maxDuration = 30; // submits the first prediction and returns -- th
 const STORAGE_BUCKET = "videos";
 const ASPECT_RATIO_PATTERN = /^\d{1,2}:\d{1,2}$/;
 
-interface CloneVideoRequestBody {
-  /** The CLONE_MODES id of a tool's own model (CLONE_TOOLS) -- there's no model picker, so nothing else is accepted. */
-  mode?: string;
-  sourceGenerationId?: string;
-  referenceImages?: string[];
-  prompt?: string;
-  resolution?: string;
-  /** Display hint for tiles, and Motion transfer's output orientation (snapped to what Kling 4.0 renders). */
-  aspectRatio?: string;
-  /** Character: keep the clip's soundtrack. */
+/** A CloneRequest (video-models.ts) as it arrives, before validation. */
+type CloneRequestBody = Partial<CloneRequestBase> & {
+  tool?: string;
   keepOriginalSound?: boolean;
-  /** Character: put the character into the clip's own scene. */
   matchBackground?: boolean;
-  /** The clip's first frame, captured client-side (no server-side ffmpeg) -- required when the model starts with a frame pre-pass. */
-  frameImage?: string;
-}
+  /** The model id that tabs loaded before requests named the tool still send instead. */
+  mode?: string;
+};
 
 async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -50,18 +50,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return rateLimitedResponse();
   }
 
-  let body: CloneVideoRequestBody;
+  let body: CloneRequestBody;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const mode = getCloneMode(body.mode ?? "");
-  if (!mode || !CLONE_TOOL_MODES.includes(mode)) {
-    return NextResponse.json({ error: "mode must be one of the supported clone modes" }, { status: 400 });
+  const tool = getCloneTool(body.tool ?? getCloneMode(body.mode ?? "")?.tool ?? "");
+  if (!tool) {
+    return NextResponse.json({ error: `tool must be one of: ${CLONE_TOOLS.map((t) => t.id).join(", ")}` }, { status: 400 });
   }
-  const isCharacter = mode.tool === "character";
+  const isCharacter = tool.id === "character";
+  // Character keeps the clip's own background unless Photo background is
+  // picked explicitly; that choice also decides which model runs.
+  const matchBackground = isCharacter && body.matchBackground !== false;
+  const mode = getCloneToolMode(tool, matchBackground);
 
   const resolution = body.resolution as CloneResolution;
   if (!mode.resolutions.includes(resolution)) {
@@ -76,7 +80,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "prompt contains characters that aren't allowed" }, { status: 400 });
   }
 
-  const matchBackground = isCharacter && (mode.matchBackgroundOnly === true || body.matchBackground === true);
   const keepOriginalSound = body.keepOriginalSound !== false;
 
   let referenceImages: string[];

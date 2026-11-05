@@ -1,14 +1,5 @@
-import { McpConnectSection } from "@/components/mcp/McpConnectSection";
-import { McpSetupFlow } from "@/components/mcp/McpSetupFlow";
+import { McpConnectPage } from "@/components/mcp/McpConnectPage";
 
 export default function McpPage() {
-  return (
-    <div className="w-full">
-      <McpConnectSection compact />
-
-      <div className="mt-6 sm:mt-8">
-        <McpSetupFlow />
-      </div>
-    </div>
-  );
+  return <McpConnectPage />;
 }

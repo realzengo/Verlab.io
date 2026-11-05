@@ -1,7 +1,9 @@
-import { Play, Zap } from "lucide-react";
+import { ArrowUpRight, Zap } from "lucide-react";
+import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { APP_URL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 interface Testimonial {
   name: string;
@@ -79,13 +81,12 @@ export function TestimonialsGridSection() {
         <div className="mt-8 flex justify-center sm:mt-10">
           <a
             href={APP_URL}
-            className="relative isolate inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-[#335CFF] px-8 py-4 text-base font-bold text-white shadow-[0_4px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] transition-[transform,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:translate-y-0.5 hover:bg-[#3d68ff] hover:shadow-[0_2px_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.3)] active:translate-y-1 active:shadow-[0_0_0_0_#1a37c4,inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.25)] active:duration-100"
+            className={cn("inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-bold text-white", BUTTON_3D_MOTION)}
+            style={button3d(4)}
           >
-            <span className="relative flex items-center gap-2">
-              <Zap className="h-4 w-4 fill-white" />
-              Make an account
-              <Play className="relative -mb-px ml-1 inline h-3.5 w-3.5 fill-white" />
-            </span>
+            <Zap className="h-4 w-4 fill-white" />
+            Make an account
+            <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
           </a>
         </div>
       </div>

@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, Loader2, Wrench } from "lucide-react";
-import { ClaudeIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
+import { useEffect, useRef, type ComponentType, type CSSProperties, type SVGProps } from "react";
+import { ArrowRight, ArrowUpRight, AudioLines, PenLine } from "lucide-react";
+import { button3d } from "@/components/landing/button3d";
+import { ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
 import { KlingLogo } from "@/components/landing/ModelLogos";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { cn } from "@/lib/utils";
@@ -43,59 +43,55 @@ const HERO_TOOLS: HeroTool[] = [
   },
 ];
 
-interface ToolLogo {
+interface FeatureCard {
   title: string;
-  description: string;
+  subtitle: string;
   href: string;
   badge?: string;
   logo?: string;
-  icon?: ComponentType<SVGProps<SVGSVGElement>>;
-  iconClassName?: string;
+  icon?: ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number }>;
+  /** Keep the icon's own colors instead of flattening it to ink. */
+  iconColor?: boolean;
 }
 
-const TOOL_LOGOS: ToolLogo[] = [
+const FEATURE_CARDS: FeatureCard[] = [
   {
-    title: "Nano Banana Pro",
-    description: "Generate realistic images",
-    href: `${APP_URL}/image-generator`,
-    badge: "Image",
-    logo: "/logos/ai/google-color.svg",
-  },
-  {
-    title: "Seedance 2.5",
-    description: "Create high quality videos",
-    href: `${APP_URL}/video-generator`,
-    badge: "New",
-    logo: "/logos/ai/seedance.webp",
-  },
-  {
-    title: "Kling 3.0 Turbo",
-    description: "Create stunning videos in seconds",
+    title: "Kling 4.0",
+    subtitle: "Now available on Verlab",
     href: `${APP_URL}/video-generator`,
     badge: "New",
     icon: KlingLogo,
-    iconClassName: "h-6 w-6",
   },
   {
-    title: "Verlab MCP",
-    description: "Bend any niche with Claude",
-    href: `${APP_URL}/mcp`,
-    badge: "Trending",
-    icon: ClaudeMarkIcon,
-    iconClassName: "h-6 w-6",
+    title: "Create images",
+    subtitle: "with Nano Banana Pro",
+    href: `${APP_URL}/image-generator`,
+    logo: "/logos/ai/google-color.svg",
   },
   {
-    title: "Voice Studio",
-    description: "Generate lifelike voiceovers",
-    href: `${APP_URL}/voiceover-generator`,
-    badge: "New",
-    logo: "/logos/verlab-mark-blue.png",
-  },
-  {
-    title: "Script Writer",
-    description: "Real, hook-driven scripts",
+    title: "Write scripts",
+    subtitle: "with AI Script Writer",
     href: `${APP_URL}/scripts`,
-    logo: "/logos/verlab-mark-blue.png",
+    icon: PenLine,
+  },
+  {
+    title: "Connect your agent",
+    subtitle: "with Verlab MCP",
+    href: `${APP_URL}/mcp`,
+    icon: ClaudeMarkIcon,
+    iconColor: true,
+  },
+  {
+    title: "Create voiceovers",
+    subtitle: "with Voice Studio",
+    href: `${APP_URL}/voiceover-generator`,
+    icon: AudioLines,
+  },
+  {
+    title: "Create videos",
+    subtitle: "with Seedance 2.5",
+    href: `${APP_URL}/video-generator`,
+    logo: "/logos/ai/seedance.webp",
   },
 ];
 
@@ -158,225 +154,123 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
   );
 }
 
-function ToolLogoCard({ title, description, href, badge, logo, icon: Icon, iconClassName }: ToolLogo) {
+function FeatureLinkCard({ title, subtitle, href, badge, logo, icon: Icon, iconColor }: FeatureCard) {
   return (
     <Link
       href={href}
-      className="group flex h-full flex-col rounded-xl bg-[#F5F5F5] p-3 shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] hover:shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.2)] sm:rounded-2xl sm:p-5"
+      className="group relative flex min-h-[128px] flex-col justify-between overflow-hidden rounded-[18px] bg-[#F5F5F5] p-4 shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] hover:shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.2)] sm:min-h-[140px] sm:p-5"
     >
-      <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center transition-transform duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-0.5 group-hover:scale-110 sm:h-7 sm:w-7">
-          {logo ? (
-            <Image src={logo} alt="" width={28} height={28} className="h-full w-full object-contain brightness-0" />
-          ) : Icon ? (
-            <Icon className={cn(iconClassName ?? "h-5 w-5", "h-full w-full brightness-0")} strokeWidth={1.75} />
-          ) : null}
-        </span>
-        {badge && (
-          <span className="inline-flex -skew-x-12 items-center rounded-md bg-heading bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),rgba(255,255,255,0)_65%)] px-1.5 py-0.5 sm:px-2 sm:py-1">
-            <span className="inline-block skew-x-12 text-[9px] font-extrabold italic uppercase tracking-wide text-app sm:text-[11px]">
-              {badge}
+      <span className="relative flex h-6 w-6 items-center justify-center">
+        {logo ? (
+          <Image src={logo} alt="" width={24} height={24} className="h-6 w-6 object-contain brightness-0" />
+        ) : Icon ? (
+          <Icon className={cn("h-6 w-6", !iconColor && "text-[#0f172a]", !iconColor && Icon === KlingLogo && "brightness-0")} strokeWidth={2} />
+        ) : null}
+      </span>
+      <span className="relative block">
+        <span className="flex items-center gap-2">
+          <span className="text-[15px] font-semibold tracking-[-0.01em] text-[#0f172a] sm:text-[17px]">{title}</span>
+          {badge && (
+            <span className="inline-flex -skew-x-12 items-center rounded-[4px] border border-[#8fa8ff] bg-[linear-gradient(155deg,#6d8dff_0%,#335cff_55%,#1c3fd6_100%)] px-1.5 py-[3px] shadow-[0_3px_8px_-3px_rgba(51,92,255,0.7),inset_0_1px_0_rgba(255,255,255,0.35)]">
+              <span className="inline-block skew-x-12 text-[9.5px] font-extrabold italic uppercase leading-none tracking-wide text-white">
+                {badge}
+              </span>
             </span>
-          </span>
-        )}
-      </div>
-
-      <h4 className="mt-2.5 text-[13px] font-bold text-heading sm:mt-4 sm:text-[15px]">{title}</h4>
-      <p className="mt-0.5 text-[11px] leading-snug text-subtle sm:mt-1 sm:text-sm">{description}</p>
+          )}
+        </span>
+        <span className="mt-1 block text-[12.5px] text-slate-500 sm:text-[13.5px]">{subtitle}</span>
+      </span>
     </Link>
   );
 }
 
-interface McpScenario {
-  prompt: string;
-  tool: string;
-  resultPrefix: string;
-  resultHighlight: string;
-  resultSuffix: string;
-  stats: string[];
-}
-
-const MCP_SCENARIOS: McpScenario[] = [
-  {
-    prompt: "Find me a trending faceless niche in fitness",
-    tool: "verlab.find_niche",
-    resultPrefix: "Found a strong opportunity: ",
-    resultHighlight: "AI home workouts",
-    resultSuffix: " — low competition, rising search volume.",
-    stats: ["8.7 score", "Low competition", "2.4M avg views"],
-  },
-  {
-    prompt: "Write a 60 second script about a viral cooking hack",
-    tool: "verlab.generate_script",
-    resultPrefix: "Script is ready: ",
-    resultHighlight: "cooking-hack.txt",
-    resultSuffix: " — hook-driven, ready to record.",
-    stats: ["60s", "Hook-driven", "3 scenes"],
-  },
-  {
-    prompt: "Break down @mrbeast's content strategy for me",
-    tool: "verlab.analyze_creator",
-    resultPrefix: "Analysis is ready: ",
-    resultHighlight: "24 videos",
-    resultSuffix: " breaking down what makes them work.",
-    stats: ["Full report", "24 videos", "Top hooks"],
-  },
-  {
-    prompt: "Download this Reel with no watermark",
-    tool: "verlab.download_video",
-    resultPrefix: "Video is ready: ",
-    resultHighlight: "reel-download.mp4",
-    resultSuffix: " in full 1080p quality.",
-    stats: ["1080p", "No watermark", "Ready to post"],
-  },
+// Character tiles for the studio card: neon CRT-tinted cartoon portraits set
+// in chrome key-cap frames, tilted, inside a fixed 260x230 art box pinned to
+// the card's bottom-right. CHROME is the frame's banded polished-metal face;
+// KEYCAP stacks 1px offsets into a visible metal side wall, then a soft drop
+// shadow onto the card.
+const CHROME =
+  "linear-gradient(145deg,#ffffff 0%,#d3d8e0 16%,#f8f9fb 32%,#a3abb8 52%,#eef0f4 70%,#bcc3ce 86%,#ffffff 100%)";
+const KEYCAP = [
+  "0 1px 0 #d5dae1",
+  "0 2px 0 #c4cad3",
+  "0 3px 0 #b3bac5",
+  "0 4px 0 #a3abb7",
+  "0 5px 0 #959eab",
+  "0 6px 0 #8a93a1",
+  "0 7px 1px #7d8796",
+  "0 26px 34px -12px rgba(15,23,42,0.5)",
+  "0 10px 16px -8px rgba(15,23,42,0.25)",
+].join(",");
+const STUDIO_TILES = [
+  { src: "/landing/studio/hero-green.jpg", left: 26, top: 22, size: 117, rotate: -10 },
+  { src: "/landing/studio/hero-red.jpg", left: 158, top: 68, size: 84, rotate: 9 },
+  { src: "/landing/studio/hero-amber.jpg", left: 13, top: 151, size: 84, rotate: 11 },
+  { src: "/landing/studio/hero-blue.jpg", left: 123, top: 161, size: 82, rotate: -4 },
 ];
 
-const MCP_STEP_DURATION_MS = 5200;
-const MCP_EASE = [0.16, 1, 0.3, 1] as const;
+// Studio card backdrop: a fine square grid that shows only around the
+// character tiles (radial mask) over a soft blue glow, keeping the text side
+// clean.
+const STUDIO_GRID: CSSProperties = {
+  backgroundImage:
+    "linear-gradient(to right, rgba(15,23,42,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,0.07) 1px, transparent 1px)",
+  backgroundSize: "26px 26px",
+  backgroundPosition: "-1px -1px",
+  maskImage: "radial-gradient(75% 85% at 82% 72%, black 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
+  WebkitMaskImage: "radial-gradient(75% 85% at 82% 72%, black 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
+};
 
-type McpStage = "typing" | "running" | "done";
-
-function McpDemoCard() {
-  const [index, setIndex] = useState(0);
-  const [stage, setStage] = useState<McpStage>("typing");
-  const [stageResetIndex, setStageResetIndex] = useState(index);
-
-  if (index !== stageResetIndex) {
-    setStageResetIndex(index);
-    setStage("typing");
-  }
-
-  useEffect(() => {
-    const toRunning = setTimeout(() => setStage("running"), 700);
-    const toDone = setTimeout(() => setStage("done"), 2200);
-    const toNext = setTimeout(() => setIndex((i) => (i + 1) % MCP_SCENARIOS.length), MCP_STEP_DURATION_MS);
-
-    return () => {
-      clearTimeout(toRunning);
-      clearTimeout(toDone);
-      clearTimeout(toNext);
-    };
-  }, [index]);
-
-  const scenario = MCP_SCENARIOS[index];
-  const showTool = stage === "running" || stage === "done";
-  const isDone = stage === "done";
-
+function StudioCard() {
   return (
     <Link
-      href={`${APP_URL}/mcp`}
-      className="group relative flex h-[320px] flex-col overflow-hidden rounded-3xl border border-hairline bg-white transition-all duration-200 sm:h-[310px] sm:hover:-translate-y-0.5"
+      href={APP_URL}
+      className="group relative flex min-h-[292px] flex-col overflow-hidden rounded-[24px] border border-[#e4e7ee] bg-[linear-gradient(180deg,#ffffff_0%,#f8faff_100%)] p-6 sm:p-7"
     >
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-3 sm:px-5">
-        <span className="inline-flex items-center gap-1.5 text-sm font-bold text-heading">
-          <ClaudeIcon className="h-4 w-4 shrink-0 rounded-[4px]" />
-          Claude
-        </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-app px-2.5 py-1 text-[10px] font-semibold text-subtle">
-          <span className="relative flex h-1.5 w-1.5 shrink-0">
-            <span className="absolute inset-0 animate-ping rounded-full bg-blue-500/60" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-blue-500" />
-          </span>
-          Verlab MCP
-        </span>
-      </div>
+      <span aria-hidden className="pointer-events-none absolute inset-0" style={STUDIO_GRID} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-24 -right-16 h-[340px] w-[380px] rounded-full bg-[radial-gradient(closest-side,rgba(51,92,255,0.16),rgba(51,92,255,0.05)_60%,transparent)]"
+      />
 
-      <div className="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5 sm:py-5">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={index}
-            layout
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.4, ease: MCP_EASE }}
-            className="flex flex-col gap-3"
+      <span className="relative font-display text-[26px] font-extrabold uppercase leading-none tracking-[-0.025em] text-[#0b1220] sm:text-[30px]">
+        Verlab Studio
+      </span>
+      <span className="relative mt-3 max-w-[250px] text-[15px] leading-[1.35] text-slate-500 xl:max-w-[205px]">
+        Find a winning niche, bend it, and post faceless videos audiences come back for.
+      </span>
+
+      {/* 3D pill: face glows lighter at the bottom centre, a thin bright rim
+          along the top, and a solid darker lip underneath */}
+      <span
+        className="relative mt-auto inline-flex h-[42px] w-fit items-center gap-3 rounded-full px-[22px] text-[15px] font-semibold tracking-[-0.005em] text-white transition-transform duration-200 group-hover:-translate-y-0.5"
+        style={button3d(3)}
+      >
+        Open Studio
+        <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-0 h-[230px] w-[260px] origin-bottom-right scale-[0.78] sm:scale-100 xl:scale-[0.85] min-[1440px]:scale-100"
+      >
+        {STUDIO_TILES.map((t) => (
+          <span
+            key={t.src}
+            className="absolute rounded-[24px] p-[6px] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-1"
+            style={{ left: t.left, top: t.top, width: t.size, height: t.size, rotate: `${t.rotate}deg`, backgroundImage: CHROME, boxShadow: KEYCAP }}
           >
-            <div className="flex justify-end">
-              <motion.span
-                layout
-                className="max-w-[88%] rounded-2xl rounded-br-md bg-heading px-3.5 py-2 text-[12.5px] font-medium leading-snug text-white sm:text-[13px]"
-              >
-                {scenario.prompt}
-                {stage === "typing" && (
-                  <motion.span
-                    aria-hidden
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse" }}
-                    className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-white align-middle"
-                  />
-                )}
-              </motion.span>
-            </div>
-
-            <AnimatePresence>
-              {showTool && (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: MCP_EASE }}
-                  className="flex items-start gap-2"
-                >
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-100 bg-[#FAF0EC]">
-                    <ClaudeIcon className="h-3.5 w-3.5 shrink-0" />
-                  </span>
-                  <div className="flex min-w-0 flex-col gap-2">
-                    <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-hairline bg-app px-2.5 py-1.5 text-[11px] font-medium text-subtle">
-                      <Wrench className="h-3 w-3 shrink-0" strokeWidth={2.25} />
-                      <span className="font-mono text-[10.5px] text-slate-600">{scenario.tool}</span>
-                      {isDone ? (
-                        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2.5} />
-                      ) : (
-                        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-blue-500" strokeWidth={2.5} />
-                      )}
-                    </span>
-
-                    <AnimatePresence>
-                      {isDone && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.35, ease: MCP_EASE }}
-                          className="flex min-w-0 flex-col gap-2"
-                        >
-                          <p className="text-[12.5px] leading-relaxed text-body sm:text-[13px]">
-                            {scenario.resultPrefix}
-                            <span className="font-semibold text-heading">{scenario.resultHighlight}</span>
-                            {scenario.resultSuffix}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {scenario.stats.map((label) => (
-                              <span
-                                key={label}
-                                className="rounded-full border border-hairline bg-app px-2 py-0.5 text-[10px] font-medium text-subtle"
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-hairline px-4 py-3 sm:px-5">
-        <div>
-          <span className="block text-sm font-bold text-heading">Verlab MCP</span>
-          <span className="block text-xs text-subtle">Bend any niche with Claude</span>
-        </div>
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-500 text-white transition-transform duration-200 group-hover:translate-x-0.5">
-          <ArrowRight className="h-3.5 w-3.5" />
-        </span>
-      </div>
+            {/* bevel: lit top edge, shaded bottom edge */}
+            <span className="pointer-events-none absolute inset-0 rounded-[24px] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(15,23,42,0.28),inset_1px_0_1px_rgba(255,255,255,0.55)]" />
+            <span className="relative block h-full w-full overflow-hidden rounded-[18px]">
+              <Image src={t.src} alt="" fill sizes="240px" className="object-cover" />
+              {/* a faint glass reflection and a recessed inner edge */}
+              <span className="absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.04)_30%,transparent_45%)]" />
+              <span className="absolute inset-0 rounded-[18px] shadow-[inset_0_2px_5px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(15,23,42,0.4)]" />
+            </span>
+          </span>
+        ))}
+      </span>
     </Link>
   );
 }
@@ -409,13 +303,11 @@ export function FeaturesGridSection() {
           ))}
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <div className="-mx-3 sm:mx-0 lg:col-span-2">
-            <McpDemoCard />
-          </div>
-          <div className="-mx-3 grid grid-cols-2 gap-3 sm:mx-0 sm:grid-cols-3 sm:gap-4 lg:col-span-3">
-            {TOOL_LOGOS.map((tool) => (
-              <ToolLogoCard key={tool.title} {...tool} />
+        <div className="mt-5 grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,0.58fr)_minmax(0,1fr)]">
+          <StudioCard />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5">
+            {FEATURE_CARDS.map((card) => (
+              <FeatureLinkCard key={card.title} {...card} />
             ))}
           </div>
         </div>

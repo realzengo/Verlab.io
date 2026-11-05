@@ -99,6 +99,7 @@ export function MobileEditPanel({
   const [showBuilderNotice, setShowBuilderNotice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const modelConfig = models.find((m) => m.id === model) ?? models[0];
   const atMax = referenceImages.length >= maxReferenceImages;
 
   return (
@@ -111,6 +112,7 @@ export function MobileEditPanel({
           onClear={onClearSource}
           onUploadFile={onUploadSourceFile}
           isUploading={isUploadingSource}
+          durationRange={{ min: modelConfig.minSourceDurationSeconds, max: modelConfig.maxSourceDurationSeconds }}
           library={sourceLibrary}
         />
         {durationWarning && (
