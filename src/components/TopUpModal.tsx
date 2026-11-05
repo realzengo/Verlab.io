@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { Check, ChevronRight, Lock, Sparkles, X, Zap } from "lucide-react";
+import { ChevronDown, CircleCheck, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Portal } from "@/components/ui/Portal";
 import { PlasticButton } from "@/components/ui/plastic-button";
@@ -29,7 +29,7 @@ export const PACKS: { id: PackId; creditsNum: number; priceUsd: number; credits:
     credits: "3,000 Credits",
     price: "$39.00",
     perK: "$13.00 / 1,000",
-    badge: { label: "Most Popular", tone: "primary" },
+    badge: { label: "Most popular", tone: "primary" },
   },
   {
     id: "10000",
@@ -38,13 +38,13 @@ export const PACKS: { id: PackId; creditsNum: number; priceUsd: number; credits:
     credits: "10,000 Credits",
     price: "$119.00",
     perK: "$11.90 / 1,000",
-    badge: { label: "Best Value", tone: "neutral" },
+    badge: { label: "Best value", tone: "neutral" },
   },
 ];
 
-/** "$16.00 / 1,000" -> "$16.00/1k" */
+/** "$16.00 / 1,000" -> "$16.00 per 1k" */
 export function shortRate(perK: string) {
-  return perK.replace(" / 1,000", "/1k");
+  return perK.replace(" / 1,000", " per 1k");
 }
 
 export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
@@ -58,7 +58,18 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
 
+  const titleId = useId();
+
   useResetOnPageRestore(() => setIsCheckingOut(false));
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -118,8 +129,8 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
 
       setRedeemSuccess(
         data.rewardType === "credits"
-          ? `${data.rewardValue.toLocaleString()} credits added to your balance!`
-          : `${data.rewardValue}% discount unlocked!`
+          ? `${data.rewardValue.toLocaleString()} credits added to your balance`
+          : `Code redeemed for a ${data.rewardValue}% discount`
       );
       setPromoCode("");
       onRedeemed?.();
@@ -133,172 +144,157 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   return (
     <Portal>
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 backdrop-blur-md sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 sm:backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-hairline bg-surface shadow-card-hover sm:max-h-[85dvh] sm:rounded-card-lg"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-hairline bg-surface shadow-[0_24px_48px_-12px_rgba(16,24,40,0.28)] sm:max-h-[85dvh] sm:rounded-card-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-40"
-          style={{
-            background:
-              "radial-gradient(120% 100% at 50% 0%, var(--color-accent) 0%, transparent 70%)",
-          }}
-        />
-
-        <div className="relative shrink-0 px-5 pt-5 sm:px-7 sm:pt-7">
-          <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-hairline sm:hidden" />
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors hover:bg-app hover:text-heading sm:right-5 sm:top-5"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_-6px_rgba(51,92,255,0.65)]"
-            style={{ background: "linear-gradient(140deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 55%, #7c3aed))" }}
-          >
-            <Zap className="h-5 w-5" fill="currentColor" />
+        <div className="shrink-0 px-5 pt-3 sm:px-6 sm:pt-6">
+          <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-hairline sm:hidden" />
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 id={titleId} className="text-xl font-semibold leading-7 tracking-[-0.01em] text-heading">
+                Top up credits
+              </h2>
+              <p className="mt-1 text-sm leading-5 text-subtle">
+                Credits never expire while your plan is active.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-2 -mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-subtle transition-colors duration-150 hover:bg-btn-secondary hover:text-heading"
+            >
+              <X className="h-4 w-4" strokeWidth={1.75} />
+            </button>
           </div>
-          <h2 className="mt-4 text-lg font-semibold tracking-tight text-heading sm:text-[22px]">
-            Top Up Balance
-          </h2>
-          <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-body">
-            You&apos;ve run out of AI credits. Choose a pack to continue generating content.
-          </p>
         </div>
 
-        <div className="relative flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-2.5 px-5 pb-2 pt-6 sm:px-7 sm:pt-7">
-          {PACKS.map((pack) => {
-            const selected = selectedPack === pack.id;
-            const featured = pack.badge?.tone === "primary";
-            return (
-              <button
-                key={pack.id}
-                type="button"
-                onClick={() => setSelectedPack(pack.id)}
-                aria-pressed={selected}
-                className={cn(
-                  "relative flex w-full items-center justify-between rounded-2xl border text-left transition-all duration-200",
-                  featured ? "px-5 py-4" : "px-5 py-3.5",
-                  selected && featured &&
-                    "border-transparent bg-gradient-to-br from-primary/15 via-accent to-accent/60 shadow-[0_16px_36px_-12px_rgba(51,92,255,0.55)] ring-2 ring-primary/60",
-                  selected && !featured &&
-                    "border-primary/50 bg-accent shadow-[0_8px_20px_-10px_rgba(51,92,255,0.45)] ring-1 ring-primary/20",
-                  !selected &&
-                    "border-hairline bg-app hover:-translate-y-px hover:border-subtle/40 hover:bg-accent/30 hover:shadow-sm"
-                )}
-              >
-                {featured && (
-                  <span className="absolute -top-2.5 left-5 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow-[0_4px_12px_-2px_rgba(51,92,255,0.6)]">
-                    <Sparkles className="h-2.5 w-2.5" />
-                    {pack.badge!.label}
-                  </span>
-                )}
-                <div className="flex min-w-0 items-center gap-3.5">
+        <div className="flex-1 overflow-y-auto">
+          <div role="radiogroup" aria-label="Credit pack" className="flex flex-col gap-2 px-5 pt-5 sm:px-6">
+            {PACKS.map((pack) => {
+              const selected = selectedPack === pack.id;
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setSelectedPack(pack.id)}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left outline-none transition-[background-color,border-color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+                    selected ? "border-primary bg-accent" : "border-hairline bg-surface hover:border-subtle/30 hover:bg-app"
+                  )}
+                >
                   <span
+                    aria-hidden
                     className={cn(
-                      "flex shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
-                      featured ? "h-[22px] w-[22px]" : "h-5 w-5",
-                      selected ? "border-primary bg-primary shadow-[0_0_0_3px_rgba(51,92,255,0.15)]" : "border-hairline bg-surface"
+                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors duration-150",
+                      selected ? "border-primary bg-primary" : "border-subtle/40 bg-surface"
                     )}
                   >
-                    {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full bg-white transition-[transform,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        selected ? "scale-100 opacity-100" : "scale-50 opacity-0"
+                      )}
+                    />
                   </span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("font-semibold text-heading", featured ? "text-[16px]" : "text-[14px]")}>
-                        {pack.credits}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-medium leading-5 tabular-nums text-heading">
+                        {pack.creditsNum.toLocaleString()} credits
                       </span>
-                      {pack.badge && !featured && (
-                        <span className="shrink-0 rounded-full border border-hairline bg-surface px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-subtle">
+                      {pack.badge && (
+                        <span className="rounded-md bg-btn-secondary px-1.5 py-0.5 text-xs font-medium leading-4 text-body">
                           {pack.badge.label}
                         </span>
                       )}
-                    </div>
-                    <div className="mt-0.5 text-xs text-subtle">{shortRate(pack.perK)}</div>
-                  </div>
-                </div>
-                <span className={cn("shrink-0 font-bold tabular-nums text-heading", featured ? "text-xl" : "text-[15px]")}>
-                  {pack.price}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative border-t border-hairline px-5 py-4 sm:px-7">
-          {redeemSuccess ? (
-            <div className="flex items-center gap-2.5 rounded-xl border border-success/25 bg-success/[0.07] px-4 py-3">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15">
-                <Check className="h-3 w-3 text-success" strokeWidth={3} />
-              </span>
-              <p className="text-[13px] font-medium leading-snug text-heading">{redeemSuccess}</p>
-            </div>
-          ) : showPromoField ? (
-            <div>
-              <p className="mb-2 text-xs font-medium text-subtle">Have a code?</p>
-              <form onSubmit={handleRedeem} className="flex items-stretch gap-2">
-                <input
-                  autoFocus
-                  type="text"
-                  value={promoCode}
-                  maxLength={CODE_MAX}
-                  onChange={(event) => {
-                    setPromoCode(event.target.value);
-                    setRedeemError(null);
-                  }}
-                  placeholder="Enter code"
-                  className={cn(
-                    "min-w-0 flex-1 rounded-lg border bg-app px-3.5 py-2.5 text-sm uppercase tracking-wide text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-subtle",
-                    redeemError ? "border-danger/40 focus:border-danger/60" : "border-hairline focus:border-primary/50"
-                  )}
-                />
-                <button
-                  type="submit"
-                  disabled={redeeming || !promoCode.trim()}
-                  className="shrink-0 rounded-lg border border-hairline bg-surface px-4 text-xs font-semibold text-heading transition-colors hover:border-subtle/40 hover:bg-app disabled:pointer-events-none disabled:opacity-40"
-                >
-                  {redeeming ? "Applying…" : "Apply"}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-4 tabular-nums text-subtle">{shortRate(pack.perK)}</span>
+                  </span>
+                  <span className="text-sm font-semibold leading-5 tabular-nums text-heading">{pack.price}</span>
                 </button>
-              </form>
-              {redeemError && <p className="mt-2 text-xs text-danger">{redeemError}</p>}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowPromoField(true)}
-              className="group flex w-full items-center justify-between text-left"
-            >
-              <span className="text-[13px] font-medium text-subtle transition-colors group-hover:text-heading">
+              );
+            })}
+          </div>
+
+          <div className="px-5 pb-5 pt-4 sm:px-6">
+            {redeemSuccess ? (
+              <p className="flex items-center gap-2 rounded-lg bg-success-tint px-3 py-2.5 text-sm text-heading">
+                <CircleCheck className="h-4 w-4 shrink-0 text-success" strokeWidth={1.75} />
+                {redeemSuccess}
+              </p>
+            ) : showPromoField ? (
+              <div>
+                <form onSubmit={handleRedeem} className="flex gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    aria-label="Promo code"
+                    value={promoCode}
+                    maxLength={CODE_MAX}
+                    onChange={(event) => {
+                      setPromoCode(event.target.value);
+                      setRedeemError(null);
+                    }}
+                    placeholder="Promo code"
+                    className={cn(
+                      "h-10 min-w-0 flex-1 rounded-lg border bg-surface px-3 text-sm uppercase text-heading outline-none transition-[border-color,box-shadow] duration-150 placeholder:normal-case placeholder:text-subtle focus:ring-2",
+                      redeemError
+                        ? "border-danger/50 focus:ring-danger/15"
+                        : "border-hairline focus:border-primary focus:ring-primary/15"
+                    )}
+                  />
+                  <button
+                    type="submit"
+                    disabled={redeeming || !promoCode.trim()}
+                    className="h-10 shrink-0 rounded-lg border border-hairline bg-btn-secondary px-4 text-sm font-medium text-heading transition-colors duration-150 hover:bg-btn-secondary-hover disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {redeeming ? "Applying…" : "Apply"}
+                  </button>
+                </form>
+                {redeemError && <p className="mt-2 text-xs leading-4 text-danger">{redeemError}</p>}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowPromoField(true)}
+                className="inline-flex items-center gap-1 rounded text-sm text-subtle transition-colors duration-150 hover:text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
                 Have a promo code?
-              </span>
-              <ChevronRight className="h-3.5 w-3.5 text-subtle transition-colors group-hover:text-heading" />
-            </button>
-          )}
-        </div>
+                <ChevronDown className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="relative shrink-0 border-t border-hairline bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-7 sm:pt-5">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm text-subtle">Total due today</span>
-            <span className="text-lg font-semibold tabular-nums text-heading">{activePack.price}</span>
+        <div className="shrink-0 border-t border-hairline px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium leading-5 text-heading">Total</p>
+              <p className="text-xs leading-4 tabular-nums text-subtle">
+                {activePack.creditsNum.toLocaleString()} credits
+              </p>
+            </div>
+            <span className="text-2xl font-semibold leading-8 tracking-[-0.01em] tabular-nums text-heading">
+              {activePack.price}
+            </span>
           </div>
 
           {checkoutError && (
-            <p className="mb-3 text-xs text-danger">
+            <p className="mt-4 text-sm leading-5 text-danger">
               {checkoutError}
               {requiresSubscription && (
                 <>
                   {" "}
-                  <a href="/pricing" className="font-semibold underline underline-offset-2">
+                  <a href="/pricing" className="font-medium underline underline-offset-2">
                     View plans
                   </a>
                 </>
@@ -306,16 +302,16 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
             </p>
           )}
 
-          <div className="flex gap-3">
+          <div className="mt-5 flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-full border border-hairline bg-transparent py-2.5 text-sm font-medium text-heading transition-colors hover:bg-app"
+              className="h-11 flex-1 rounded-2xl border border-hairline bg-surface text-sm font-medium text-heading transition-colors duration-150 hover:bg-btn-secondary"
             >
               Cancel
             </button>
             <PlasticButton
-              className="flex-1 py-2.5"
+              className="h-11 flex-1"
               text="Checkout"
               loading={isCheckingOut}
               loadingText="Processing…"
@@ -324,9 +320,9 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
             />
           </div>
 
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-subtle">
-            <Lock className="h-3 w-3" />
-            Secure checkout · Payments are encrypted
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-xs leading-4 text-subtle">
+            <Lock className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Secure checkout, payments are encrypted
           </p>
         </div>
       </div>

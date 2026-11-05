@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, CloudDownload, Download, Eye, Link2, Loader2, RotateCcw, X } from "lucide-react";
-import { BorderTrail } from "@/components/ui/BorderTrail";
+import { Check, Download, ExternalLink, Link2, Loader2, RotateCcw, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Portal } from "@/components/ui/Portal";
 import type { DownloadFormat } from "@/lib/types";
 import { isValidUrl } from "@/lib/validation";
@@ -32,10 +32,6 @@ const PROGRESS_CAP = 92;
 const PROGRESS_TIME_CONSTANT_MS = 3_500;
 const PROGRESS_TICK_MS = 150;
 
-// Number of bars drawn in the "Downloading your Video..." popup's segmented
-// progress meter.
-const PROGRESS_SEGMENT_COUNT = 28;
-
 interface DownloadStatus {
   status: "queued" | "processing" | "complete" | "failed";
   progress: number | null;
@@ -46,6 +42,20 @@ interface DownloadStatus {
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** "https://www.tiktok.com/@a/video/1" -> "tiktok.com/@a/video/1" */
+function displayUrl(url: string): string {
+  return url.trim().replace(/^https?:\/\/(www\.|m\.)?/i, "");
+}
+
+function PlatformLogo({ src, className }: { src: string; className?: string }) {
+  // White tile in both themes -- TikTok's mark is black and vanishes on dark surfaces.
+  return (
+    <span className={cn("flex shrink-0 items-center justify-center rounded-md border border-hairline bg-white", className)}>
+      <Image src={src} alt="" width={16} height={16} className="h-3 w-3 object-contain" />
+    </span>
+  );
 }
 
 function triggerBrowserDownload(fileUrl: string): void {
@@ -69,6 +79,8 @@ export function VideoDownloader() {
   const [readyId, setReadyId] = useState<string | null>(null);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const detectedPlatform = detectPlatform(url.trim());
+  const unsupportedLink = !detectedPlatform && isValidUrl(url.trim());
+  const popupTitleId = useId();
 
   // Bumped whenever the in-flight job should be abandoned (url changed
   // mid-prepare, or the component unmounted) so a stale poll loop can't
@@ -162,7 +174,18 @@ export function VideoDownloader() {
     return () => clearInterval(interval);
   }, [state]);
 
-  // The compact arrow button: starts a job from idle/error, or re-opens the
+  const popupOpen = (state === "preparing" || state === "ready") && !popupDismissed;
+
+  useEffect(() => {
+    if (!popupOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setPopupDismissed(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [popupOpen]);
+
+  // The download button: starts a job from idle/error, or re-opens the
   // popup if the job already finished and got dismissed.
   function handleTriggerClick() {
     if (state === "ready") {
@@ -172,7 +195,7 @@ export function VideoDownloader() {
     const trimmedUrl = url.trim();
     if ((state === "idle" || state === "error") && trimmedUrl && detectPlatform(trimmedUrl)) {
       if (!isValidUrl(trimmedUrl)) {
-        setError("That doesn't look like a valid URL.");
+        setError("That doesn't look like a valid link");
         setState("error");
         return;
       }
@@ -180,257 +203,200 @@ export function VideoDownloader() {
     }
   }
 
+  const buttonDisabled = state === "preparing" || ((state === "idle" || state === "error") && !detectedPlatform);
+
   return (
     <div className="mx-auto flex w-full max-w-2xl min-h-[calc(100dvh-4.5rem)] flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24">
-      <div className="relative text-center">
-        <h1 className="flex flex-wrap items-baseline justify-center gap-1.5 text-[1.75rem] font-extrabold tracking-tight min-[400px]:gap-2 min-[400px]:text-4xl sm:text-[3.5rem]">
-          <span className="text-heading">Video</span>
-          <span className="relative inline-block -skew-x-12 rounded-md bg-[radial-gradient(circle_at_30%_30%,#6d93ff,#335cff)] px-2.5 py-0.5 min-[400px]:px-3">
-            <span className="inline-block skew-x-12 text-white">Downloader</span>
-          </span>
-        </h1>
-        <p className="mt-2.5 text-sm font-medium text-body/60 sm:text-base">
-          Download videos from YouTube, TikTok, and Facebook
+      <header className="text-center">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">Video downloader</h1>
+        <p className="mt-1.5 text-sm text-subtle">
+          Paste a link to save the video in up to 1080p. Downloads are kept in your Library.
         </p>
-      </div>
+      </header>
 
-      <div className="relative mt-6 sm:mt-12">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-8 -top-8 h-36 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20"
+      <div className="mt-8 flex items-center gap-3 rounded-2xl border border-hairline bg-surface p-2 pl-4 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 sm:mt-10">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+          {detectedPlatform ? (
+            <PlatformLogo src={detectedPlatform.logo} className="h-5 w-5" />
+          ) : (
+            <Link2 className="h-4 w-4 text-subtle" strokeWidth={1.75} />
+          )}
+        </span>
+        <input
+          type="url"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          aria-label="Video link"
+          value={url}
+          onChange={(event) => {
+            resetJob();
+            setUrl(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") handleTriggerClick();
+          }}
+          placeholder="Paste video URL"
+          className="h-11 min-w-0 flex-1 bg-transparent text-base text-heading outline-none placeholder:text-subtle"
         />
-
-        <div className="relative rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_60px_-24px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-zinc-950/90 dark:shadow-[0_1px_0_rgba(255,255,255,0.04)]">
-          <BorderTrail
-            size={130}
-            className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-60 blur-[8px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
-            transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
-          />
-
-          <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-white/70 p-5 backdrop-blur-2xl backdrop-saturate-150 dark:bg-zinc-950/80 sm:p-9">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 hidden dark:block dark:bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(9,9,11,0)_45%)]"
-            />
-
-            <div className="relative flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 focus-within:border-primary/40 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary/10 dark:border-white/10 dark:bg-black/30 dark:focus-within:bg-black/40 sm:gap-1.5 sm:p-2">
-              <Link2 className="ml-2.5 h-4 w-4 shrink-0 text-slate-400 dark:text-zinc-500 sm:ml-3" />
-              <div className="min-w-0 flex-1">
-                <input
-                  type="url"
-                  inputMode="url"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  value={url}
-                  onChange={(event) => {
-                    resetJob();
-                    setUrl(event.target.value);
-                  }}
-                  placeholder="Paste video URL"
-                  className="w-full min-w-0 bg-transparent py-2.5 pl-2 pr-2 text-base font-medium text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500 sm:py-3"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleTriggerClick}
-                disabled={state === "preparing" || ((state === "idle" || state === "error") && !detectedPlatform)}
-                aria-label={
-                  state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
-                }
-                className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-white transition-all duration-200 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12"
-                style={{
-                  background:
-                    state === "ready"
-                      ? "linear-gradient(to bottom, rgb(16,185,129), rgb(5,150,105))"
-                      : "linear-gradient(to bottom, rgb(59,130,246), rgb(37,99,235))",
-                  boxShadow:
-                    state === "ready"
-                      ? "0 2px 10px 0 rgba(5,150,105,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 8px 0 rgba(5,150,105,0.5) inset"
-                      : "0 2px 10px 0 rgba(37,99,235,0.35), 0 1.5px 0 0 rgba(255,255,255,0.25) inset, 0 -2px 8px 0 rgba(37,99,235,0.5) inset",
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-1/2 top-0 h-2/5 w-[80%] -translate-x-1/2 rounded-t-full"
-                  style={{
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 80%)",
-                    filter: "blur(1.5px)",
-                  }}
-                />
-                <span className="relative z-10">
-                  {state === "preparing" ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : state === "ready" ? (
-                    <Check className="h-5 w-5" />
-                  ) : state === "error" ? (
-                    <RotateCcw className="h-5 w-5" />
-                  ) : (
-                    <ArrowRight className="h-5 w-5" />
-                  )}
-                </span>
-              </button>
-            </div>
-
-            {detectedPlatform && (
-              <div className="relative mt-3 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-zinc-400">
-                <Image
-                  src={detectedPlatform.logo}
-                  alt=""
-                  width={16}
-                  height={16}
-                  className="h-4 w-4 object-contain"
-                />
-                {detectedPlatform.label}
-              </div>
-            )}
-
-            {state === "error" && error && (
-              <p className="relative mt-3 text-center text-sm text-red-500 dark:text-red-400">{error}</p>
-            )}
-
-            <div className="relative mt-6 flex flex-col items-center justify-center gap-1.5 sm:mt-9 sm:flex-row sm:flex-wrap sm:gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 sm:text-[11px]">
-                Supports
-              </span>
-              <div className="flex items-center justify-center gap-1 sm:gap-2">
-                {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1 rounded-full bg-white/80 py-1 pl-1 pr-2 text-[10px] font-semibold text-slate-600 shadow-sm dark:bg-white/5 dark:text-zinc-300 sm:gap-1.5 sm:pr-2.5 sm:text-[11px]"
-                  >
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 sm:h-5 sm:w-5">
-                      <Image src={logo} alt="" width={10} height={10} className="h-2 w-2 object-contain sm:h-2.5 sm:w-2.5" />
-                    </span>
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={handleTriggerClick}
+          disabled={buttonDisabled}
+          aria-busy={state === "preparing"}
+          aria-label={
+            state === "ready" ? "Show download" : state === "error" ? "Retry download" : "Start download"
+          }
+          className={cn(
+            "flex h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors duration-150 active:scale-[0.98]",
+            buttonDisabled && state !== "preparing"
+              ? "cursor-not-allowed bg-btn-secondary text-subtle"
+              : "bg-btn-primary text-white hover:bg-btn-primary-hover"
+          )}
+        >
+          {state === "preparing" ? (
+            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+          ) : state === "ready" ? (
+            <Check className="h-4 w-4" strokeWidth={1.75} />
+          ) : state === "error" ? (
+            <RotateCcw className="h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            <Download className="h-4 w-4" strokeWidth={1.75} />
+          )}
+          {state === "preparing"
+            ? "Preparing"
+            : state === "ready"
+              ? "View file"
+              : state === "error"
+                ? "Try again"
+                : "Download"}
+        </button>
       </div>
 
-      {(state === "preparing" || state === "ready") && !popupDismissed && (
+      {/* One status line under the field, so nothing below it jumps:
+          the error, a hint for links we can't download, or the platforms. */}
+      <div className="mt-4 flex min-h-5 items-center justify-center text-center text-sm leading-5">
+        {state === "error" && error ? (
+          <p className="text-danger">{error}</p>
+        ) : unsupportedLink ? (
+          <p className="text-subtle">Only YouTube, TikTok and Facebook links are supported</p>
+        ) : (
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <span className="hidden text-subtle sm:inline">Works with</span>
+            {SUPPORTED_PLATFORMS.map(({ id, label, logo }) => (
+              <span key={id} className="flex items-center gap-2 text-body">
+                <PlatformLogo src={logo} className="h-5 w-5" />
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {popupOpen && (
         <Portal>
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 sm:backdrop-blur-sm"
           onClick={() => setPopupDismissed(true)}
         >
           <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-zinc-900"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={popupTitleId}
+            className="w-full max-w-sm rounded-card border border-hairline bg-surface p-6 shadow-[0_24px_48px_-12px_rgba(16,24,40,0.28)]"
             onClick={(event) => event.stopPropagation()}
           >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id={popupTitleId} className="text-base font-semibold leading-6 text-heading">
+                  {state === "preparing" ? "Downloading video" : "Video ready"}
+                </h2>
+                <p className="mt-0.5 text-sm leading-5 text-subtle">
+                  {state === "preparing" ? (
+                    "Preparing the file in up to 1080p"
+                  ) : (
+                    <>
+                      Also saved to your{" "}
+                      <Link href="/library" className="font-medium text-primary hover:underline">
+                        Library
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </div>
+              {state === "ready" && (
+                <button
+                  type="button"
+                  onClick={() => setPopupDismissed(true)}
+                  aria-label="Close"
+                  className="-mr-2 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-subtle transition-colors duration-150 hover:bg-btn-secondary hover:text-heading"
+                >
+                  <X className="h-4 w-4" strokeWidth={1.75} />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-5 flex items-center gap-3 rounded-xl border border-hairline bg-app px-3 py-2.5">
+              {detectedPlatform && <PlatformLogo src={detectedPlatform.logo} className="h-6 w-6" />}
+              <span className="min-w-0 flex-1 truncate text-sm text-body">{displayUrl(url)}</span>
+              {state === "ready" && <Check className="h-4 w-4 shrink-0 text-success" strokeWidth={1.75} />}
+            </div>
+
             {state === "preparing" ? (
-              <div className="p-6 pt-4">
-                <div className="flex justify-end">
+              <>
+                <div
+                  role="progressbar"
+                  aria-label="Download progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress ?? 0}
+                  className="mt-4 h-1.5 overflow-hidden rounded-full bg-hairline"
+                >
+                  <div
+                    className="h-full w-full origin-left rounded-full bg-primary transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ transform: `scaleX(${(progress ?? 0) / 100})` }}
+                  />
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-4">
+                  <p className="text-xs leading-4 text-subtle">It will also appear in your Library</p>
                   <button
                     type="button"
                     onClick={resetJob}
-                    aria-label="Cancel download"
-                    className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                    className="h-9 shrink-0 rounded-lg border border-hairline px-3 text-sm font-medium text-heading transition-colors duration-150 hover:bg-btn-secondary"
                   >
-                    <X className="h-5 w-5" />
+                    Cancel
                   </button>
-                </div>
-
-                <div className="mx-auto -mt-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                  <CloudDownload className="h-8 w-8 text-white" />
-                </div>
-
-                <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">
-                  Downloading your Video...
-                </h3>
-
-                <div className="mt-5 flex items-center gap-[3px]">
-                  {Array.from({ length: PROGRESS_SEGMENT_COUNT }).map((_, index) => {
-                    const filled = index < Math.round(((progress ?? 0) / 100) * PROGRESS_SEGMENT_COUNT);
-                    return (
-                      <span
-                        key={index}
-                        className={`h-2 flex-1 rounded-full transition-colors duration-300 ${
-                          filled ? "bg-primary" : "bg-slate-200 dark:bg-zinc-800"
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400">
-                  After completion, view in{" "}
-                  <Link
-                    href="/library"
-                    className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
-                  >
-                    Library
-                    <Link2 className="h-3 w-3" />
-                  </Link>
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-zinc-800">
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-white">Download Complete</h3>
-                  <button
-                    type="button"
-                    onClick={() => setPopupDismissed(true)}
-                    aria-label="Close"
-                    className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="p-6">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/10">
-                    <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-
-                  <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">Video ready!</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
-                    Your video has been processed successfully
-                  </p>
-
-                  <div className="mt-5 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        readyId &&
-                        window.open(
-                          `/api/downloads/file/${readyId}?disposition=inline`,
-                          "_blank",
-                          "noopener,noreferrer"
-                        )
-                      }
-                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 px-2 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
-                    >
-                      <Eye className="h-4 w-4 shrink-0" />
-                      Open in new tab
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!readyId) return;
-                        triggerBrowserDownload(`/api/downloads/file/${readyId}`);
-                        setUrl("");
-                        setPopupDismissed(true);
-                        resetJob();
-                      }}
-                      className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-btn-primary px-2 py-3 text-sm font-semibold text-white hover:bg-btn-primary-hover"
-                    >
-                      <Download className="h-4 w-4 shrink-0" />
-                      Download
-                    </button>
-                  </div>
-
-                  <p className="mt-4 text-xs text-slate-500 dark:text-zinc-400">
-                    View all downloads in{" "}
-                    <Link href="/library" className="font-medium text-primary hover:underline">
-                      Library
-                    </Link>
-                  </p>
                 </div>
               </>
+            ) : (
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    readyId &&
+                    window.open(`/api/downloads/file/${readyId}?disposition=inline`, "_blank", "noopener,noreferrer")
+                  }
+                  className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-hairline text-sm font-medium text-heading transition-colors duration-150 hover:bg-btn-secondary"
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  Open in new tab
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!readyId) return;
+                    triggerBrowserDownload(`/api/downloads/file/${readyId}`);
+                    setUrl("");
+                    setPopupDismissed(true);
+                    resetJob();
+                  }}
+                  className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-btn-primary text-sm font-medium text-white transition-colors duration-150 hover:bg-btn-primary-hover"
+                >
+                  <Download className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  Download
+                </button>
+              </div>
             )}
           </div>
         </div>

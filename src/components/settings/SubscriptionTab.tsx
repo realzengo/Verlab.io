@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Clock } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { SettingsRow, SettingsSection, settingsButton } from "@/components/settings/SettingsSection";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
 const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
@@ -54,69 +56,65 @@ export function SubscriptionTab({ plan, subscriptionStatus, subscriptionPeriod, 
     }
   }
 
-  const statusCopy = (() => {
-    // `plan` alone isn't trustworthy here -- it defaults to "core" for an
-    // account that's never subscribed, and keeps its last paid value after a
-    // subscription lapses (see handleMembershipDeactivated). hasBilling is
-    // the real signal, so a non-subscriber reads as exactly that instead of
-    // "on the Core plan".
-    if (!hasBilling) return "You're not on a paid plan.";
-    if (isEnding && currentPeriodEnd) {
-      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}) — access ends ${formatDate(currentPeriodEnd)}.`;
-    }
-    if (currentPeriodEnd) {
-      return `${PLAN_LABELS[plan] ?? plan} (${subscriptionPeriod ?? "monthly"}), renews on ${formatDate(currentPeriodEnd)}.`;
-    }
-    return `${PLAN_LABELS[plan] ?? plan} plan.`;
-  })();
+  // `plan` alone isn't trustworthy here -- it defaults to "core" for an
+  // account that's never subscribed, and keeps its last paid value after a
+  // subscription lapses (see handleMembershipDeactivated). hasBilling is the
+  // real signal, so a non-subscriber reads as exactly that instead of "on
+  // the Core plan".
+  const planLabel = `${PLAN_LABELS[plan] ?? plan} plan`;
+  const billedCopy = `Billed ${subscriptionPeriod === "yearly" ? "yearly" : "monthly"}`;
+  const statusCopy = !hasBilling
+    ? "Pick a plan to start a subscription"
+    : isEnding && currentPeriodEnd
+      ? `Access ends ${formatDate(currentPeriodEnd)}`
+      : currentPeriodEnd
+        ? `${billedCopy}, renews ${formatDate(currentPeriodEnd)}`
+        : billedCopy;
 
   return (
-    <div>
-      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0 text-heading">Subscription</h2>
+    <div className="flex flex-col gap-10">
+      <SettingsSection title="Subscription" description="Your plan, renewal date and billing">
+        <SettingsRow
+          label={
+            <>
+              {hasBilling ? planLabel : "No paid plan"}
+              {isEnding && (
+                <Badge variant="warning">
+                  <Clock className="h-3 w-3" />
+                  Ending soon
+                </Badge>
+              )}
+            </>
+          }
+          description={statusCopy}
+          control={
+            hasBilling ? (
+              <button type="button" disabled={loading} onClick={openPortal} className={settingsButton()}>
+                {loading ? "Opening…" : "Manage billing"}
+                {!loading && <ArrowUpRight className="h-4 w-4 text-subtle" strokeWidth={1.75} />}
+              </button>
+            ) : (
+              <Link href="/pricing" className={settingsButton("primary")}>
+                View plans
+              </Link>
+            )
+          }
+        />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-heading text-sm sm:text-base">Manage billing</p>
-            {isEnding && (
-              <Badge variant="warning">
-                <Clock className="h-3 w-3" />
-                Ending soon
-              </Badge>
-            )}
-          </div>
-          <p className="text-body text-xs sm:text-sm mt-0.5">{statusCopy}</p>
-        </div>
-        <button
-          type="button"
-          disabled={!hasBilling || loading}
-          onClick={openPortal}
-          className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:pointer-events-none disabled:opacity-40"
-        >
-          {loading ? "Opening…" : "Manage subscription"}
-        </button>
-      </div>
+        {hasBilling && !isEnding && (
+          <SettingsRow
+            label="Cancel subscription"
+            description="You'll keep access until the end of the current billing period"
+            control={
+              <button type="button" disabled={loading} onClick={openPortal} className={settingsButton("danger")}>
+                Cancel subscription
+              </button>
+            }
+          />
+        )}
+      </SettingsSection>
 
-      {hasBilling && !isEnding && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
-          <div>
-            <p className="font-medium text-heading text-sm sm:text-base">Cancel subscription</p>
-            <p className="text-body text-xs sm:text-sm mt-0.5">
-              You&apos;ll keep access until the end of the current billing period.
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={openPortal}
-            className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:pointer-events-none disabled:opacity-40"
-          >
-            Cancel subscription
-          </button>
-        </div>
-      )}
-
-      {error && <p className="mt-4 text-xs text-danger">{error}</p>}
+      {error && <p className="-mt-6 text-sm text-danger">{error}</p>}
     </div>
   );
 }

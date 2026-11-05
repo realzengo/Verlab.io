@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Clock, Loader2 } from "lucide-react";
+import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { hasActiveSubscription } from "@/lib/subscription-status";
 import { fetchPricingPlans } from "@/lib/pricing-plans";
 import type { PricingPlan } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { SettingsRow, settingsButton } from "@/components/settings/SettingsSection";
 
-export function PlanTab() {
+/** The "Current plan" row in the Account tab's Plan section. */
+export function CurrentPlanRow() {
   const [currentPlan, setCurrentPlan] = useState<PricingPlan | null>(null);
   const [isEnding, setIsEnding] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -51,44 +54,34 @@ export function PlanTab() {
   }, []);
 
   return (
-    <div>
-      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0 text-heading">Plan</h2>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-heading text-sm sm:text-base">Current plan</p>
-            {loaded && isEnding && (
-              <Badge variant="warning">
-                <Clock className="h-3 w-3" />
-                Ending soon
-              </Badge>
-            )}
-          </div>
-          <p className="text-body text-xs sm:text-sm mt-0.5">{currentPlan?.info ?? "Your plan and usage at a glance."}</p>
-          <p className="mt-2 text-heading text-sm">
-            {!loaded ? (
-              <Loader2 className="h-4 w-4 animate-spin text-subtle" />
-            ) : currentPlan ? (
-              <span className="font-semibold">
-                {currentPlan.name} · ${currentPlan.price.monthly}/month
-              </span>
-            ) : (
-              "No active plan"
-            )}
-          </p>
-        </div>
-        <Link
-          href="/pricing"
-          className={
-            loaded && !currentPlan
-              ? "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
-              : "mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
-          }
-        >
-          {loaded && !currentPlan ? "Choose a plan" : "View other plans"}
+    <SettingsRow
+      label={
+        <>
+          Current plan
+          {loaded && isEnding && (
+            <Badge variant="warning">
+              <Clock className="h-3 w-3" />
+              Ending soon
+            </Badge>
+          )}
+        </>
+      }
+      description={
+        !loaded ? (
+          <Skeleton className="mt-1 h-3.5 w-32 rounded-full" />
+        ) : currentPlan ? (
+          <span className="tabular-nums">
+            {currentPlan.name} · ${currentPlan.price.monthly}/month
+          </span>
+        ) : (
+          "No active plan"
+        )
+      }
+      control={
+        <Link href="/pricing" className={settingsButton(loaded && !currentPlan ? "primary" : "secondary")}>
+          {loaded && !currentPlan ? "Choose a plan" : "View plans"}
         </Link>
-      </div>
-    </div>
+      }
+    />
   );
 }

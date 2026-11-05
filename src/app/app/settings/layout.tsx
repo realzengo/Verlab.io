@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { hasActiveSubscription } from "@/lib/subscription-status";
 import { cn } from "@/lib/utils";
@@ -16,9 +15,9 @@ interface NavEntry {
 const ALL_TABS: NavEntry[] = [
   { label: "Account", href: "/settings" },
   { label: "Subscription", href: "/settings/subscription" },
-  { label: "Credit History", href: "/settings/credits" },
-  { label: "Password & Security", href: "/settings/security" },
-  { label: "MCP", href: "/settings/mcp" },
+  { label: "Credits", href: "/settings/credits" },
+  { label: "Security", href: "/settings/security" },
+  { label: "Connected apps", href: "/settings/mcp" },
 ];
 
 // A paywalled account (no active subscription and no spendable credits) has
@@ -28,7 +27,7 @@ const ALL_TABS: NavEntry[] = [
 // account never gets a flash of tabs it shouldn't see while the profile loads.
 const RESTRICTED_TABS: NavEntry[] = [
   { label: "Account", href: "/settings" },
-  { label: "Password & Security", href: "/settings/security" },
+  { label: "Security", href: "/settings/security" },
 ];
 const RESTRICTED_PATHS = new Set(RESTRICTED_TABS.map((tab) => tab.href));
 
@@ -74,13 +73,13 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="bg-white text-heading dark:bg-[#000000]">
-      <div className="w-full pt-6 px-4 pb-12 sm:pt-10 sm:px-6 sm:pb-16 md:px-8">
-        <Link href="/" className="text-xl font-medium flex items-center gap-2 mb-4 sm:text-2xl sm:mb-6">
-          <ArrowLeft className="h-5 w-5" />
-          Settings
-        </Link>
+      <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">Settings</h1>
 
-        <nav className="border-b border-hairline mb-6 flex gap-4 overflow-x-auto sm:mb-8 sm:gap-6">
+        <nav
+          aria-label="Settings"
+          className="-mx-4 mt-5 flex gap-6 overflow-x-auto border-b border-hairline px-4 [scrollbar-width:none] sm:mx-0 sm:px-0"
+        >
           {tabs.map((tab) => {
             const active = pathname === tab.href;
             return (
@@ -89,10 +88,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "whitespace-nowrap text-sm pb-2 px-1 transition-colors",
+                  "-mb-px flex h-10 shrink-0 items-center whitespace-nowrap border-b-2 text-sm transition-colors duration-150",
                   active
-                    ? "border-b-2 border-primary text-heading font-medium"
-                    : "text-subtle hover:text-heading"
+                    ? "border-primary font-medium text-heading"
+                    : "border-transparent text-subtle hover:text-heading"
                 )}
               >
                 {tab.label}
@@ -101,7 +100,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           })}
         </nav>
 
-        {children}
+        <div className="mt-8">{children}</div>
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { checkPasswordStrength } from "@/lib/validation";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SettingsRow, SettingsSection, settingsButton, settingsInput } from "@/components/settings/SettingsSection";
 
 type StrengthLevel = "empty" | "weak" | "fair" | "strong";
 
@@ -26,40 +28,52 @@ const STRENGTH_COPY: Record<StrengthLevel, { label: string; className: string; b
   strong: { label: "Strong", className: "bg-success", bars: 3 },
 };
 
-function PasswordInput({
+function PasswordField({
+  label,
   value,
   onChange,
   placeholder,
   autoComplete,
   autoFocus,
+  children,
 }: {
+  label: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder: string;
+  placeholder?: string;
   autoComplete: string;
   autoFocus?: boolean;
+  children?: React.ReactNode;
 }) {
+  const id = useId();
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative">
-      <input
-        type={visible ? "text" : "password"}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        autoFocus={autoFocus}
-        className="w-full rounded-md border border-hairline bg-surface px-3 py-2 pr-10 sm:py-1.5 text-sm text-heading focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-      />
-      <button
-        type="button"
-        onClick={() => setVisible((v) => !v)}
-        tabIndex={-1}
-        className="absolute inset-y-0 right-0 flex items-center px-3 text-subtle hover:text-heading"
-        aria-label={visible ? "Hide password" : "Show password"}
-      >
-        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium leading-5 text-heading">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          className={cn(settingsInput(), "pr-10")}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          tabIndex={-1}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-subtle transition-colors duration-150 hover:text-heading"
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOff className="h-4 w-4" strokeWidth={1.75} /> : <Eye className="h-4 w-4" strokeWidth={1.75} />}
+        </button>
+      </div>
+      {children}
     </div>
   );
 }
@@ -98,11 +112,11 @@ export function PasswordSecurityTab() {
     setSaved(false);
 
     if (hasPassword && !currentPassword) {
-      setError("Enter your current password.");
+      setError("Enter your current password");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Passwords don't match.");
+      setError("Passwords don't match");
       return;
     }
     const strength = checkPasswordStrength(newPassword, email);
@@ -143,119 +157,108 @@ export function PasswordSecurityTab() {
   const strengthInfo = STRENGTH_COPY[strength];
 
   return (
-    <div>
-      <h2 className="font-bold text-lg mb-6 mt-10 first:mt-0 text-heading">Security</h2>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-hairline last:border-0">
-        <div className="flex-1">
-          <p className="font-medium text-heading text-sm sm:text-base">Password</p>
-          <p className="text-body text-xs sm:text-sm mt-0.5">
-            {hasPassword === false
-              ? "You currently sign in with Google. Set a password to also sign in with your email."
-              : "Keep your account protected with a strong, unique password."}
-          </p>
-
-          {hasPassword === null ? (
-            <Skeleton className="mt-3 h-9 w-64 rounded-md" />
-          ) : editing ? (
-            <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2.5 max-w-sm">
-              {hasPassword && (
-                <PasswordInput
-                  value={currentPassword}
-                  onChange={setCurrentPassword}
-                  placeholder="Current password"
-                  autoComplete="current-password"
-                  autoFocus
-                />
-              )}
-              <PasswordInput
-                value={newPassword}
-                onChange={setNewPassword}
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
-                autoFocus={!hasPassword}
+    <SettingsSection title="Sign-in" description="How you sign in to Verlab">
+      <SettingsRow
+        label="Password"
+        description={
+          hasPassword === null ? (
+            <Skeleton className="mt-1 h-3.5 w-64 max-w-full rounded-full" />
+          ) : hasPassword ? (
+            "Use a strong password you don't use anywhere else"
+          ) : (
+            "You sign in with Google. Set a password to also sign in with your email."
+          )
+        }
+        control={
+          hasPassword === null ? (
+            <Skeleton className="h-8 w-20 rounded-lg" />
+          ) : (
+            !editing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSaved(false);
+                  setEditing(true);
+                }}
+                className={settingsButton()}
+              >
+                {hasPassword ? "Change password" : "Set password"}
+              </button>
+            )
+          )
+        }
+      >
+        {editing && (
+          <form onSubmit={handleSubmit} className="mt-4 flex max-w-sm flex-col gap-4">
+            {hasPassword && (
+              <PasswordField
+                label="Current password"
+                value={currentPassword}
+                onChange={setCurrentPassword}
+                autoComplete="current-password"
+                autoFocus
               />
-
+            )}
+            <PasswordField
+              label="New password"
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+              autoFocus={!hasPassword}
+            >
               {newPassword && (
-                <div className="flex flex-col gap-1">
-                  <div className="flex gap-1">
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex flex-1 gap-1">
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className={`h-1 flex-1 rounded-full transition-colors ${
+                        className={cn(
+                          "h-1 flex-1 rounded-full transition-colors duration-150",
                           i < strengthInfo.bars ? strengthInfo.className : "bg-hairline"
-                        }`}
+                        )}
                       />
                     ))}
                   </div>
                   {strengthInfo.label && (
                     <span
-                      className={`text-xs font-medium ${
+                      className={cn(
+                        "w-12 text-right text-xs font-medium",
                         strength === "strong" ? "text-success" : strength === "fair" ? "text-warning" : "text-danger"
-                      }`}
+                      )}
                     >
                       {strengthInfo.label}
                     </span>
                   )}
                 </div>
               )}
+            </PasswordField>
+            <PasswordField
+              label="Confirm new password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              autoComplete="new-password"
+            />
 
-              <PasswordInput
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                placeholder="Re-enter your new password"
-                autoComplete="new-password"
-              />
+            {error && <p className="text-sm text-danger">{error}</p>}
 
-              {error && <p className="text-sm text-danger">{error}</p>}
-
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 sm:py-1.5 bg-heading text-app rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              {hasPassword ? (
-                <p className="mt-2 text-heading text-sm tracking-widest">••••••••</p>
-              ) : (
-                <p className="mt-2 text-subtle text-sm italic">No password set</p>
-              )}
-              {saved && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-success">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Password updated. You&apos;ve been kept signed in here; other devices were signed out.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        {hasPassword !== null && !editing && (
-          <button
-            type="button"
-            onClick={() => {
-              setSaved(false);
-              setEditing(true);
-            }}
-            className="mt-3 sm:mt-0 self-start px-4 py-2 sm:py-1.5 border border-hairline rounded-md text-sm font-medium hover:bg-surface transition-colors"
-          >
-            {hasPassword ? "Change" : "Set password"}
-          </button>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={isSaving} className={settingsButton("primary", "md")}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save password"}
+              </button>
+              <button type="button" onClick={resetForm} className={settingsButton("secondary", "md")}>
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
-      </div>
-    </div>
+        {!editing && saved && (
+          <p className="mt-2 flex items-start gap-1.5 text-sm text-success">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            Password updated. You stayed signed in here, and other devices were signed out.
+          </p>
+        )}
+      </SettingsRow>
+    </SettingsSection>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
+import { settingsButton } from "@/components/settings/SettingsSection";
 
 export function RefreshHistoryButton() {
   const router = useRouter();
@@ -22,9 +23,9 @@ export function RefreshHistoryButton() {
       type="button"
       onClick={handleRefresh}
       disabled={isPending}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-heading transition-colors hover:bg-app disabled:opacity-60"
+      className={settingsButton()}
     >
-      <RefreshCw className={`h-3.5 w-3.5 ${isPending || justRefreshed ? "animate-spin" : ""}`} />
+      <RefreshCw className={`h-4 w-4 text-subtle ${isPending || justRefreshed ? "animate-spin" : ""}`} strokeWidth={1.75} />
       Refresh
     </button>
   );

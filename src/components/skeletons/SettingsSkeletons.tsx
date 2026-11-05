@@ -5,31 +5,41 @@ import { cn } from "@/lib/utils";
 // Loading screens for the settings tabs. The tab skeletons render inside
 // settings/layout.tsx (which keeps its own header and tab bar on screen), so
 // they cover the tab content only; SettingsShellSkeleton stands in for that
-// layout when the whole settings segment is still loading.
+// layout when the whole settings segment is still loading. Shapes mirror
+// components/settings/SettingsSection.tsx -- update both together.
 
-function SectionHeadingSkeleton({ first = false }: { first?: boolean }) {
-  return <Skeleton className={cn("mb-6 h-6 w-32 rounded-full", first ? "mt-0" : "mt-10")} />;
-}
-
-/** Label + description on the left, action button on the right. */
-function SettingsRowSkeleton() {
+/** Label + description on the left, a button on the right. */
+function RowSkeleton({ labelWidth = "w-28", descriptionWidth = "w-56" }: { labelWidth?: string; descriptionWidth?: string }) {
   return (
-    <div className="flex flex-col justify-between border-b border-hairline py-4 last:border-0 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <div className="flex flex-col gap-2">
-        <Skeleton className="h-4 w-28 rounded-full" />
-        <Skeleton className="h-3 w-64 max-w-full rounded-full" />
+        <Skeleton className={cn("h-3.5 rounded-full", labelWidth)} />
+        <Skeleton className={cn("h-3 max-w-full rounded-full", descriptionWidth)} />
       </div>
-      <Skeleton className="mt-3 h-8 w-20 shrink-0 rounded-md sm:mt-0" />
+      <Skeleton className="h-8 w-20 shrink-0 rounded-lg" />
     </div>
   );
 }
 
-function SettingsRowsSkeleton({ count }: { count: number }) {
+function SectionSkeleton({
+  description = false,
+  action = false,
+  children,
+}: {
+  description?: boolean;
+  action?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div>
-      {Array.from({ length: count }, (_, i) => (
-        <SettingsRowSkeleton key={i} />
-      ))}
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-28 rounded-full" />
+          {description && <Skeleton className="h-3.5 w-64 max-w-full rounded-full" />}
+        </div>
+        {action && <Skeleton className="h-8 w-28 shrink-0 rounded-lg" />}
+      </div>
+      <div className="mt-4 divide-y divide-hairline rounded-xl border border-hairline bg-surface">{children}</div>
     </div>
   );
 }
@@ -37,14 +47,16 @@ function SettingsRowsSkeleton({ count }: { count: number }) {
 export function SettingsShellSkeleton({ children }: { children: ReactNode }) {
   return (
     <div className="bg-white dark:bg-[#000000]">
-      <div className="w-full px-4 pt-6 pb-12 sm:px-6 sm:pt-10 sm:pb-16 md:px-8">
-        <Skeleton className="mb-4 h-7 w-32 rounded-full sm:mb-6 sm:h-8" />
-        <div className="mb-6 flex gap-4 overflow-hidden border-b border-hairline sm:mb-8 sm:gap-6">
-          {["w-16", "w-24", "w-28", "w-36", "w-10"].map((width) => (
-            <Skeleton key={width} className={cn("mb-2.5 h-4 shrink-0 rounded-full", width)} />
+      <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
+        <Skeleton className="h-7 w-32 rounded-lg sm:h-8" />
+        <div className="-mx-4 mt-5 flex gap-6 overflow-hidden border-b border-hairline px-4 sm:mx-0 sm:px-0">
+          {["w-16", "w-24", "w-14", "w-16", "w-28"].map((width, i) => (
+            <div key={i} className="flex h-10 shrink-0 items-center">
+              <Skeleton className={cn("h-3.5 rounded-full", width)} />
+            </div>
           ))}
         </div>
-        {children}
+        <div className="mt-8">{children}</div>
       </div>
     </div>
   );
@@ -52,23 +64,28 @@ export function SettingsShellSkeleton({ children }: { children: ReactNode }) {
 
 export function AccountSettingsSkeleton() {
   return (
-    <div role="status" aria-label="Loading">
-      <div className="mb-10 flex items-center gap-4">
-        <Skeleton className="h-16 w-16 shrink-0 rounded-full" />
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-5 w-32 rounded-full" />
-          <Skeleton className="h-4 w-48 rounded-full" />
+    <div role="status" aria-label="Loading" className="flex flex-col gap-10">
+      <SectionSkeleton description>
+        <div className="flex items-center gap-4 px-5 py-4">
+          <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-3.5 w-32 rounded-full" />
+            <Skeleton className="h-3.5 w-48 rounded-full" />
+          </div>
         </div>
-      </div>
+        <RowSkeleton labelWidth="w-20" />
+        <RowSkeleton labelWidth="w-12" descriptionWidth="w-60" />
+      </SectionSkeleton>
 
-      <SectionHeadingSkeleton />
-      <SettingsRowsSkeleton count={2} />
+      <SectionSkeleton>
+        <RowSkeleton descriptionWidth="w-32" />
+        <RowSkeleton labelWidth="w-24" descriptionWidth="w-64" />
+      </SectionSkeleton>
 
-      <SectionHeadingSkeleton />
-      <SettingsRowsSkeleton count={2} />
-
-      <SectionHeadingSkeleton />
-      <SettingsRowsSkeleton count={1} />
+      <SectionSkeleton>
+        <RowSkeleton labelWidth="w-16" descriptionWidth="w-52" />
+        <RowSkeleton descriptionWidth="w-80" />
+      </SectionSkeleton>
     </div>
   );
 }
@@ -76,48 +93,41 @@ export function AccountSettingsSkeleton() {
 export function SubscriptionSettingsSkeleton() {
   return (
     <div role="status" aria-label="Loading">
-      <SectionHeadingSkeleton first />
-      <SettingsRowsSkeleton count={2} />
+      <SectionSkeleton description>
+        <RowSkeleton labelWidth="w-20" descriptionWidth="w-60" />
+        <RowSkeleton labelWidth="w-36" descriptionWidth="w-72" />
+      </SectionSkeleton>
     </div>
   );
 }
 
 export function CreditsSettingsSkeleton() {
   return (
-    <div role="status" aria-label="Loading">
-      <SectionHeadingSkeleton first />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {[0, 1].map((i) => (
-          <div key={i} className="rounded-xl border border-hairline bg-surface p-5">
-            <div className="flex items-center justify-between gap-3">
-              <Skeleton className="h-4 w-28 rounded-full" />
-              <Skeleton className="h-7 w-20 rounded-full" />
-            </div>
-            <Skeleton className="mt-4 h-8 w-24 rounded-lg" />
+    <div role="status" aria-label="Loading" className="flex flex-col gap-10">
+      <SectionSkeleton>
+        <div className="flex items-end justify-between gap-6 px-5 py-5">
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-3.5 w-28 rounded-full" />
+            <Skeleton className="h-8 w-32 rounded-lg" />
           </div>
-        ))}
-      </div>
-
-      <div className="mt-10 mb-6 flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-48 rounded-full" />
-          <Skeleton className="h-3.5 w-56 max-w-full rounded-full" />
+          <Skeleton className="h-8 w-24 shrink-0 rounded-lg" />
         </div>
-        <Skeleton className="h-8 w-24 shrink-0 rounded-lg" />
-      </div>
+        <RowSkeleton labelWidth="w-24" descriptionWidth="w-12" />
+      </SectionSkeleton>
 
-      <div className="overflow-hidden rounded-xl border border-hairline">
-        {Array.from({ length: 6 }, (_, row) => (
-          <div
-            key={row}
-            className={cn("grid grid-cols-4 gap-4 border-b border-hairline px-4 last:border-0", row === 0 ? "py-3.5" : "py-4")}
-          >
-            {[0, 1, 2, 3].map((col) => (
-              <Skeleton key={col} className={cn("rounded-full", row === 0 ? "h-2.5 w-14" : "h-3.5 w-3/4")} />
-            ))}
+      <SectionSkeleton description action>
+        <div className="flex h-10 items-center justify-between px-5">
+          <Skeleton className="h-2.5 w-14 rounded-full" />
+          <Skeleton className="h-2.5 w-12 rounded-full" />
+        </div>
+        {["w-40", "w-32", "w-48", "w-36", "w-44"].map((width, i) => (
+          <div key={i} className="flex items-center justify-between gap-4 px-5 py-4">
+            <Skeleton className={cn("h-3.5 rounded-full", width)} />
+            <Skeleton className="hidden h-3.5 w-32 rounded-full sm:block" />
+            <Skeleton className="h-3.5 w-12 rounded-full" />
           </div>
         ))}
-      </div>
+      </SectionSkeleton>
     </div>
   );
 }
@@ -125,12 +135,9 @@ export function CreditsSettingsSkeleton() {
 export function SecuritySettingsSkeleton() {
   return (
     <div role="status" aria-label="Loading">
-      <SectionHeadingSkeleton first />
-      <div className="border-b border-hairline py-4">
-        <Skeleton className="h-4 w-24 rounded-full" />
-        <Skeleton className="mt-2 h-3 w-64 max-w-full rounded-full" />
-        <Skeleton className="mt-3 h-9 w-64 max-w-full rounded-md" />
-      </div>
+      <SectionSkeleton description>
+        <RowSkeleton labelWidth="w-20" descriptionWidth="w-72" />
+      </SectionSkeleton>
     </div>
   );
 }
@@ -138,9 +145,16 @@ export function SecuritySettingsSkeleton() {
 export function ConnectedAppsSettingsSkeleton() {
   return (
     <div role="status" aria-label="Loading">
-      <Skeleton className="h-6 w-40 rounded-full" />
-      <Skeleton className="mt-2 mb-6 h-4 w-80 max-w-full rounded-full" />
-      <Skeleton className="h-[76px] w-full rounded-2xl" />
+      <SectionSkeleton description action>
+        <div className="flex items-center gap-3 px-5 py-4">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-28 rounded-full" />
+            <Skeleton className="h-3 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-8 w-24 shrink-0 rounded-lg" />
+        </div>
+      </SectionSkeleton>
     </div>
   );
 }

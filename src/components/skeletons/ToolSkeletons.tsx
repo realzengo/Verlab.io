@@ -90,20 +90,20 @@ export function DownloaderSkeleton() {
       className="mx-auto flex min-h-[calc(100dvh-4.5rem)] w-full max-w-2xl flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24"
     >
       <div className="flex flex-col items-center">
-        <Skeleton className="h-9 w-64 max-w-full rounded-xl sm:h-16 sm:w-[28rem]" />
-        <Skeleton className="mt-3 h-4 w-72 max-w-full rounded-full sm:h-5 sm:w-96" />
+        <Skeleton className="h-7 w-52 max-w-full rounded-lg sm:h-8 sm:w-60" />
+        <Skeleton className="mt-2.5 h-3.5 w-72 max-w-full rounded-full sm:w-[30rem]" />
       </div>
 
-      <div className="mt-6 rounded-[2rem] border border-hairline bg-surface p-5 shadow-card sm:mt-12 sm:p-9">
-        <Skeleton className="h-14 w-full rounded-full sm:h-16" />
-        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:mt-9 sm:flex-row">
-          <Skeleton className="h-3 w-16 rounded-full" />
-          <div className="flex items-center gap-1 sm:gap-2">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-6 w-20 rounded-full sm:h-7 sm:w-24" />
-            ))}
+      <Skeleton className="mt-8 h-[62px] w-full rounded-2xl sm:mt-10" />
+
+      <div className="mt-4 flex items-center justify-center gap-4">
+        <Skeleton className="hidden h-3.5 w-16 rounded-full sm:block" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded-md" />
+            <Skeleton className="h-3.5 w-14 rounded-full" />
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );
