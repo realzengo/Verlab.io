@@ -6,20 +6,17 @@ import { cn } from "@/lib/utils";
 // around the blue Verlab tile, an ink-gradient display title, the
 // double-bezel panel with mono step chips, and the ink pill CTA.
 
-/** A neutral app-icon tile: top-lit surface, hairline ring, 1px bevels, stacked soft shadows. */
+/**
+ * A neutral app-icon tile: a flat face inside a crisp 1px hairline, a faint
+ * lit top edge, and a soft drop shadow that falls onto whatever it overlaps.
+ * Sizeless -- set width, height and radius where it's used.
+ */
 export const APP_TILE =
-  "relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] " +
-  "bg-gradient-to-b from-white to-[#EDEFF3] " +
-  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04),0_4px_8px_-2px_rgba(15,23,42,0.08),0_14px_28px_-10px_rgba(15,23,42,0.18)] " +
-  "dark:from-[#27272C] dark:to-[#131316] " +
-  "dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.45),0_2px_4px_rgba(0,0,0,0.5),0_18px_34px_-12px_rgba(0,0,0,0.9)]";
-
-/** Soft top-left light on a tile's face. */
-export function TileSpecular() {
-  return (
-    <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(110%_65%_at_30%_0%,rgba(255,255,255,0.95),transparent_65%)] dark:bg-[radial-gradient(110%_65%_at_30%_0%,rgba(255,255,255,0.09),transparent_65%)]" />
-  );
-}
+  "relative flex items-center justify-center overflow-hidden border " +
+  "border-[#E3E5E9] bg-white " +
+  "shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_2px_rgba(15,23,42,0.06),0_10px_24px_-8px_rgba(15,23,42,0.16)] " +
+  "dark:border-[#323436] dark:bg-[#1B1D20] " +
+  "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_2px_6px_rgba(0,0,0,0.5),0_16px_32px_-8px_rgba(0,0,0,0.75)]";
 
 /**
  * The Verlab tile, drawn in code like a real app icon: a deep blue body lit

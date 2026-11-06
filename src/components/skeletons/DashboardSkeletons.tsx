@@ -234,12 +234,13 @@ export function LibraryItemSkeleton() {
   );
 }
 
-// Mirrors McpConnectPage's tile row: horizontal offset, drop, tilt and scale
-// per distance from the center tile.
+// Mirrors McpConnectPage's tile fan: the center line every tile hangs from,
+// then per distance from the center tile its offset, tilt, size and radius.
+const MCP_FAN_MID_Y = 58;
 const MCP_FAN_STEPS = [
-  { x: 90, y: 0, rotate: 5, scale: 1 },
-  { x: 158, y: 2, rotate: 10, scale: 0.97 },
-  { x: 214, y: 10, rotate: 16, scale: 0.9 },
+  { x: 83, y: -5, rotate: 7, size: 92, radius: 16 },
+  { x: 150, y: -1, rotate: 14.5, size: 83, radius: 14 },
+  { x: 203, y: 9, rotate: 22, size: 74, radius: 13 },
 ];
 
 export function McpSkeleton() {
@@ -247,22 +248,30 @@ export function McpSkeleton() {
     <div role="status" aria-label="Loading" className="w-full pb-4">
       {/* Hero: tile fan, title, subtitle */}
       <div className="flex flex-col items-center pt-10 sm:pt-16">
-        <div className="relative h-[92px] w-full overflow-x-clip sm:h-[136px]">
-          <div className="absolute left-1/2 top-0 h-[136px] w-[560px] -translate-x-1/2 origin-top scale-[0.68] sm:scale-100">
+        <div className="relative h-[84px] w-full overflow-x-clip sm:h-[124px]">
+          <div className="absolute left-1/2 top-0 h-[124px] w-[520px] -translate-x-1/2 origin-top scale-[0.66] sm:scale-100">
             {/* bg-app backings keep overlapping translucent tiles from stacking darker. */}
             {[-1, 1].flatMap((side) =>
-              MCP_FAN_STEPS.map(({ x, y, rotate, scale }, i) => (
+              MCP_FAN_STEPS.map(({ x, y, rotate, size, radius }, i) => (
                 <div
                   key={`${side}-${i}`}
-                  className="absolute left-1/2 top-3 -ml-11 rounded-[22px] bg-app"
-                  style={{ transform: `translate(${side * x}px, ${y}px) rotate(${side * rotate}deg) scale(${scale})`, zIndex: 30 - i * 10 }}
+                  className="absolute left-1/2 bg-app"
+                  style={{
+                    top: MCP_FAN_MID_Y,
+                    width: size,
+                    height: size,
+                    margin: `${-size / 2}px 0 0 ${-size / 2}px`,
+                    borderRadius: radius,
+                    transform: `translate(${side * x}px, ${y}px) rotate(${side * rotate}deg)`,
+                    zIndex: 30 - i * 10,
+                  }}
                 >
-                  <Skeleton className="h-[88px] w-[88px] rounded-[22px]" />
+                  <Skeleton className="h-full w-full rounded-[inherit]" />
                 </div>
               ))
             )}
-            <div className="absolute left-1/2 top-0 z-40 -ml-14 rounded-[30px] bg-app">
-              <Skeleton className="h-28 w-28 rounded-[30px]" />
+            <div className="absolute left-1/2 top-0.5 z-40 -ml-14 rounded-[25px] bg-app">
+              <Skeleton className="h-28 w-28 rounded-[25px]" />
             </div>
           </div>
         </div>

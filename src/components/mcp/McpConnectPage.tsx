@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUp, ArrowUpRight, Check, Copy } from "lucide-react";
 import { ChatGPTMarkIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
-import { APP_TILE, TileSpecular, VerlabTile } from "@/components/brand/BrandKit";
+import { APP_TILE } from "@/components/brand/BrandKit";
 import { MCP_PATH } from "@/components/mcp/McpConnectSection";
 import { cn } from "@/lib/utils";
 
@@ -27,31 +27,36 @@ const ASSISTANTS: Record<
 
 type FanLogo = { key: string; render: () => ReactNode };
 
-const LOGO = "h-10 w-10 object-contain drop-shadow-[0_1px_1px_rgba(15,23,42,0.12)]";
+// Logos fill their slot; each tile sizes the slot to half its own width.
+const LOGO = "h-full w-full object-contain";
 
 // eslint-disable-next-line @next/next/no-img-element -- static /public asset, no resize needed
 const img = (src: string, className?: string) => <img src={src} alt="" className={cn(LOGO, className)} />;
 
-// Outer → inner on each side. The assistants sit next to the center (they
-// are what you connect), the generation models fan out behind them.
+// Left: outer → inner. Right: inner → outer.
 const LEFT_LOGOS: FanLogo[] = [
   { key: "gemini", render: () => img("/logos/ai/gemini.svg") },
-  { key: "seedance", render: () => img("/logos/ai/seedance.webp") },
+  { key: "grok", render: () => img("/logos/ai/grok.svg", "dark:invert") },
   { key: "chatgpt", render: () => <ChatGPTMarkIcon className={cn(LOGO, "text-heading")} /> },
 ];
 const RIGHT_LOGOS: FanLogo[] = [
-  { key: "claude", render: () => <ClaudeMarkIcon className={LOGO} /> },
   { key: "kling", render: () => img("/logos/ai/kling.svg") },
-  { key: "grok", render: () => img("/logos/ai/grok.svg", "dark:invert") },
+  { key: "seedance", render: () => img("/logos/ai/seedance.webp") },
+  { key: "claude", render: () => <ClaudeMarkIcon className={LOGO} /> },
 ];
 
-// Per distance from the center: horizontal offset, drop, tilt and scale.
-// A tight, nearly flat row -- each tile tucks about a quarter under the next
-// one in, and only the tilt grows toward the ends -- rather than a deep arc.
+// The Verlab app icon in the middle, and the center line every tile hangs from.
+const FAN_CENTER_SIZE = 112;
+const FAN_MID_Y = 58;
+
+// Per distance from the center: offset of the tile's center from the Verlab
+// tile's, tilt, size and corner radius. A shallow arc of big, heavily
+// overlapped tiles -- each one shrinks, tilts further and drops a little, and
+// tucks about half under the next one in.
 const FAN_STEPS = [
-  { x: 90, y: 0, rotate: 5, scale: 1 },
-  { x: 158, y: 2, rotate: 10, scale: 0.97 },
-  { x: 214, y: 10, rotate: 16, scale: 0.9 },
+  { x: 83, y: -5, rotate: 7, size: 92, radius: 16 },
+  { x: 150, y: -1, rotate: 14.5, size: 83, radius: 14 },
+  { x: 203, y: 9, rotate: 22, size: 74, radius: 13 },
 ];
 
 // Static by design -- the deck renders in place, no entrance or idle motion.
@@ -64,29 +69,45 @@ function IconFan() {
   return (
     // overflow-x-clip: the fixed-width deck is wider than a phone; clip it
     // sideways without cutting off the tiles' shadows below.
-    <div aria-hidden className="relative h-[92px] w-full overflow-x-clip sm:h-[136px]">
+    <div aria-hidden className="relative h-[84px] w-full overflow-x-clip sm:h-[124px]">
       {/* Scaled as one piece so the arc keeps its proportions on phones. */}
-      <div className="absolute left-1/2 top-0 h-[136px] w-[560px] -translate-x-1/2 origin-top scale-[0.68] sm:scale-100">
+      <div className="absolute left-1/2 top-0 h-[124px] w-[520px] -translate-x-1/2 origin-top scale-[0.66] sm:scale-100">
         {tiles.map(({ logo, step, side }) => {
-          const { x, y, rotate, scale } = FAN_STEPS[step - 1];
+          const { x, y, rotate, size, radius } = FAN_STEPS[step - 1];
           return (
             <div
               key={logo.key}
-              className="absolute left-1/2 top-3 -ml-11"
+              className={APP_TILE}
               style={{
+                position: "absolute",
+                left: "50%",
+                top: FAN_MID_Y,
+                width: size,
+                height: size,
+                margin: `${-size / 2}px 0 0 ${-size / 2}px`,
+                borderRadius: radius,
                 zIndex: 30 - step * 10,
-                transform: `translate(${side * x}px, ${y}px) rotate(${side * rotate}deg) scale(${scale})`,
+                transform: `translate(${side * x}px, ${y}px) rotate(${side * rotate}deg)`,
               }}
             >
-              <div className={APP_TILE}>
-                <TileSpecular />
-                <span className="relative">{logo.render()}</span>
-              </div>
+              <span className="flex" style={{ width: size / 2, height: size / 2 }}>
+                {logo.render()}
+              </span>
             </div>
           );
         })}
 
-        <VerlabTile className="absolute left-1/2 top-0 z-40 -ml-14" />
+        {/* The icon PNG carries its own shape and rim, so its shadow is a
+            drop-shadow that follows the alpha rather than a box-shadow. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- static brand icon */}
+        <img
+          src="/logos/verlab-app-icon.png"
+          alt=""
+          width={FAN_CENTER_SIZE}
+          height={FAN_CENTER_SIZE}
+          className="absolute left-1/2 z-40 [filter:drop-shadow(0_1px_2px_rgba(15,23,42,0.14))_drop-shadow(0_12px_18px_rgba(15,23,42,0.2))] dark:[filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.55))_drop-shadow(0_16px_24px_rgba(0,0,0,0.75))]"
+          style={{ top: FAN_MID_Y - FAN_CENTER_SIZE / 2, marginLeft: -FAN_CENTER_SIZE / 2 }}
+        />
       </div>
     </div>
   );
@@ -145,7 +166,14 @@ export function McpConnectPage() {
   return (
     <div className="w-full pb-4">
       {/* Hero */}
-      <section className="flex flex-col items-center pt-10 text-center sm:pt-16">
+      {/* isolate: lets the grid sit at -z-10, under the title, without dropping behind the page. */}
+      <section className="relative isolate flex flex-col items-center pt-10 text-center sm:pt-16">
+        {/* Faint grid centered on the deck, fading out at its own edges so it
+            never reaches the title. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-[-22px] -z-10 mx-auto h-[200px] max-w-[760px] bg-[linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] bg-size-[56px_56px] bg-position-[50%_50%] mask-[radial-gradient(closest-side,#000_50%,transparent)] sm:top-[2px] sm:h-[240px] dark:bg-[linear-gradient(to_right,rgba(255,255,255,0.075)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.075)_1px,transparent_1px)]"
+        />
         <IconFan />
         <h1 className="mt-8 bg-gradient-to-b from-[#0B0D12] to-[#0B0D12]/60 bg-clip-text pb-1 text-[44px] font-semibold leading-[1.02] tracking-[-0.045em] text-transparent sm:mt-10 sm:text-[64px] lg:text-[72px] dark:from-white dark:to-white/55">
           Verlab MCP
