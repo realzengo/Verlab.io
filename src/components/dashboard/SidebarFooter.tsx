@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Search, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { railFade } from "@/components/dashboard/SidebarCollapsedContext";
 
 export function SidebarFooter({
   collapsed,
@@ -15,29 +15,25 @@ export function SidebarFooter({
   onOpenSearch: () => void;
   onNavigate?: () => void;
 }) {
-  const hideLabel = collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[120px] lg:opacity-100";
+  const fade = railFade(collapsed);
 
   return (
-    <div className={cn("flex flex-col gap-1 border-t border-hairline p-3", collapsed && "lg:px-2.5")}>
+    <div className="flex flex-col gap-1 border-t border-hairline p-3">
       <button
         type="button"
         onClick={onOpenSearch}
         aria-label="Search"
         title={collapsed ? "Search" : undefined}
-        className={cn(
-          "font-ui flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-hairline bg-surface px-2.5 text-[13px] text-subtle transition-colors hover:text-heading dark:bg-white/[0.03]",
-          collapsed && "lg:justify-center lg:gap-0 lg:px-0"
-        )}
+        className="font-ui flex h-9 w-full cursor-pointer items-center gap-2.5 overflow-hidden rounded-lg border border-hairline bg-surface px-2.5 text-[13px] text-subtle transition-colors hover:text-heading dark:bg-white/[0.03]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className={cn("overflow-hidden whitespace-nowrap text-left transition-all duration-300 ease-in-out", hideLabel, !collapsed && "flex-1")}>
-          Search
-        </span>
-        {!collapsed && (
-          <kbd className="ml-auto hidden shrink-0 rounded border border-hairline bg-app px-1.5 py-px font-sans text-[10px] text-subtle lg:inline-block">
-            ⌘K
-          </kbd>
-        )}
+        <span className={`flex-1 text-left ${fade}`}>Search</span>
+        <kbd
+          aria-hidden="true"
+          className={`ml-auto hidden shrink-0 rounded border border-hairline bg-app px-1.5 py-px font-sans text-[10px] text-subtle lg:inline-block ${fade}`}
+        >
+          ⌘K
+        </kbd>
       </button>
 
       {/* Only admins see this; a plain row like the rest of the rail, so the
@@ -48,13 +44,10 @@ export function SidebarFooter({
           onClick={onNavigate}
           aria-label="Admin dashboard"
           title={collapsed ? "Admin" : undefined}
-          className={cn(
-            "font-ui group flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[14px] font-medium text-body transition-colors hover:bg-(--app-fill) hover:text-heading",
-            collapsed && "lg:justify-center lg:gap-0 lg:px-0"
-          )}
+          className="font-ui group flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-lg px-2.5 text-[14px] font-medium text-body transition-colors hover:bg-(--app-fill) hover:text-heading"
         >
           <ShieldCheck className="h-[18px] w-[18px] shrink-0 text-subtle group-hover:text-body" aria-hidden="true" />
-          <span className={cn("overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out", hideLabel)}>Admin</span>
+          <span className={fade}>Admin</span>
         </Link>
       )}
     </div>

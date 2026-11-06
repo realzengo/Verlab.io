@@ -9,13 +9,14 @@ import { ChevronDown, ChevronRight, PanelLeftClose, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { SidebarFooter } from "@/components/dashboard/SidebarFooter";
 import { CommandPalette } from "@/components/dashboard/CommandPalette";
-import { useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
+import { railFade, useSidebarCollapsed } from "@/components/dashboard/SidebarCollapsedContext";
 import { cn } from "@/lib/utils";
 
 // One row recipe for every link in the rail. The active row is lifted onto
 // the card surface -- the same material as the page it opens -- instead of
-// being painted in the accent; the accent is left to its icon.
-const ROW = "font-ui group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40";
+// being painted in the accent; the accent is left to its icon. Padding never
+// changes with the rail, so every icon holds one axis while it opens/closes.
+const ROW = "font-ui group flex h-9 items-center gap-2.5 overflow-hidden rounded-lg px-2.5 text-[14px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40";
 const ROW_ACTIVE =
   "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_var(--color-hairline)] dark:bg-white/[0.07] dark:shadow-none";
 const ROW_IDLE = "text-body hover:bg-(--app-fill) hover:text-heading";
@@ -82,26 +83,18 @@ export function Sidebar({
     setPopoverGroup(label);
   };
 
-  const label = (text: string) => (
-    <span
-      className={cn(
-        "overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out",
-        collapsed ? "lg:max-w-0 lg:opacity-0" : "lg:max-w-[160px] lg:opacity-100"
-      )}
-    >
-      {text}
-    </span>
-  );
+  const label = (text: string) => <span className={railFade(collapsed)}>{text}</span>;
 
   return (
     <aside
       className={cn(
         "fixed inset-y-0 left-0 z-50 isolate flex h-screen w-60 flex-col border-r border-hairline bg-app transition-transform duration-300 ease-in-out dark:bg-[#09090b] lg:sticky lg:top-0 lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[60px]" : "lg:w-60"
+        collapsed ? "lg:w-16" : "lg:w-60"
       )}
     >
-      <div className={cn("flex h-16 shrink-0 items-center justify-between px-4", collapsed && "lg:justify-center lg:px-0")}>
+      {/* 15px gutter centres the 32px mark on the same axis as the nav icons. */}
+      <div className="relative flex h-16 shrink-0 items-center justify-between px-[15px]">
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
@@ -191,19 +184,22 @@ export function Sidebar({
         >
           <X className="h-4 w-4" />
         </button>
-        {!collapsed && (
+        <span
+          inert={collapsed}
+          className={cn("absolute right-3 top-1/2 hidden -translate-y-1/2 lg:block", railFade(collapsed), collapsed && "pointer-events-none")}
+        >
           <button
             type="button"
             onClick={() => setCollapsed(true)}
             aria-label="Collapse sidebar"
-            className="hidden h-7 w-7 items-center justify-center rounded-md text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading lg:flex"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>
-        )}
+        </span>
       </div>
 
-      <nav aria-label="Main" className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-2", collapsed && "lg:px-2.5")}>
+      <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-3 pt-2">
         {SIDEBAR_NAV.map((item) => {
           if (!item.subItems) {
             const active = pathname === item.href;
@@ -214,7 +210,7 @@ export function Sidebar({
                 onClick={onCloseMobile}
                 aria-current={active ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
-                className={cn(ROW, collapsed && "lg:justify-center lg:gap-0 lg:px-0", active ? ROW_ACTIVE : ROW_IDLE)}
+                className={cn(ROW, active ? ROW_ACTIVE : ROW_IDLE)}
               >
                 <item.icon
                   className={cn(ICON, active ? "text-primary dark:text-white" : "text-subtle group-hover:text-body")}
@@ -239,27 +235,20 @@ export function Sidebar({
                 onClick={() => (collapsed ? togglePopover(item.label) : toggleGroup(item.label))}
                 aria-expanded={collapsed ? popoverOpen : isOpen}
                 title={collapsed ? item.label : undefined}
-                className={cn(
-                  ROW,
-                  "w-full cursor-pointer justify-between",
-                  collapsed && "lg:justify-center lg:px-0",
-                  groupActive ? "text-heading" : ROW_IDLE
-                )}
+                className={cn(ROW, "w-full cursor-pointer justify-between", groupActive ? "text-heading" : ROW_IDLE)}
               >
-                <span className={cn("flex items-center gap-2.5", collapsed && "lg:gap-0")}>
+                <span className="flex items-center gap-2.5">
                   <item.icon
                     className={cn(ICON, groupActive ? "text-primary" : "text-subtle group-hover:text-body")}
                     aria-hidden="true"
                   />
                   {label(item.label)}
                 </span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-subtle transition-transform duration-300 ease-in-out",
-                    collapsed && "lg:hidden",
-                    !isOpen && "-rotate-90"
-                  )}
-                />
+                <span className={cn("flex shrink-0", railFade(collapsed))}>
+                  <ChevronDown
+                    className={cn("h-4 w-4 text-subtle transition-transform duration-300 ease-in-out", !isOpen && "-rotate-90")}
+                  />
+                </span>
               </button>
 
               {!collapsed && (
