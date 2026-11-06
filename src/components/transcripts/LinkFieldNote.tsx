@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { caveat } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 
@@ -6,7 +7,18 @@ import { cn } from "@/lib/utils";
 // It sits in the free space left of the field, so it only shows when the
 // page is wide enough to hold it (an @container query on the page root).
 // The arrow lands 6px short of the field's edge rather than touching it.
-export function LinkFieldNote() {
+// Two short lines fit the 150px note; longer copy runs into the arrow.
+export function LinkFieldNote({
+  children = (
+    <>
+      Turn any video
+      <br />
+      into a script
+    </>
+  ),
+}: {
+  children?: ReactNode;
+}) {
   return (
     <div
       aria-hidden
@@ -18,9 +30,7 @@ export function LinkFieldNote() {
           "absolute left-0 top-0 w-[150px] -rotate-[8deg] text-center text-[23px] leading-[1.05] text-body"
         )}
       >
-        Turn any video
-        <br />
-        into a script
+        {children}
       </p>
       <svg
         viewBox="0 0 160 104"

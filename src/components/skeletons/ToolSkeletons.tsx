@@ -70,26 +70,22 @@ export function BendSkeleton() {
 
 export function DownloaderSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading"
-      className="mx-auto flex min-h-[calc(100dvh-4.5rem)] w-full max-w-2xl flex-col justify-center px-4 py-6 sm:block sm:min-h-0 sm:py-24"
-    >
-      <div className="flex flex-col items-center">
-        <Skeleton className="h-7 w-52 max-w-full rounded-lg sm:h-8 sm:w-60" />
-        <Skeleton className="mt-2.5 h-3.5 w-72 max-w-full rounded-full sm:w-[30rem]" />
+    <div role="status" aria-label="Loading" className="flex w-full flex-col pb-16">
+      {/* Hero: ink title, one-line subtitle */}
+      <div className="flex flex-col items-center pt-10 sm:pt-16">
+        <Skeleton className="h-10 w-72 max-w-full rounded-xl sm:h-16 sm:w-[30rem]" />
+        <Skeleton className="mt-5 h-4 w-80 max-w-full rounded-full" />
+        <Skeleton className="mt-2 h-4 w-56 max-w-full rounded-full" />
       </div>
 
-      <Skeleton className="mt-8 h-[62px] w-full rounded-2xl sm:mt-10" />
-
-      <div className="mt-4 flex items-center justify-center gap-4">
-        <Skeleton className="hidden h-3.5 w-16 rounded-full sm:block" />
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Skeleton className="h-5 w-5 rounded-md" />
-            <Skeleton className="h-3.5 w-14 rounded-full" />
-          </div>
-        ))}
+      {/* Bezel link field and the status line under it */}
+      <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-12">
+        <div className="rounded-[22px] border border-hairline p-1.5">
+          <Skeleton className="h-[66px] w-full rounded-2xl" />
+        </div>
+        <div className="mt-4 flex h-6 justify-center">
+          <Skeleton className="h-4 w-72 max-w-full rounded-full" />
+        </div>
       </div>
     </div>
   );

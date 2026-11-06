@@ -326,6 +326,10 @@ export default function TranscriptsPage() {
           copied={copied}
           onCopy={handleCopy}
           onClose={() => setPopupOpen(false)}
+          onViewHistory={() => {
+            setPopupOpen(false);
+            setView("history");
+          }}
         />
       )}
 
