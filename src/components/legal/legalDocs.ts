@@ -12,18 +12,18 @@ export const LEGAL_DOCS: LegalDoc[] = [
     href: "/legal/terms",
     label: "Terms of Service",
     icon: FileText,
-    description: "The rules that govern your use of Verlab.",
+    description: "The rules that govern your use of Verlab",
   },
   {
     href: "/legal/privacy",
     label: "Privacy Policy",
     icon: ShieldCheck,
-    description: "What we collect, how we use it, and your rights.",
+    description: "What we collect, how we use it, and your rights",
   },
   {
     href: "/legal/refunds",
     label: "Refund Policy",
     icon: RefreshCw,
-    description: "Billing, cancellation, and our no-refund policy.",
+    description: "Billing, cancellation, and our no-refund policy",
   },
 ];

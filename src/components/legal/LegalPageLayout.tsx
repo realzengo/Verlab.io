@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { Calendar, ChevronRight, Layers } from "lucide-react";
 import { Nav } from "@/components/landing/Nav";
 import { Footer } from "@/components/landing/Footer";
+import { BezelPanel, INK_TITLE } from "@/components/brand/BrandKit";
 import { LegalToc } from "@/components/legal/LegalToc";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
+import { clauseNumber } from "@/components/legal/prose";
+import { cn } from "@/lib/utils";
 
 export type LegalSection = {
   id: string;
@@ -19,7 +21,6 @@ export type LegalHighlight = {
 };
 
 type LegalPageLayoutProps = {
-  icon: LucideIcon;
   activeHref: string;
   title: string;
   description: string;
@@ -30,7 +31,6 @@ type LegalPageLayoutProps = {
 };
 
 export function LegalPageLayout({
-  icon: Icon,
   activeHref,
   title,
   description,
@@ -43,111 +43,84 @@ export function LegalPageLayout({
     <div className="flex min-h-screen flex-col bg-app">
       <Nav />
       <main className="flex-1">
-        {/* Hero */}
-        <div className="relative isolate overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-blue-100/40 opacity-40 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-24 top-0 -z-10 h-80 w-80 rounded-full bg-blue-100/40 opacity-30 blur-3xl"
-          />
-
-          <div className="mx-auto max-w-6xl px-4 pb-10 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-subtle">
-              <Link href="/" className="hover:text-primary">
-                Home
-              </Link>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <Link href="/legal" className="hover:text-primary">
+        <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-32 sm:px-8 sm:pt-40">
+          {/* Header: title on the left, the document's dates on the right */}
+          <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <Link href="/legal" className="text-sm text-subtle transition-colors hover:text-heading">
                 Legal
               </Link>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <span className="text-heading">{title}</span>
-            </nav>
-
-            {/* Quick-switch tabs */}
-            <div className="mt-5 flex flex-wrap gap-2">
-              {LEGAL_DOCS.map((doc) => {
-                const isActive = doc.href === activeHref;
-                return (
-                  <Link
-                    key={doc.href}
-                    href={doc.href}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary text-white"
-                        : "border-hairline bg-surface text-body hover:text-heading"
-                    }`}
-                  >
-                    <doc.icon className="h-3.5 w-3.5" />
-                    {doc.label}
-                  </Link>
-                );
-              })}
+              <h1 className={cn(INK_TITLE, "mt-3 text-[40px] leading-[1.05] tracking-[-0.03em] sm:text-[56px]")}>
+                {title}
+              </h1>
+              <p className="mt-3 text-lg leading-7 text-subtle">{description}</p>
             </div>
+            <dl className="grid w-fit grid-cols-[auto_auto] gap-x-6 gap-y-1.5 text-sm lg:pb-2">
+              <dt className="text-subtle">Effective</dt>
+              <dd className="tabular-nums text-heading">{effectiveDate}</dd>
+              <dt className="text-subtle">Last updated</dt>
+              <dd className="tabular-nums text-heading">{updatedDate}</dd>
+            </dl>
+          </header>
 
-            <div className="mt-7 flex items-start gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-white">
-                <Icon className="h-6 w-6" />
-              </span>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-heading sm:text-[42px]">{title}</h1>
-                <p className="mt-2 max-w-xl text-base text-body">{description}</p>
-              </div>
-            </div>
+          {/* Document switcher */}
+          <nav
+            aria-label="Legal documents"
+            className="mt-10 flex gap-6 overflow-x-auto border-b border-hairline [scrollbar-width:none] sm:gap-8 [&::-webkit-scrollbar]:hidden"
+          >
+            {LEGAL_DOCS.map((doc) => {
+              const isActive = doc.href === activeHref;
+              return (
+                <Link
+                  key={doc.href}
+                  href={doc.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-3 text-[15px] transition-colors",
+                    isActive
+                      ? "border-heading font-medium text-heading"
+                      : "border-transparent text-subtle hover:text-heading"
+                  )}
+                >
+                  {doc.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-subtle">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 shadow-card">
-                <Calendar className="h-3.5 w-3.5" /> Effective {effectiveDate}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 shadow-card">
-                <Calendar className="h-3.5 w-3.5" /> Last updated {updatedDate}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-3 py-1.5 shadow-card">
-                <Layers className="h-3.5 w-3.5" /> {sections.length} sections
-              </span>
-            </div>
-
-            {/* TL;DR highlights */}
-            <div className="mt-8 rounded-card-lg border border-accent-line bg-accent p-5 sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-wide text-primary">The short version</p>
-              <ul className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-                {highlights.map(({ icon: HighlightIcon, text }, index) => (
-                  <li key={index} className="flex items-start gap-2.5 text-sm text-heading">
-                    <HighlightIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span>{text}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr] lg:gap-10">
-            <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:mt-12 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-16">
+            <aside className="sticky top-[84px] z-30 self-start lg:top-32">
               <LegalToc items={sections.map(({ id, title: sectionTitle }) => ({ id, title: sectionTitle }))} />
-            </div>
+            </aside>
 
-            <div className="min-w-0 max-w-3xl">
-              <div className="flex flex-col gap-5">
+            <div className="min-w-0">
+              <BezelPanel>
+                <p className="border-b border-hairline px-6 py-4 text-sm font-medium text-heading">The short version</p>
+                <ul className="grid divide-y divide-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                  {highlights.map(({ icon: HighlightIcon, text }) => (
+                    <li key={text} className="flex items-start gap-3 px-5 py-4 sm:flex-col sm:gap-4 sm:p-6">
+                      <HighlightIcon className="mt-[3px] size-[18px] shrink-0 text-subtle sm:mt-0" strokeWidth={1.5} />
+                      <p className="text-[15px] leading-6 text-heading">{text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </BezelPanel>
+
+              <div className="mt-6">
                 {sections.map((section, index) => (
                   <section
                     key={section.id}
                     id={section.id}
-                    className="scroll-mt-28 rounded-card-lg border border-hairline bg-surface p-6 shadow-card transition-shadow hover:shadow-card-hover sm:p-8"
+                    className="scroll-mt-36 border-t border-hairline py-10 first:border-t-0 sm:grid sm:grid-cols-[56px_minmax(0,1fr)]"
                   >
-                    <div className="flex items-start gap-4">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-hover text-sm font-bold text-white">
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <h2 className="text-xl font-semibold text-heading sm:text-2xl">{section.title}</h2>
-                        <div className="mt-3.5 space-y-4 text-[15px] leading-relaxed text-body">{section.body}</div>
-                      </div>
+                    <span className="font-mono text-[13px] tabular-nums leading-8 text-subtle">
+                      {clauseNumber(index)}
+                    </span>
+                    <div className="min-w-0 max-w-[680px]">
+                      <h2 className="text-[22px] font-semibold leading-8 tracking-[-0.01em] text-heading">
+                        {section.title}
+                      </h2>
+                      <div className="mt-4 space-y-4 text-[15px] leading-[1.75] text-body">{section.body}</div>
                     </div>
                   </section>
                 ))}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText, RefreshCw, ShieldCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { LEGAL_LINK, LEGAL_LIST, LegalSubheading } from "@/components/legal/prose";
 import { APP_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -39,7 +40,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           Features, usage limits, and available plans may change over time and vary by subscription tier as described
           on our{" "}
-          <Link href="/pricing" className="text-primary hover:underline">
+          <Link href="/pricing" className={LEGAL_LINK}>
             Pricing
           </Link>{" "}
           page.
@@ -49,9 +50,9 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "accounts",
-    title: "Accounts & Eligibility",
+    title: "Accounts & eligibility",
     body: (
-      <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+      <ul className={LEGAL_LIST}>
         <li>You must be at least 16 years old to create a Verlab account.</li>
         <li>You are responsible for the accuracy of the information you provide and for maintaining the security of your login credentials.</li>
         <li>You are responsible for all activity that occurs under your account, whether or not you authorized it.</li>
@@ -61,26 +62,26 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "billing",
-    title: "Subscriptions & Billing",
+    title: "Subscriptions & billing",
     body: (
       <>
-        <p className="font-semibold text-heading">4.1 Plans & Payment</p>
+        <LegalSubheading n="4.1">Plans & payment</LegalSubheading>
         <p>
           Paid plans are billed in advance on a recurring basis (monthly or annually, depending on the plan you
           select) via our third-party payment processor. Prices are shown in USD unless stated otherwise.
         </p>
-        <p className="font-semibold text-heading">4.2 Automatic Renewal</p>
+        <LegalSubheading n="4.2">Automatic renewal</LegalSubheading>
         <p>
           Subscriptions renew automatically at the end of each billing cycle unless cancelled beforehand from your{" "}
-          <Link href={`${APP_URL}/settings/subscription`} className="text-primary hover:underline">
+          <Link href={`${APP_URL}/settings/subscription`} className={LEGAL_LINK}>
             subscription settings
           </Link>
           .
         </p>
-        <p className="font-semibold text-heading">4.3 Refunds</p>
+        <LegalSubheading n="4.3">Refunds</LegalSubheading>
         <p>
           All payments are non-refundable except where required by law. See our{" "}
-          <Link href="/legal/refunds" className="text-primary hover:underline">
+          <Link href="/legal/refunds" className={LEGAL_LINK}>
             Refund Policy
           </Link>{" "}
           for full details on cancellation and billing.
@@ -90,11 +91,11 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "acceptable-use",
-    title: "Acceptable Use",
+    title: "Acceptable use",
     body: (
       <>
         <p>You agree not to use the Service to:</p>
-        <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+        <ul className={LEGAL_LIST}>
           <li>Violate any applicable law, or the terms of service of TikTok, Instagram, YouTube, or any other platform you connect or publish to.</li>
           <li>Scrape, resell, or redistribute Verlab&apos;s underlying niche data or datasets outside the Service.</li>
           <li>Reverse engineer, decompile, or attempt to extract the source code of the Service.</li>
@@ -106,22 +107,22 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "content-ip",
-    title: "Content & Intellectual Property",
+    title: "Content & intellectual property",
     body: (
       <>
-        <p className="font-semibold text-heading">6.1 Your Content</p>
+        <LegalSubheading n="6.1">Your content</LegalSubheading>
         <p>
           You retain ownership of any content you submit to Verlab (topics, transcripts, uploads) and of the scripts,
           hooks, and outputs generated for your account. You grant Verlab a limited license to process that content
           solely to operate and improve the Service.
         </p>
-        <p className="font-semibold text-heading">6.2 Our Platform</p>
+        <LegalSubheading n="6.2">Our platform</LegalSubheading>
         <p>
           The Service, including its design, software, models, and underlying niche-analysis data, is owned by Verlab
           and protected by intellectual property laws. These Terms do not grant you any rights to our trademarks,
           branding, or proprietary technology beyond what is necessary to use the Service.
         </p>
-        <p className="font-semibold text-heading">6.3 AI-Generated Output</p>
+        <LegalSubheading n="6.3">AI-generated output</LegalSubheading>
         <p>
           Scripts and other outputs are generated with the assistance of AI models and may be inspired by, or
           structurally similar to, publicly available content. You are responsible for reviewing generated output and
@@ -132,7 +133,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "dmca",
-    title: "DMCA / Copyright Policy",
+    title: "DMCA / copyright policy",
     body: (
       <>
         <p>
@@ -141,13 +142,13 @@ const SECTIONS: LegalSection[] = [
           Copyright Act (17 U.S.C. § 512) (&quot;DMCA&quot;).
         </p>
 
-        <p className="font-semibold text-heading">Filing a Takedown Notice</p>
+        <LegalSubheading>Filing a takedown notice</LegalSubheading>
         <p>
           If you believe that content available on or through the Service infringes a copyright you own or control,
           you (or your authorized agent) may submit a written notice to our Designated Agent, below. To be effective
           under the DMCA, your notice must be in writing and include all of the following:
         </p>
-        <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+        <ul className={LEGAL_LIST}>
           <li>A physical or electronic signature of the copyright owner or a person authorized to act on the owner&apos;s behalf.</li>
           <li>Identification of the copyrighted work claimed to have been infringed, or, if multiple works at a single online location are covered by one notice, a representative list of those works.</li>
           <li>Identification of the material claimed to be infringing and information reasonably sufficient to let us locate it, typically the specific URL(s) or in-app location of the content.</li>
@@ -162,17 +163,17 @@ const SECTIONS: LegalSection[] = [
           result of that misrepresentation.
         </p>
 
-        <p className="font-semibold text-heading">Designated Agent</p>
+        <LegalSubheading>Designated Agent</LegalSubheading>
         <p>
           Notices should be sent to our Designated Agent for copyright matters:
         </p>
-        <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+        <ul className={LEGAL_LIST}>
           <li>Name: [DESIGNATED AGENT NAME]</li>
           <li>Company: Verlab</li>
           <li>Address: [STREET ADDRESS, CITY, STATE, ZIP]</li>
           <li>
             Email:{" "}
-            <a href="mailto:dmca@verlab.io" className="text-primary hover:underline">
+            <a href="mailto:dmca@verlab.io" className={LEGAL_LINK}>
               dmca@verlab.io
             </a>
           </li>
@@ -184,19 +185,19 @@ const SECTIONS: LegalSection[] = [
           DMCA.
         </p>
 
-        <p className="font-semibold text-heading">Our Response to a Valid Notice</p>
+        <LegalSubheading>Our response to a valid notice</LegalSubheading>
         <p>
           Upon receipt of a notice that substantially complies with the requirements above, we will remove or
           disable access to the identified material, notify the user who posted it, and provide that user with a
           copy of the notice.
         </p>
 
-        <p className="font-semibold text-heading">Counter-Notification</p>
+        <LegalSubheading>Counter-notification</LegalSubheading>
         <p>
           If you believe material you posted was removed or disabled by mistake or misidentification, you may submit
           a written counter-notice to our Designated Agent that includes:
         </p>
-        <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+        <ul className={LEGAL_LIST}>
           <li>Your physical or electronic signature.</li>
           <li>Identification of the material that was removed or disabled and its location before removal.</li>
           <li>A statement, under penalty of perjury, that you have a good faith belief the material was removed or disabled as a result of mistake or misidentification.</li>
@@ -209,7 +210,7 @@ const SECTIONS: LegalSection[] = [
           business days of receiving the counter-notice, at our discretion and as required by the DMCA.
         </p>
 
-        <p className="font-semibold text-heading">Repeat Infringer Policy</p>
+        <LegalSubheading>Repeat infringer policy</LegalSubheading>
         <p>
           In appropriate circumstances and at our sole discretion, Verlab will terminate the accounts of users who
           are determined to be repeat infringers. A user may be treated as a repeat infringer if we receive two or
@@ -223,7 +224,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "third-party-platforms",
-    title: "Third-Party Platforms",
+    title: "Third-party platforms",
     body: (
       <p>
         Verlab analyzes publicly available content and metadata from third-party platforms such as TikTok, Instagram,
@@ -246,7 +247,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "disclaimers",
-    title: "Disclaimers & Limitation of Liability",
+    title: "Disclaimers & limitation of liability",
     body: (
       <>
         <p>
@@ -264,10 +265,10 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "dispute-resolution",
-    title: "Dispute Resolution: Binding Arbitration & Class Action Waiver",
+    title: "Dispute resolution: binding arbitration & class action waiver",
     body: (
       <>
-        <p className="font-semibold text-heading">Agreement to Arbitrate</p>
+        <LegalSubheading>Agreement to arbitrate</LegalSubheading>
         <p>
           You and Verlab agree that any dispute, claim, or controversy arising out of or relating to these Terms, the
           Service, or your relationship with Verlab (whether based in contract, tort, statute, fraud,
@@ -281,7 +282,7 @@ const SECTIONS: LegalSection[] = [
           your account or these Terms.
         </p>
 
-        <p className="font-semibold text-heading">Arbitration Procedures</p>
+        <LegalSubheading>Arbitration procedures</LegalSubheading>
         <p>
           The arbitration will be administered by the American Arbitration Association (AAA) under its Consumer
           Arbitration Rules, or, if the parties mutually agree, by JAMS under its Streamlined Arbitration Rules and
@@ -299,13 +300,13 @@ const SECTIONS: LegalSection[] = [
           jurisdiction.
         </p>
 
-        <p className="font-semibold text-heading">Class Action, Collective Action & Representative Proceeding Waiver</p>
+        <LegalSubheading>Class action, collective action & representative proceeding waiver</LegalSubheading>
         <p>
           You and Verlab agree that each may bring claims against the other only in an individual capacity, and not
           as a plaintiff or class member in any purported class, collective, consolidated, or representative
           proceeding. Unless both you and Verlab agree otherwise in writing:
         </p>
-        <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+        <ul className={LEGAL_LIST}>
           <li>No arbitrator or court may consolidate more than one party&apos;s claims, or otherwise preside over any form of a class, collective, representative, or multi-plaintiff proceeding.</li>
           <li>The arbitrator may award relief (including injunctive and declaratory relief) only in favor of the individual party seeking relief, and only to the extent necessary to provide relief warranted by that party&apos;s individual claim.</li>
           <li>You waive any right to participate as a plaintiff, claimant, or class member in any class, collective, or representative action against Verlab, whether filed in arbitration or in court, and whether brought by you, on your behalf, or by a third party purporting to act on your behalf.</li>
@@ -317,7 +318,7 @@ const SECTIONS: LegalSection[] = [
           other claims and disputes on an individual basis.
         </p>
 
-        <p className="font-semibold text-heading">Jury Trial Waiver</p>
+        <LegalSubheading>Jury trial waiver</LegalSubheading>
         <p>
           You and Verlab each waive any constitutional and statutory right to sue in court and have a trial in front
           of a judge or jury. You and Verlab are instead electing that all covered claims be resolved exclusively
@@ -326,16 +327,16 @@ const SECTIONS: LegalSection[] = [
           is subject to very limited review by a court.
         </p>
 
-        <p className="font-semibold text-heading">Small Claims Court Exception</p>
+        <LegalSubheading>Small claims court exception</LegalSubheading>
         <p>
           Either party may bring an individual claim in small claims court instead of arbitration if the claim
           qualifies for that court&apos;s jurisdiction and remains in that court on an individual, non-class basis.
         </p>
 
-        <p className="font-semibold text-heading">30-Day Right to Opt Out</p>
+        <LegalSubheading>30-day right to opt out</LegalSubheading>
         <p>
           You may opt out of this arbitration provision and Class Action Waiver by sending written notice to{" "}
-          <a href="mailto:support@verlab.io" className="text-primary hover:underline">
+          <a href="mailto:support@verlab.io" className={LEGAL_LINK}>
             support@verlab.io
           </a>{" "}
           within 30 days of the date you first agree to these Terms. Your notice must include your name, the email
@@ -349,7 +350,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "changes",
-    title: "Changes to These Terms",
+    title: "Changes to these Terms",
     body: (
       <p>
         We may update these Terms from time to time. Material changes will be reflected by an updated &quot;Last
@@ -360,7 +361,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "governing-law",
-    title: "Governing Law",
+    title: "Governing law",
     body: (
       <p>
         These Terms are governed by and construed in accordance with the laws of the jurisdiction in which Verlab is
@@ -370,12 +371,12 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "contact",
-    title: "Contact Information",
+    title: "Contact information",
     body: (
-      <ul className="list-disc space-y-2 pl-5 marker:text-primary">
+      <ul className={LEGAL_LIST}>
         <li>
           Email:{" "}
-          <a href="mailto:support@verlab.io" className="text-primary hover:underline">
+          <a href="mailto:support@verlab.io" className={LEGAL_LINK}>
             support@verlab.io
           </a>
         </li>
@@ -385,18 +386,17 @@ const SECTIONS: LegalSection[] = [
 ];
 
 const HIGHLIGHTS = [
-  { icon: RefreshCw, text: "Cancel your subscription anytime, no questions asked." },
-  { icon: ShieldCheck, text: "You own every script and hook Verlab generates for you." },
-  { icon: FileText, text: "You're responsible for how you publish generated content." },
+  { icon: RefreshCw, text: "Cancel your subscription anytime, no questions asked" },
+  { icon: ShieldCheck, text: "You own every script and hook Verlab generates for you" },
+  { icon: FileText, text: "You're responsible for how you publish generated content" },
 ];
 
 export default function TermsOfServicePage() {
   return (
     <LegalPageLayout
-      icon={FileText}
       activeHref="/legal/terms"
       title="Terms of Service"
-      description="The rules and conditions that govern your use of Verlab."
+      description="The rules and conditions that govern your use of Verlab"
       effectiveDate="July 16, 2026"
       updatedDate="August 17, 2026"
       highlights={HIGHLIGHTS}

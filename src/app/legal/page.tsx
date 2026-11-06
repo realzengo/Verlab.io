@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Nav } from "@/components/landing/Nav";
 import { Footer } from "@/components/landing/Footer";
-import { Card } from "@/components/ui/Card";
+import { BezelPanel, INK_TITLE } from "@/components/brand/BrandKit";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
+import { LEGAL_LINK } from "@/components/legal/prose";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Legal, Verlab AI",
@@ -16,45 +18,45 @@ export default function LegalHubPage() {
     <div className="flex min-h-screen flex-col bg-app">
       <Nav />
       <main className="flex-1">
-        <div className="relative isolate overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-blue-100/40 opacity-40 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-24 top-0 -z-10 h-80 w-80 rounded-full bg-blue-100/40 opacity-30 blur-3xl"
-          />
-
-          <div className="mx-auto max-w-4xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-            <span className="inline-flex items-center rounded-full border border-hairline bg-surface px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary shadow-card">
-              Legal
-            </span>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-heading sm:text-[42px]">
-              The fine print, made readable.
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-12 px-4 pb-24 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[minmax(0,1fr)_minmax(0,640px)] lg:gap-16">
+          <div className="max-w-xl">
+            <p className="text-sm text-subtle">Legal</p>
+            <h1 className={cn(INK_TITLE, "mt-3 text-[40px] leading-[1.05] tracking-[-0.03em] sm:text-[56px]")}>
+              The fine print, made readable
             </h1>
-            <p className="mt-3 max-w-xl text-base text-body">
+            <p className="mt-4 text-lg leading-7 text-subtle">
               Everything about how Verlab works, what we do with your data, and how billing works, in one place.
             </p>
-
-            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {LEGAL_DOCS.map((doc) => (
-                <Link key={doc.href} href={doc.href} className="group">
-                  <Card hoverLift className="h-full">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-hover text-white">
-                      <doc.icon className="h-5 w-5" />
-                    </span>
-                    <h2 className="mt-4 font-semibold text-heading">{doc.label}</h2>
-                    <p className="mt-1.5 text-sm text-body">{doc.description}</p>
-                    <span className="mt-4 flex items-center gap-1 text-sm font-medium text-primary">
-                      Read more
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </Card>
-                </Link>
-              ))}
-            </div>
+            <p className="mt-8 text-sm text-subtle">
+              Questions about any of these?{" "}
+              <a href="mailto:support@verlab.io" className={LEGAL_LINK}>
+                support@verlab.io
+              </a>
+            </p>
           </div>
+
+          <BezelPanel className="self-start">
+            <ul className="divide-y divide-hairline">
+              {LEGAL_DOCS.map((doc) => (
+                <li key={doc.href}>
+                  <Link
+                    href={doc.href}
+                    className="group flex items-center gap-4 px-6 py-5 transition-colors hover:bg-app"
+                  >
+                    <doc.icon className="size-[18px] shrink-0 text-subtle" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-medium text-heading">{doc.label}</span>
+                      <span className="mt-0.5 block text-sm text-subtle">{doc.description}</span>
+                    </span>
+                    <ArrowRight
+                      className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
+                      strokeWidth={1.5}
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </BezelPanel>
         </div>
       </main>
       <Footer />

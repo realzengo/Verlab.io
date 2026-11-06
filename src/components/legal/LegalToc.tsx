@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { List } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { clauseNumber } from "@/components/legal/prose";
+import { cn } from "@/lib/utils";
 
 type LegalTocProps = {
   items: { id: string; title: string }[];
@@ -9,6 +11,8 @@ type LegalTocProps = {
 
 export function LegalToc({ items }: LegalTocProps) {
   const [activeId, setActiveId] = useState(items[0]?.id ?? "");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const headings = items
@@ -24,56 +28,101 @@ export function LegalToc({ items }: LegalTocProps) {
           setActiveId(visible[0].target.id);
         }
       },
-      { rootMargin: "-112px 0px -70% 0px", threshold: 0 }
+      { rootMargin: "-144px 0px -60% 0px", threshold: 0 }
     );
 
     headings.forEach((heading) => observer.observe(heading));
     return () => observer.disconnect();
   }, [items]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const activeIndex = Math.max(
+    0,
+    items.findIndex((item) => item.id === activeId)
+  );
+
   return (
     <>
-      {/* Mobile: horizontal pill scroller */}
-      <nav
-        aria-label="On this page"
-        className="sticky top-[76px] z-30 -mx-4 mb-6 flex gap-2 overflow-x-auto bg-app/95 px-4 py-3 backdrop-blur [-ms-overflow-style:none] [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:hidden [&::-webkit-scrollbar]:hidden"
-      >
-        {items.map((item) => (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              activeId === item.id
-                ? "border-primary bg-primary text-white"
-                : "border-hairline bg-surface text-subtle hover:text-heading"
-            }`}
+      {/* Mobile: the current section, opening into the full list */}
+      <div ref={menuRef} className="relative lg:hidden">
+        <button
+          type="button"
+          aria-expanded={menuOpen}
+          aria-label="On this page"
+          onClick={() => setMenuOpen((open) => !open)}
+          className="flex h-11 w-full items-center gap-3 rounded-xl border border-hairline bg-surface px-4 text-left text-sm shadow-[0_1px_2px_rgba(16,24,40,0.05)]"
+        >
+          <span className="font-mono text-xs tabular-nums text-subtle">{clauseNumber(activeIndex)}</span>
+          <span className="min-w-0 flex-1 truncate text-heading">{items[activeIndex]?.title}</span>
+          <ChevronDown
+            className={cn("size-4 shrink-0 text-subtle transition-transform", menuOpen && "rotate-180")}
+            strokeWidth={1.5}
+          />
+        </button>
+        {menuOpen && (
+          <nav
+            aria-label="On this page"
+            className="absolute inset-x-0 top-full mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-hairline bg-surface p-1.5 shadow-[0_8px_24px_rgba(16,24,40,0.08)]"
           >
-            {item.title}
-          </a>
-        ))}
-      </nav>
+            {items.map((item, index) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                onClick={() => setMenuOpen(false)}
+                className={cn(
+                  "flex gap-3 rounded-lg px-2.5 py-2 text-sm leading-5 transition-colors",
+                  item.id === activeId ? "bg-app text-heading" : "text-subtle hover:text-heading"
+                )}
+              >
+                <span className="w-5 shrink-0 font-mono text-xs leading-5 tabular-nums text-subtle">
+                  {clauseNumber(index)}
+                </span>
+                {item.title}
+              </a>
+            ))}
+          </nav>
+        )}
+      </div>
 
-      {/* Desktop: sticky card sidebar */}
-      <nav aria-label="On this page" className="hidden rounded-card-sm border border-hairline bg-surface p-4 shadow-card lg:block">
-        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-subtle">
-          <List className="h-3.5 w-3.5" /> On this page
-        </div>
-        <ul className="mt-3 flex flex-col gap-1">
-          {items.map((item) => (
+      {/* Desktop: a quiet rail with the current section marked in ink */}
+      <nav aria-label="On this page" className="hidden lg:block">
+        <p className="text-[13px] text-subtle">On this page</p>
+        <ol className="mt-4 border-l border-hairline">
+          {items.map((item, index) => (
             <li key={item.id}>
               <a
                 href={`#${item.id}`}
-                className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeId === item.id
-                    ? "bg-accent font-semibold text-primary"
-                    : "text-subtle hover:bg-app hover:text-heading"
-                }`}
+                aria-current={item.id === activeId ? "location" : undefined}
+                className={cn(
+                  "-ml-px flex gap-3 border-l py-1.5 pl-4 text-sm leading-5 transition-colors",
+                  item.id === activeId
+                    ? "border-heading text-heading"
+                    : "border-transparent text-subtle hover:text-heading"
+                )}
               >
+                <span className="w-5 shrink-0 font-mono text-xs leading-5 tabular-nums text-subtle/70">
+                  {clauseNumber(index)}
+                </span>
                 {item.title}
               </a>
             </li>
           ))}
-        </ul>
+        </ol>
       </nav>
     </>
   );
