@@ -83,6 +83,7 @@ export function TopBar({
       pathname.startsWith("/video-generator") ||
       pathname.startsWith("/voiceover-generator") ||
       pathname.startsWith("/downloads") ||
+      pathname.startsWith("/bend") ||
       pathname.startsWith("/tools") ||
       pathname.startsWith("/settings"));
 

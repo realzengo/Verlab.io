@@ -1,21 +1,25 @@
+import { Skeleton } from "@/components/ui/Skeleton";
+
+// Mirrors one BendCandidateCard column: mono chip and angle, a two-line
+// title, three example titles, then the action row.
 export function BendCandidateSkeleton() {
   return (
-    <div className="flex h-56 flex-col overflow-hidden rounded-card border border-hairline bg-surface">
-      <div className="flex flex-1 flex-col gap-3 p-5">
-        <div className="h-4 w-2/3 animate-pulse rounded-full bg-accent" />
-        <div className="h-5 w-1/3 animate-pulse rounded-full bg-accent" />
-        <div className="mt-2 flex flex-col gap-2">
-          <div className="h-3 w-full animate-pulse rounded-full bg-accent" />
-          <div className="h-3 w-5/6 animate-pulse rounded-full bg-accent" />
-          <div className="h-3 w-4/6 animate-pulse rounded-full bg-accent" />
-        </div>
+    <div className="flex flex-col py-8 first:pt-0 last:pb-0 lg:px-8 lg:py-0 lg:first:pl-0 lg:last:pr-0">
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="h-7 w-9 rounded-md" />
+        <Skeleton className="h-3.5 w-16 rounded-full" />
       </div>
-      <div className="flex items-center justify-between gap-2 border-t border-hairline bg-app/60 px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <div className="h-8 w-8 animate-pulse rounded-lg bg-accent" />
-          <div className="h-8 w-16 animate-pulse rounded-lg bg-accent" />
-        </div>
-        <div className="h-8 w-20 animate-pulse rounded-lg bg-accent" />
+      <Skeleton className="mt-6 h-5 w-4/5 rounded-full" />
+      <Skeleton className="mt-2.5 h-5 w-1/2 rounded-full" />
+      <div className="mt-5 flex flex-col gap-3.5">
+        <Skeleton className="h-3.5 w-full rounded-full" />
+        <Skeleton className="h-3.5 w-5/6 rounded-full" />
+        <Skeleton className="h-3.5 w-4/6 rounded-full" />
+      </div>
+      <div className="mt-6 flex items-center gap-2 lg:mt-auto lg:pt-8">
+        <Skeleton className="h-10 w-28 rounded-full" />
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-10 w-14 rounded-full" />
       </div>
     </div>
   );

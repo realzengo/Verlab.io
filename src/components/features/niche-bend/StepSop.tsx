@@ -1,24 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  BookOpen,
-  Check,
-  ClipboardCheck,
-  Compass,
-  Copy,
-  FileDown,
-  Flag,
-  ListOrdered,
-  Loader2,
-  Magnet,
-  Microscope,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, Copy, FileDown, Loader2 } from "lucide-react";
 import type { NicheBendSopResult } from "@/lib/types";
+import { BezelPanel, INK_BUTTON, INK_TITLE } from "@/components/brand/BrandKit";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { buildSopDocxBlob } from "@/lib/niche-bend/export-docx";
 import { buildSopPdfBlob } from "@/lib/niche-bend/export-pdf";
@@ -28,30 +14,40 @@ import { cn, downloadBlob } from "@/lib/utils";
 import { ChannelAnalysisSummary } from "./ChannelAnalysisSummary";
 import { ChannelAvatar } from "./ChannelAvatar";
 
-const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "channel-overview", label: "1. Channel Overview", icon: Compass },
-  { id: "hook-playbook", label: "2. Hook Playbook", icon: Zap },
-  { id: "script-structure", label: "3. Script Structure Blueprint", icon: ListOrdered },
-  { id: "storytelling-frameworks", label: "4. Storytelling Frameworks", icon: BookOpen },
-  { id: "retention-mechanics", label: "5. Retention Mechanics", icon: Magnet },
-  { id: "opening-closing", label: "6. Opening & Closing Patterns", icon: Flag },
-  { id: "quick-reference", label: "7. Quick Reference Card", icon: ClipboardCheck },
-  { id: "original-channel-analysis", label: "Original Channel Analysis", icon: Microscope },
+const SECTIONS: { id: string; label: string }[] = [
+  { id: "channel-overview", label: "Channel overview" },
+  { id: "hook-playbook", label: "Hook playbook" },
+  { id: "script-structure", label: "Script structure" },
+  { id: "storytelling-frameworks", label: "Storytelling frameworks" },
+  { id: "retention-mechanics", label: "Retention mechanics" },
+  { id: "opening-closing", label: "Opening and closing" },
+  { id: "quick-reference", label: "Quick reference" },
+  { id: "original-channel-analysis", label: "Original channel analysis" },
 ];
 
-function SectionHeading({ icon: Icon, children }: { icon: LucideIcon; children: string }) {
+const LABEL = "text-xs font-medium text-subtle";
+
+function SectionHeading({ id }: { id: string }) {
+  const index = SECTIONS.findIndex((section) => section.id === id);
+  const { label } = SECTIONS[index];
   return (
-    <div className="flex items-center gap-2 border-b border-hairline pb-3">
-      <Icon className="h-4 w-4 shrink-0 text-subtle" />
-      <h2 className="text-base font-semibold tracking-tight text-heading">{children}</h2>
+    <div className="flex items-center gap-3 border-b border-hairline pb-4">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold tabular-nums text-primary dark:bg-primary/20 dark:text-[#8aa4ff]">
+        {index + 1}
+      </span>
+      <h2 className="text-lg font-semibold tracking-[-0.01em] text-heading">{label}</h2>
     </div>
   );
 }
 
+const secondaryButton =
+  "inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-white px-3.5 text-[13px] font-medium text-heading shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] disabled:pointer-events-none disabled:opacity-50 dark:bg-[#1C1C1F] dark:hover:bg-[#232326]";
+const primaryButton = `${INK_BUTTON} h-9 px-4 text-[13px]`;
+
 function DefRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 gap-1 border-t border-hairline py-3 first:border-t-0 first:pt-0 sm:grid-cols-[168px_1fr] sm:gap-6">
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{label}</dt>
+      <dt className={LABEL}>{label}</dt>
       <dd className="text-sm leading-relaxed text-heading">{children}</dd>
     </div>
   );
@@ -60,7 +56,7 @@ function DefRow({ label, children }: { label: string; children: React.ReactNode 
 function MoatNote({ children }: { children: React.ReactNode }) {
   return (
     <div className="mt-4 border-l-2 border-primary py-0.5 pl-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Your-channel moat</p>
+      <p className="text-xs font-medium text-primary">Your channel&apos;s moat</p>
       <p className="mt-1 text-sm leading-relaxed text-body">{children}</p>
     </div>
   );
@@ -71,7 +67,7 @@ function BulletList({ items }: { items: string[] }) {
     <ul className="mt-2 flex flex-col gap-1.5">
       {items.map((item, i) => (
         <li key={i} className="flex gap-2 text-sm leading-snug text-body">
-          <span className="shrink-0 font-semibold text-primary">→</span>
+          <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-subtle/60" />
           {item}
         </li>
       ))}
@@ -140,96 +136,78 @@ export function StepSop({
 
   return (
     <div className="animate-bend-in flex flex-col gap-8 pb-16">
-      <div className="rounded-card-lg border border-hairline bg-surface">
-        <div className="flex flex-col gap-6 p-6 sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 overflow-hidden rounded-full ring-1 ring-hairline">
-                <ChannelAvatar
-                  name={sop.originalChannel.channelName}
-                  avatarUrl={sop.originalChannel.avatarUrl}
-                  platform={sop.originalChannel.platform}
-                  size={52}
-                />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
-                  Scripting SOP · {sop.originalChannel.platform === "youtube" ? "YouTube" : "TikTok"}
-                </p>
-                <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-                  {content.title}
-                </h1>
-                <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-body">{content.subtitle}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  bevel={false}
-                  icon={downloading === "docx" ? undefined : FileDown}
-                  disabled={downloading !== null}
-                  onClick={() => handleDownload("docx")}
-                >
-                  {downloading === "docx" && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-                  Download DOCX
-                </Button>
-                {downloadError === "docx" && (
-                  <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-danger px-2.5 py-1 text-xs font-semibold text-white">
-                    Download failed
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  bevel={false}
-                  icon={downloading === "pdf" ? undefined : FileDown}
-                  disabled={downloading !== null}
-                  onClick={() => handleDownload("pdf")}
-                >
-                  {downloading === "pdf" && <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-                  Download PDF
-                </Button>
-                {downloadError === "pdf" && (
-                  <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-chip bg-danger px-2.5 py-1 text-xs font-semibold text-white">
-                    Download failed
-                  </span>
-                )}
-              </div>
-              <Button size="sm" bevel={false} icon={copied ? Check : Copy} onClick={handleCopyMarkdown}>
-                {copied ? "Copied" : "Copy Markdown"}
-              </Button>
-            </div>
+      <BezelPanel innerClassName="p-6 sm:p-10">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <ChannelAvatar
+              name={sop.originalChannel.channelName}
+              avatarUrl={sop.originalChannel.avatarUrl}
+              platform={sop.originalChannel.platform}
+              size={36}
+            />
+            <p className="min-w-0 truncate text-sm text-subtle">
+              Scripting SOP bent from <span className="font-medium text-heading">{sop.originalChannel.channelName}</span>
+            </p>
           </div>
-
-          <div className="border-l-2 border-primary py-1 pl-4">
-            <p className="text-sm leading-relaxed text-body">{content.onelinePromise}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {(["docx", "pdf"] as const).map((format) => (
+              <div key={format} className="relative">
+                <button
+                  type="button"
+                  disabled={downloading !== null}
+                  onClick={() => handleDownload(format)}
+                  className={secondaryButton}
+                >
+                  {downloading === format ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4 text-subtle" strokeWidth={1.75} />
+                  )}
+                  {format.toUpperCase()}
+                </button>
+                {downloadError === format && (
+                  <span className="absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-lg bg-danger px-2.5 py-1 text-xs font-medium text-white">
+                    Download failed
+                  </span>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={handleCopyMarkdown} className={primaryButton}>
+              {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
+              {copied ? "Copied" : "Copy Markdown"}
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[268px_1fr]">
-        <nav className="rounded-card border border-hairline bg-surface p-3 lg:sticky lg:top-24 lg:self-start">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-subtle">On this page</p>
+        <h1 className={cn(INK_TITLE, "mt-10 text-balance text-[36px] leading-[1.05] tracking-[-0.04em] sm:text-[52px]")}>
+          {content.title}
+        </h1>
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-subtle sm:text-[17px]">{content.subtitle}</p>
+
+        <blockquote className="mt-8 border-l-2 border-primary pl-5 text-[15px] leading-relaxed text-heading">
+          {content.onelinePromise}
+        </blockquote>
+      </BezelPanel>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr]">
+        <nav aria-label="SOP sections" className="lg:sticky lg:top-20 lg:self-start">
+          <p className="px-3 pb-2 text-xs font-medium text-subtle">On this page</p>
           <ul className="flex flex-col gap-0.5 text-sm">
-            {SECTIONS.map((section) => {
-              const Icon = section.icon;
+            {SECTIONS.map((section, index) => {
               const active = activeSection === section.id;
               return (
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
+                    aria-current={active ? "location" : undefined}
                     className={cn(
-                      "flex items-start gap-2 border-l-2 py-1.5 pl-3 pr-2 leading-snug transition-colors",
-                      active
-                        ? "border-primary font-semibold text-primary"
-                        : "border-transparent text-body hover:border-hairline hover:text-heading"
+                      "flex items-center gap-3 rounded-lg px-3 py-1.5 leading-5 transition-colors duration-150",
+                      active ? "bg-btn-secondary font-medium text-heading" : "text-subtle hover:text-heading"
                     )}
                   >
-                    <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", active ? "text-primary" : "text-subtle")} />
+                    <span className={cn("w-4 shrink-0 text-xs tabular-nums", active ? "text-primary" : "text-subtle/70")}>
+                      {index + 1}
+                    </span>
                     <span>{section.label}</span>
                   </a>
                 </li>
@@ -240,7 +218,7 @@ export function StepSop({
 
         <div className="flex flex-col gap-6">
           <Card id="channel-overview" shadow={false} className="scroll-mt-24">
-            <SectionHeading icon={Compass}>1. Channel Overview</SectionHeading>
+            <SectionHeading id="channel-overview" />
             <dl className="mt-1">
               <DefRow label="Channel">{content.channelOverview.channel}</DefRow>
               <DefRow label="Niche">{content.channelOverview.niche}</DefRow>
@@ -255,13 +233,13 @@ export function StepSop({
           </Card>
 
           <Card id="hook-playbook" shadow={false} className="scroll-mt-24">
-            <SectionHeading icon={Zap}>2. Hook Playbook</SectionHeading>
+            <SectionHeading id="hook-playbook" />
             <div className="flex flex-col divide-y divide-hairline">
               {content.hookPlaybook.map((hook, i) => (
                 <div key={i} className="py-5 first:pt-4 last:pb-0">
                   <p className="text-sm font-semibold text-heading">&ldquo;{hook.template}&rdquo;</p>
                   <p className="mt-1.5 text-xs text-subtle">
-                    <span className="font-semibold uppercase tracking-wide">Used in </span>
+                    <span className="font-medium">Used in </span>
                     {hook.usedInVideos.join(", ")}
                   </p>
                   <p className="mt-2 text-sm text-body">
@@ -273,7 +251,7 @@ export function StepSop({
                     {hook.whenToUse}
                   </p>
                   <div className="mt-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                    <span className={LABEL}>
                       For your channel
                     </span>
                     <BulletList items={hook.forYourChannelExamples} />
@@ -284,11 +262,11 @@ export function StepSop({
           </Card>
 
           <Card id="script-structure" shadow={false} className="scroll-mt-24">
-            <SectionHeading icon={ListOrdered}>3. Script Structure Blueprint</SectionHeading>
+            <SectionHeading id="script-structure" />
             <div className="mt-4 overflow-x-auto rounded-xl border border-hairline">
               <table className="w-full min-w-[480px] border-collapse text-sm">
                 <thead>
-                  <tr className="bg-app text-left text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                  <tr className="bg-app text-left text-xs font-medium text-subtle">
                     <th className="px-4 py-2.5">Beat</th>
                     <th className="px-4 py-2.5">Timing</th>
                     <th className="px-4 py-2.5">Function</th>
@@ -308,14 +286,14 @@ export function StepSop({
           </Card>
 
           <Card id="storytelling-frameworks" shadow={false} className="scroll-mt-24">
-            <SectionHeading icon={BookOpen}>4. Storytelling Frameworks</SectionHeading>
+            <SectionHeading id="storytelling-frameworks" />
             <div className="flex flex-col divide-y divide-hairline">
               {content.storytellingFrameworks.map((framework, i) => (
                 <div key={i} className="py-5 first:pt-4 last:pb-0">
                   <h3 className="text-sm font-bold text-heading">{framework.name}</h3>
                   <p className="mt-1 text-sm text-body">{framework.howItWorks}</p>
                   <p className="mt-2 text-xs text-subtle">
-                    <span className="font-semibold uppercase tracking-wide">Used in </span>
+                    <span className="font-medium">Used in </span>
                     {framework.usedInVideos.join(", ")}
                   </p>
                   <ol className="mt-2 flex flex-col gap-1.5">
@@ -335,9 +313,7 @@ export function StepSop({
                   )}
                   {framework.yourChannelMoat && (
                     <div className="mt-3 border-l-2 border-primary py-0.5 pl-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                        Your-channel moat
-                      </p>
+                      <p className="text-xs font-medium text-primary">Your channel&apos;s moat</p>
                       <p className="mt-1 text-sm leading-relaxed text-body">{framework.yourChannelMoat}</p>
                     </div>
                   )}
@@ -347,9 +323,9 @@ export function StepSop({
           </Card>
 
           <Card id="retention-mechanics" shadow={false} className="scroll-mt-24 flex flex-col gap-5">
-            <SectionHeading icon={Magnet}>5. Retention Mechanics</SectionHeading>
+            <SectionHeading id="retention-mechanics" />
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 Rehook catalog
               </span>
               <ul className="mt-2 flex flex-col gap-2">
@@ -362,17 +338,17 @@ export function StepSop({
               </ul>
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 Pattern interrupts
               </span>
               <BulletList items={content.retentionMechanics.patternInterrupts} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Open loops</span>
+              <span className={LABEL}>Open loops</span>
               <p className="mt-1 text-sm text-body">{content.retentionMechanics.openLoopsRule}</p>
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 Specificity spikes
               </span>
               <p className="mt-1 text-sm text-body">{content.retentionMechanics.specificitySpikesRule}</p>
@@ -381,9 +357,9 @@ export function StepSop({
           </Card>
 
           <Card id="opening-closing" shadow={false} className="scroll-mt-24 flex flex-col gap-5">
-            <SectionHeading icon={Flag}>6. Opening &amp; Closing Patterns</SectionHeading>
+            <SectionHeading id="opening-closing" />
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 First 30 seconds
               </span>
               <ol className="mt-2 flex flex-col gap-1.5">
@@ -396,44 +372,44 @@ export function StepSop({
               </ol>
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Hard rules</span>
+              <span className={LABEL}>Hard rules</span>
               <BulletList items={content.openingClosingPatterns.hardRules} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 How videos end
               </span>
               <p className="mt-1 text-sm text-body">{content.openingClosingPatterns.howVideosEnd}</p>
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+              <span className={LABEL}>
                 Signature closing phrases
               </span>
               <BulletList items={content.openingClosingPatterns.signatureClosingPhrases} />
             </div>
           </Card>
 
-          <Card id="quick-reference" shadow={false} className="scroll-mt-24 flex flex-col gap-5 border-t-2 border-t-primary">
-            <SectionHeading icon={ClipboardCheck}>7. Quick Reference Card</SectionHeading>
+          <Card id="quick-reference" shadow={false} className="scroll-mt-24 flex flex-col gap-5">
+            <SectionHeading id="quick-reference" />
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
-                Hook formulas. Pick one
+              <span className={LABEL}>
+                Hook formulas, pick one
               </span>
               <BulletList items={content.quickReferenceCard.hookFormulaPicks} />
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Structure</span>
+              <span className={LABEL}>Structure</span>
               <p className="mt-1 text-sm font-medium text-heading">
                 {content.quickReferenceCard.beatStructureOneLine}
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">Top rehooks</span>
+              <span className={LABEL}>Top rehooks</span>
               <BulletList items={content.quickReferenceCard.topRehooks} />
             </div>
             <div className="grid grid-cols-1 gap-6 border-t border-hairline pt-4 sm:grid-cols-2 sm:divide-x sm:divide-hairline">
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-success">Do</span>
+                <span className="text-xs font-medium text-success">Do</span>
                 <ul className="mt-1.5 flex flex-col gap-1.5">
                   {content.quickReferenceCard.dos.map((item, i) => (
                     <li key={i} className="flex gap-2 text-sm leading-snug text-heading">
@@ -444,7 +420,7 @@ export function StepSop({
                 </ul>
               </div>
               <div className="sm:pl-6">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-danger">Don&rsquo;t</span>
+                <span className="text-xs font-medium text-danger">Don&rsquo;t</span>
                 <ul className="mt-1.5 flex flex-col gap-1.5">
                   {content.quickReferenceCard.donts.map((item, i) => (
                     <li key={i} className="flex gap-2 text-sm leading-snug text-heading">
@@ -458,7 +434,7 @@ export function StepSop({
           </Card>
 
           <Card id="original-channel-analysis" shadow={false} className="scroll-mt-24">
-            <SectionHeading icon={Microscope}>Original Channel Analysis</SectionHeading>
+            <SectionHeading id="original-channel-analysis" />
             <div className="mt-4">
               <ChannelAnalysisSummary analysis={sop.originalChannel} />
             </div>
@@ -467,22 +443,22 @@ export function StepSop({
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3 border-t border-hairline pt-8">
-        <Button variant="secondary" bevel={false} onClick={onReset}>
+        <button type="button" onClick={onReset} className={secondaryButton}>
           Bend another channel
-        </Button>
-        <Button
-          variant={saved ? "secondary" : "primary"}
-          bevel={false}
+        </button>
+        <button
+          type="button"
           onClick={onToggleSaved}
           disabled={savingToggle}
+          className={saved ? secondaryButton : primaryButton}
         >
           {savingToggle ? (
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : saved ? (
-            <Check className="h-4 w-4 shrink-0" />
+            <Check className="h-4 w-4" strokeWidth={2} />
           ) : null}
           {saved ? "Saved to library" : "Save to my library"}
-        </Button>
+        </button>
       </div>
     </div>
   );

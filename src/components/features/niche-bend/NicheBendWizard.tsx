@@ -497,8 +497,12 @@ export function NicheBendWizard() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <Stepper currentStep={state.step} onStepClick={(step) => dispatch({ type: "GO_TO_STEP", step })} />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 pt-2">
+      {/* Step 1 is a single focused column; the compact tracker appears once
+          you're inside the flow. */}
+      {state.step > 1 && (
+        <Stepper currentStep={state.step} onStepClick={(step) => dispatch({ type: "GO_TO_STEP", step })} />
+      )}
 
       {state.step === 1 && (
         <StepAnalyze
@@ -518,10 +522,7 @@ export function NicheBendWizard() {
       )}
 
       {state.step === 1 && (state.analyzeState === "idle" || state.analyzeState === "error") && (
-        <div
-          className="animate-bend-in mx-auto flex w-full max-w-5xl flex-col gap-12 border-t border-hairline pt-10"
-          style={{ animationDelay: "100ms" }}
-        >
+        <div className="animate-bend-in mx-auto mt-6 w-full max-w-2xl" style={{ animationDelay: "100ms" }}>
           <BendHistory onResume={handleResumeFromHistory} />
         </div>
       )}

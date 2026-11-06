@@ -39,7 +39,7 @@ function SopDocument({ markdown }: { markdown: string }) {
       <ul key={key} className="my-2 flex flex-col gap-1.5">
         {listBuffer.map((item, i) => (
           <li key={i} className="flex gap-2 text-sm leading-relaxed text-body">
-            <span className="mt-0.5 shrink-0 text-primary">→</span>
+            <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-subtle/60" />
             <span>{renderInline(item)}</span>
           </li>
         ))}
@@ -55,7 +55,7 @@ function SopDocument({ markdown }: { markdown: string }) {
     if (line.startsWith("### ")) {
       flushList(`ul-${key}`);
       elements.push(
-        <h3 key={key} className="mt-4 text-sm font-bold text-heading">
+        <h3 key={key} className="mt-4 text-sm font-semibold text-heading">
           {line.slice(4)}
         </h3>
       );
@@ -69,7 +69,7 @@ function SopDocument({ markdown }: { markdown: string }) {
     } else if (line.startsWith("# ")) {
       flushList(`ul-${key}`);
       elements.push(
-        <h1 key={key} className="text-xl font-bold text-heading">
+        <h1 key={key} className="text-xl font-semibold tracking-[-0.01em] text-heading">
           {line.slice(2)}
         </h1>
       );
@@ -78,7 +78,7 @@ function SopDocument({ markdown }: { markdown: string }) {
     } else if (line.startsWith("_") && line.endsWith("_") && line.length > 1) {
       flushList(`ul-${key}`);
       elements.push(
-        <p key={key} className="text-sm italic text-subtle">
+        <p key={key} className="text-sm text-subtle">
           {line.slice(1, -1)}
         </p>
       );
@@ -159,11 +159,11 @@ export function SopPreviewModal({ jobId, onClose }: { jobId: string | null; onCl
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-hairline bg-surface shadow-card-hover"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-hairline bg-surface shadow-[0_24px_48px_-12px_rgba(16,24,40,0.28)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-hairline p-5">
@@ -175,9 +175,9 @@ export function SopPreviewModal({ jobId, onClose }: { jobId: string | null; onCl
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-body hover:bg-app hover:text-heading"
+            className="-mr-2 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-subtle transition-colors duration-150 hover:bg-btn-secondary hover:text-heading"
           >
-            <X className="h-4.5 w-4.5" />
+            <X className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
 
@@ -191,7 +191,7 @@ export function SopPreviewModal({ jobId, onClose }: { jobId: string | null; onCl
           )}
           {sop && (
             <>
-              <p className="mb-5 rounded-card border border-accent-line bg-accent px-4 py-3 text-sm font-medium leading-relaxed text-primary">
+              <p className="mb-5 rounded-2xl border border-primary/15 bg-primary/[0.04] px-4 py-3 text-sm leading-relaxed text-heading dark:bg-primary/10">
                 {sop.content.onelinePromise}
               </p>
               <SopDocument markdown={formatSopAsMarkdown(sop)} />
@@ -205,13 +205,13 @@ export function SopPreviewModal({ jobId, onClose }: { jobId: string | null; onCl
               type="button"
               onClick={handleDownload}
               disabled={!sop || downloading}
-              className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-surface px-4 py-2 text-sm font-semibold text-heading transition-colors hover:bg-app disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 text-sm font-medium text-heading transition-colors duration-150 hover:bg-btn-secondary disabled:opacity-50"
             >
               {downloading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <FileDown className="h-4 w-4 shrink-0" />}
               Download DOCX
             </button>
             {downloadError && (
-              <span className="absolute bottom-full left-1/2 mb-2 w-max -translate-x-1/2 rounded-chip bg-danger px-2.5 py-1 text-xs font-semibold text-white">
+              <span className="absolute bottom-full left-1/2 mb-2 w-max -translate-x-1/2 rounded-lg bg-danger px-2.5 py-1 text-xs font-medium text-white">
                 Download failed
               </span>
             )}
@@ -220,7 +220,7 @@ export function SopPreviewModal({ jobId, onClose }: { jobId: string | null; onCl
             type="button"
             onClick={handleCopy}
             disabled={!sop}
-            className="inline-flex items-center gap-1.5 rounded-full bg-btn-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-btn-primary-hover disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-btn-primary px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-btn-primary-hover disabled:opacity-50"
           >
             {copied ? <Check className="h-4 w-4 shrink-0" /> : <Copy className="h-4 w-4 shrink-0" />}
             {copied ? "Copied" : "Copy"}

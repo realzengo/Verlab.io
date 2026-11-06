@@ -1,12 +1,9 @@
 "use client";
 
-import { Bookmark, Check, RotateCw, Sparkles, Wand2 } from "lucide-react";
-import { useId, type MouseEvent } from "react";
+import { Bookmark, Loader2, RotateCw } from "lucide-react";
 import type { NicheBendCandidate } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { INK_BUTTON, MonoChip } from "@/components/brand/BrandKit";
 import { CreditCost } from "@/components/ui/CreditCost";
-import { ProgressiveFluxLoader, type ProgressiveFluxPhase } from "@/components/ui/ProgressiveFluxLoader";
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { useFakeStepProgress } from "@/lib/niche-bend/useFakeStepProgress";
 import { cn } from "@/lib/utils";
@@ -16,41 +13,40 @@ import { cn } from "@/lib/utils";
 // these phases give that wait a sense of real, ordered progress. The bar
 // tops out at 92% rather than 100 so it never implies completion before the
 // real result lands (see useFakeStepProgress).
-const SOP_LOADING_PHASES: ProgressiveFluxPhase[] = [
-  { at: 0, label: "reviewing your hook style" },
-  { at: 23, label: "writing the hook playbook" },
-  { at: 46, label: "mapping the script structure" },
-  { at: 69, label: "building storytelling frameworks" },
-  { at: 92, label: "finalizing retention mechanics" },
+const SOP_LOADING_PHASES = [
+  "Reviewing the hook style",
+  "Writing the hook playbook",
+  "Mapping the script structure",
+  "Building storytelling frameworks",
+  "Finalizing retention mechanics",
 ];
 
+const toolButton =
+  "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-hairline bg-white px-3 text-subtle shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] hover:text-heading dark:bg-[#1C1C1F] dark:hover:bg-[#232326]";
+
+/** One bend as a column of the choose-step panel, like a step column on the MCP page. */
 export function BendCandidateCard({
   candidate,
-  selected,
   saved,
   regenerating,
   generatingSop,
   locked,
-  onSelect,
   onToggleSaved,
   onRegenerate,
   onUseNow,
 }: {
   candidate: NicheBendCandidate;
-  selected: boolean;
   saved: boolean;
   regenerating: boolean;
-  /** This card's own SOP is being generated — replaces its content with the progress animation. */
+  /** This bend's own SOP is being generated — swaps its titles and actions for the progress. */
   generatingSop: boolean;
-  /** Another card's SOP is generating — mutes this card so it can't be interacted with. */
+  /** Another bend's SOP is generating — mutes this one so it can't be used. */
   locked: boolean;
-  onSelect: () => void;
   onToggleSaved: () => void;
   onRegenerate: () => void;
   onUseNow: () => void;
 }) {
-  const busy = regenerating;
-  const wandGradientId = useId();
+  const busy = regenerating || locked;
 
   const phaseIndex = useFakeStepProgress(generatingSop, SOP_LOADING_PHASES.length, {
     minDelayMs: 12_000,
@@ -58,129 +54,99 @@ export function BendCandidateCard({
   });
   const sopProgress = (phaseIndex / (SOP_LOADING_PHASES.length - 1)) * 92;
 
-  const stopAndRun = (event: MouseEvent, run: () => void) => {
-    event.stopPropagation();
-    if (busy || locked) return;
-    run();
-  };
-
   return (
-    <Card
-      padded={false}
-      role="button"
-      tabIndex={locked ? -1 : 0}
-      onClick={() => {
-        if (locked) return;
-        onSelect();
-      }}
-      onKeyDown={(event) => {
-        if (locked) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
+    <div
       className={cn(
-        "relative flex cursor-pointer flex-col overflow-hidden outline-none",
-        selected && "ring-2 ring-primary",
-        locked && "cursor-default opacity-50"
+        "flex flex-col py-8 transition-opacity duration-200 first:pt-0 last:pb-0 lg:px-8 lg:py-0 lg:first:pl-0 lg:last:pr-0",
+        locked && "pointer-events-none opacity-40"
       )}
     >
-      {selected && !generatingSop && (
-        <span className="absolute right-4 top-4 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
-          <Check className="h-3 w-3" />
-        </span>
-      )}
+      <div className="flex items-center gap-2.5">
+        <MonoChip className={cn(generatingSop && "border-primary/30 text-primary")}>0{candidate.id}</MonoChip>
+        <span className="text-[13px] text-subtle">{candidate.angle}</span>
+      </div>
+      <h3 className="mt-6 min-h-[50px] text-balance text-[19px] font-semibold leading-[25px] tracking-[-0.015em] text-heading">
+        {candidate.nicheName}
+      </h3>
 
       {generatingSop ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 py-9 text-center">
-          <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
-            <span className="absolute h-10 w-10 animate-craft-glow rounded-full bg-primary/50 blur-xl" />
-            <svg width="0" height="0" className="absolute" aria-hidden="true">
-              <defs>
-                <linearGradient id={wandGradientId} x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0.25" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <Wand2 className="relative h-5 w-5 animate-pulse" stroke={`url(#${wandGradientId})`} />
-          </span>
-
-          <ProgressiveFluxLoader
-            phases={SOP_LOADING_PHASES}
-            value={sopProgress}
-            className="max-w-full gap-4"
-            textClassName="text-sm font-bold sm:text-base"
-          />
-
-          <p className="text-[11px] text-subtle">This can take a couple of minutes.</p>
+        <div className="mt-4" role="status" aria-live="polite">
+          <p className="text-[14.5px] font-medium text-heading">Writing your SOP</p>
+          <p className="mt-1 text-[14.5px] text-subtle">{SOP_LOADING_PHASES[phaseIndex]}</p>
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-(--app-fill)">
+            <div
+              className="h-full w-full origin-left rounded-full bg-primary transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{ transform: `scaleX(${Math.max(sopProgress, 6) / 100})` }}
+            />
+          </div>
+          <p className="mt-3 text-[13px] text-subtle">This can take a couple of minutes</p>
         </div>
       ) : (
         <>
-          <div className="flex flex-1 flex-col gap-3 p-5">
-            <h3 className="pr-6 text-base font-bold text-heading">{candidate.nicheName}</h3>
-            <Badge className="w-fit">{candidate.angle}</Badge>
-            <ul className="mt-1 flex flex-col gap-2">
-              {candidate.exampleTitles.map((title, i) => (
-                <li key={i} className="flex gap-1.5 text-sm leading-snug text-body">
-                  <span className="shrink-0 font-semibold text-primary">→</span>
-                  {title}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className={cn("mt-4 flex flex-col gap-2.5 transition-opacity duration-200", regenerating && "opacity-40")}>
+            {candidate.exampleTitles.map((title, i) => (
+              <li key={i} className="flex gap-2.5 text-[14.5px] leading-relaxed text-subtle">
+                <span aria-hidden className="mt-[11px] h-1 w-1 shrink-0 rounded-full bg-subtle/50" />
+                {title}
+              </li>
+            ))}
+          </ul>
 
-          <div className="flex items-center justify-between gap-2 border-t border-hairline bg-app/60 px-3 py-2.5">
-            {busy ? (
-              <span className="flex w-full items-center justify-center gap-2 py-0.5 text-xs font-semibold text-primary" role="status">
-                <span className="relative flex h-4 w-4 items-center justify-center">
-                  <span className="absolute h-4 w-4 animate-craft-glow rounded-full bg-primary/50 blur-[3px]" />
-                  <Sparkles className="relative h-3.5 w-3.5 animate-pulse" />
-                </span>
-                Working…
+          <div className="mt-6 flex flex-wrap items-center gap-2 lg:mt-auto lg:pt-8">
+            {regenerating ? (
+              <span className="inline-flex h-10 items-center gap-2 text-sm text-subtle" role="status">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Regenerating this bend
               </span>
             ) : (
               <>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    title="Save"
-                    onClick={(event) => stopAndRun(event, onToggleSaved)}
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface text-subtle transition-colors hover:border-primary/30 hover:text-primary",
-                      saved && "border-primary/40 bg-accent text-primary"
-                    )}
-                  >
-                    <Bookmark className={cn("h-4 w-4", saved && "fill-primary")} />
-                    <span className="sr-only">Save</span>
-                  </button>
-                  <button
-                    type="button"
-                    title={`Regenerate this direction · ${TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} credits`}
-                    onClick={(event) => stopAndRun(event, onRegenerate)}
-                    className="flex h-8 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-2.5 text-subtle transition-colors hover:border-primary/30 hover:text-primary"
-                  >
-                    <RotateCw className="h-4 w-4" />
-                    <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} bullet={false} className="text-[11px] font-semibold" />
-                  </button>
-                </div>
-
                 <button
                   type="button"
-                  title="Generate a full SOP for this direction"
-                  onClick={(event) => stopAndRun(event, onUseNow)}
-                  className="flex h-8 items-center gap-1.5 rounded-full bg-btn-primary px-3.5 text-xs font-semibold text-white transition-colors hover:bg-btn-primary-hover"
+                  disabled={busy}
+                  onClick={onUseNow}
+                  title="Generate a full SOP for this bend"
+                  className={cn(INK_BUTTON, "h-10 shrink-0 whitespace-nowrap pl-5 pr-4 text-sm")}
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
                   Get SOP
-                  <CreditCost amount={TOOL_CREDIT_COSTS.nicheBend.sop} bullet={false} className="text-[11px] font-normal text-white/80" />
+                  <CreditCost
+                    amount={TOOL_CREDIT_COSTS.nicheBend.sop}
+                    bullet={false}
+                    className="text-xs tabular-nums opacity-60 [&_svg]:h-3 [&_svg]:w-3"
+                  />
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={onToggleSaved}
+                  aria-label={saved ? "Saved" : "Save this bend"}
+                  aria-pressed={saved}
+                  title={saved ? "Saved" : "Save this bend"}
+                  className={cn(toolButton, "w-10 px-0", saved && "text-primary hover:text-primary")}
+                >
+                  <Bookmark className={cn("h-4 w-4", saved && "fill-current")} strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={onRegenerate}
+                  aria-label={`Regenerate this bend, ${TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} credit`}
+                  title={`Regenerate this bend · ${TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate} credits`}
+                  className={cn(toolButton, "min-w-10 px-0 2xl:px-3")}
+                >
+                  <RotateCw className="h-4 w-4" strokeWidth={1.75} />
+                  {/* Columns are tight beside the sidebar on laptops; the
+                      cost stays in the tooltip there and shows on wide screens. */}
+                  <CreditCost
+                    amount={TOOL_CREDIT_COSTS.nicheBend.regenerateCandidate}
+                    bullet={false}
+                    className="hidden text-xs tabular-nums 2xl:inline-flex [&_svg]:h-3 [&_svg]:w-3"
+                  />
                 </button>
               </>
             )}
           </div>
         </>
       )}
-    </Card>
+    </div>
   );
 }

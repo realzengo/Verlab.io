@@ -27,55 +27,41 @@ function PromptLinesSkeleton() {
 export function BendSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="pt-2">
-      <div className="flex flex-col gap-8">
-        {/* Stepper */}
-        <div className="mt-6 py-5">
-          <div className="mx-auto flex max-w-3xl items-center gap-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex flex-1 items-center gap-2.5 last:flex-none">
-                <Skeleton className="h-6 w-6 shrink-0 rounded-full" />
-                <Skeleton className="hidden h-3.5 w-24 rounded-full sm:block" />
-                {i < 2 && <div className="h-px flex-1 bg-hairline" />}
-              </div>
-            ))}
-          </div>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16 pt-2">
+        {/* Stepper pill */}
+        <div className="flex justify-center">
+          <Skeleton className="h-10 w-80 max-w-full rounded-full" />
         </div>
 
-        {/* Hero + link input */}
-        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-7 pb-10 pt-4 sm:pt-8">
-          <div className="flex w-full flex-col items-center">
-            <Skeleton className="mb-6 h-5 w-36 rounded-md" />
-            <Skeleton className="h-9 w-80 max-w-full rounded-xl sm:h-12 sm:w-[30rem]" />
-            <Skeleton className="mt-3 h-9 w-56 max-w-full rounded-xl sm:h-12 sm:w-72" />
-            <Skeleton className="mt-5 h-3.5 w-96 max-w-full rounded-full" />
-            <Skeleton className="mt-2 h-3.5 w-72 max-w-full rounded-full" />
+        {/* Hero: the tile trio, title, subtitle, then the link composer */}
+        <div className="flex flex-col items-center pt-8 sm:pt-12">
+          <div className="flex items-center">
+            <Skeleton className="h-[88px] w-[88px] -rotate-6 rounded-[22px]" />
+            <Skeleton className="relative z-10 -mx-5 h-28 w-28 rounded-[30px]" />
+            <Skeleton className="h-[88px] w-[88px] rotate-6 rounded-[22px]" />
           </div>
-          <Skeleton className="h-[104px] w-full rounded-2xl sm:h-[52px] sm:rounded-full" />
+          <Skeleton className="mt-10 h-12 w-72 max-w-full rounded-2xl sm:h-16 sm:w-96" />
+          <Skeleton className="mt-5 h-4 w-96 max-w-full rounded-full" />
+          <Skeleton className="mt-2.5 h-4 w-72 max-w-full rounded-full" />
+          <Skeleton className="mt-12 h-[72px] w-full max-w-2xl rounded-[22px]" />
         </div>
 
-        {/* Past bends */}
-        <div className="mx-auto w-full max-w-5xl border-t border-hairline pt-10">
-          <div className="mb-4 flex items-center gap-2">
-            <Skeleton className="h-3.5 w-3.5 rounded-full" />
-            <Skeleton className="h-3 w-28 rounded-full" />
+        {/* Recent bends */}
+        <div className="mx-auto mt-8 w-full max-w-4xl rounded-[30px] border border-hairline p-1.5">
+          <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
+            <Skeleton className="h-4 w-28 rounded-full" />
+            <Skeleton className="h-3 w-14 rounded-full" />
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="rounded-card-lg border border-hairline bg-surface p-5 shadow-card">
-                <div className="flex items-start gap-3.5">
-                  <Skeleton className="h-[52px] w-[52px] shrink-0 rounded-full" />
-                  <div className="min-w-0 flex-1 space-y-2 pt-1.5">
-                    <Skeleton className="h-3.5 w-2/3 rounded-full" />
-                    <Skeleton className="h-2.5 w-1/2 rounded-full" />
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-hairline pt-4">
-                  <Skeleton className="h-4 w-20 rounded-full" />
-                  <Skeleton className="h-7 w-16 rounded-full" />
-                </div>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-hairline px-5 py-3.5 last:border-0 sm:px-6">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-40 rounded-full" />
+                <Skeleton className="h-3 w-56 max-w-full rounded-full" />
               </div>
-            ))}
-          </div>
+              <Skeleton className="hidden h-3 w-20 rounded-full sm:block" />
+            </div>
+          ))}
         </div>
       </div>
     </div>

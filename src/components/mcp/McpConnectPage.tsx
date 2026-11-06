@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUp, ArrowUpRight, Check, Copy } from "lucide-react";
 import { ChatGPTMarkIcon, ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
+import { APP_TILE, TileSpecular, VerlabTile } from "@/components/brand/BrandKit";
 import { MCP_PATH } from "@/components/mcp/McpConnectSection";
 import { cn } from "@/lib/utils";
 
@@ -53,23 +54,6 @@ const FAN_STEPS = [
   { x: 214, y: 10, rotate: 16, scale: 0.9 },
 ];
 
-// Built like an app icon: a top-lit surface, a hairline ring drawn as a
-// shadow (crisper than a border on a rotated tile), a 1px bevel top and
-// bottom, then three stacked soft shadows for depth. Neutral throughout.
-const SIDE_TILE =
-  "relative flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-[22px] " +
-  "bg-gradient-to-b from-white to-[#EDEFF3] " +
-  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(15,23,42,0.06),0_1px_1px_rgba(15,23,42,0.04),0_4px_8px_-2px_rgba(15,23,42,0.08),0_14px_28px_-10px_rgba(15,23,42,0.18)] " +
-  "dark:from-[#27272C] dark:to-[#131316] " +
-  "dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.45),0_2px_4px_rgba(0,0,0,0.5),0_18px_34px_-12px_rgba(0,0,0,0.9)]";
-
-/** Soft top-left light on a tile's face. */
-function Specular() {
-  return (
-    <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(110%_65%_at_30%_0%,rgba(255,255,255,0.95),transparent_65%)] dark:bg-[radial-gradient(110%_65%_at_30%_0%,rgba(255,255,255,0.09),transparent_65%)]" />
-  );
-}
-
 // Static by design -- the deck renders in place, no entrance or idle motion.
 function IconFan() {
   const tiles = [
@@ -94,28 +78,15 @@ function IconFan() {
                 transform: `translate(${side * x}px, ${y}px) rotate(${side * rotate}deg) scale(${scale})`,
               }}
             >
-              <div className={SIDE_TILE}>
-                <Specular />
+              <div className={APP_TILE}>
+                <TileSpecular />
                 <span className="relative">{logo.render()}</span>
               </div>
             </div>
           );
         })}
 
-        {/* The Verlab tile, drawn in code: brand gradient lit from the
-            top-left, a glassy upper half and an inner bevel. */}
-        <div className="absolute left-1/2 top-0 z-40 -ml-14 flex h-28 w-28 items-center justify-center overflow-hidden rounded-[30px] bg-[radial-gradient(130%_120%_at_28%_8%,#6F9DFF_0%,#335CFF_50%,#1A3BCC_100%)] shadow-[0_0_0_1px_rgba(22,48,190,0.4),0_1px_2px_rgba(15,23,42,0.2),0_8px_16px_-6px_rgba(28,63,214,0.32),0_26px_40px_-18px_rgba(15,23,42,0.4)] dark:shadow-[0_0_0_1px_rgba(130,160,255,0.28),0_2px_4px_rgba(0,0,0,0.6),0_26px_44px_-16px_rgba(0,0,0,0.95)]">
-          <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-white/0" />
-          <span className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(255,255,255,0.12),inset_0_-4px_8px_rgba(8,22,110,0.35)]" />
-          {/* eslint-disable-next-line @next/next/no-img-element -- static brand mark */}
-          <img
-            src="/logo-mark-white.png"
-            alt=""
-            width={58}
-            height={50}
-            className="relative w-[58px] drop-shadow-[0_2px_3px_rgba(8,22,110,0.4)]"
-          />
-        </div>
+        <VerlabTile className="absolute left-1/2 top-0 z-40 -ml-14" />
       </div>
     </div>
   );

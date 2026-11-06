@@ -1,47 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, ChevronDown, History, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { deleteBendHistoryItem, fetchBendHistory } from "@/lib/api/niche-bend";
 import type { NicheBendHistoryItem, NicheBendJobStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { BezelPanel } from "@/components/brand/BrandKit";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ChannelAvatar } from "./ChannelAvatar";
 import { SopPreviewModal } from "./SopPreviewModal";
 
-const STATUS_META: Record<NicheBendJobStatus, { label: string; dot: string; badge: string }> = {
-  opening_channel: {
-    label: "In progress",
-    dot: "bg-primary animate-pulse",
-    badge: "border-accent-line bg-accent text-primary",
-  },
-  reading_videos: {
-    label: "In progress",
-    dot: "bg-primary animate-pulse",
-    badge: "border-accent-line bg-accent text-primary",
-  },
-  identifying_format: {
-    label: "In progress",
-    dot: "bg-primary animate-pulse",
-    badge: "border-accent-line bg-accent text-primary",
-  },
-  generating_bends: {
-    label: "In progress",
-    dot: "bg-primary animate-pulse",
-    badge: "border-accent-line bg-accent text-primary",
-  },
-  ready: { label: "Bends ready", dot: "bg-warning", badge: "border-warning/25 bg-warning-tint text-warning" },
-  generating_sop: {
-    label: "Writing SOP",
-    dot: "bg-primary animate-pulse",
-    badge: "border-accent-line bg-accent text-primary",
-  },
-  sop_ready: { label: "SOP ready", dot: "bg-success", badge: "border-success/25 bg-success-tint text-success" },
-  failed: { label: "Failed", dot: "bg-danger", badge: "border-danger/25 bg-danger-tint text-danger" },
+// In-progress states pulse because they really are live; finished ones hold still.
+const STATUS_META: Record<NicheBendJobStatus, { label: string; dot: string }> = {
+  opening_channel: { label: "Analyzing", dot: "bg-primary animate-pulse" },
+  reading_videos: { label: "Analyzing", dot: "bg-primary animate-pulse" },
+  identifying_format: { label: "Analyzing", dot: "bg-primary animate-pulse" },
+  generating_bends: { label: "Analyzing", dot: "bg-primary animate-pulse" },
+  ready: { label: "Bends ready", dot: "bg-warning" },
+  generating_sop: { label: "Writing SOP", dot: "bg-primary animate-pulse" },
+  sop_ready: { label: "SOP ready", dot: "bg-success" },
+  failed: { label: "Failed", dot: "bg-danger" },
 };
 
-// Divisible by both 2 and 3 so the grid never ends on a lone dangling card,
-// regardless of whether the viewport is showing 2 or 3 columns.
 const COLLAPSED_COUNT = 6;
 
 function formatTimeAgo(iso: string): string {
@@ -60,15 +40,10 @@ function formatTimeAgo(iso: string): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-function StatusBadge({ status }: { status: NicheBendJobStatus }) {
+function StatusLabel({ status }: { status: NicheBendJobStatus }) {
   const meta = STATUS_META[status];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium",
-        meta.badge
-      )}
-    >
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-body">
       <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
       {meta.label}
     </span>
@@ -78,24 +53,15 @@ function StatusBadge({ status }: { status: NicheBendJobStatus }) {
 function HistorySkeleton() {
   return (
     <div className="w-full">
-      <div className="mb-4 flex items-center gap-2">
-        <span className="h-3.5 w-3.5 animate-pulse rounded-full bg-accent" />
-        <span className="h-3 w-28 animate-pulse rounded-full bg-accent" />
-      </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="divide-y divide-hairline rounded-[30px] border border-[#EBEDF0] bg-white p-1.5 dark:border-white/[0.06] dark:bg-[#0E0E10]">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-card-lg border border-hairline bg-surface p-5 shadow-card">
-            <div className="flex items-start gap-3.5">
-              <span className="h-[52px] w-[52px] shrink-0 animate-pulse rounded-full bg-accent" />
-              <div className="min-w-0 flex-1 space-y-2 pt-1.5">
-                <span className="block h-3.5 w-2/3 animate-pulse rounded-full bg-accent" />
-                <span className="block h-2.5 w-1/2 animate-pulse rounded-full bg-accent" />
-              </div>
+          <div key={i} className="flex items-center gap-4 px-4 py-3 sm:px-5">
+            <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-hairline" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <span className="block h-3.5 w-40 animate-pulse rounded-full bg-hairline" />
+              <span className="block h-3 w-56 max-w-full animate-pulse rounded-full bg-hairline" />
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-hairline pt-4">
-              <span className="h-4 w-20 animate-pulse rounded-full bg-accent" />
-              <span className="h-7 w-16 animate-pulse rounded-full bg-accent" />
-            </div>
+            <span className="hidden h-3 w-20 animate-pulse rounded-full bg-hairline sm:block" />
           </div>
         ))}
       </div>
@@ -143,112 +109,91 @@ export function BendHistory({ onResume }: { onResume: (item: NicheBendHistoryIte
 
   return (
     <div className="w-full text-left">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-subtle" />
-          <h2 className="text-[15px] font-semibold tracking-tight text-heading">Recent bends</h2>
+      {deleteError && <p className="mb-3 text-sm text-danger">{deleteError}</p>}
+
+      <BezelPanel>
+        <div className="flex items-center justify-between gap-4 border-b border-hairline px-5 py-4 sm:px-6">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-heading">Recent bends</h2>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-subtle">
+            {items.length} {items.length === 1 ? "bend" : "bends"}
+          </span>
         </div>
-        <span className="rounded-full border border-hairline px-2.5 py-0.5 text-[11px] font-medium text-subtle">
-          {items.length} {items.length === 1 ? "bend" : "bends"}
-        </span>
-      </div>
+        <ol className="divide-y divide-hairline">
+          {visible.map((item) => {
+            const name = item.channelName ?? item.sourceUrl ?? "Untitled channel";
+            const openItem = () => (item.status === "sop_ready" ? setPreviewJobId(item.jobId) : onResume(item));
 
-      {deleteError && <p className="mb-3 text-[11px] font-medium text-danger">{deleteError}</p>}
-
-      <ol className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {visible.map((item) => {
-          const finalNiche = item.chosenBend?.nicheName;
-          const nicheLabel = finalNiche ?? item.detectedNiche ?? "Analyzing channel…";
-          const openItem = () => (item.status === "sop_ready" ? setPreviewJobId(item.jobId) : onResume(item));
-
-          return (
-            <li
-              key={item.jobId}
-              role="button"
-              tabIndex={0}
-              onClick={openItem}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openItem();
-                }
-              }}
-              className="group relative flex cursor-pointer flex-col gap-5 overflow-hidden rounded-card-lg border border-hairline bg-surface p-5 shadow-card outline-none"
-            >
-              {/* Corner action -- revealed on hover so the identity block below
-                  is the only thing competing for attention at rest, instead of
-                  a permanent row of chrome above it. */}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setPendingDeleteId(item.jobId);
+            return (
+              <li
+                key={item.jobId}
+                role="button"
+                tabIndex={0}
+                onClick={openItem}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openItem();
+                  }
                 }}
-                aria-label="Delete this bend"
-                className="absolute right-3 top-3 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface/80 text-subtle opacity-0 backdrop-blur-sm transition-colors duration-200 ease-out hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                aria-label={item.status === "sop_ready" ? `View SOP for ${name}` : `Resume bend for ${name}`}
+                className="group flex cursor-pointer items-center gap-4 px-5 py-3.5 outline-none transition-colors duration-150 hover:bg-[#F7F8FA] focus-visible:bg-[#F7F8FA] sm:px-6 dark:hover:bg-white/[0.03] dark:focus-visible:bg-white/[0.03]"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
+                <ChannelAvatar name={name} avatarUrl={item.avatarUrl ?? undefined} platform={item.platform} size={40} />
 
-              {/* Identity block leads the card -- the avatar's own platform
-                  badge (see ChannelAvatar) already says TikTok/YouTube, so a
-                  second "TIKTOK" label up top would just repeat it. */}
-              <div className="relative flex min-w-0 items-start gap-3.5 pr-7">
-                <div className="shrink-0 rounded-full ring-2 ring-app">
-                  <ChannelAvatar
-                    name={item.channelName ?? item.sourceUrl ?? "?"}
-                    avatarUrl={item.avatarUrl ?? undefined}
-                    platform={item.platform}
-                    size={52}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-heading">{name}</p>
+                  <p className="truncate text-sm text-subtle">
+                    {item.chosenBend ? (
+                      <>
+                        Bent into <span className="text-body">{item.chosenBend.nicheName}</span>
+                      </>
+                    ) : item.status === "failed" ? (
+                      "Couldn't analyze this channel"
+                    ) : (
+                      (item.detectedNiche ?? "Analyzing the channel")
+                    )}
+                  </p>
+                </div>
+
+                <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+                  <StatusLabel status={item.status} />
+                  <span className="text-xs tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDeleteId(item.jobId);
+                    }}
+                    aria-label={`Delete the bend for ${name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-subtle opacity-0 transition-[opacity,color,background-color] duration-150 hover:bg-danger-tint hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+                  >
+                    <X className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                  <ChevronRight
+                    className="h-4 w-4 text-subtle transition-transform duration-150 group-hover:translate-x-0.5"
+                    strokeWidth={1.75}
                   />
                 </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="truncate text-base font-semibold tracking-tight text-heading">
-                    {item.channelName ?? item.sourceUrl ?? "Untitled channel"}
-                  </p>
-                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-subtle">
-                    {finalNiche && <Sparkles className="h-3 w-3 shrink-0 text-primary/70" />}
-                    <span className="truncate">{nicheLabel}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative flex items-center justify-between gap-3 border-t border-hairline pt-4">
-                <div className="flex min-w-0 items-center gap-2">
-                  <StatusBadge status={item.status} />
-                  <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-subtle/40" aria-hidden="true" />
-                  <span className="shrink-0 text-[11px] tabular-nums text-subtle">{formatTimeAgo(item.updatedAt)}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    openItem();
-                  }}
-                  aria-label={
-                    item.status === "sop_ready"
-                      ? `View SOP for ${item.channelName ?? item.sourceUrl ?? "channel"}`
-                      : `Resume bend for ${item.channelName ?? item.sourceUrl ?? "channel"}`
-                  }
-                  className="group/btn inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-primary/25 transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-primary-hover hover:shadow-md hover:shadow-primary/30 active:scale-[0.96] active:duration-100"
-                >
-                  View
-                  <ArrowRight className="h-3 w-3 transition-transform duration-200 ease-out group-hover/btn:translate-x-0.5" />
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
+      </BezelPanel>
 
       {items.length > COLLAPSED_COUNT && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card-lg border border-hairline bg-surface px-4 py-2.5 text-xs font-semibold text-subtle shadow-card transition-[transform,border-color,box-shadow,color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-primary/20 hover:text-heading hover:shadow-card-hover sm:px-5"
+          className="mx-auto mt-3 flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-subtle transition-colors duration-150 hover:bg-btn-secondary hover:text-heading"
         >
           {expanded ? "Show less" : `Show ${items.length - COLLAPSED_COUNT} more`}
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", expanded && "rotate-180")} />
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")}
+            strokeWidth={1.75}
+          />
         </button>
       )}
 
