@@ -1,7 +1,8 @@
 import "server-only";
 import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
+import { detectTranscriptPlatform, type TranscriptPlatform } from "@/lib/transcript-platform";
 
-export type TranscriptPlatform = "tiktok" | "reels" | "shorts";
+export { detectTranscriptPlatform, type TranscriptPlatform };
 
 export interface TranscriptLineResult {
   timestamp: string;
@@ -631,17 +632,6 @@ async function savenowFetchDownloadLink(
   throw new VideoProviderError("provider_error", "Video Download API did not return a job id");
 }
 
-export function detectTranscriptPlatform(rawUrl: string): TranscriptPlatform | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return null;
-  if (/tiktok\.com/i.test(trimmed)) return "tiktok";
-  if (/instagram\.com\/(reel|p)\//i.test(trimmed)) return "reels";
-  // "shorts" is a legacy label (kept as-is since it's a Postgres check-
-  // constraint value on the transcripts table) — it now covers every
-  // youtube.com/watch?v=... and youtu.be link too, not just /shorts/.
-  if (/youtube\.com\/(shorts\/|watch)|youtu\.be/i.test(trimmed)) return "shorts";
-  return null;
-}
 
 export function detectDownloadPlatform(rawUrl: string): DownloadPlatform | null {
   const trimmed = rawUrl.trim();

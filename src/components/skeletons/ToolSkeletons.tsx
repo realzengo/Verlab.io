@@ -43,7 +43,7 @@ export function BendSkeleton() {
           <Skeleton className="mt-10 h-12 w-72 max-w-full rounded-2xl sm:h-16 sm:w-96" />
           <Skeleton className="mt-5 h-4 w-96 max-w-full rounded-full" />
           <Skeleton className="mt-2.5 h-4 w-72 max-w-full rounded-full" />
-          <Skeleton className="mt-12 h-[72px] w-full max-w-2xl rounded-[22px]" />
+          <Skeleton className="mt-12 h-[80px] w-full max-w-2xl rounded-[22px]" />
         </div>
 
         {/* Recent bends */}
@@ -322,45 +322,46 @@ export function ScriptsSkeleton() {
 
 export function TranscriptsSkeleton() {
   return (
-    <div role="status" aria-label="Loading" className="flex flex-col gap-6 pt-2 pb-12">
-      <PageTitleSkeleton />
+    <div role="status" aria-label="Loading" className="flex w-full flex-col pb-16">
+      {/* Hero: ink title, one-line subtitle */}
+      <div className="flex flex-col items-center pt-10 sm:pt-16">
+        <Skeleton className="h-11 w-64 rounded-xl sm:h-16 sm:w-96" />
+        <Skeleton className="mt-5 h-4 w-80 max-w-full rounded-full" />
+        <Skeleton className="mt-2 h-4 w-56 max-w-full rounded-full" />
+      </div>
 
-      {/* Link card */}
-      <div className="flex flex-col gap-5 rounded-card border border-hairline bg-surface p-6">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Skeleton className="h-3.5 w-24 rounded-full" />
-            <Skeleton className="h-3 w-72 max-w-full rounded-full" />
-          </div>
+      {/* Bezel link field and the status line under it */}
+      <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-12">
+        <div className="rounded-[22px] border border-hairline p-1.5">
+          <Skeleton className="h-[66px] w-full rounded-2xl" />
         </div>
-        <Skeleton className="h-[50px] w-full rounded-2xl" />
-        <div className="flex flex-col gap-4 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-3 w-16 rounded-full" />
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-7 w-7 rounded-full sm:w-20" />
-            ))}
-          </div>
-          <Skeleton className="h-11 w-full rounded-xl sm:w-44" />
+        <div className="mt-4 flex h-6 justify-center">
+          <Skeleton className="h-4 w-72 max-w-full rounded-full" />
         </div>
       </div>
 
       {/* History */}
-      <div className="flex items-center justify-between gap-3">
-        <Skeleton className="h-5 w-40 rounded-full" />
-        <Skeleton className="h-8 w-24 rounded-lg" />
-      </div>
-      <div className="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
-            <div className="flex flex-1 flex-col gap-2">
-              <Skeleton className="h-3.5 w-1/3 rounded-full" />
-              <Skeleton className="h-3 w-1/5 rounded-full" />
-            </div>
+      <div className="mt-14 flex flex-col gap-4 sm:mt-20">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
+          <div className="h-10 border-b border-hairline" />
+          <div className="divide-y divide-hairline">
+            {["w-3/5", "w-2/5", "w-1/2", "w-1/3"].map((width) => (
+              <div key={width} className="flex items-center gap-4 px-4 py-3">
+                <Skeleton className="h-4 w-4 shrink-0 rounded-[5px]" />
+                <Skeleton className="h-14 w-8 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton className={`h-3.5 ${width} rounded-full`} />
+                  <Skeleton className="h-3 w-20 rounded-full" />
+                </div>
+                <Skeleton className="hidden h-3 w-24 rounded-full sm:block" />
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

@@ -3,10 +3,10 @@ import type { TranscriptRow } from "@/lib/types";
 export type ExportFormat = "CSV" | "JSON" | "XML" | "TXT";
 
 export const EXPORT_FORMATS: { id: ExportFormat; title: string; description: string }[] = [
-  { id: "CSV", title: "CSV", description: "Comma-separated values (Excel compatible)" },
-  { id: "JSON", title: "JSON", description: "Structured data format (developer-friendly)" },
-  { id: "XML", title: "XML", description: "Structured markup format (legacy system compatible)" },
-  { id: "TXT", title: "TXT", description: "Plain text format (universal compatibility)" },
+  { id: "CSV", title: "CSV", description: "A spreadsheet, opens in Excel or Google Sheets" },
+  { id: "JSON", title: "JSON", description: "Structured data for scripts and tools" },
+  { id: "XML", title: "XML", description: "Structured markup for older systems" },
+  { id: "TXT", title: "TXT", description: "Plain text, one transcript after another" },
 ];
 
 const MIME: Record<ExportFormat, string> = {

@@ -3035,3 +3035,23 @@ html[data-scrolling="true"] *::after {
     animation: none;
   }
 }
+
+/* LinkFieldNote (Transcripts): the note fades in, then its arrow draws on
+   (a pathLength=1 path whose dash offset runs 1 -> 0). Both are gated on
+   motion-safe in the component. */
+@keyframes note-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes note-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

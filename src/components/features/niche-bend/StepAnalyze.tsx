@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Check, Link2, Loader2 } from "lucide-react";
 import type { NicheBendJobStatus, NicheBendPlatform, NicheBendVideo, NicheBendVideoType } from "@/lib/types";
-import { BezelPanel, INK_BUTTON, INK_TITLE, MonoChip } from "@/components/brand/BrandKit";
+import { BEZEL_FIELD, BEZEL_FIELD_ROW, BezelPanel, INK_BUTTON, INK_TITLE, MonoChip } from "@/components/brand/BrandKit";
 import { TikTokIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { detectPlatform } from "@/lib/niche-bend/platform";
@@ -104,9 +104,9 @@ export function StepAnalyze({
                 setAttempted(true);
                 inputRef.current?.focus();
               }}
-              className="rounded-[22px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.025]"
+              className={BEZEL_FIELD}
             >
-              <div className="flex items-center gap-2 rounded-2xl border border-[#E6E8EC] bg-white py-2 pl-3 pr-2 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 sm:gap-3 sm:pl-4 dark:border-white/[0.07] dark:bg-[#0E0E10]">
+              <div className={BEZEL_FIELD_ROW}>
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                   {detected ? (
                     <PlatformMark platform={detected} className="h-[18px] w-[18px]" />
@@ -127,9 +127,11 @@ export function StepAnalyze({
                   aria-invalid={missingLink || showValidation || showUrlFormatError}
                   className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-heading outline-none placeholder:text-subtle"
                 />
+                {/* mb-1 matches the button's 4px pressed lip (a shadow, outside
+                    its box), so the face and lip center in the row together. */}
                 <PlasticButton
                   type="submit"
-                  className="h-11 shrink-0"
+                  className="mb-1 h-11 shrink-0"
                   text="Analyze"
                   trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
                   loading={analyzeState === "submitting"}

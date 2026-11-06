@@ -54,6 +54,16 @@ export const INK_TITLE =
 export const INK_BUTTON =
   "group inline-flex items-center justify-center gap-2 rounded-full bg-[#0B0D12] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(15,23,42,0.2),0_8px_20px_-10px_rgba(15,23,42,0.5)] transition-colors hover:bg-[#1A1D24] disabled:pointer-events-none disabled:opacity-50 dark:bg-white dark:text-[#0B0D12] dark:shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)] dark:hover:bg-[#E9EAEE]";
 
+/**
+ * The bezel link field: a soft gray rim (BEZEL_FIELD, put it on the form)
+ * holding one white input row (BEZEL_FIELD_ROW) -- leading mark, input,
+ * then the PlasticButton.
+ */
+export const BEZEL_FIELD =
+  "rounded-[22px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.025]";
+export const BEZEL_FIELD_ROW =
+  "flex items-center gap-2 rounded-2xl border border-[#E6E8EC] bg-white py-2 pl-3 pr-2 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 sm:gap-3 sm:pl-4 dark:border-white/[0.07] dark:bg-[#0E0E10]";
+
 /** A mono step chip: "01", "02". */
 export function MonoChip({ children, className }: { children: ReactNode; className?: string }) {
   return (

@@ -1,218 +1,135 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect, useLayoutEffect, forwardRef } from "react";
-import type { ComponentType, CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import type { LucideIcon } from "lucide-react";
-import {
-  Bookmark,
-  Check,
-  ChevronDown,
-  Download,
-  Eye,
-  ListFilter,
-  MoreVertical,
-  PlayCircle,
-  Search,
-  Smartphone,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, ChevronDown, Download, Eye, FileText, Loader2, MoreHorizontal, Search, Trash2, X } from "lucide-react";
 import type { TranscriptRow, TranscriptRowStatus } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import type { TranscriptPlatform } from "@/lib/transcript-platform";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Table, TableHead, TableRow, TableHeaderCell, TableCell } from "@/components/ui/Table";
-import { TikTokIcon, InstagramIcon, YouTubeIcon } from "@/components/landing/PlatformIcons";
-import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  TRANSCRIPT_PLATFORMS,
+  TRANSCRIPT_PLATFORM_ORDER,
+  TranscriptPlatformMark,
+  displayUrl,
+  formatCreated,
+  formatDuration,
+} from "@/components/transcripts/platform";
+import { cn } from "@/lib/utils";
 
-type PlatformFilterValue = "all" | TranscriptRow["platform"];
+type PlatformFilterValue = "all" | TranscriptPlatform;
 type StatusFilterValue = "all" | TranscriptRowStatus;
 
-const STATUS_META: Record<TranscriptRowStatus, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
-  complete: { label: "Complete", variant: "success" },
-  processing: { label: "Processing", variant: "warning" },
-  queued: { label: "Queued", variant: "default" },
-  failed: { label: "Failed", variant: "danger" },
+const STATUS_LABEL: Record<TranscriptRowStatus, string> = {
+  complete: "Complete",
+  processing: "Extracting",
+  queued: "Queued",
+  failed: "Failed",
 };
-
-const PLATFORM_META = {
-  tiktok: { label: "TikTok", icon: TikTokIcon },
-  reels: { label: "Reels", icon: InstagramIcon },
-  shorts: { label: "Shorts", icon: YouTubeIcon },
-} satisfies Record<TranscriptRow["platform"], { label: string; icon: ComponentType<{ className?: string }> }>;
 
 const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "complete", label: STATUS_META.complete.label },
-  { value: "processing", label: STATUS_META.processing.label },
-  { value: "queued", label: STATUS_META.queued.label },
-  { value: "failed", label: STATUS_META.failed.label },
+  ...(["complete", "processing", "queued", "failed"] as const).map((value) => ({ value, label: STATUS_LABEL[value] })),
 ];
 
 const PLATFORM_OPTIONS: { value: PlatformFilterValue; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "tiktok", label: PLATFORM_META.tiktok.label },
-  { value: "reels", label: PLATFORM_META.reels.label },
-  { value: "shorts", label: PLATFORM_META.shorts.label },
+  ...TRANSCRIPT_PLATFORM_ORDER.map((value) => ({ value, label: TRANSCRIPT_PLATFORMS[value].label })),
 ];
 
-interface PlaceholderMeta {
-  handle: string;
-  views: number;
-  bookmarked: boolean;
+// One column template for the header and every row, so checkboxes, covers,
+// lengths and dates line up. Length and date fold into the meta line on phones.
+const ROW_GRID =
+  "grid grid-cols-[16px_minmax(0,1fr)_32px] items-center gap-x-4 sm:grid-cols-[16px_minmax(0,1fr)_56px_120px_32px]";
+
+const QUIET_BUTTON =
+  "inline-flex h-8 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 text-[13px] font-medium text-heading outline-none transition-colors hover:bg-(--app-fill) focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50";
+
+const MENU_SURFACE =
+  "rounded-xl border border-hairline bg-surface p-1 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-12px_rgba(16,24,40,0.2)] dark:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)]";
+
+const MENU_ITEM =
+  "flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[13px] font-medium text-body outline-none transition-colors hover:bg-(--app-fill) hover:text-heading focus-visible:bg-(--app-fill) disabled:pointer-events-none disabled:opacity-40";
+
+function downloadTxt(row: TranscriptRow) {
+  if (!row.lines?.length) return;
+  const text = row.lines.map((line) => `[${line.timestamp}] ${line.text}`).join("\n");
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${(row.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim()}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
-function hashSeed(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-// Backend doesn't track author handle / views / bookmarks yet — derive stable
-// placeholder values from the row id so the columns have something realistic
-// to show until those fields exist for real.
-function derivePlaceholderMeta(row: TranscriptRow): PlaceholderMeta {
-  const seed = hashSeed(row.id);
-  const slug = (row.title ?? "creator").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14);
-
-  return {
-    handle: `@${slug || "creator"}`,
-    views: 1_200 + (seed % 480_000),
-    bookmarked: seed % 4 === 0,
-  };
-}
-
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return "--:--";
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}
-
-function useClickOutside<T extends HTMLElement>(active: boolean, onClose: () => void) {
-  const ref = useRef<T>(null);
-
-  useEffect(() => {
-    if (!active) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [active, onClose]);
-
-  return ref;
-}
-
-// Menus opened from within the table need to render through a portal, since
-// the table's overflow-x-auto scroll container would otherwise clip them.
-// "side" opens to the left of the trigger (so it stays fully visible even
-// when the row is near the bottom of the viewport); "bottom" drops below it.
-function useAnchoredMenu(placement: "side" | "bottom" = "side") {
-  const [open, setOpen] = useState(false);
-  const anchorRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<CSSProperties | null>(null);
-
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current) {
-      setStyle(null);
-      return;
-    }
-    function update() {
-      const rect = anchorRef.current!.getBoundingClientRect();
-      if (placement === "side") {
-        setStyle({
-          position: "fixed",
-          top: rect.top,
-          right: window.innerWidth - rect.left + 8,
-          zIndex: 50,
-        });
-      } else {
-        setStyle({
-          position: "fixed",
-          top: rect.bottom + 8,
-          right: window.innerWidth - rect.right,
-          zIndex: 50,
-        });
-      }
-    }
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [open, placement]);
-
+function useDismiss(open: boolean, onClose: () => void, refs: React.RefObject<HTMLElement | null>[]) {
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (anchorRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
+      if (refs.some((ref) => ref.current?.contains(event.target as Node))) return;
+      onClose();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
     }
     document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [open]);
-
-  return { open, setOpen, anchorRef, menuRef, style };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose, refs]);
 }
 
-function FilterDropdown<T extends string>({
+function FilterMenu<T extends string>({
   label,
-  icon: Icon,
   value,
-  valueLabel,
   options,
   onChange,
 }: {
   label: string;
-  icon: LucideIcon;
   value: T;
-  valueLabel: string;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useClickOutside<HTMLDivElement>(open, () => setOpen(false));
+  const ref = useRef<HTMLDivElement>(null);
+  const refs = useMemo(() => [ref], []);
+  useDismiss(open, () => setOpen(false), refs);
+  const current = options.find((option) => option.value === value);
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 rounded-md border border-hairline bg-surface px-3.5 py-1.5 text-xs font-medium text-heading hover:bg-app"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(QUIET_BUTTON, "h-9 gap-1 px-3", open && "bg-(--app-fill)")}
       >
-        <Icon className="h-3.5 w-3.5 shrink-0 text-body" />
-        {label}: {valueLabel}
-        <ChevronDown className="h-3.5 w-3.5 text-body" />
+        <span className="text-body">{label}</span>
+        {value !== "all" && current && <span className="text-heading">· {current.label}</span>}
+        <ChevronDown className="ml-0.5 h-3.5 w-3.5 text-subtle" />
       </button>
       {open && (
-        <div className="absolute left-0 z-20 mt-2 w-48 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
+        <div role="listbox" aria-label={label} className={cn(MENU_SURFACE, "animate-menu-pop absolute left-0 z-20 mt-1.5 w-44 [transform-origin:top_left]")}>
           {options.map((option) => (
             <button
               key={option.value}
               type="button"
+              role="option"
+              aria-selected={option.value === value}
               onClick={() => {
                 onChange(option.value);
                 setOpen(false);
               }}
-              className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent"
+              className={cn(MENU_ITEM, "justify-between")}
             >
               {option.label}
-              {option.value === value && <Check className="h-3.5 w-3.5 text-primary" />}
+              {option.value === value && <Check className="h-3.5 w-3.5 text-heading" />}
             </button>
           ))}
         </div>
@@ -221,114 +138,124 @@ function FilterDropdown<T extends string>({
   );
 }
 
-function CoverThumbnail({ src, alt }: { src: string | null; alt?: string }) {
+function Cover({ row }: { row: TranscriptRow }) {
   const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
+  const pending = row.status === "queued" || row.status === "processing";
 
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink text-white">
-      {showImage ? (
+    <div className="relative flex h-14 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-(--app-fill-strong)">
+      {row.cover_url && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src!}
-          alt={alt ?? ""}
+          src={row.cover_url}
+          alt=""
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover"
         />
+      ) : pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-subtle" />
       ) : (
-        <PlayCircle className="h-4 w-4 text-white/70" />
+        <FileText className="h-3.5 w-3.5 text-subtle" />
       )}
+      <span className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/5 dark:ring-white/10" />
     </div>
   );
 }
 
-const IconButton = forwardRef<
-  HTMLButtonElement,
-  {
-    icon: LucideIcon;
-    label: string;
-    onClick?: () => void;
-    disabled?: boolean;
-    active?: boolean;
-  }
->(function IconButton({ icon: Icon, label, onClick, disabled, active }, ref) {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      aria-label={label}
-      className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-40 disabled:pointer-events-none",
-        active ? "border-transparent bg-accent text-primary" : "border-hairline bg-surface text-body hover:bg-app hover:text-heading"
-      )}
-    >
-      <Icon className={cn("h-4 w-4", active && "fill-current")} />
-    </button>
-  );
-});
+// Rendered through a portal: the list clips its rounded corners, which would
+// otherwise cut the menu off. Opens below the trigger, or above it when the
+// row sits near the bottom of the viewport.
+const ROW_MENU_HEIGHT = 124;
 
-function RowMenu({
-  onView,
-  viewDisabled,
-  onExport,
-  exportDisabled,
-  onDelete,
-}: {
-  onView: () => void;
-  viewDisabled: boolean;
-  onExport: () => void;
-  exportDisabled: boolean;
-  onDelete: () => void;
-}) {
-  const { open, setOpen, anchorRef, menuRef, style } = useAnchoredMenu();
+function RowMenu({ row, onOpen, onDelete }: { row: TranscriptRow; onOpen: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [style, setStyle] = useState<CSSProperties | null>(null);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const refs = useMemo(() => [anchorRef, menuRef], []);
+  useDismiss(open, () => setOpen(false), refs);
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) return;
+    function update() {
+      const rect = anchorRef.current!.getBoundingClientRect();
+      const flip = rect.bottom + ROW_MENU_HEIGHT + 8 > window.innerHeight;
+      setStyle({
+        position: "fixed",
+        right: window.innerWidth - rect.right,
+        zIndex: 60,
+        ...(flip ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      });
+    }
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
 
   return (
     <>
-      <IconButton ref={anchorRef} icon={MoreVertical} label="More actions" onClick={() => setOpen((o) => !o)} />
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          "relative z-10 flex h-8 w-8 items-center justify-center rounded-lg text-subtle outline-none transition-colors hover:bg-(--app-fill-strong) hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40",
+          open && "bg-(--app-fill-strong) text-heading"
+        )}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
       {open &&
         style &&
         createPortal(
-          <div ref={menuRef} style={style} className="w-44 rounded-card-sm border border-hairline bg-surface p-1.5 shadow-card-hover">
+          <div ref={menuRef} role="menu" style={style} className={cn(MENU_SURFACE, "w-48")}>
             <button
               type="button"
-              disabled={viewDisabled}
+              role="menuitem"
+              disabled={row.status !== "complete"}
               onClick={() => {
-                onView();
+                onOpen();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+              className={MENU_ITEM}
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-4 w-4 text-subtle" />
               View transcript
             </button>
             <button
               type="button"
-              disabled={exportDisabled}
+              role="menuitem"
+              disabled={!row.lines?.length}
               onClick={() => {
-                onExport();
+                downloadTxt(row);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-heading hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+              className={MENU_ITEM}
             >
-              <Download className="h-3.5 w-3.5" />
-              Export as .txt
+              <Download className="h-4 w-4 text-subtle" />
+              Download .txt
             </button>
-            <div className="my-1 border-t border-hairline" />
+            <div role="separator" className="-mx-1 my-1 h-px bg-hairline" />
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 onDelete();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-danger hover:bg-danger-tint"
+              className={cn(MENU_ITEM, "text-danger hover:bg-danger-tint hover:text-danger")}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
               Delete
             </button>
           </div>,
@@ -338,53 +265,81 @@ function RowMenu({
   );
 }
 
+function StatusMeta({ row }: { row: TranscriptRow }) {
+  if (row.status === "complete") return null;
+  if (row.status === "failed") {
+    return (
+      <>
+        <span aria-hidden>·</span>
+        <span className="min-w-0 truncate text-danger" title={row.error_message ?? undefined}>
+          {row.error_message ? `Failed: ${row.error_message}` : "Failed"}
+        </span>
+      </>
+    );
+  }
+  return (
+    <>
+      <span aria-hidden>·</span>
+      <span className="shrink-0 text-body">{STATUS_LABEL[row.status]}</span>
+    </>
+  );
+}
+
+function SkeletonRows() {
+  return (
+    <div className="divide-y divide-hairline">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className={cn(ROW_GRID, "px-4 py-3")}>
+          <Skeleton className="h-4 w-4 rounded-[5px]" />
+          <div className="flex min-w-0 items-center gap-3">
+            <Skeleton className="h-14 w-8 shrink-0 rounded-md" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className={cn("h-3.5 rounded-full", ["w-3/5", "w-2/5", "w-1/2", "w-1/3"][i])} />
+              <Skeleton className="h-3 w-20 rounded-full" />
+            </div>
+          </div>
+          <Skeleton className="ml-auto hidden h-3 w-8 rounded-full sm:block" />
+          <Skeleton className="hidden h-3 w-24 rounded-full sm:block" />
+          <span />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TranscriptHistoryTable({
   rows,
+  isLoading = false,
   onOpenRow,
   onDeleteRows,
+  onExportAll,
 }: {
   rows: TranscriptRow[];
+  isLoading?: boolean;
   onOpenRow: (row: TranscriptRow) => void;
   onDeleteRows: (ids: string[]) => void | Promise<void>;
+  onExportAll: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilterValue>("all");
-  const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bookmarkOverrides, setBookmarkOverrides] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
-
-  const meta = useMemo(() => {
-    const map = new Map<string, PlaceholderMeta>();
-    rows.forEach((row) => map.set(row.id, derivePlaceholderMeta(row)));
-    return map;
-  }, [rows]);
-
-  function bookmarkedFor(row: TranscriptRow): boolean {
-    return row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : (meta.get(row.id)?.bookmarked ?? false);
-  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((row) => {
-      const rowMeta = meta.get(row.id);
-      if (!rowMeta) return false;
       if (statusFilter !== "all" && row.status !== statusFilter) return false;
       if (platformFilter !== "all" && row.platform !== platformFilter) return false;
-      const bookmarked = row.id in bookmarkOverrides ? bookmarkOverrides[row.id] : rowMeta.bookmarked;
-      if (bookmarkedOnly && !bookmarked) return false;
-      if (q) {
-        const haystack = `${row.title ?? ""} ${row.source_url} ${rowMeta.handle}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
+      if (q && !`${row.title ?? ""} ${row.source_url}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, meta, search, statusFilter, platformFilter, bookmarkedOnly, bookmarkOverrides]);
+  }, [rows, search, statusFilter, platformFilter]);
 
   const allSelected = filtered.length > 0 && filtered.every((row) => selected.has(row.id));
   const someSelected = filtered.some((row) => selected.has(row.id));
+  const isFiltered = search.trim() !== "" || statusFilter !== "all" || platformFilter !== "all";
 
   function toggleSelectAll() {
     setSelected((prev) => {
@@ -403,27 +358,15 @@ export function TranscriptHistoryTable({
     });
   }
 
-  function exportRow(row: TranscriptRow) {
-    if (!row.lines?.length) return;
-    const text = row.lines.map((line) => `[${line.timestamp}] ${line.text}`).join("\n");
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const filename = `${(row.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim()}.txt`;
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   function exportSelected() {
     const selectedRows = filtered.filter((row) => selected.has(row.id) && row.lines?.length);
-    selectedRows.forEach((row, index) => setTimeout(() => exportRow(row), index * 150));
+    selectedRows.forEach((row, index) => setTimeout(() => downloadTxt(row), index * 150));
   }
 
-  function requestDelete(ids: string[]) {
-    if (ids.length === 0 || deleting) return;
-    setPendingDeleteIds(ids);
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setPlatformFilter("all");
   }
 
   async function confirmDelete() {
@@ -444,264 +387,172 @@ export function TranscriptHistoryTable({
     }
   }
 
+  const hasRows = !isLoading && rows.length > 0;
+
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-w-[200px] flex-1 items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2 sm:max-w-xs">
-          <Search className="h-4 w-4 shrink-0 text-body" />
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search transcripts..."
-            className="w-full min-w-0 bg-transparent text-sm text-heading placeholder:text-body focus:outline-none"
-          />
-        </div>
-
-        <FilterDropdown
-          label="Status"
-          icon={ListFilter}
-          value={statusFilter}
-          valueLabel={statusFilter === "all" ? "All" : STATUS_META[statusFilter].label}
-          onChange={setStatusFilter}
-          options={STATUS_OPTIONS}
-        />
-
-        <FilterDropdown
-          label="Platform"
-          icon={Smartphone}
-          value={platformFilter}
-          valueLabel={platformFilter === "all" ? "All" : PLATFORM_META[platformFilter].label}
-          onChange={setPlatformFilter}
-          options={PLATFORM_OPTIONS}
-        />
-
-        <button
-          type="button"
-          aria-pressed={bookmarkedOnly}
-          onClick={() => setBookmarkedOnly((v) => !v)}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-colors",
-            bookmarkedOnly ? "border-primary bg-accent text-primary" : "border-hairline bg-surface text-heading hover:bg-app"
-          )}
-        >
-          <Bookmark className={cn("h-3.5 w-3.5", bookmarkedOnly && "fill-current")} />
-          Bookmarked Only
-        </button>
+    <section className="flex min-w-0 flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[17px] font-medium tracking-[-0.01em] text-heading">History</h2>
+        {hasRows && (
+          <button type="button" onClick={onExportAll} className={QUIET_BUTTON}>
+            <Download className="h-3.5 w-3.5 text-subtle" />
+            Export all
+          </button>
+        )}
       </div>
 
-      <p className="text-xs text-body">
-        Showing {filtered.length} of {rows.length} transcripts
-      </p>
+      {hasRows && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-hairline bg-surface px-3 transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 sm:w-auto sm:max-w-64 sm:flex-1">
+            <Search className="h-4 w-4 shrink-0 text-subtle" />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search"
+              aria-label="Search transcripts"
+              className="w-full min-w-0 bg-transparent text-[14px] text-heading outline-none placeholder:text-subtle"
+            />
+          </label>
+          <FilterMenu label="Status" value={statusFilter} options={STATUS_OPTIONS} onChange={setStatusFilter} />
+          <FilterMenu label="Platform" value={platformFilter} options={PLATFORM_OPTIONS} onChange={setPlatformFilter} />
 
-      {selected.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card-sm border border-primary/20 bg-accent px-4 py-2.5">
-          <p className="text-sm font-semibold text-primary">{selected.size} selected</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" bevel={false} className="shadow-none" icon={Download} onClick={exportSelected}>
-              Export
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              bevel={false}
-              className="shadow-none"
-              icon={Trash2}
-              disabled={deleting}
-              onClick={() => requestDelete(Array.from(selected))}
-            >
-              Delete
-            </Button>
-            <Button variant="ghost" size="sm" bevel={false} className="shadow-none" icon={X} onClick={() => setSelected(new Set())}>
-              Clear
-            </Button>
+          {/* The count and the selection actions share one slot, so the
+              toolbar never grows a second row when something is selected. */}
+          <div className="ml-auto flex h-9 items-center gap-1.5">
+            {selected.size > 0 ? (
+              <>
+                <span className="mr-1 text-[13px] font-medium tabular-nums text-heading">{selected.size} selected</span>
+                <button type="button" onClick={exportSelected} className={QUIET_BUTTON}>
+                  <Download className="h-3.5 w-3.5 text-subtle" />
+                  Download
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setPendingDeleteIds(Array.from(selected))}
+                  className={cn(QUIET_BUTTON, "text-danger")}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  aria-label="Clear selection"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <span className="text-[13px] tabular-nums text-subtle">
+                {isFiltered ? `${filtered.length} of ${rows.length}` : `${rows.length} ${rows.length === 1 ? "transcript" : "transcripts"}`}
+              </span>
+            )}
           </div>
         </div>
       )}
 
-      {filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No transcripts match" description="Try a different search term or clear the filters." />
-      ) : (
-        <>
-          <div className="flex flex-col gap-2 sm:hidden">
-            {filtered.map((row) => {
-              const rowMeta = meta.get(row.id);
-              if (!rowMeta) return null;
-              const platformMeta = PLATFORM_META[row.platform];
-              const PlatformIcon = platformMeta.icon;
-              const statusMeta = STATUS_META[row.status];
-              const isComplete = row.status === "complete";
-
-              return (
-                <div
-                  key={row.id}
-                  onClick={() => {
-                    if (isComplete) onOpenRow(row);
-                  }}
-                  className={cn(
-                    "rounded-card border border-hairline bg-surface p-3",
-                    isComplete && "active:bg-app/60"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div onClick={(event) => event.stopPropagation()} className="pt-1.5">
-                      <Checkbox
-                        checked={selected.has(row.id)}
-                        onChange={() => toggleRow(row.id)}
-                        aria-label={`Select ${row.title ?? "transcript"}`}
-                      />
-                    </div>
-                    <CoverThumbnail src={row.cover_url} alt={row.title ?? ""} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="line-clamp-2 text-sm font-medium text-heading">{row.title ?? row.source_url}</p>
-                        <Badge variant={statusMeta.variant} className="shrink-0">
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          {statusMeta.label}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-subtle">
-                        {rowMeta.handle} · {formatNumber(rowMeta.views)} views
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-body">
-                        <span className="inline-flex items-center gap-1">
-                          <PlatformIcon className="h-3 w-3" />
-                          {platformMeta.label}
-                        </span>
-                        <span>{formatDuration(row.duration_seconds)}</span>
-                        <span>
-                          {formatDate(row.created_at)} · {formatTime(row.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={(event) => event.stopPropagation()}
-                    className="mt-3 flex items-center justify-end gap-1.5 border-t border-hairline pt-2.5"
-                  >
-                    <IconButton icon={Eye} label="View transcript" disabled={!isComplete} onClick={() => onOpenRow(row)} />
-                    <IconButton
-                      icon={Bookmark}
-                      label={bookmarkedFor(row) ? "Remove bookmark" : "Add bookmark"}
-                      active={bookmarkedFor(row)}
-                      onClick={() => setBookmarkOverrides((prev) => ({ ...prev, [row.id]: !bookmarkedFor(row) }))}
-                    />
-                    <RowMenu
-                      onView={() => onOpenRow(row)}
-                      viewDisabled={!isComplete}
-                      onExport={() => exportRow(row)}
-                      exportDisabled={!row.lines?.length}
-                      onDelete={() => requestDelete([row.id])}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+      <div className="overflow-hidden rounded-2xl border border-hairline bg-surface">
+        {isLoading ? (
+          <SkeletonRows />
+        ) : rows.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-[14px] font-medium text-heading">No transcripts yet</p>
+            <p className="mt-1 text-[13px] text-subtle">Paste a link above and your first one will appear here</p>
           </div>
+        ) : (
+          <>
+            <div className={cn(ROW_GRID, "h-10 border-b border-hairline px-4 text-[12px] text-subtle")}>
+              <Checkbox
+                checked={allSelected}
+                indeterminate={!allSelected && someSelected}
+                onChange={toggleSelectAll}
+                aria-label="Select all transcripts"
+              />
+              <span>Video</span>
+              <span className="hidden text-right sm:block">Length</span>
+              <span className="hidden sm:block">Created</span>
+              <span />
+            </div>
 
-          <Table className="hidden min-w-0 sm:block">
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell className="w-10">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={!allSelected && someSelected}
-                  onChange={toggleSelectAll}
-                  aria-label="Select all transcripts"
-                />
-              </TableHeaderCell>
-              <TableHeaderCell>Content</TableHeaderCell>
-              <TableHeaderCell>Platform</TableHeaderCell>
-              <TableHeaderCell>Date</TableHeaderCell>
-              <TableHeaderCell>Duration</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell className="text-right">Actions</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <tbody>
-            {filtered.map((row) => {
-              const rowMeta = meta.get(row.id);
-              if (!rowMeta) return null;
-              const platformMeta = PLATFORM_META[row.platform];
-              const PlatformIcon = platformMeta.icon;
-              const statusMeta = STATUS_META[row.status];
-              const isComplete = row.status === "complete";
-
-              return (
-                <TableRow
-                  key={row.id}
-                  className={isComplete ? "cursor-pointer transition-colors hover:bg-app/60" : undefined}
-                  onClick={() => {
-                    if (isComplete) onOpenRow(row);
-                  }}
+            {filtered.length === 0 ? (
+              <div className="px-6 py-14 text-center">
+                <p className="text-[14px] font-medium text-heading">Nothing matches these filters</p>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-1 text-[13px] font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  <TableCell>
-                    <div onClick={(event) => event.stopPropagation()}>
-                      <Checkbox
-                        checked={selected.has(row.id)}
-                        onChange={() => toggleRow(row.id)}
-                        aria-label={`Select ${row.title ?? "transcript"}`}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <CoverThumbnail src={row.cover_url} alt={row.title ?? ""} />
-                      <div className="min-w-0">
-                        <p className="line-clamp-2 max-w-[220px] text-sm font-medium text-heading">
-                          {row.title ?? row.source_url}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-subtle">
-                          {rowMeta.handle} · {formatNumber(rowMeta.views)} views
-                        </p>
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y divide-hairline">
+                {filtered.map((row) => {
+                  const isComplete = row.status === "complete";
+                  const isSelected = selected.has(row.id);
+                  const duration = formatDuration(row.duration_seconds);
+
+                  return (
+                    <li
+                      key={row.id}
+                      className={cn(
+                        ROW_GRID,
+                        "relative px-4 py-3 transition-colors",
+                        isSelected ? "bg-(--app-fill)" : isComplete && "hover:bg-(--app-fill)"
+                      )}
+                    >
+                      <div className="relative z-10 flex">
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => toggleRow(row.id)}
+                          aria-label={`Select ${row.title ?? "transcript"}`}
+                        />
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5 text-sm text-heading">
-                      <PlatformIcon className="h-3.5 w-3.5" />
-                      {platformMeta.label}
-                    </span>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <p className="text-heading">{formatDate(row.created_at)}</p>
-                    <p className="mt-0.5 text-xs text-subtle">{formatTime(row.created_at)}</p>
-                  </TableCell>
-                  <TableCell className="tabular-nums text-body">{formatDuration(row.duration_seconds)}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusMeta.variant}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {statusMeta.label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1.5">
-                      <IconButton icon={Eye} label="View transcript" disabled={!isComplete} onClick={() => onOpenRow(row)} />
-                      <IconButton
-                        icon={Bookmark}
-                        label={bookmarkedFor(row) ? "Remove bookmark" : "Add bookmark"}
-                        active={bookmarkedFor(row)}
-                        onClick={() =>
-                          setBookmarkOverrides((prev) => ({ ...prev, [row.id]: !bookmarkedFor(row) }))
-                        }
-                      />
-                      <RowMenu
-                        onView={() => onOpenRow(row)}
-                        viewDisabled={!isComplete}
-                        onExport={() => exportRow(row)}
-                        exportDisabled={!row.lines?.length}
-                        onDelete={() => requestDelete([row.id])}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </tbody>
-          </Table>
-        </>
-      )}
+
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Cover row={row} />
+                        <div className="min-w-0">
+                          {/* The title is the row's link: its ::after covers the
+                              whole row, so the row opens on click while the
+                              checkbox and menu (z-10) stay on top. */}
+                          <button
+                            type="button"
+                            disabled={!isComplete}
+                            onClick={() => onOpenRow(row)}
+                            className="block max-w-full truncate text-left text-[14px] font-medium leading-5 text-heading outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary/40 disabled:cursor-default"
+                          >
+                            {row.title ?? displayUrl(row.source_url)}
+                          </button>
+                          <p className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[13px] leading-5 text-subtle">
+                            <TranscriptPlatformMark platform={row.platform} className="h-3.5 w-3.5 shrink-0" />
+                            <span className="shrink-0">{TRANSCRIPT_PLATFORMS[row.platform].label}</span>
+                            <StatusMeta row={row} />
+                            {isComplete && <span className="truncate sm:hidden">· {formatCreated(row.created_at)}</span>}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="hidden text-right font-mono text-[12px] tabular-nums text-body sm:block">
+                        {duration ?? <span className="text-subtle">—</span>}
+                      </span>
+                      <span className="hidden text-[13px] tabular-nums text-subtle sm:block">
+                        {formatCreated(row.created_at)}
+                      </span>
+
+                      <div className="flex justify-end">
+                        <RowMenu row={row} onOpen={() => onOpenRow(row)} onDelete={() => setPendingDeleteIds([row.id])} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
 
       <ConfirmDialog
         isOpen={pendingDeleteIds !== null}
@@ -716,6 +567,6 @@ export function TranscriptHistoryTable({
         confirmLabel={deleting ? "Deleting…" : "Delete"}
         danger
       />
-    </div>
+    </section>
   );
 }
