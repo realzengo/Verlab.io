@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Wand2 } from "lucide-react";
+import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Scissors, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import {
   DownloaderArt,
@@ -35,6 +35,13 @@ const TOOLS: {
     icon: Wand2,
     tone: "cat-7",
     art: <NicheBendingArt />,
+  },
+  {
+    title: "Clipping",
+    description: "Turn a long YouTube video into vertical, captioned clips of its most viral moments.",
+    href: "/clipping",
+    icon: Scissors,
+    tone: "cat-2",
   },
   {
     title: "Image Generator",

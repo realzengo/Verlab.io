@@ -84,6 +84,7 @@ export function TopBar({
       pathname.startsWith("/voiceover-generator") ||
       pathname.startsWith("/downloads") ||
       pathname.startsWith("/bend") ||
+      pathname.startsWith("/clipping") ||
       pathname.startsWith("/tools") ||
       pathname.startsWith("/settings"));
 

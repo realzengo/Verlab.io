@@ -21,6 +21,7 @@ import {
 } from "@/components/skeletons/SettingsSkeletons";
 import {
   BendSkeleton,
+  ClippingSkeleton,
   DownloaderSkeleton,
   ImageGeneratorSkeleton,
   ScriptsSkeleton,
@@ -44,6 +45,7 @@ const PAGE_SKELETONS: Record<string, ReactNode> = {
   "/voiceover-generator": <VoiceoverSkeleton />,
   "/scripts": <ScriptsSkeleton />,
   "/transcripts": <TranscriptsSkeleton />,
+  "/clipping": <ClippingSkeleton />,
 };
 
 const SETTINGS_SKELETONS: Record<string, ReactNode> = {

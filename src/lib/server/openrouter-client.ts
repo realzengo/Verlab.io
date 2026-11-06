@@ -50,3 +50,12 @@ export const facelessClassifierModel = openrouter(FACELESS_CLASSIFIER_MODEL);
 // latency matters more than prose quality.
 export const PROMPT_ENHANCE_MODEL = "google/gemini-2.5-flash";
 export const promptEnhanceModel = openrouter(PROMPT_ENHANCE_MODEL);
+
+// The Clipping tool's viral-moment pass reads a whole long-form transcript
+// (up to 3 hours, ~80k tokens) and its picks are the product, so it gets the
+// strongest editor: Claude Sonnet 5.5 ($2/$10 per MTok on OpenRouter,
+// checked 2026-11-06). Gemini 3.8 Flash takes over if that call fails.
+export const CLIP_MOMENTS_MODEL = "anthropic/claude-sonnet-5.5";
+export const clipMomentsModel = openrouter(CLIP_MOMENTS_MODEL);
+export const CLIP_MOMENTS_FALLBACK_MODEL = "google/gemini-3.8-flash";
+export const clipMomentsFallbackModel = openrouter(CLIP_MOMENTS_FALLBACK_MODEL);

@@ -45,7 +45,7 @@ interface YoutubeApiError {
   error?: { errors?: { reason?: string }[]; message?: string };
 }
 
-async function youtubeGet<T>(path: string, params: Record<string, string>): Promise<T> {
+export async function youtubeGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     throw new YoutubeError("not_configured", "YouTube is not configured (missing YOUTUBE_API_KEY).");

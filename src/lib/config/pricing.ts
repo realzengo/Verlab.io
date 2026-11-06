@@ -367,6 +367,31 @@ export function getVoiceCloneCost(): number {
   return Math.ceil((VOICE_CLONE_ACTUAL_COST_USD * VOICE_CLONE_MARKUP) / CREDIT_VALUE_USD);
 }
 
+// ── Clipping (per source video) ─────────────────────────────────────────
+// Charged once, when a long-form video is analyzed; cutting and rendering
+// the clips afterwards runs in the browser and costs nothing extra.
+//   * two video-download-api.com jobs ($0.01 each): the mp3 that gets
+//     transcribed, and the video stream the clip cutter reads;
+//   * WhisperX (victor-upmeet/whisperx on Replicate): measured at ~105s of
+//     GPU time for a 54-minute video on 2026-11-06, priced at $0.003 per
+//     source minute to cover cold boots and slower hardware;
+//   * one Claude Sonnet 5.5 pass over the timed transcript ($2/$10 per MTok
+//     on OpenRouter): ~450 input tokens per source minute plus ~6000 output
+//     tokens (up to 12 clips with scores, keywords and captions).
+const CLIPPING_DOWNLOADS_COST_USD = 0.01 * 2;
+const CLIPPING_TRANSCRIBE_COST_PER_MINUTE_USD = 0.003;
+const CLIPPING_LLM_COST_PER_MINUTE_USD = (450 / 1e6) * 2;
+const CLIPPING_LLM_OUTPUT_COST_USD = (6000 / 1e6) * 10;
+
+export function getClippingCost(durationSeconds: number): number {
+  const minutes = Math.max(1, durationSeconds / 60);
+  return creditsForCost(
+    CLIPPING_DOWNLOADS_COST_USD +
+      CLIPPING_LLM_OUTPUT_COST_USD +
+      minutes * (CLIPPING_TRANSCRIBE_COST_PER_MINUTE_USD + CLIPPING_LLM_COST_PER_MINUTE_USD)
+  );
+}
+
 // ── Subscription plans ──────────────────────────────────────────────────
 // NOTE: this is a credit-focused reference constant, distinct from the
 // existing `plan_definitions` DB table (supabase/migrations/20260716120012_
