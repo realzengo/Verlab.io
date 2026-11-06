@@ -23,6 +23,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+/** Whether the sample was recorded in the form or picked from a file -- kept for the consent audit trail. */
+export type CloneSampleSource = "upload" | "recording";
+
 export interface VoiceCloneRecord {
   id: string;
   userId: string;
@@ -35,6 +38,9 @@ export interface VoiceCloneRecord {
   gender: CloneGender;
   previewText: string;
   noiseReduction: boolean;
+  sampleSource: CloneSampleSource;
+  /** Read from a WAV sample's header; null for MP3/M4A, which we don't parse. */
+  sampleSeconds: number | null;
   hasPreview: boolean;
   consentText: string;
   consentedAt: string;
@@ -76,6 +82,8 @@ function parseRecord(raw: unknown, userId: string): VoiceCloneRecord | null {
     gender: r.gender === "female" ? "female" : "male",
     previewText: typeof r.previewText === "string" ? r.previewText : "",
     noiseReduction: r.noiseReduction === true,
+    sampleSource: r.sampleSource === "recording" ? "recording" : "upload",
+    sampleSeconds: typeof r.sampleSeconds === "number" ? r.sampleSeconds : null,
     hasPreview: r.hasPreview === true,
     consentText: typeof r.consentText === "string" ? r.consentText : "",
     consentedAt: typeof r.consentedAt === "string" ? r.consentedAt : "",

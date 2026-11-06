@@ -6,6 +6,8 @@ import {
   CLONE_LANGUAGES,
   CLONE_PREVIEW_TEXT_MAX,
   CLONE_SAMPLE_MAX_BYTES,
+  CLONE_SAMPLE_MAX_SECONDS,
+  CLONE_SAMPLE_MIN_SECONDS,
   MAX_VOICE_CLONES_PER_USER,
   VOICE_CLONING_ENABLED,
   type CloneLanguage,
@@ -13,7 +15,7 @@ import {
 import { chargeUser, getUserCredits } from "@/lib/server/credits";
 import { createVoiceClone, ReplicateVoiceCloneError } from "@/lib/server/replicate-voice-clone";
 import { generateSpeechForClonedVoice } from "@/lib/server/replicate-voice-clone-tts";
-import { listClones, saveClone, saveClonePreview, SAMPLE_BUCKET, toSummary, type VoiceCloneRecord } from "@/lib/server/voice-clones";
+import { listClones, saveClone, saveClonePreview, SAMPLE_BUCKET, toSummary, type CloneSampleSource, type VoiceCloneRecord } from "@/lib/server/voice-clones";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -24,8 +26,9 @@ import { isSafeFreeText, isValidName } from "@/lib/validation";
 // browser already uploaded via /api/voice-clones/upload.
 //
 // POST, in order: validate the form (consent included), check the clone
-// limit and the balance, confirm the uploaded bytes really are MP3/WAV/M4A,
-// clone with MiniMax, render the owner's preview text once in the new voice
+// limit and the balance, confirm the uploaded bytes really are MP3/WAV/M4A
+// (and, for a WAV -- every in-form recording is one -- that its length is
+// within MiniMax's limits), clone with MiniMax, render the owner's preview text once in the new voice
 // (stored, so every later play is a static file -- and a first real use of
 // the voice on MiniMax's side), save the record, and only then charge. A
 // failure anywhere before the charge costs the user nothing. The sample is
@@ -34,7 +37,9 @@ export const maxDuration = 180;
 
 const MIN_SAMPLE_BYTES = 8 * 1024;
 const SAMPLE_URL_TTL_SECONDS = 10 * 60;
-const HEADER_SNIFF_BYTES = 16;
+// Enough for the container's magic number and, for a WAV, the fmt and data
+// chunk headers that give its length.
+const HEADER_SNIFF_BYTES = 4096;
 
 type SampleKind = "mp3" | "wav" | "m4a";
 
@@ -49,9 +54,33 @@ function sniffSample(header: Uint8Array): SampleKind | null {
   return null;
 }
 
+// A WAV's length is in its header: the fmt chunk's byte rate and the data
+// chunk's size. Null when the header isn't one we can read, in which case
+// MiniMax still enforces the limits itself.
+function wavDurationSeconds(header: Uint8Array, totalBytes: number): number | null {
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  const chunkId = (start: number) => String.fromCharCode(...header.subarray(start, start + 4));
+  let byteRate = 0;
+  for (let offset = 12; offset + 8 <= header.length; ) {
+    const id = chunkId(offset);
+    const size = view.getUint32(offset + 4, true);
+    if (id === "fmt " && offset + 20 <= header.length) byteRate = view.getUint32(offset + 16, true);
+    if (id === "data") {
+      if (!byteRate) return null;
+      const available = Number.isFinite(totalBytes) ? totalBytes - (offset + 8) : size;
+      // Streamed WAVs leave the size at 0 or 0xFFFFFFFF; the file's own length is right then.
+      const dataBytes = size > 0 && size !== 0xffffffff ? Math.min(size, available) : available;
+      return dataBytes > 0 ? dataBytes / byteRate : null;
+    }
+    offset += 8 + size + (size % 2);
+  }
+  return null;
+}
+
 interface CreateCloneBody {
   name?: unknown;
   uploadPath?: unknown;
+  source?: unknown;
   language?: unknown;
   gender?: unknown;
   previewText?: unknown;
@@ -139,11 +168,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const head = await fetch(signed.signedUrl, { headers: { Range: `bytes=0-${HEADER_SNIFF_BYTES - 1}` }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
     if (!head?.ok) return badRequest("We couldn't find your uploaded sample. Please upload it again.");
     const totalBytes = Number(head.headers.get("content-range")?.split("/")[1] ?? head.headers.get("content-length"));
-    const kind = sniffSample(new Uint8Array(await head.arrayBuffer()));
+    const header = new Uint8Array(await head.arrayBuffer());
+    const kind = sniffSample(header);
     if (!kind) return badRequest("That file isn't a WAV, MP3, or M4A audio file.");
     if (kind !== declaredKind) return badRequest("That file's contents don't match its type. Try exporting it again as WAV, MP3, or M4A.");
     if (Number.isFinite(totalBytes) && totalBytes > CLONE_SAMPLE_MAX_BYTES) return badRequest("Your sample must be under 20MB.");
     if (Number.isFinite(totalBytes) && totalBytes < MIN_SAMPLE_BYTES) return badRequest("Your sample must be at least 10 seconds long.");
+
+    const sampleSeconds = kind === "wav" ? wavDurationSeconds(header, totalBytes) : null;
+    if (sampleSeconds !== null && sampleSeconds < CLONE_SAMPLE_MIN_SECONDS) {
+      return badRequest(`Your sample is ${Math.floor(sampleSeconds)} seconds long. It needs at least ${CLONE_SAMPLE_MIN_SECONDS}.`);
+    }
+    if (sampleSeconds !== null && sampleSeconds > CLONE_SAMPLE_MAX_SECONDS + 1) return badRequest("Your sample must be under 5 minutes long.");
+
+    // Declared by the client, so trusted only as far as it can be checked:
+    // the form's recorder always produces a WAV.
+    const sampleSource: CloneSampleSource = body.source === "recording" && kind === "wav" ? "recording" : "upload";
 
     let clone: { voiceId: string; model: string };
     try {
@@ -177,6 +217,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       gender,
       previewText,
       noiseReduction,
+      sampleSource,
+      sampleSeconds: sampleSeconds === null ? null : Math.round(sampleSeconds * 10) / 10,
       hasPreview,
       consentText: CLONE_CONSENT_TEXT,
       consentedAt: now,

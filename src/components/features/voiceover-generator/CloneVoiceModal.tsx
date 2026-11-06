@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { ChevronDown, Loader2, Mic, Upload, X } from "lucide-react";
+import { formatClock, VoiceRecorder } from "@/components/features/voiceover-generator/VoiceRecorder";
+import type { ProcessedRecording } from "@/lib/client/voice-recording";
 import { getVoiceCloneCost } from "@/lib/config/pricing";
 import {
   CLONE_CONSENT_TEXT,
@@ -28,6 +30,7 @@ const SAMPLE_BUCKET = "voice-clone-uploads";
 const ACCEPT = ".wav,.mp3,.mpeg,.mpga,.m4a,audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/x-m4a";
 
 type Stage = "idle" | "uploading" | "cloning";
+type SampleSource = "record" | "upload";
 
 interface Sample {
   file: File;
@@ -37,11 +40,6 @@ interface Sample {
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatClock(totalSeconds: number): string {
-  const total = Math.round(totalSeconds);
-  return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, "0")}`;
 }
 
 function isAcceptedFile(file: File): boolean {
@@ -87,6 +85,9 @@ interface CloneVoiceModalProps {
 
 export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalProps) {
   const [name, setName] = useState("");
+  const [sampleSource, setSampleSource] = useState<SampleSource>("record");
+  const [recording, setRecording] = useState<ProcessedRecording | null>(null);
+  const [recorderBusy, setRecorderBusy] = useState(false);
   const [sample, setSample] = useState<Sample | null>(null);
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [isReadingSample, setIsReadingSample] = useState(false);
@@ -104,6 +105,7 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
 
   function reset() {
     setName("");
+    setRecording(null);
     setSample(null);
     setSampleError(null);
     setLanguage(CLONE_DEFAULT_LANGUAGE);
@@ -116,9 +118,10 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
   }
 
   // Closing is blocked mid-clone: the request is already paid for upstream,
-  // and closing would only hide its result.
+  // and closing would only hide its result. A stray backdrop click or Escape
+  // mid-take is ignored too; only the close button throws a take away.
   function requestClose() {
-    if (isWorking) return;
+    if (isWorking || recorderBusy) return;
     onClose();
   }
 
@@ -128,11 +131,11 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.stopPropagation();
-      if (stage === "idle") onClose();
+      if (stage === "idle" && !recorderBusy) onClose();
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [isOpen, stage, onClose]);
+  }, [isOpen, stage, recorderBusy, onClose]);
 
   async function handleFile(file: File | undefined) {
     setSampleError(null);
@@ -162,30 +165,41 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
 
   const trimmedName = name.trim();
   const trimmedPreview = previewText.trim();
-  const canSubmit = !isWorking && !isReadingSample && isValidName(trimmedName) && sample !== null && trimmedPreview.length > 0 && consent;
+  const activeSample: Sample | null = sampleSource === "record" ? recording && { file: recording.file, durationSeconds: recording.durationSeconds } : sample;
+  const canSubmit =
+    !isWorking && !isReadingSample && !recorderBusy && isValidName(trimmedName) && activeSample !== null && trimmedPreview.length > 0 && consent;
 
   async function handleSubmit() {
-    if (!canSubmit || !sample) return;
+    if (!canSubmit || !activeSample) return;
     setError(null);
     try {
       setStage("uploading");
       const prep = await fetch("/api/voice-clones/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: sample.file.name, contentType: sample.file.type, size: sample.file.size }),
+        body: JSON.stringify({ fileName: activeSample.file.name, contentType: activeSample.file.type, size: activeSample.file.size }),
       });
       const prepData = await prep.json().catch(() => null);
       if (!prep.ok) throw new Error(prepData?.error ?? "Could not start the upload.");
 
       const { path, token, contentType } = prepData as { path: string; token: string; contentType: string };
-      const { error: uploadError } = await createBrowserClient().storage.from(SAMPLE_BUCKET).uploadToSignedUrl(path, token, sample.file, { contentType });
+      const { error: uploadError } = await createBrowserClient().storage.from(SAMPLE_BUCKET).uploadToSignedUrl(path, token, activeSample.file, { contentType });
       if (uploadError) throw new Error("Uploading your sample failed. Check your connection and try again.");
 
       setStage("cloning");
       const response = await fetch("/api/voice-clones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName, uploadPath: path, language, gender, previewText: trimmedPreview, noiseReduction, consent: true }),
+        body: JSON.stringify({
+          name: trimmedName,
+          uploadPath: path,
+          source: sampleSource === "record" ? "recording" : "upload",
+          language,
+          gender,
+          previewText: trimmedPreview,
+          noiseReduction,
+          consent: true,
+        }),
         signal: AbortSignal.timeout(200_000),
       });
       const data = await response.json().catch(() => null);
@@ -223,7 +237,7 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
           </div>
           <button
             type="button"
-            onClick={requestClose}
+            onClick={() => !isWorking && onClose()}
             disabled={isWorking}
             aria-label="Close"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline text-heading transition-colors hover:bg-(--app-fill) disabled:opacity-40"
@@ -249,36 +263,77 @@ export function CloneVoiceModal({ isOpen, onClose, onCreated }: CloneVoiceModalP
           </div>
 
           <div>
-            <span id={`${ids}-sample-label`} className={LABEL}>
-              Audio sample
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPT}
-              className="hidden"
-              aria-labelledby={`${ids}-sample-label`}
-              onChange={(event) => void handleFile(event.target.files?.[0])}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isWorking}
-              className={cn(FIELD, "mt-2 flex h-12 items-center gap-3 text-left", sampleError && "border-danger/60")}
-            >
-              <span className="shrink-0 rounded-lg bg-(--app-fill-strong) px-2.5 py-1 text-sm font-medium text-heading">Choose file</span>
-              <span className={cn("min-w-0 flex-1 truncate", sample ? "text-heading" : "text-subtle")}>
-                {isReadingSample ? "Reading file…" : sample ? sample.file.name : "No file chosen"}
+            <div className="flex items-center justify-between gap-3">
+              <span id={`${ids}-sample-label`} className={LABEL}>
+                Audio sample
               </span>
-              {sample && (
-                <span className="shrink-0 text-xs tabular-nums text-subtle">
-                  {[sample.durationSeconds !== null && formatClock(sample.durationSeconds), formatFileSize(sample.file.size)].filter(Boolean).join(" · ")}
-                </span>
+              <div role="radiogroup" aria-labelledby={`${ids}-sample-label`} className="inline-flex rounded-lg bg-(--app-fill-strong) p-0.5">
+                {(
+                  [
+                    { value: "record", label: "Record", Icon: Mic },
+                    { value: "upload", label: "Upload file", Icon: Upload },
+                  ] as const
+                ).map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={sampleSource === value}
+                    onClick={() => setSampleSource(value)}
+                    disabled={isWorking || recorderBusy}
+                    className={cn(
+                      "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed",
+                      sampleSource === value ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-subtle hover:text-heading disabled:hover:text-subtle"
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-2">
+              {sampleSource === "record" ? (
+                <VoiceRecorder
+                  value={recording}
+                  onChange={setRecording}
+                  onBusyChange={setRecorderBusy}
+                  onUseUpload={() => setSampleSource("upload")}
+                  disabled={isWorking}
+                  language={language}
+                />
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPT}
+                    className="hidden"
+                    aria-labelledby={`${ids}-sample-label`}
+                    onChange={(event) => void handleFile(event.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isWorking}
+                    className={cn(FIELD, "flex h-12 items-center gap-3 text-left", sampleError && "border-danger/60")}
+                  >
+                    <span className="shrink-0 rounded-lg bg-(--app-fill-strong) px-2.5 py-1 text-sm font-medium text-heading">Choose file</span>
+                    <span className={cn("min-w-0 flex-1 truncate", sample ? "text-heading" : "text-subtle")}>
+                      {isReadingSample ? "Reading file…" : sample ? sample.file.name : "No file chosen"}
+                    </span>
+                    {sample && (
+                      <span className="shrink-0 text-xs tabular-nums text-subtle">
+                        {[sample.durationSeconds !== null && formatClock(sample.durationSeconds), formatFileSize(sample.file.size)].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </button>
+                  <p className={cn("mt-2 text-[13px]", sampleError ? "font-medium text-danger" : "text-subtle")}>
+                    {sampleError ?? "WAV, MP3, MPEG, or M4A · 10 seconds to 5 minutes · maximum 20MB"}
+                  </p>
+                </>
               )}
-            </button>
-            <p className={cn("mt-2 text-[13px]", sampleError ? "font-medium text-danger" : "text-subtle")}>
-              {sampleError ?? "WAV, MP3, MPEG, or M4A · 10 seconds to 5 minutes · maximum 20MB"}
-            </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

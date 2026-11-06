@@ -13,7 +13,7 @@ async function decodeSegment(url: string, audioContext: AudioContext | OfflineAu
   return audioContext.decodeAudioData(arrayBuffer);
 }
 
-function encodeWav(buffer: AudioBuffer): Blob {
+export function encodeWav(buffer: AudioBuffer): Blob {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
   const numFrames = buffer.length;
