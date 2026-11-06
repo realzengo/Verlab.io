@@ -31,18 +31,21 @@ export function pop(delay: number): Variants {
 
 const StageInView = createContext(false);
 
-/** A `width` × `height` design canvas scaled to its slot's width
- * (top-anchored). Plays its entrance once when scrolled into view; clips
- * and CSS loops inside run only while it's on screen (`.anim-gate`). */
+/** A `width` × `height` design canvas scaled to its slot: by width and
+ * top-anchored, or with `fit="contain"` whole and centered (for short, wide
+ * slots). Plays its entrance once when scrolled into view; clips and CSS
+ * loops inside run only while it's on screen (`.anim-gate`). */
 export function Stage({
   width,
   height,
+  fit = "width",
   className,
   background,
   children,
 }: {
   width: number;
   height: number;
+  fit?: "width" | "contain";
   className?: string;
   /** Painted edge to edge behind the scaled canvas. */
   background?: ReactNode;
@@ -50,23 +53,29 @@ export function Stage({
 }) {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
   const [scale, setScale] = useState(1);
+  const contain = fit === "contain";
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      setScale(Math.min(1.4, Math.max(0.45, entry.contentRect.width / width)));
+      const { width: w, height: h } = entry.contentRect;
+      setScale(contain ? Math.min(w / width, h / height) : Math.min(1.4, Math.max(0.45, w / width)));
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref, width]);
+  }, [ref, width, height, contain]);
 
   return (
     <div ref={ref} data-inview={inView} className={cn("anim-gate absolute inset-0 overflow-hidden", className)} aria-hidden>
       {background}
       <div
-        className="absolute left-1/2 top-0 origin-top"
-        style={{ width, height, transform: `translateX(-50%) scale(${scale})` }}
+        className={cn("absolute left-1/2", contain ? "top-1/2 origin-center" : "top-0 origin-top")}
+        style={{
+          width,
+          height,
+          transform: contain ? `translate(-50%, -50%) scale(${scale})` : `translateX(-50%) scale(${scale})`,
+        }}
       >
         <StageInView.Provider value={inView}>
           <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.45 }} className="absolute inset-0">

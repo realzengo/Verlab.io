@@ -7,12 +7,11 @@ import {
   Check,
   Clock,
   Percent,
-  Share2,
   Sparkles,
   TrendingUp,
-  UserPlus,
   Wallet,
 } from "lucide-react";
+import { ApplyArt, EarnArt, ShareArt } from "@/components/landing/AffiliateStepArt";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Accordion } from "@/components/ui/Accordion";
@@ -28,17 +27,17 @@ const STEPS = [
   {
     title: "Apply",
     description: "Tell us where you'll share Verlab. Applications are reviewed within a day.",
-    icon: UserPlus,
+    art: ApplyArt,
   },
   {
     title: "Share your link",
     description: "Drop your unique referral link in videos, bios, or posts.",
-    icon: Share2,
+    art: ShareArt,
   },
   {
     title: "Earn every month",
     description: "Get 30% of every payment your referrals make, for as long as they stay subscribed.",
-    icon: Wallet,
+    art: EarnArt,
   },
 ];
 
@@ -219,8 +218,8 @@ export function AffiliatePage() {
         <div className="mt-8 grid grid-cols-1 gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-5">
           {STEPS.map((step, i) => (
             <div key={step.title} className="rounded-card border border-hairline bg-surface p-4 shadow-card sm:p-[22px]">
-              <div className="mb-4 flex h-[90px] items-center justify-center rounded-2xl border border-accent-line bg-accent sm:mb-[18px] sm:h-[110px]">
-                <step.icon className="h-9 w-9 text-primary" strokeWidth={1.8} />
+              <div className="relative mb-4 h-[150px] overflow-hidden rounded-2xl border border-accent-line bg-accent sm:mb-[18px] sm:h-[160px]">
+                <step.art />
               </div>
               <div className="inline-flex items-center gap-2 text-[15px] font-bold text-heading">
                 <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-primary text-[12px] font-bold text-white">

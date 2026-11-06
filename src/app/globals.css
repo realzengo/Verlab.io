@@ -2520,3 +2520,460 @@ html[data-scrolling="true"] *::after {
     animation: none;
   }
 }
+
+/* Affiliate "How it works" art (AffiliateStepArt.tsx): one 6s loop per
+   step. Apply: the cursor picks two platforms and submits, then Approved
+   pops. Share: the cursor copies the link and it travels out to three
+   targets twice (target offset from --dx/--dy, staggered per target by
+   animation-delay, so those hold their 0% frame while waiting). Earn: two
+   commissions land, this month's bar grows and the total rolls up. Base
+   styles are each loop's finished frame, the still shown under reduced
+   motion. All sit inside an .anim-gate, so they freeze while off screen. */
+@keyframes affiliate-art-cursor-apply {
+  0% {
+    transform: translate(250px, 160px) scale(1);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  14%,
+  15% {
+    transform: translate(96px, 75px) scale(1);
+  }
+  16.5% {
+    transform: translate(96px, 75px) scale(0.85);
+  }
+  18% {
+    transform: translate(96px, 75px) scale(1);
+  }
+  27%,
+  28% {
+    transform: translate(150px, 75px) scale(1);
+  }
+  29.5% {
+    transform: translate(150px, 75px) scale(0.85);
+  }
+  31% {
+    transform: translate(150px, 75px) scale(1);
+  }
+  42%,
+  43% {
+    transform: translate(150px, 112px) scale(1);
+  }
+  44.5% {
+    transform: translate(150px, 112px) scale(0.85);
+  }
+  46% {
+    transform: translate(150px, 112px) scale(1);
+    opacity: 1;
+  }
+  58%,
+  100% {
+    transform: translate(238px, 146px) scale(1);
+    opacity: 0;
+  }
+}
+.affiliate-art-cursor-apply {
+  opacity: 0;
+  animation: affiliate-art-cursor-apply 6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes affiliate-art-pick-1 {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  18%,
+  92% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+.affiliate-art-pick-1 {
+  animation: affiliate-art-pick-1 6s ease-out infinite;
+}
+@keyframes affiliate-art-pick-2 {
+  0%,
+  29.5% {
+    opacity: 0;
+  }
+  31.5%,
+  92% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+.affiliate-art-pick-2 {
+  animation: affiliate-art-pick-2 6s ease-out infinite;
+}
+@keyframes affiliate-art-press-apply {
+  0%,
+  44% {
+    transform: scale(1);
+  }
+  45.5% {
+    transform: scale(0.95);
+  }
+  48%,
+  100% {
+    transform: scale(1);
+  }
+}
+.affiliate-art-press-apply {
+  animation: affiliate-art-press-apply 6s ease-out infinite;
+}
+@keyframes affiliate-art-label-out {
+  0%,
+  46% {
+    opacity: 1;
+  }
+  48%,
+  93% {
+    opacity: 0;
+  }
+  97%,
+  100% {
+    opacity: 1;
+  }
+}
+.affiliate-art-label-out {
+  opacity: 0;
+  animation: affiliate-art-label-out 6s ease-out infinite;
+}
+@keyframes affiliate-art-label-in {
+  0%,
+  46% {
+    opacity: 0;
+  }
+  48%,
+  93% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+.affiliate-art-label-in {
+  animation: affiliate-art-label-in 6s ease-out infinite;
+}
+@keyframes affiliate-art-approved {
+  0%,
+  52% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  58%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.affiliate-art-approved {
+  animation: affiliate-art-approved 6s ease-out infinite;
+}
+@keyframes affiliate-art-cursor-share {
+  0% {
+    transform: translate(276px, 112px) scale(1);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  12%,
+  13% {
+    transform: translate(236px, 31px) scale(1);
+  }
+  14.5% {
+    transform: translate(236px, 31px) scale(0.85);
+  }
+  16% {
+    transform: translate(236px, 31px) scale(1);
+    opacity: 1;
+  }
+  27%,
+  100% {
+    transform: translate(286px, 66px) scale(1);
+    opacity: 0;
+  }
+}
+.affiliate-art-cursor-share {
+  opacity: 0;
+  animation: affiliate-art-cursor-share 6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes affiliate-art-press-copy {
+  0%,
+  14% {
+    transform: scale(1);
+  }
+  15.5% {
+    transform: scale(0.88);
+  }
+  18%,
+  100% {
+    transform: scale(1);
+  }
+}
+.affiliate-art-press-copy {
+  animation: affiliate-art-press-copy 6s ease-out infinite;
+}
+@keyframes affiliate-art-copy {
+  0%,
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  16.5%,
+  90% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  94%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.affiliate-art-copy {
+  opacity: 0;
+  animation: affiliate-art-copy 6s ease-out infinite;
+}
+@keyframes affiliate-art-copied {
+  0%,
+  15% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  17% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  19%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+.affiliate-art-copied {
+  animation: affiliate-art-copied 6s ease-out infinite;
+}
+@keyframes affiliate-art-packet {
+  0%,
+  20% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  22% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  31% {
+    transform: translate(var(--dx), var(--dy)) scale(1);
+    opacity: 1;
+  }
+  33% {
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
+    opacity: 0;
+  }
+  34%,
+  55% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+  57% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  66% {
+    transform: translate(var(--dx), var(--dy)) scale(1);
+    opacity: 1;
+  }
+  68% {
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
+    opacity: 0;
+  }
+  69%,
+  100% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+.affiliate-art-packet {
+  opacity: 0;
+  animation: affiliate-art-packet 6s cubic-bezier(0.45, 0, 0.55, 1) infinite backwards;
+}
+@keyframes affiliate-art-hit {
+  0%,
+  31% {
+    transform: scale(1);
+  }
+  32.5% {
+    transform: scale(1.06);
+  }
+  35%,
+  66% {
+    transform: scale(1);
+  }
+  67.5% {
+    transform: scale(1.06);
+  }
+  70%,
+  100% {
+    transform: scale(1);
+  }
+}
+.affiliate-art-hit {
+  animation: affiliate-art-hit 6s ease-out infinite backwards;
+}
+@keyframes affiliate-art-linked {
+  0%,
+  31% {
+    opacity: 0;
+  }
+  33%,
+  90% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+  }
+}
+.affiliate-art-linked {
+  animation: affiliate-art-linked 6s ease-out infinite backwards;
+}
+@keyframes affiliate-art-linked-badge {
+  0%,
+  31% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  33% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  35%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  95%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+.affiliate-art-linked-badge {
+  animation: affiliate-art-linked-badge 6s ease-out infinite backwards;
+}
+@keyframes affiliate-art-bar {
+  0%,
+  16% {
+    height: 42px;
+  }
+  22%,
+  50% {
+    height: 51px;
+  }
+  56%,
+  90% {
+    height: 60px;
+  }
+  96%,
+  100% {
+    height: 42px;
+  }
+}
+.affiliate-art-bar {
+  height: 60px;
+  animation: affiliate-art-bar 6s cubic-bezier(0.34, 1.4, 0.64, 1) infinite;
+}
+@keyframes affiliate-art-total {
+  0%,
+  16% {
+    transform: translateY(0);
+  }
+  20%,
+  50% {
+    transform: translateY(-20px);
+  }
+  54%,
+  90% {
+    transform: translateY(-40px);
+  }
+  95%,
+  100% {
+    transform: translateY(0);
+  }
+}
+.affiliate-art-total {
+  transform: translateY(-40px);
+  animation: affiliate-art-total 6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes affiliate-art-commission {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.8);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1.05);
+  }
+  20%,
+  32% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+  40% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1);
+  }
+  49% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.8);
+  }
+  52% {
+    opacity: 1;
+    transform: translateY(0) scale(1.05);
+  }
+  54%,
+  66% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+  74%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1);
+  }
+}
+.affiliate-art-commission {
+  opacity: 0;
+  animation: affiliate-art-commission 6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="affiliate-art-"] {
+    animation: none;
+  }
+}
