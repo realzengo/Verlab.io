@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, type ComponentType, type CSSProperties, type SVGProps } from "react";
+import {
+  useEffect,
+  useRef,
+  type ComponentType,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type SVGProps,
+} from "react";
 import { ArrowRight, ArrowUpRight, AudioLines, PenLine } from "lucide-react";
 import { button3d } from "@/components/landing/button3d";
 import { ClaudeMarkIcon } from "@/components/landing/AssistantIcons";
@@ -209,67 +216,169 @@ const STUDIO_TILES = [
   { src: "/landing/studio/hero-blue.jpg", left: 123, top: 161, size: 82, rotate: -4 },
 ];
 
-// Studio card backdrop: a fine square grid that shows only around the
-// character tiles (radial mask) over a soft blue glow, keeping the text side
-// clean.
-const STUDIO_GRID: CSSProperties = {
+// The studio card is a light brushed-platinum plate in a chrome rim. The rim
+// and the spun-metal disc behind the tiles take their reflection angle from
+// --studio-spin (registered in globals.css), which follows the pointer, so the
+// metal catches the light as you move across the card and eases back after.
+const STUDIO_RIM: CSSProperties = {
   backgroundImage:
-    "linear-gradient(to right, rgba(15,23,42,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,0.07) 1px, transparent 1px)",
-  backgroundSize: "26px 26px",
-  backgroundPosition: "-1px -1px",
-  maskImage: "radial-gradient(75% 85% at 82% 72%, black 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
-  WebkitMaskImage: "radial-gradient(75% 85% at 82% 72%, black 0%, rgba(0,0,0,0.5) 45%, transparent 75%)",
+    "conic-gradient(from calc(var(--studio-spin) + 210deg), #ffffff 0deg, #a9b1be 50deg, #f4f6f9 100deg, #c4cad4 150deg, #ffffff 200deg, #8d96a5 260deg, #e7eaef 310deg, #ffffff 360deg)",
+  transition: "--studio-spin 0.7s cubic-bezier(0.19,1,0.22,1)",
+};
+
+// Brushed grain: fractal noise stretched along x into fine horizontal
+// streaks, stitched so it tiles without seams.
+const BRUSHED_GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='320'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.9' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E\")";
+
+const STUDIO_FACE: CSSProperties = {
+  backgroundImage: "linear-gradient(155deg,#ffffff 0%,#f6f7f9 38%,#eceff3 72%,#e2e6ec 100%)",
+  boxShadow: "inset 0 1px 0 #ffffff, inset 0 0 0 1px rgba(255,255,255,0.65)",
+};
+
+// Spun metal behind the tiles: fine concentric lathe rings over a two-lobed
+// bow-tie reflection, faded out toward the text side.
+const SPUN_DISC: CSSProperties = {
+  backgroundImage: [
+    "repeating-radial-gradient(circle, rgba(15,23,42,0.05) 0 1px, transparent 1px 4px)",
+    "conic-gradient(from var(--studio-spin), #ffffff 0deg, #d3d8e0 55deg, #eff1f4 90deg, #c9cfd8 125deg, #ffffff 180deg, #d3d8e0 235deg, #eff1f4 270deg, #c9cfd8 305deg, #ffffff 360deg)",
+  ].join(","),
+  maskImage: "radial-gradient(closest-side, black 35%, rgba(0,0,0,0.55) 70%, transparent 100%)",
+  WebkitMaskImage: "radial-gradient(closest-side, black 35%, rgba(0,0,0,0.55) 70%, transparent 100%)",
+};
+
+// Polished-steel lettering: lighter steel at the top darkening to a crisp
+// horizon line, with a 1px white emboss under every glyph.
+const STEEL_TITLE: CSSProperties = {
+  backgroundImage: "linear-gradient(180deg,#5a6478 0%,#0b1220 50%,#343d50 50%,#6b7488 100%)",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  color: "transparent",
+  filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.95))",
+};
+
+const METAL_CHIP: CSSProperties = {
+  backgroundImage: "linear-gradient(180deg,#ffffff 0%,#e9ecf1 100%)",
+  boxShadow:
+    "inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.08)",
+};
+
+// A machined well the CTA sits in: shaded at the top, lit at the bottom lip.
+const BUTTON_WELL: CSSProperties = {
+  backgroundImage: "linear-gradient(180deg,#c8ced7 0%,#e8ebef 55%,#fbfcfd 100%)",
+  boxShadow:
+    "inset 0 1px 2px rgba(15,23,42,0.22), inset 0 0 0 0.5px rgba(15,23,42,0.12), 0 1px 0 rgba(255,255,255,0.95)",
 };
 
 function StudioCard() {
+  const cardRef = useRef<HTMLAnchorElement>(null);
+
+  // Mouse only: turn the light with the pointer, then let it ease back.
+  const followPointer = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const el = cardRef.current;
+    if (!el || event.pointerType !== "mouse") return;
+    const rect = el.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    el.style.setProperty("--studio-x", `${x}px`);
+    el.style.setProperty("--studio-y", `${y}px`);
+    el.style.setProperty("--studio-spin", `${(x / rect.width - 0.5) * 120 + (y / rect.height - 0.5) * 40}deg`);
+  };
+  const restLight = () => cardRef.current?.style.setProperty("--studio-spin", "0deg");
+
   return (
     <Link
+      ref={cardRef}
       href={APP_URL}
-      className="group relative flex min-h-[292px] flex-col overflow-hidden rounded-[24px] border border-[#e4e7ee] bg-[linear-gradient(180deg,#ffffff_0%,#f8faff_100%)] p-6 sm:p-7"
+      onPointerMove={followPointer}
+      onPointerLeave={restLight}
+      className="group relative flex rounded-[24px] p-[1.5px] shadow-[0_0_0_0.5px_rgba(15,23,42,0.14),0_1px_2px_rgba(15,23,42,0.06),0_12px_24px_-16px_rgba(15,23,42,0.18),0_32px_56px_-36px_rgba(15,23,42,0.4)]"
+      style={STUDIO_RIM}
     >
-      <span aria-hidden className="pointer-events-none absolute inset-0" style={STUDIO_GRID} />
       <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-24 -right-16 h-[340px] w-[380px] rounded-full bg-[radial-gradient(closest-side,rgba(51,92,255,0.16),rgba(51,92,255,0.05)_60%,transparent)]"
-      />
-
-      <span className="relative font-display text-[26px] font-extrabold uppercase leading-none tracking-[-0.025em] text-[#0b1220] sm:text-[30px]">
-        Verlab Studio
-      </span>
-      <span className="relative mt-3 max-w-[250px] text-[15px] leading-[1.35] text-slate-500 xl:max-w-[205px]">
-        Find a winning niche, bend it, and post faceless videos audiences come back for.
-      </span>
-
-      {/* 3D pill: face glows lighter at the bottom centre, a thin bright rim
-          along the top, and a solid darker lip underneath */}
-      <span
-        className="relative mt-auto inline-flex h-[42px] w-fit items-center gap-3 rounded-full px-[22px] text-[15px] font-semibold tracking-[-0.005em] text-white transition-transform duration-200 group-hover:-translate-y-0.5"
-        style={button3d(3)}
+        className="relative flex min-h-[289px] flex-1 flex-col overflow-hidden rounded-[22.5px] p-6 sm:p-7"
+        style={STUDIO_FACE}
       >
-        Open Studio
-        <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
-      </span>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.22] mix-blend-overlay"
+          style={{ backgroundImage: BRUSHED_GRAIN, backgroundSize: "640px 320px" }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-[165px] -right-[150px] h-[560px] w-[560px] rounded-full"
+          style={SPUN_DISC}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-24 -right-16 h-[340px] w-[380px] rounded-full bg-[radial-gradient(closest-side,rgba(51,92,255,0.1),rgba(51,92,255,0.03)_60%,transparent)]"
+        />
+        {/* the pointer's own highlight, sliding over the metal */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+          style={{
+            backgroundImage:
+              "radial-gradient(240px circle at var(--studio-x, 75%) var(--studio-y, 70%), rgba(255,255,255,0.8), transparent 70%)",
+          }}
+        />
 
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 right-0 h-[230px] w-[260px] origin-bottom-right scale-[0.78] sm:scale-100 xl:scale-[0.85] min-[1440px]:scale-100"
-      >
-        {STUDIO_TILES.map((t) => (
+        <span
+          className="relative mb-4 inline-flex h-6 w-fit items-center gap-1.5 rounded-full px-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-[#5b6577]"
+          style={METAL_CHIP}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-[#335cff] shadow-[0_0_0_1.5px_rgba(51,92,255,0.18),0_0_8px_rgba(51,92,255,0.85)]" />
+          All-in-one
+        </span>
+        <span
+          className="relative w-fit font-display text-[26px] font-extrabold uppercase leading-none tracking-[-0.025em] sm:text-[30px]"
+          style={STEEL_TITLE}
+        >
+          Verlab Studio
+        </span>
+        <span className="relative mt-3 max-w-[250px] text-[15px] leading-[1.35] text-slate-500 xl:max-w-[205px]">
+          Find a winning niche, bend it, and post faceless videos audiences come back for.
+        </span>
+
+        {/* 3D pill seated in a machined well: face glows lighter at the
+            bottom centre, a thin bright rim along the top, and a solid darker
+            lip underneath. The well's bottom padding adds the lip's 3px so
+            face + lip sit centred in it. */}
+        <span className="relative mt-6 flex w-fit rounded-full p-[5px] pb-[8px] sm:mt-auto" style={BUTTON_WELL}>
           <span
-            key={t.src}
-            className="absolute rounded-[24px] p-[6px] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-1"
-            style={{ left: t.left, top: t.top, width: t.size, height: t.size, rotate: `${t.rotate}deg`, backgroundImage: CHROME, boxShadow: KEYCAP }}
+            className="cta-shine cta-shine-group relative isolate inline-flex h-[42px] w-fit items-center gap-3 overflow-hidden rounded-full px-[22px] text-[15px] font-semibold tracking-[-0.005em] text-white"
+            style={button3d(3)}
           >
-            {/* bevel: lit top edge, shaded bottom edge */}
-            <span className="pointer-events-none absolute inset-0 rounded-[24px] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(15,23,42,0.28),inset_1px_0_1px_rgba(255,255,255,0.55)]" />
-            <span className="relative block h-full w-full overflow-hidden rounded-[18px]">
-              <Image src={t.src} alt="" fill sizes="240px" className="object-cover" />
-              {/* a faint glass reflection and a recessed inner edge */}
-              <span className="absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.04)_30%,transparent_45%)]" />
-              <span className="absolute inset-0 rounded-[18px] shadow-[inset_0_2px_5px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(15,23,42,0.4)]" />
-            </span>
+            Open Studio
+            <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
           </span>
-        ))}
+        </span>
+
+        {/* Phones stack the tiles under the button (no room beside it);
+            from sm up they sit in the card's bottom-right corner. */}
+        <span
+          aria-hidden
+          className="pointer-events-none relative -mb-6 -mr-6 mt-3 h-[180px] w-[203px] self-end sm:absolute sm:bottom-0 sm:right-0 sm:m-0 sm:h-[230px] sm:w-[260px]"
+        >
+          <span className="absolute bottom-0 right-0 h-[230px] w-[260px] origin-bottom-right scale-[0.78] sm:scale-100 xl:scale-[0.85] min-[1440px]:scale-100">
+            {STUDIO_TILES.map((t) => (
+              <span
+                key={t.src}
+                className="absolute rounded-[24px] p-[6px] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-1"
+                style={{ left: t.left, top: t.top, width: t.size, height: t.size, rotate: `${t.rotate}deg`, backgroundImage: CHROME, boxShadow: KEYCAP }}
+              >
+                {/* bevel: lit top edge, shaded bottom edge */}
+                <span className="pointer-events-none absolute inset-0 rounded-[24px] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(15,23,42,0.28),inset_1px_0_1px_rgba(255,255,255,0.55)]" />
+                <span className="relative block h-full w-full overflow-hidden rounded-[18px]">
+                  <Image src={t.src} alt="" fill sizes="240px" className="object-cover" />
+                  {/* a faint glass reflection and a recessed inner edge */}
+                  <span className="absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.04)_30%,transparent_45%)]" />
+                  <span className="absolute inset-0 rounded-[18px] shadow-[inset_0_2px_5px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(15,23,42,0.4)]" />
+                </span>
+              </span>
+            ))}
+          </span>
+        </span>
       </span>
     </Link>
   );

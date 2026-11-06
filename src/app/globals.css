@@ -1140,6 +1140,64 @@ html[data-scrolling="true"] *::after {
   box-shadow: var(--shadow-blue);
 }
 
+/* The nav CTA's hover, shared by every blue 3D button: a white wash that
+   lifts the face (::before) and a narrow band of light that crosses it once
+   (::after). Both sit at z-index -1 so they paint over the button's own
+   background but under its label; the host needs `relative isolate
+   overflow-hidden`. Add `cta-shine-group` to also play it when a parent
+   `.group` is hovered (a button drawn inside a clickable card). */
+@keyframes cta-shine-sweep {
+  from { transform: translateX(-140%) skewX(-16deg); }
+  to   { transform: translateX(320%) skewX(-16deg); }
+}
+.cta-shine::before,
+.cta-shine::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+.cta-shine::before {
+  inset: 1px;
+  border-radius: inherit;
+  opacity: 0;
+  mix-blend-mode: overlay;
+  background: radial-gradient(101.79% 101.79% at 65.61% 81.79%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
+  transition: opacity 0.3s ease-in-out;
+}
+.cta-shine::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 33.333%;
+  filter: blur(5px);
+  transform: translateX(-140%) skewX(-16deg);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 100%);
+}
+.cta-shine:hover::before,
+.group:hover .cta-shine-group::before {
+  opacity: 1;
+}
+.cta-shine:hover::after,
+.group:hover .cta-shine-group::after {
+  animation: cta-shine-sweep 0.85s cubic-bezier(0.32, 0, 0.24, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-shine:hover::after,
+  .group:hover .cta-shine-group::after {
+    animation: none;
+  }
+}
+
+/* The landing studio card's light angle, set from the pointer's position so
+   its chrome rim and spun-metal disc turn their reflections as you move.
+   Registered so it can ease instead of jump. */
+@property --studio-spin {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
 .btn-bevel {
   position: relative;
   isolation: isolate;

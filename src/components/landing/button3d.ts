@@ -15,5 +15,6 @@ export function button3d(lip = 3): CSSProperties {
   };
 }
 
-/** Lift on hover, settle on press. */
-export const BUTTON_3D_MOTION = "transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-px";
+/** The nav CTA's hover (light sweep + face wash, `.cta-shine`), settle on press. */
+export const BUTTON_3D_MOTION =
+  "cta-shine relative isolate overflow-hidden transition-transform duration-200 ease-out active:translate-y-px";
