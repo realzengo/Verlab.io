@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import NumberFlow from "@number-flow/react";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, ArrowRight, Check, Loader2, Play } from "lucide-react";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { BracketFrame, ScorePill, fetchJson } from "@/components/clipping/parts";
+import { ScorePill, fetchJson } from "@/components/clipping/parts";
 import { ClipEditor } from "@/components/clipping/ClipEditor";
 import { ClipResults, SavedClips } from "@/components/clipping/ClipResults";
 import { useClipWorkspace } from "@/components/clipping/useClipWorkspace";
@@ -24,9 +25,9 @@ type Step = "choose" | "edit" | "post";
 
 const STEPS: { id: "video" | Step; label: string }[] = [
   { id: "video", label: "Video" },
-  { id: "choose", label: "Choose the clip" },
+  { id: "choose", label: "Choose clips" },
   { id: "edit", label: "Edit" },
-  { id: "post", label: "Post" },
+  { id: "post", label: "Download" },
 ];
 
 const POLL_MS = 3000;
@@ -56,6 +57,27 @@ export function ClipProjectView({ projectId, onBack }: { projectId: string; onBa
   return <ProjectWorkspace key={project.id} project={project} onBack={onBack} />;
 }
 
+/* Quiet premium surfaces: a solid fill, a hairline edge and one soft
+   shadow; controls inside them sit on the app's neutral fill. */
+const SURFACE =
+  "border border-hairline bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-18px_rgba(16,24,40,0.14)] dark:bg-white/[0.03] dark:shadow-none";
+const CHIP = "bg-(--app-fill)";
+const LINE = "border-hairline";
+const SPLIT = "grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]";
+const PANEL = cn(
+  "relative flex flex-col overflow-hidden rounded-[24px] xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]",
+  SURFACE
+);
+
+/** A 16:9 screen. */
+function Screen({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-[22px] bg-black shadow-[0_12px_32px_-18px_rgba(16,24,40,0.35)] ring-1 ring-black/5 dark:ring-white/10">
+      {children}
+    </div>
+  );
+}
+
 function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: () => void }) {
   const [step, setStep] = useState<Step>("choose");
   const [selected, setSelected] = useState<string[]>([]);
@@ -83,92 +105,74 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
     id === "choose" ||
     (selectedClips.length > 0 && project.status === "ready" && (id === "edit" || hasRenders));
 
+  const stepIndex = STEPS.findIndex((s) => s.id === step);
+
   return (
-    <div className="mx-auto flex w-full max-w-[1240px] gap-10 pb-20 pt-2 xl:gap-14">
-      {/* Step rail */}
-      <aside className="hidden w-52 shrink-0 lg:block">
-        <div className="sticky top-6 flex min-h-[70vh] flex-col">
-          <div className="flex items-center gap-3">
-            <BackButton onClick={onBack} />
-            <span className="inline-flex h-9 items-center rounded-full bg-(--app-fill-strong) px-4 text-[15px] font-medium text-heading">
-              Clip
-            </span>
-          </div>
-          <div className="mt-[22vh]">
-            <p className="text-[13px] text-subtle">In a few steps, you will have this:</p>
-            <ol className="mt-5 flex flex-col gap-3">
-              {STEPS.map((item) => {
-                const current = item.id === step;
-                const canGo = !current && reachable(item.id);
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      disabled={!canGo}
-                      onClick={() => goTo(item.id)}
-                      aria-current={current ? "step" : undefined}
-                      className={cn(
-                        "flex items-center gap-2.5 text-left outline-none transition-colors focus-visible:underline",
-                        current
-                          ? "text-[24px] font-semibold tracking-[-0.02em] text-heading"
-                          : "pl-[18px] text-[18px] font-medium text-heading/25 dark:text-white/25",
-                        canGo && "hover:text-heading/60 dark:hover:text-white/60"
-                      )}
-                    >
-                      {current && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-heading" />}
-                      {item.label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        </div>
-      </aside>
-
-      <main className="min-w-0 flex-1">
-        {/* Phone: back + where you are */}
-        <div className="mb-5 flex items-center gap-3 lg:hidden">
+    <div className="relative mx-auto w-full max-w-[1680px] pb-20 pt-1">
+      <div className="relative">
+        {/* Floating glass bar: the video, and a segmented control for the steps */}
+        <header className="flex items-center gap-3.5 border-b border-hairline pb-5">
           <BackButton onClick={step === "choose" ? onBack : () => goTo(step === "post" ? "edit" : "choose")} />
-          <span className="text-[15px] font-semibold text-heading">{STEPS.find((s) => s.id === step)?.label}</span>
-          <span className="ml-auto font-mono text-xs text-subtle">
-            {STEPS.findIndex((s) => s.id === step) + 1}/{STEPS.length}
-          </span>
-        </div>
-
-        <header className="flex items-center justify-between gap-6">
-          <div className="flex min-w-0 items-center gap-4">
-            {project.thumbnailUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-              <img
-                src={project.thumbnailUrl}
-                alt=""
-                className="hidden h-[72px] w-32 shrink-0 rounded-xl object-cover sm:block"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="text-[13px] text-subtle">
-                Video <span className="font-mono">· {formatClock(project.durationSeconds)}</span>
-              </p>
-              <p className="mt-0.5 line-clamp-2 text-[15px] font-medium leading-snug text-heading">{project.title}</p>
-              {project.channelTitle && (
-                <p className="mt-0.5 truncate text-[13px] text-subtle">{project.channelTitle}</p>
-              )}
-            </div>
-          </div>
-          {project.status === "ready" && (
-            <div className="flex shrink-0 items-center gap-3">
-              <NumberFlow
-                value={selected.length}
-                className="text-[52px] font-semibold leading-none tracking-[-0.05em] text-heading tabular-nums sm:text-[76px]"
-              />
-              <span className="text-[14px] font-medium leading-tight text-heading sm:text-[17px]">
-                selected
-                <br />
-                clips
-              </span>
-            </div>
+          {project.thumbnailUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+            <img
+              src={project.thumbnailUrl}
+              alt=""
+              className="hidden h-12 w-[86px] shrink-0 rounded-[10px] object-cover ring-1 ring-black/5 sm:block dark:ring-white/10"
+            />
           )}
+          <div className="relative min-w-0 flex-1">
+            <p className="truncate text-[15px] font-semibold leading-snug tracking-[-0.01em] text-heading">
+              {project.title}
+            </p>
+            <p className="mt-0.5 truncate text-[13px] text-subtle">
+              {project.channelTitle && <>{project.channelTitle} · </>}
+              <span className="tabular-nums">{formatClock(project.durationSeconds)}</span>
+            </p>
+          </div>
+          <ol
+            aria-label="Steps"
+            className="ml-auto hidden shrink-0 items-center rounded-full bg-(--app-fill) p-1 lg:flex"
+          >
+            {STEPS.map((item, index) => {
+              const current = item.id === step;
+              const done = index < stepIndex;
+              const canGo = !current && reachable(item.id);
+              return (
+                <li key={item.id} className="relative">
+                  {current && (
+                    <motion.span
+                      layoutId="clip-step-thumb"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.12] dark:shadow-none"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    disabled={!canGo}
+                    onClick={() => goTo(item.id)}
+                    aria-current={current ? "step" : undefined}
+                    className={cn(
+                      "relative flex h-8 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+                      current ? "text-heading" : done ? "text-body" : "text-subtle/70",
+                      canGo && "hover:text-heading"
+                    )}
+                  >
+                    {done && <Check className="h-3 w-3" strokeWidth={3} />}
+                    {item.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <span
+            className={cn(
+              "relative ml-auto shrink-0 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums text-heading lg:hidden",
+              CHIP
+            )}
+          >
+            {stepIndex + 1}/{STEPS.length}
+          </span>
         </header>
 
         <div className="mt-6">
@@ -204,7 +208,7 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
             <ClipResults project={project} clips={selectedClips} workspace={workspace} onEdit={() => goTo("edit")} />
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
@@ -215,10 +219,21 @@ function BackButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Back"
-      className="flex h-9 w-9 items-center justify-center rounded-full text-heading outline-none transition-colors hover:bg-(--app-fill) focus-visible:ring-2 focus-visible:ring-primary/40"
+      className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-heading outline-none transition-[transform,background-color] hover:bg-(--app-fill) active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/40 dark:bg-transparent"
+      )}
     >
-      <ArrowLeft className="h-5 w-5" strokeWidth={1.75} />
+      <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
     </button>
+  );
+}
+
+function PanelHeader({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className={cn("flex items-center justify-between gap-3 border-b px-5 py-4", LINE)}>
+      <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-heading">{title}</h2>
+      {children}
+    </div>
   );
 }
 
@@ -254,10 +269,9 @@ function ChooseStep({
 
   return (
     <div>
-      {/* Sized by the window's height on desktop so the clip strip stays in view. */}
-      <div className="mx-auto w-full lg:max-w-[max(560px,calc((100dvh-400px)*16/9))]">
-        <BracketFrame>
-          <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
+      <div className={SPLIT}>
+        <div className="flex min-w-0 flex-col gap-5">
+          <Screen>
             {playing ? (
               <iframe
                 key={preview.id}
@@ -278,113 +292,140 @@ function ChooseStep({
                   // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
                   <img src={project.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                 )}
-                <span className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/30" />
-                <span className="absolute left-1/2 top-1/2 flex h-14 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-2xl bg-[#FF0033] shadow-lg transition-transform duration-300 group-hover:scale-105">
-                  <span className="ml-1 h-0 w-0 border-y-[11px] border-l-[18px] border-y-transparent border-l-white" />
+                <span className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/25" />
+                {/* a frosted play button, like Apple TV's */}
+                <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_10px_30px_-8px_rgba(0,0,0,0.5)] ring-1 ring-white/30 backdrop-blur-xl transition-transform duration-300 group-hover:scale-105">
+                  <Play className="ml-1 h-7 w-7 fill-white text-white" strokeWidth={0} />
                 </span>
               </button>
             )}
             <ScorePill score={preview.score} className="pointer-events-none absolute left-4 top-4" />
-          </div>
-        </BracketFrame>
+          </Screen>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="font-mono text-[13px] text-subtle">
-              {formatClock(preview.start)} – {formatClock(preview.end)} · {Math.round(preview.end - preview.start)}s
-            </p>
-            <h3 className="mt-1 text-[17px] font-semibold leading-snug text-heading">{preview.title}</h3>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-subtle">{preview.reason}</p>
-            {preview.scores && <ScoreBreakdown scores={preview.scores} />}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              onToggle(preview.id);
-              setHint(false);
-            }}
-            aria-pressed={isSelected}
-            className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full border px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
-              isSelected
-                ? "border-transparent bg-primary text-white"
-                : "border-hairline text-heading hover:bg-(--app-fill)"
-            )}
-          >
-            {isSelected && <Check className="h-3.5 w-3.5" strokeWidth={2.5} />}
-            {isSelected ? "Selected" : "Select this clip"}
-          </button>
-        </div>
-      </div>
-
-      <h4 className="mt-10 text-[17px] font-semibold text-heading">Viral clips detected :</h4>
-      <div className="mt-4 flex flex-col gap-5 xl:flex-row xl:items-start">
-        <div className="-mx-1 flex min-w-0 flex-1 gap-4 overflow-x-auto px-1 pb-2 [scrollbar-width:thin]">
-          {clips.map((clip) => {
-            const active = clip.id === preview.id;
-            const checked = selected.includes(clip.id);
-            return (
-              <div key={clip.id} className="relative w-40 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewId(clip.id);
-                    setPlaying(true);
-                  }}
-                  aria-label={`Preview “${clip.title}”`}
+          <section className={cn("relative rounded-[24px] p-5 sm:p-6", SURFACE)}>
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <span
                   className={cn(
-                    "relative block aspect-video w-full overflow-hidden rounded-xl outline-none ring-2 ring-offset-2 ring-offset-app transition-shadow focus-visible:ring-primary/60",
-                    active ? "ring-heading dark:ring-white" : "ring-transparent"
+                    "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium tabular-nums text-body",
+                    CHIP
                   )}
                 >
-                  {project.thumbnailUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-                    <img src={project.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                  )}
-                  <span className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
-                  <span className="absolute right-2 top-1 text-[22px] font-bold tabular-nums text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.55)]">
-                    {clip.score}
-                  </span>
-                  {checked && <span className="absolute inset-0 bg-primary/20" />}
-                </button>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={checked}
-                  aria-label={`Select “${clip.title}”`}
-                  onClick={() => {
-                    onToggle(clip.id);
-                    setHint(false);
-                  }}
-                  className={cn(
-                    "absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white",
-                    checked
-                      ? "border-primary bg-primary text-white"
-                      : "border-white/90 bg-black/25 text-transparent hover:bg-black/40",
-                    hint && !checked && "animate-pulse border-primary"
-                  )}
-                >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                </button>
-                <p className="mt-2 text-center font-mono text-[13px] text-heading">{formatClipOffset(clip.start)}</p>
+                  {formatClock(preview.start)} – {formatClock(preview.end)} · {Math.round(preview.end - preview.start)}s
+                </span>
+                <h3 className="mt-3 text-[22px] font-semibold leading-snug tracking-[-0.02em] text-heading">
+                  {preview.title}
+                </h3>
+                <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-subtle">{preview.reason}</p>
               </div>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => {
+                  onToggle(preview.id);
+                  setHint(false);
+                }}
+                aria-pressed={isSelected}
+                className={cn(
+                  "inline-flex h-10 shrink-0 items-center gap-1.5 self-start rounded-full px-5 text-[14px] font-medium outline-none transition-[transform,background-color] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary/40",
+                  isSelected
+                    ? "bg-primary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_16px_-6px_rgba(51,92,255,0.6)]"
+                    : "border border-hairline bg-surface text-heading hover:bg-(--app-fill) dark:bg-transparent"
+                )}
+              >
+                {isSelected && <Check className="h-4 w-4" strokeWidth={2.5} />}
+                {isSelected ? "Selected" : "Select this clip"}
+              </button>
+            </div>
+            {preview.scores && <ScoreBreakdown scores={preview.scores} />}
+          </section>
         </div>
-        <div className="flex shrink-0 flex-col items-stretch gap-2 xl:items-end">
-          <PlasticButton
-            className="h-14 rounded-[20px] px-8 text-[17px]"
-            text={selected.length > 1 ? `Create ${selected.length} videos` : "Create video"}
-            trailing={<ArrowRight className="h-5 w-5" strokeWidth={2} />}
-            onClick={() => {
-              if (!selected.length) setHint(true);
-              else onContinue();
-            }}
-          />
-          <p className={cn("text-center text-[13px] xl:text-right", hint ? "text-danger" : "text-subtle")}>
-            {hint ? "Tick at least one clip first" : `${clips.length} moments found`}
-          </p>
-        </div>
+
+        <aside className={PANEL}>
+          <PanelHeader title="Viral clips">
+            <span className={cn("inline-flex h-7 items-center gap-1 rounded-full px-3 text-[12px] text-subtle", CHIP)}>
+              <NumberFlow value={selected.length} className="font-semibold tabular-nums text-heading" /> of{" "}
+              {clips.length} selected
+            </span>
+          </PanelHeader>
+          <ul className="relative min-h-0 flex-1 overflow-y-auto p-2 [scrollbar-width:thin]">
+            {clips.map((clip) => {
+              const active = clip.id === preview.id;
+              const checked = selected.includes(clip.id);
+              const top = clip.id === best?.id;
+              return (
+                <li
+                  key={clip.id}
+                  className={cn(
+                    "flex items-center gap-1 rounded-[18px] pr-3 transition-colors",
+                    active ? "bg-(--app-fill)" : "hover:bg-(--app-fill)/60"
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewId(clip.id);
+                      setPlaying(true);
+                    }}
+                    aria-current={active ? "true" : undefined}
+                    aria-label={`Preview “${clip.title}”`}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-[15px] font-semibold tabular-nums",
+                        top ? "bg-primary text-white" : "bg-(--app-fill-strong) text-heading"
+                      )}
+                    >
+                      {clip.score}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[14px] font-medium tracking-[-0.005em] text-heading">
+                        {clip.title}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] tabular-nums text-subtle">
+                        {formatClipOffset(clip.start)} · {Math.round(clip.end - clip.start)}s
+                      </span>
+                    </span>
+                  </button>
+                  {/* iOS-style selection circle */}
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    aria-label={`Select “${clip.title}”`}
+                    onClick={() => {
+                      onToggle(clip.id);
+                      setHint(false);
+                    }}
+                    className={cn(
+                      "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full outline-none transition-[transform,background-color] active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/40",
+                      checked
+                        ? "bg-primary text-white"
+                        : "text-transparent ring-[1.5px] ring-inset ring-black/20 hover:ring-black/40 dark:ring-white/25 dark:hover:ring-white/45",
+                      hint && !checked && "animate-pulse ring-primary"
+                    )}
+                  >
+                    <Check className="h-3 w-3" strokeWidth={3.5} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className={cn("relative border-t p-4", LINE)}>
+            <PlasticButton
+              className="h-12 w-full rounded-[18px] text-[15px]"
+              text={selected.length > 1 ? `Create ${selected.length} videos` : "Create video"}
+              trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
+              onClick={() => {
+                if (!selected.length) setHint(true);
+                else onContinue();
+              }}
+            />
+            <p className={cn("mt-2.5 text-center text-[13px]", hint ? "text-danger" : "text-subtle")}>
+              {hint ? "Tick at least one clip first" : `${clips.length} moments found`}
+            </p>
+          </div>
+        </aside>
       </div>
 
       <SavedClips project={project} />
@@ -399,17 +440,17 @@ const SCORE_PARTS: { key: keyof ClipScoreBreakdown; label: string }[] = [
   { key: "trend", label: "Trend" },
 ];
 
-/** OpusClip-style virality breakdown: four labelled bars, one accent. */
+/** OpusClip-style virality breakdown, as four small tiles. */
 function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
   return (
-    <dl className="mt-4 grid max-w-xl grid-cols-2 gap-x-6 gap-y-2.5 sm:grid-cols-4">
+    <dl className="relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
       {SCORE_PARTS.map(({ key, label }) => (
-        <div key={key} className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between">
-            <dt className="text-[12px] text-subtle">{label}</dt>
-            <dd className="font-mono text-[12px] font-medium tabular-nums text-heading">{scores[key]}</dd>
-          </div>
-          <div className="h-1 overflow-hidden rounded-full bg-(--app-fill-strong)">
+        <div key={key} className={cn("rounded-[18px] px-3.5 py-3", CHIP)}>
+          <dt className="text-[12px] text-subtle">{label}</dt>
+          <dd className="mt-0.5 text-[20px] font-semibold tabular-nums tracking-[-0.02em] text-heading">
+            {scores[key]}
+          </dd>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/[0.07] dark:bg-white/[0.1]">
             <div className="h-full rounded-full bg-primary" style={{ width: `${scores[key]}%` }} />
           </div>
         </div>
@@ -419,9 +460,9 @@ function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
 }
 
 const STAGES = [
-  { status: "queued", label: "Fetching the audio" },
-  { status: "transcribing", label: "Transcribing every word" },
-  { status: "finding", label: "Finding the viral moments" },
+  { status: "queued", label: "Fetching the audio", detail: "Pulling the soundtrack from YouTube" },
+  { status: "transcribing", label: "Transcribing every word", detail: "Word-level timing for the captions" },
+  { status: "finding", label: "Finding the viral moments", detail: "Scoring hook, flow, value and trend" },
 ] as const;
 
 function useElapsedSeconds(since: string): number {
@@ -435,106 +476,150 @@ function useElapsedSeconds(since: string): number {
 
 function ProcessingState({ project }: { project: ClipProject }) {
   const elapsed = useElapsedSeconds(project.createdAt);
-  const activeIndex = STAGES.findIndex((stage) => stage.status === project.status);
+  const activeIndex = Math.max(
+    0,
+    STAGES.findIndex((stage) => stage.status === project.status)
+  );
   // WhisperX runs at roughly 30x real time, plus fetching and the LLM pass.
   const estimateMinutes = Math.max(1, Math.round((project.durationSeconds / 30 + 75) / 60));
 
   return (
-    <div>
-      <BracketFrame>
-        <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
-          {project.thumbnailUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-            <img
-              src={project.thumbnailUrl}
-              alt=""
-              className="h-full w-full scale-105 object-cover opacity-40 blur-[3px]"
-            />
-          )}
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-black/60 p-5 text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-xl sm:p-6">
-              <ol className="flex flex-col gap-3.5" aria-live="polite">
-                {STAGES.map((stage, index) => {
-                  const done = index < activeIndex;
-                  const active = index === activeIndex;
-                  return (
-                    <li
-                      key={stage.status}
-                      className={cn("flex items-center gap-3 text-[15px]", !done && !active && "text-white/40")}
-                    >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        {done ? (
-                          <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
-                        ) : active ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
-                        )}
-                      </span>
-                      <span className={cn(active && "font-medium")}>{stage.label}</span>
-                    </li>
-                  );
-                })}
-              </ol>
-              <div className="mt-5 border-t border-white/10 pt-4 text-[13px] leading-relaxed text-white/60">
-                <p>
-                  <span className="font-mono text-white/80">{formatClock(elapsed)}</span> · usually about{" "}
-                  {estimateMinutes} min for a {Math.round(project.durationSeconds / 60)}-minute video
-                </p>
-                <p className="mt-1">You can leave this page. Your clips will be here when you come back.</p>
-              </div>
+    <div className={SPLIT}>
+      <Screen>
+        {project.thumbnailUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+          <img
+            src={project.thumbnailUrl}
+            alt=""
+            className="h-full w-full scale-105 object-cover opacity-70 blur-[2px]"
+          />
+        )}
+        <span className="absolute inset-0 bg-black/25" />
+        {/* a glass HUD over the video */}
+        <div className="absolute left-1/2 top-1/2 w-[min(340px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[22px] bg-black/30 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_20px_50px_-20px_rgba(0,0,0,0.7)] ring-1 ring-white/15 backdrop-blur-2xl backdrop-saturate-150 sm:p-5">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-white/90" />
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold tracking-[-0.01em]">{STAGES[activeIndex].label}</p>
+              <p className="text-[12px] text-white/60">
+                Step {activeIndex + 1} of {STAGES.length} · <span className="tabular-nums">{formatClock(elapsed)}</span>
+              </p>
             </div>
           </div>
-        </div>
-      </BracketFrame>
-
-      <h4 className="mt-10 text-[17px] font-semibold text-heading">Viral clips detected :</h4>
-      <div className="mt-4 flex gap-4 overflow-hidden">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} className="w-40 shrink-0">
-            <Skeleton className="aspect-video w-full rounded-xl" />
-            <Skeleton className="mx-auto mt-2.5 h-3 w-12 rounded-full" />
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
+            <div
+              className="h-full rounded-full bg-white transition-[width] duration-700"
+              style={{ width: `${((activeIndex + 0.5) / STAGES.length) * 100}%` }}
+            />
           </div>
-        ))}
-      </div>
+        </div>
+      </Screen>
+
+      <aside className={PANEL}>
+        <PanelHeader title="Finding your clips">
+          <span
+            className={cn(
+              "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium tabular-nums text-heading",
+              CHIP
+            )}
+          >
+            {formatClock(elapsed)}
+          </span>
+        </PanelHeader>
+        <ol className="relative flex flex-col gap-5 px-5 py-5" aria-live="polite">
+          {STAGES.map((stage, index) => {
+            const done = index < activeIndex;
+            const active = index === activeIndex;
+            return (
+              <li key={stage.status} className="flex gap-3">
+                <span
+                  className={cn(
+                    "mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    done
+                      ? "bg-heading text-surface dark:bg-white dark:text-[#0B0D12]"
+                      : active
+                        ? "bg-primary text-white"
+                        : "border border-hairline text-subtle"
+                  )}
+                >
+                  {done ? (
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  ) : active ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <span className="text-[12px] font-medium">{index + 1}</span>
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span
+                    className={cn("block text-[14px] font-medium", done || active ? "text-heading" : "text-subtle")}
+                  >
+                    {stage.label}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] text-subtle">{stage.detail}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+        <div className={cn("relative border-t px-5 py-4 text-[13px] leading-relaxed text-subtle", LINE)}>
+          Usually about {estimateMinutes} min for a {Math.round(project.durationSeconds / 60)}-minute video. You can
+          leave this page; your clips will be here when you come back.
+        </div>
+        {/* where the clips will land */}
+        <div className={cn("relative flex flex-col gap-1 border-t p-2", LINE)} aria-hidden>
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="flex items-center gap-3 p-2.5">
+              <Skeleton className="h-11 w-11 shrink-0 rounded-[14px]" />
+              <div className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-3.5 w-4/5 rounded-full" />
+                <Skeleton className="h-3 w-16 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }
 
 function FailedState({ project, onBack }: { project: ClipProject; onBack: () => void }) {
   return (
-    <BracketFrame>
-      <div className="flex aspect-video flex-col items-center justify-center gap-4 rounded-2xl bg-(--app-fill) p-6 text-center">
-        <p className="max-w-md text-[15px] text-heading">
-          {project.errorMessage ?? "Something went wrong with this video."}
-        </p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex h-9 items-center rounded-full border border-hairline px-4 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill-strong)"
-        >
-          Try another video
-        </button>
-      </div>
-    </BracketFrame>
+    <div
+      className={cn(
+        "relative flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-[24px] p-6 text-center",
+        SURFACE
+      )}
+    >
+      <p className="relative max-w-md text-[15px] text-heading">
+        {project.errorMessage ?? "Something went wrong with this video."}
+      </p>
+      <button
+        type="button"
+        onClick={onBack}
+        className="relative inline-flex h-10 items-center rounded-full border border-hairline px-5 text-[14px] font-medium text-heading transition-colors hover:bg-(--app-fill)"
+      >
+        Try another video
+      </button>
+    </div>
   );
 }
 
 function ProjectSkeleton() {
   return (
-    <div role="status" aria-label="Loading" className="mx-auto flex w-full max-w-[1240px] gap-10 pb-20 pt-2 xl:gap-14">
-      <div className="hidden w-52 shrink-0 lg:block">
-        <Skeleton className="h-9 w-28 rounded-full" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-[72px] w-32 rounded-xl" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-3 w-24 rounded-full" />
-            <Skeleton className="h-4 w-2/3 rounded-full" />
-          </div>
+    <div role="status" aria-label="Loading" className="mx-auto w-full max-w-[1680px] pb-20 pt-1">
+      <div className="flex items-center gap-3.5 rounded-[24px] border border-hairline p-2.5">
+        <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+        <Skeleton className="hidden h-12 w-[86px] shrink-0 rounded-[12px] sm:block" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-4 w-1/2 rounded-full" />
+          <Skeleton className="h-3 w-40 rounded-full" />
         </div>
-        <Skeleton className="mt-8 aspect-video w-full rounded-2xl" />
+        <Skeleton className="hidden h-10 w-[360px] rounded-full lg:block" />
+      </div>
+      <div className={cn(SPLIT, "mt-5")}>
+        <Skeleton className="aspect-video w-full rounded-[30px]" />
+        <Skeleton className="h-[420px] w-full rounded-[28px]" />
       </div>
     </div>
   );

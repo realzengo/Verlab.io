@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,25 +13,11 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
   return data;
 }
 
-/** A viewfinder: four corner brackets just outside the framed content. */
-export function BracketFrame({ children, className }: { children: ReactNode; className?: string }) {
-  const corner = "pointer-events-none absolute h-4 w-4 border-heading/25 dark:border-white/30";
-  return (
-    <div className={cn("relative p-2.5", className)}>
-      <span aria-hidden className={cn(corner, "left-0 top-0 border-l-[1.5px] border-t-[1.5px]")} />
-      <span aria-hidden className={cn(corner, "right-0 top-0 border-r-[1.5px] border-t-[1.5px]")} />
-      <span aria-hidden className={cn(corner, "bottom-0 left-0 border-b-[1.5px] border-l-[1.5px]")} />
-      <span aria-hidden className={cn(corner, "bottom-0 right-0 border-b-[1.5px] border-r-[1.5px]")} />
-      {children}
-    </div>
-  );
-}
-
 export function ScorePill({ score, className }: { score: number; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-8 items-center gap-1 rounded-full bg-black/55 px-3 text-[13px] font-semibold tabular-nums text-white backdrop-blur-md",
+        "inline-flex h-8 items-center gap-1 rounded-full bg-black/35 px-3 text-[13px] font-semibold tabular-nums text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/15 backdrop-blur-xl backdrop-saturate-150",
         className
       )}
     >
@@ -54,7 +39,7 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-lg bg-(--app-fill) p-0.5">
+    <div role="radiogroup" aria-label={label} className="flex rounded-[10px] bg-(--app-fill) p-[3px]">
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -65,9 +50,9 @@ export function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "h-7 flex-1 rounded-md px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+              "h-8 flex-1 rounded-[8px] px-3 text-[13px] font-medium outline-none transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-primary/40",
               active
-                ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.08)] dark:bg-white/[0.1] dark:shadow-none"
+                ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.1] dark:shadow-none"
                 : "text-subtle hover:text-heading"
             )}
           >

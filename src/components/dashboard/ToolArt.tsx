@@ -3,7 +3,7 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUp, Check, Copy, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Copy, Flame, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
 import { Short, Stage, rise } from "@/components/illustration/stage";
 import { cn } from "@/lib/utils";
 
@@ -175,6 +175,133 @@ export function NicheBendingArt() {
           </motion.div>
         );
       })}
+    </ToolStage>
+  );
+}
+
+/* ─── Clipping ────────────────────────────────────────────────────────── */
+
+// A real long video ("Escape 100 Cops, Win $500,000", 20:28) turned into
+// Shorts, in three 2.6s beats (a 7.8s loop, tool-art-clip-* in globals.css).
+// Each beat the playhead jumps to a viral moment (its marker lifts), the 9:16
+// crop locks on, a beam carries it across, and its Short lands on top of the
+// stack as the older ones step back. Each Short is a ~2s cut of that moment,
+// the exact 9:16 window of the frame, captioned with what is said there.
+// With reduced motion it rests on the first moment.
+const CLIP_ART = "/tools/art/clipping";
+const CLIP_BEAT = 2.6;
+const SOURCE_LENGTH = 1228; // seconds
+const PLAYER = { left: 14, top: 46, width: 236, height: 133 };
+const CROP_W = 75; // 9:16 of the player's height, centred like the cuts
+const CROP_LEFT = (PLAYER.width - CROP_W) / 2;
+const PLAYER_TILE = "absolute overflow-hidden rounded-[14px] bg-black ring-[3px] ring-white dark:ring-zinc-700";
+const SHORT = { left: 272, top: 32, width: 100, height: 178 };
+// `at` must match the seeks in tool-art-clip-played.
+const MOMENTS = [
+  { at: 22, lead: "Let's", word: "Blow it up!", score: 97 },
+  { at: 394, lead: "We gotta", word: "Go!", score: 91 },
+  { at: 1172, lead: "They won", word: "$500,000!", score: 94 },
+];
+// Where each card sits at rest (beat one): newest in front, then back.
+const STACK_REST = [
+  { transform: "none", zIndex: 3 },
+  { transform: "translate(18px, -18px) scale(0.86)", zIndex: 1 },
+  { transform: "translate(9px, -9px) scale(0.93)", zIndex: 2 },
+];
+
+/** Negative delay that lines a 7.8s animation up with this moment's beat. */
+function clipBeat(i: number) {
+  const loop = CLIP_BEAT * MOMENTS.length;
+  return `${-((loop - i * CLIP_BEAT) % loop)}s`;
+}
+
+function clockTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+const CAPTION = "font-black uppercase leading-none tracking-[-0.01em] text-white";
+
+export function ClippingArt() {
+  const beam = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-beam`;
+  const cropRight = PLAYER.left + CROP_LEFT + CROP_W;
+  return (
+    <ToolStage>
+      {/* the long video, with the 9:16 crop dimming everything around it */}
+      <motion.div variants={rise(0, 8)} className={PLAYER_TILE} style={PLAYER}>
+        {MOMENTS.map((m, i) => (
+          <span
+            key={m.at}
+            className="tool-art-clip-scene absolute inset-0"
+            style={{ animationDelay: clipBeat(i), opacity: i === 0 ? 1 : 0 }}
+          >
+            <Image src={`${CLIP_ART}/cops-wide-${i + 1}.webp`} alt="" fill sizes="480px" className="object-cover" />
+          </span>
+        ))}
+        <span
+          className="absolute inset-y-0 rounded-[6px] shadow-[0_0_0_400px_rgba(0,0,0,0.6)]"
+          style={{ left: CROP_LEFT, width: CROP_W }}
+        >
+          <span className="tool-art-clip-lock absolute inset-0 rounded-[6px] border-2 border-[#335cff]" />
+          <span className="absolute left-1/2 top-1.5 -translate-x-1/2 rounded-[4px] bg-[#335cff] px-1 py-[2px] text-[8px] font-bold leading-none text-white">
+            9:16
+          </span>
+        </span>
+        <span className="absolute left-1.5 top-1.5 inline-flex h-4 items-center gap-1 rounded-[5px] bg-black/60 pl-1 pr-1.5 text-[9px] font-semibold tabular-nums text-white">
+          <Image src="/logos/social/youtube.png" alt="" width={10} height={10} className="h-2.5 w-2.5" />
+          {clockTime(SOURCE_LENGTH)}
+        </span>
+        {/* the timeline: playback in YouTube red, the viral moments in blue */}
+        <span className="absolute inset-x-2 bottom-2 h-[3px] rounded-full bg-white/25">
+          <span className="tool-art-clip-played absolute inset-y-0 left-0 rounded-full bg-[#ff0033]">
+            <span className="absolute -right-[3.5px] top-1/2 h-[7px] w-[7px] -translate-y-1/2 rounded-full bg-[#ff0033]" />
+          </span>
+          {MOMENTS.map((m, i) => (
+            <span
+              key={m.at}
+              className="tool-art-clip-mark absolute inset-y-0 w-[4%] rounded-full bg-[#5b7cff]"
+              style={{ left: `${(100 * m.at) / SOURCE_LENGTH}%`, animationDelay: clipBeat(i) }}
+            />
+          ))}
+        </span>
+      </motion.div>
+
+      {/* the crop, carried across to the Short it becomes */}
+      <svg className="absolute inset-0" width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
+        <defs>
+          <linearGradient id={beam}>
+            <stop offset="0" stopColor="#335cff" stopOpacity={0.24} />
+            <stop offset="1" stopColor="#335cff" stopOpacity={0.1} />
+          </linearGradient>
+        </defs>
+        <path
+          d={`M${cropRight} ${PLAYER.top} L${SHORT.left - 3} ${SHORT.top - 3} L${SHORT.left - 3} ${SHORT.top + SHORT.height + 3} L${cropRight} ${PLAYER.top + PLAYER.height} Z`}
+          fill={`url(#${beam})`}
+          className="tool-art-clip-beam"
+        />
+      </svg>
+
+      {/* the Shorts, newest on top, each playing its cut */}
+      <motion.div variants={rise(0.2, 8)} className="absolute" style={SHORT}>
+        {MOMENTS.map((m, i) => (
+          <div
+            key={m.at}
+            className={cn("tool-art-clip-card absolute inset-0 origin-top-right", TILE)}
+            style={{ animationDelay: clipBeat(i), ...STACK_REST[i] }}
+          >
+            <Short poster={`${CLIP_ART}/cops-short-${i + 1}.webp`} video={`${CLIP_ART}/cops-short-${i + 1}.mp4`} sizes="280px" />
+            <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent" />
+            <span className="absolute inset-x-0 bottom-[22%] flex flex-col items-center gap-[3px]">
+              <span className={cn(CAPTION, "text-[9.5px] [text-shadow:0_1px_0_rgba(0,0,0,0.85),0_0_4px_rgba(0,0,0,0.6)]")}>{m.lead}</span>
+              <span className={cn(CAPTION, "whitespace-nowrap rounded-[4px] bg-[#335cff] px-1 py-[3px] text-[11px]")}>{m.word}</span>
+            </span>
+            {/* bottom-left: covered on the cards stacked behind */}
+            <span className="absolute bottom-1.5 left-1.5 inline-flex h-4 items-center gap-[2px] rounded-full bg-white/95 pl-1 pr-1.5 text-[9.5px] font-bold tabular-nums leading-none text-zinc-800">
+              <Flame className="h-2.5 w-2.5 fill-[#335cff] text-[#335cff]" strokeWidth={2} />
+              {m.score}
+            </span>
+          </div>
+        ))}
+      </motion.div>
     </ToolStage>
   );
 }

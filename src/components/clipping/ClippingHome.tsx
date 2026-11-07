@@ -127,16 +127,13 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
 
   return (
     <div className="@container flex w-full flex-col pb-20">
-      <section className="flex flex-col items-center pt-10 text-center sm:pt-16">
+      <section className="flex flex-col items-center pt-16 text-center sm:pt-28">
         <h1
           className={`${INK_TITLE} max-w-3xl text-balance text-[38px] leading-[1.04] tracking-[-0.045em] sm:text-[56px]`}
         >
           Turn YouTube videos <br className="hidden sm:block" />
           into viral clips
         </h1>
-        <p className="mt-4 max-w-md text-balance text-base leading-relaxed text-subtle sm:text-[17px]">
-          Paste a long video. We find the moments worth posting and cut them into vertical shorts with captions.
-        </p>
       </section>
 
       <div ref={fieldRef} className="relative mx-auto mt-10 w-full max-w-2xl sm:mt-12">

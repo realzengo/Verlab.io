@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Scissors, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import {
+  ClippingArt,
   DownloaderArt,
   ImageGeneratorArt,
   NicheBendingArt,
@@ -42,6 +43,7 @@ const TOOLS: {
     href: "/clipping",
     icon: Scissors,
     tone: "cat-2",
+    art: <ClippingArt />,
   },
   {
     title: "Image Generator",

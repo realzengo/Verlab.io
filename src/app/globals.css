@@ -2431,6 +2431,140 @@ html[data-scrolling="true"] *::after {
 .tool-art-vg-press {
   animation: tool-art-vg-press 6s ease-out infinite;
 }
+/* Clipping card: a long video turned into Shorts in three 2.6s beats.
+   7.8s animations (offset per moment by a negative delay): the video cuts to
+   a viral moment, its timeline marker lifts, and its Short lands on top of
+   the stack while the older ones step back; the playhead seeks to each
+   moment (0:22, 6:34, 19:32 of 20:28, as in ClippingArt's MOMENTS). 2.6s
+   animations, once per beat: the 9:16 crop locks on and the beam carries it
+   across. Base styles (some set inline) are beat one at rest, the still
+   shown under reduced motion. */
+@keyframes tool-art-clip-scene {
+  0% {
+    opacity: 0;
+  }
+  2%,
+  33.3% {
+    opacity: 1;
+  }
+  35.3%,
+  100% {
+    opacity: 0;
+  }
+}
+.tool-art-clip-scene {
+  animation: tool-art-clip-scene 7.8s linear infinite;
+}
+@keyframes tool-art-clip-played {
+  0% {
+    width: 1.8%;
+  }
+  33.3% {
+    width: 4%;
+  }
+  33.4% {
+    width: 32.1%;
+  }
+  66.6% {
+    width: 34.3%;
+  }
+  66.7% {
+    width: 95.4%;
+  }
+  100% {
+    width: 97.6%;
+  }
+}
+.tool-art-clip-played {
+  width: 3%;
+  animation: tool-art-clip-played 7.8s linear infinite;
+}
+@keyframes tool-art-clip-mark {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  4%,
+  30% {
+    transform: scaleY(2.2);
+  }
+  34% {
+    transform: scaleY(1);
+  }
+}
+.tool-art-clip-mark {
+  animation: tool-art-clip-mark 7.8s ease-out infinite;
+}
+@keyframes tool-art-clip-lock {
+  0% {
+    transform: scale(1.12);
+    opacity: 0.3;
+  }
+  9%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.tool-art-clip-lock {
+  animation: tool-art-clip-lock 2.6s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+@keyframes tool-art-clip-beam {
+  0%,
+  3% {
+    opacity: 0;
+  }
+  10%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.tool-art-clip-beam {
+  animation: tool-art-clip-beam 2.6s ease-in-out infinite;
+}
+@keyframes tool-art-clip-card {
+  0%,
+  5% {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.9);
+    z-index: 4;
+  }
+  8% {
+    opacity: 1;
+    transform: translateX(1px) scale(1.01);
+    z-index: 4;
+  }
+  10%,
+  38.3% {
+    opacity: 1;
+    transform: none;
+    z-index: 3;
+  }
+  41.3%,
+  71.7% {
+    opacity: 1;
+    transform: translate(9px, -9px) scale(0.93);
+    z-index: 2;
+  }
+  74.7%,
+  96% {
+    opacity: 1;
+    transform: translate(18px, -18px) scale(0.86);
+    z-index: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+    transform: translate(18px, -18px) scale(0.86);
+    z-index: 1;
+  }
+}
+.tool-art-clip-card {
+  animation: tool-art-clip-card 7.8s cubic-bezier(0.3, 0.7, 0.4, 1) infinite;
+}
 /* Scriptwriter card: the Generate button is pressed, then each line of the
    script draws on in turn (paths use pathLength="1"), holds, and fades so
    the loop restarts clean. */
@@ -3053,5 +3187,114 @@ html[data-scrolling="true"] *::after {
   }
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+/* Clipping caption picker (ClipEditor.tsx): the animated templates' swatches
+   play their motion while hovered or selected. */
+@keyframes clip-swatch-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  10% {
+    transform: scale(0.5);
+  }
+  26% {
+    transform: scale(1.16);
+  }
+  40% {
+    transform: scale(0.96);
+  }
+  52% {
+    transform: scale(1);
+  }
+}
+@keyframes clip-swatch-drop {
+  0%,
+  6% {
+    transform: translateY(-140%);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  26% {
+    transform: translateY(0);
+  }
+  34% {
+    transform: translateY(-18%);
+  }
+  42%,
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes clip-swatch-slide {
+  0%,
+  8% {
+    transform: translateX(-115%) scaleX(0.7);
+  }
+  24%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes clip-swatch-rise {
+  0%,
+  6% {
+    opacity: 0;
+    transform: translateY(45%);
+  }
+  20%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes clip-swatch-fade {
+  0%,
+  6% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  32%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes clip-swatch-aurora {
+  to {
+    background-position: -200% 0;
+  }
+}
+.clip-swatch:hover .clip-swatch-pop,
+.clip-swatch[aria-checked="true"] .clip-swatch-pop {
+  animation: clip-swatch-pop 1.6s ease-out infinite;
+}
+.clip-swatch:hover .clip-swatch-drop,
+.clip-swatch[aria-checked="true"] .clip-swatch-drop {
+  animation: clip-swatch-drop 1.8s ease-out infinite;
+}
+.clip-swatch:hover .clip-swatch-slide,
+.clip-swatch[aria-checked="true"] .clip-swatch-slide {
+  animation: clip-swatch-slide 1.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+.clip-swatch:hover .clip-swatch-rise,
+.clip-swatch[aria-checked="true"] .clip-swatch-rise {
+  animation: clip-swatch-rise 2s ease-out infinite;
+}
+.clip-swatch:hover .clip-swatch-fade,
+.clip-swatch[aria-checked="true"] .clip-swatch-fade {
+  animation: clip-swatch-fade 2s ease-out infinite;
+}
+.clip-swatch:hover .clip-swatch-aurora,
+.clip-swatch[aria-checked="true"] .clip-swatch-aurora {
+  animation: clip-swatch-aurora 3s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .clip-swatch * {
+    animation: none !important;
   }
 }

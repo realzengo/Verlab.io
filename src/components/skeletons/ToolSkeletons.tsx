@@ -366,11 +366,10 @@ export function TranscriptsSkeleton() {
 export function ClippingSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="flex w-full flex-col pb-20">
-      {/* Hero: two-line ink title, one-line subtitle */}
-      <div className="flex flex-col items-center pt-10 sm:pt-16">
+      {/* Hero: two-line ink title */}
+      <div className="flex flex-col items-center pt-16 sm:pt-28">
         <Skeleton className="h-10 w-72 max-w-full rounded-xl sm:h-14 sm:w-[520px]" />
         <Skeleton className="mt-3 h-10 w-56 max-w-full rounded-xl sm:h-14 sm:w-80" />
-        <Skeleton className="mt-5 h-4 w-80 max-w-full rounded-full" />
       </div>
 
       {/* Bezel link field and the status line under it */}

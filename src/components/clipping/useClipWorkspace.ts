@@ -7,6 +7,8 @@ import {
   ClipRenderError,
   exportClip,
   fetchClipSources,
+  usesTracking,
+  wordKey,
   type ClipEditSettings,
   type ClipSource,
 } from "@/lib/client/clip-render";
@@ -62,28 +64,68 @@ const BATCH_MAX = 12;
 /** The parts of the settings that are style, not content: "Apply to all" copies these. */
 const STYLE_KEYS = [
   "aspect",
-  "layout",
+  "layouts",
+  "bottomVideo",
   "reframe",
+  "camera",
   "captions",
   "captionPosition",
+  "captionX",
+  "captionY",
+  "captionFont",
+  "captionSize",
+  "captionWords",
+  "captionColor",
   "emojis",
   "hookTitle",
+  "hookStyle",
+  "hookFont",
+  "hookSize",
+  "hookPosition",
+  "hookX",
+  "hookY",
+  "hookColor",
+  "hookMotion",
+  "hookUpper",
+  "hookSeconds",
   "removePauses",
 ] as const satisfies (keyof ClipEditSettings)[];
 
 export function defaultSettings(clip: ClipMoment): ClipEditSettings {
+  // The hook starts with up to two of the clip's keywords highlighted.
+  const keywords = new Set((clip.keywords ?? []).map(wordKey));
+  const hookWords = (clip.hookTitle ?? "").split(/\s+/).map(wordKey);
   return {
     start: clip.start,
     end: clip.end,
     aspect: "9:16",
-    layout: "fill",
+    layouts: ["fill"],
+    bottomVideo: false,
     reframe: "auto",
+    camera: "smooth",
     focusX: 0.5,
     captions: "hormozi",
     captionPosition: "bottom",
+    captionX: 0.5,
+    captionY: 0.72,
+    captionFont: "auto",
+    captionSize: 1,
+    captionWords: 0,
+    captionColor: "auto",
     emojis: true,
     hookTitle: Boolean(clip.hookTitle),
     hookText: clip.hookTitle ?? "",
+    hookStyle: "card",
+    hookFont: "sauce",
+    hookSize: 1,
+    hookPosition: "top",
+    hookX: 0.5,
+    hookY: 0.17,
+    hookEmphasis: [...new Set(hookWords.filter((word) => word && keywords.has(word)))].slice(0, 2),
+    hookColor: "auto",
+    hookMotion: "pop",
+    hookUpper: false,
+    hookSeconds: 3,
     removePauses: false,
     title: clip.title,
   };
@@ -198,7 +240,12 @@ export function useClipWorkspace(project: ClipProject) {
       for (const clip of targets) {
         if (clip.id === from.id) continue;
         const base = next[clip.id] ?? defaultSettings(clip);
-        next[clip.id] = { ...base, ...Object.fromEntries(STYLE_KEYS.map((key) => [key, style[key]])) };
+        next[clip.id] = {
+          ...base,
+          ...Object.fromEntries(
+            STYLE_KEYS.map((key) => [key, Array.isArray(style[key]) ? [...style[key]] : style[key]])
+          ),
+        };
       }
       return next;
     });
@@ -333,11 +380,10 @@ export function useClipWorkspace(project: ClipProject) {
           const clipSettings = settingsRef.current[clip.id] ?? defaultSettings(clip);
           try {
             const source = await requestSource(clip);
-            // A reframe that failed just falls back to the manual crop.
-            const track =
-              clipSettings.reframe === "auto" && clipSettings.layout !== "fit"
-                ? await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null)
-                : null;
+            // A reframe that failed just falls back to a centered Fill.
+            const track = usesTracking(clipSettings)
+              ? await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null)
+              : null;
             setRenders((current) => ({ ...current, [clip.id]: { status: "rendering", progress: 0 } }));
             const result = await exportClip({
               source,
@@ -345,7 +391,7 @@ export function useClipWorkspace(project: ClipProject) {
               words: project.transcript ?? [],
               clip,
               track,
-              background: clipSettings.layout === "split" ? (backgroundRef.current?.file ?? null) : null,
+              background: clipSettings.bottomVideo ? (backgroundRef.current?.file ?? null) : null,
               signal: abort.current.signal,
               onProgress: (progress) =>
                 setRenders((current) => ({ ...current, [clip.id]: { ...current[clip.id], progress } })),
