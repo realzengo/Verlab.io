@@ -1,6 +1,7 @@
 import "server-only";
 import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
 import { detectTranscriptPlatform, type TranscriptPlatform } from "@/lib/transcript-platform";
+import { pickBrowserImageUrl } from "@/lib/video-covers";
 
 export { detectTranscriptPlatform, type TranscriptPlatform };
 
@@ -160,14 +161,6 @@ function parseSubtitles(raw: string): TranscriptLineResult[] {
 
 interface ScrapeCreatorsUrlList {
   url_list?: string[];
-}
-
-// TikTok's cover url_list mixes HEIC and JPEG variants of the same image
-// (HEIC first) — <img> tags can't decode HEIC in most browsers, so prefer a
-// JPEG/PNG/WEBP entry when one exists instead of always taking url_list[0].
-function pickBrowserImageUrl(urlList: string[] | undefined): string | undefined {
-  if (!urlList?.length) return undefined;
-  return urlList.find((url) => /\.(jpe?g|png|webp)(\?|$)/i.test(url)) ?? urlList[0];
 }
 
 interface ScrapeCreatorsTikTokTranscript {

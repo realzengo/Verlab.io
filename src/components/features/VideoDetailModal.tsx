@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ArrowUpRight, Check, Copy, Eye, FileText, Heart, Lightbulb, Loader2, Play, X } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   gradientForId,
 } from "@/components/features/NicheFinder";
 import { useSavedVideos } from "@/components/features/SavedVideosContext";
+import { useVideoCover } from "@/components/features/useVideoCover";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
 import type { TrendingVideo } from "@/lib/types";
@@ -146,24 +147,7 @@ export function VideoDetailModal({
 }) {
   const { isSaved, toggleSave } = useSavedVideos();
   const saved = isSaved(video.id);
-  // Same expiring-CDN-link problem as TrendingVideoCard: retry once through
-  // the tiktok-thumb proxy (which mints a fresh signed URL) before giving up
-  // and showing the plain gradient in place of a cover image.
-  const tiktokThumbFallbackUrl = `/api/media/tiktok-thumb?url=${encodeURIComponent(video.videoUrl)}`;
-  const [coverSrc, setCoverSrc] = useState(
-    video.coverUrl || (video.platform === "tiktok" ? tiktokThumbFallbackUrl : "")
-  );
-  const triedThumbFallback = useRef(!video.coverUrl);
-  const [coverFailed, setCoverFailed] = useState(false);
-
-  function handleCoverError() {
-    if (!triedThumbFallback.current && video.platform === "tiktok") {
-      triedThumbFallback.current = true;
-      setCoverSrc(tiktokThumbFallbackUrl);
-      return;
-    }
-    setCoverFailed(true);
-  }
+  const cover = useVideoCover(video);
 
   // Creator avatars are signed CDN links too, with no proxy to retry
   // through -- a broken one falls back to the platform mark.
@@ -345,13 +329,13 @@ export function VideoDetailModal({
               className="group/cover relative mx-auto aspect-[9/16] w-full max-w-[240px] self-start overflow-hidden rounded-xl bg-ink after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/[0.06] after:ring-inset sm:max-w-none lg:sticky lg:top-0 dark:after:ring-white/[0.08]"
             >
               <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
-              {coverSrc && !coverFailed && (
+              {cover.src && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={coverSrc}
+                  src={cover.src}
                   alt=""
                   referrerPolicy="no-referrer"
-                  onError={handleCoverError}
+                  onError={cover.onError}
                   decoding="async"
                   className="absolute inset-0 h-full w-full object-cover"
                 />

@@ -2,6 +2,7 @@ import "server-only";
 import { humanizeViewCount } from "@/lib/server/apify-client";
 import { isKnownHashtag } from "@/lib/niches-catalog";
 import { filterEnglishOnly } from "@/lib/server/language-filter";
+import { pickBrowserImageUrl } from "@/lib/video-covers";
 
 export type SociaVaultErrorCode = "not_configured" | "provider_error";
 
@@ -167,7 +168,7 @@ function mapAwemeItems(items: SociaVaultAwemeItem[], hashtag: string): TrendingT
       commentCount: Number(item.statistics?.comment_count) || 0,
       shareCount: Number(item.statistics?.share_count) || 0,
       followerCount: Number(item.author?.follower_count) || 0,
-      coverUrl: item.video?.cover?.url_list?.[0] ?? item.video?.dynamic_cover?.url_list?.[0] ?? "",
+      coverUrl: pickBrowserImageUrl(item.video?.cover?.url_list) ?? pickBrowserImageUrl(item.video?.dynamic_cover?.url_list) ?? "",
       videoUrl: `https://www.tiktok.com/@${handle}/video/${item.aweme_id}`,
       author: item.author?.nickname?.trim() || handle,
       avatarUrl: item.author?.avatar_medium?.url_list?.[0] ?? item.author?.avatar_thumb?.url_list?.[0] ?? "",
@@ -418,7 +419,7 @@ function mapUnscopedAwemeItems(items: SociaVaultAwemeItem[]): TrendingTikTokVide
       commentCount: Number(item.statistics?.comment_count) || 0,
       shareCount: Number(item.statistics?.share_count) || 0,
       followerCount: Number(item.author?.follower_count) || 0,
-      coverUrl: item.video?.cover?.url_list?.[0] ?? item.video?.dynamic_cover?.url_list?.[0] ?? "",
+      coverUrl: pickBrowserImageUrl(item.video?.cover?.url_list) ?? pickBrowserImageUrl(item.video?.dynamic_cover?.url_list) ?? "",
       videoUrl: `https://www.tiktok.com/@${handle}/video/${item.aweme_id}`,
       author: item.author?.nickname?.trim() || handle,
       avatarUrl: item.author?.avatar_medium?.url_list?.[0] ?? item.author?.avatar_thumb?.url_list?.[0] ?? "",

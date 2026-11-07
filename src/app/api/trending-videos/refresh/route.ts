@@ -4,10 +4,15 @@ import { fetchFacelessTrendingVideos } from "@/lib/server/sociavault-client";
 import { GLOBAL_REGION } from "@/lib/server/niche-video-refresh";
 import { nicheForHashtag } from "@/lib/niches-catalog";
 import { batchUpsertTrendingVideos } from "@/lib/server/trending-videos-batch-upsert";
+import { removeCoversOfPrunedVideos } from "@/lib/server/tiktok-covers";
 
 export const maxDuration = 300;
 
 const TIKTOK_STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+// Most of this route's 300s goes to the scrape itself; this leaves room to
+// copy a full catalog's worth of new covers on top. Anything past it is left
+// for /api/cron/tiktok-covers.
+const COVER_COPY_BUDGET_MS = 120_000;
 
 function isAuthorized(request: NextRequest): boolean {
   // Vercel Cron requests carry this header automatically when deployed there;
@@ -79,7 +84,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         posted_at: v.postedAt,
         refreshed_at: refreshedAt,
       })),
-      "trending-videos/refresh"
+      "trending-videos/refresh",
+      { coverCopyBudgetMs: COVER_COPY_BUDGET_MS }
     );
 
     if (summary.upsertedRows === 0) throw new Error("Batch upsert failed for every chunk");
@@ -92,18 +98,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // the long tail survive between refreshes. Scoped to platform='tiktok';
     // the YouTube pool is refreshed independently by /api/youtube-videos/refresh.
     const staleBefore = new Date(Date.now() - TIKTOK_STALE_AFTER_MS).toISOString();
-    const { error: deleteStaleError } = await admin
+    const { data: pruned, error: deleteStaleError } = await admin
       .from("trending_videos")
       .delete()
       .eq("platform", "tiktok")
-      .lt("refreshed_at", staleBefore);
+      .lt("refreshed_at", staleBefore)
+      .select("id");
     if (deleteStaleError) throw new Error(deleteStaleError.message);
+    await removeCoversOfPrunedVideos(admin, (pruned ?? []).map((row) => row.id));
 
     return NextResponse.json({
       ok: true,
       inserted: summary.upsertedRows,
       totalScraped: summary.totalRows,
       failedChunks: summary.failedChunks,
+      covers: summary.covers,
+      pruned: pruned?.length ?? 0,
     });
   } catch (error) {
     console.error("[trending-videos/refresh] failed:", error);

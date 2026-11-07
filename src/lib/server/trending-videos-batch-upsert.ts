@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { copyNewTikTokCovers, keepStoredCovers, type CoverCopySummary } from "@/lib/server/tiktok-covers";
 
 // Shape of a single trending_videos row as written by any ingestion path
 // (routine cron, on-demand cache-aside refresh, or the deep backfill route).
@@ -29,6 +30,14 @@ export interface BatchUpsertSummary {
   upsertedRows: number;
   chunkCount: number;
   failedChunks: number;
+  covers: CoverCopySummary;
+}
+
+export interface BatchUpsertOptions {
+  // How long to spend copying new TikTok covers into storage after the
+  // upsert (see tiktok-covers.ts). Defaults to a short budget suited to an
+  // on-demand scrape; crons with time to spare pass more.
+  coverCopyBudgetMs?: number;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -42,17 +51,30 @@ function chunk<T>(items: T[], size: number): T[][] {
  * bounded-concurrency chunks. A failed chunk is logged and skipped rather
  * than aborting the run -- callers get back exactly how many rows actually
  * landed instead of an all-or-nothing throw.
+ *
+ * TikTok cover links are signed and expire within days, so this also keeps
+ * each row's stored cover copy across re-scrapes and copies the covers of
+ * rows that don't have one yet. Every ingestion path goes through here, so
+ * none of them can forget to.
  */
 export async function batchUpsertTrendingVideos(
   admin: SupabaseClient,
   rows: TrendingVideoUpsertRow[],
-  context = "trending-videos-batch-upsert"
+  context = "trending-videos-batch-upsert",
+  options: BatchUpsertOptions = {}
 ): Promise<BatchUpsertSummary> {
   if (rows.length === 0) {
-    return { totalRows: 0, upsertedRows: 0, chunkCount: 0, failedChunks: 0 };
+    return {
+      totalRows: 0,
+      upsertedRows: 0,
+      chunkCount: 0,
+      failedChunks: 0,
+      covers: { attempted: 0, copied: 0, failed: 0, deferred: 0 },
+    };
   }
 
-  const chunks = chunk(rows, UPSERT_CHUNK_SIZE);
+  const chunks = chunk(await keepStoredCovers(admin, rows), UPSERT_CHUNK_SIZE);
+  const upserted: TrendingVideoUpsertRow[] = [];
   let upsertedRows = 0;
   let failedChunks = 0;
   let nextIndex = 0;
@@ -70,10 +92,18 @@ export async function batchUpsertTrendingVideos(
         continue;
       }
       upsertedRows += batch.length;
+      upserted.push(...batch);
     }
   }
 
   await Promise.all(Array.from({ length: Math.min(UPSERT_CONCURRENCY, chunks.length) }, worker));
 
-  return { totalRows: rows.length, upsertedRows, chunkCount: chunks.length, failedChunks };
+  // After the upsert, not before: the rows land with their (still working)
+  // signed links first, so a slow copy never delays or loses the data itself.
+  const covers = await copyNewTikTokCovers(admin, upserted, options.coverCopyBudgetMs);
+  if (covers.failed > 0 || covers.deferred > 0) {
+    console.warn(`[${context}] TikTok covers: ${covers.copied} copied, ${covers.failed} failed, ${covers.deferred} deferred`);
+  }
+
+  return { totalRows: rows.length, upsertedRows, chunkCount: chunks.length, failedChunks, covers };
 }

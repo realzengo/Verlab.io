@@ -18,6 +18,7 @@ import {
 import { useNicheSidebar, useNicheSidebarSync } from "@/components/dashboard/NicheSidebarContext";
 import { VideoDetailModal } from "@/components/features/VideoDetailModal";
 import { SavedVideosProvider, useSavedVideos } from "@/components/features/SavedVideosContext";
+import { useVideoCover } from "@/components/features/useVideoCover";
 import { cn } from "@/lib/utils";
 import { isPlainTextSafe, SHORT_TEXT_MAX } from "@/lib/validation";
 import type { FormatTag, TrendingVideo } from "@/lib/types";
@@ -100,29 +101,10 @@ export function formatTimeAgo(isoDate: string | null): string | null {
 export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onOpen: (video: TrendingVideo) => void }) {
   const { isSaved, toggleSave } = useSavedVideos();
   const saved = isSaved(video.id);
-  // TikTok's stored coverUrl is a signed CDN link that can expire long
-  // before a user actually views the card, or be missing outright if the
-  // scrape response omitted it (see /api/media/tiktok-thumb) -- one retry
-  // through that proxy (which mints a brand-new URL on demand) before
-  // falling back to the plain gradient+play-icon card.
-  const tiktokThumbFallbackUrl = `/api/media/tiktok-thumb?url=${encodeURIComponent(video.videoUrl)}`;
-  const [coverSrc, setCoverSrc] = useState(
-    video.coverUrl || (video.platform === "tiktok" ? tiktokThumbFallbackUrl : "")
-  );
-  const triedThumbFallback = useRef(!video.coverUrl);
-  const [coverFailed, setCoverFailed] = useState(false);
+  const cover = useVideoCover(video);
   const timeAgo = formatTimeAgo(video.postedAt);
   const analysis = video.transcriptAnalysis?.status === "analyzed" ? video.transcriptAnalysis : null;
   const PlatformIcon = PLATFORM_BADGE[video.platform].icon;
-
-  function handleCoverError() {
-    if (!triedThumbFallback.current && video.platform === "tiktok") {
-      triedThumbFallback.current = true;
-      setCoverSrc(tiktokThumbFallbackUrl);
-      return;
-    }
-    setCoverFailed(true);
-  }
 
   return (
     <div
@@ -143,13 +125,13 @@ export function TrendingVideoCard({ video, onOpen }: { video: TrendingVideo; onO
           on ::after so it stays crisp over the image itself. */}
       <div className="relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-ink after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/[0.06] after:ring-inset group-focus-visible/card:ring-2 group-focus-visible/card:ring-primary/50 group-focus-visible/card:ring-offset-2 group-focus-visible/card:ring-offset-surface dark:after:ring-white/[0.08]">
         <div className={cn("absolute inset-0 bg-gradient-to-br", gradientForId(video.id))} />
-        {coverSrc && !coverFailed && (
+        {cover.src && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={coverSrc}
+            src={cover.src}
             alt=""
             referrerPolicy="no-referrer"
-            onError={handleCoverError}
+            onError={cover.onError}
             loading="lazy"
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover/card:scale-[1.03]"
