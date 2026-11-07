@@ -369,26 +369,45 @@ export function getVoiceCloneCost(): number {
 
 // ── Clipping (per source video) ─────────────────────────────────────────
 // Charged once, when a long-form video is analyzed; cutting and rendering
-// the clips afterwards runs in the browser and costs nothing extra.
-//   * two video-download-api.com jobs ($0.01 each): the mp3 that gets
-//     transcribed, and the video stream the clip cutter reads;
-//   * WhisperX (victor-upmeet/whisperx on Replicate): measured at ~105s of
-//     GPU time for a 54-minute video on 2026-11-06, priced at $0.003 per
-//     source minute to cover cold boots and slower hardware;
-//   * one Claude Sonnet 5.5 pass over the timed transcript ($2/$10 per MTok
-//     on OpenRouter): ~450 input tokens per source minute plus ~6000 output
-//     tokens (up to 12 clips with scores, keywords and captions).
-const CLIPPING_DOWNLOADS_COST_USD = 0.01 * 2;
-const CLIPPING_TRANSCRIBE_COST_PER_MINUTE_USD = 0.003;
-const CLIPPING_LLM_COST_PER_MINUTE_USD = (450 / 1e6) * 2;
-const CLIPPING_LLM_OUTPUT_COST_USD = (6000 / 1e6) * 10;
+// the clips afterwards runs in the browser. Rates measured on the first real
+// projects (2026-11-06/07, 18-143 min, English and Arabic):
+//   * video-download-api.com jobs: the mp3 that gets transcribed, the video
+//     stream the clip cutter reads, and up to 2 fresh stream links when the
+//     cutter finds the stored one expired (refreshClipMediaUrl). Priced at
+//     the downloader's $0.01 a job; the published rate is $0.0002.
+//   * WhisperX on Replicate: the pinned version runs on an A100 80GB at
+//     $0.0014/s. Real runs took 1.75-2.5 GPU seconds per source minute plus
+//     ~20-30s of model load; priced at 30s + 3s/min, above every finished run.
+//   * one Claude Sonnet 5.5 pass ($2/$10 per MTok on OpenRouter, checked
+//     2026-11-07): the timed transcript measured 245-700 input tokens per
+//     minute (a fast talker is the top end) on a ~1,000-token prompt, and
+//     each clip comes back as ~320-360 output tokens. Priced at 700/min,
+//     1,500 fixed, and 450 per clip for as many clips as the shortest length
+//     option asks for (targetClipCount in moments.ts: one per 2 minutes, 4-12).
+// Not priced in: a Moroccan Darija video's romanizing pass (darija.ts, ~20k
+// in / 7.5k out, ~$0.12 for 12 clips) isn't known when this is charged; at
+// the measured rates those videos still clear 70%+ margin. Failed runs are
+// refunded after the GPU time is spent, which the margin on the rest absorbs.
+const CLIPPING_DOWNLOADS_COST_USD = 0.01 * 4;
+const CLIPPING_TRANSCRIBE_GPU_PER_SECOND_USD = 0.0014;
+const CLIPPING_TRANSCRIBE_FIXED_SECONDS = 30;
+const CLIPPING_TRANSCRIBE_SECONDS_PER_MINUTE = 3;
+const CLIPPING_LLM_INPUT_FIXED_TOKENS = 1500;
+const CLIPPING_LLM_INPUT_TOKENS_PER_MINUTE = 700;
+const CLIPPING_LLM_OUTPUT_TOKENS_PER_CLIP = 450;
+const CLIPPING_LLM_INPUT_USD_PER_TOKEN = 2 / 1e6;
+const CLIPPING_LLM_OUTPUT_USD_PER_TOKEN = 10 / 1e6;
 
 export function getClippingCost(durationSeconds: number): number {
   const minutes = Math.max(1, durationSeconds / 60);
+  const clips = Math.min(12, Math.max(4, Math.round(minutes / 2)));
+  const transcribeSeconds = CLIPPING_TRANSCRIBE_FIXED_SECONDS + minutes * CLIPPING_TRANSCRIBE_SECONDS_PER_MINUTE;
+  const inputTokens = CLIPPING_LLM_INPUT_FIXED_TOKENS + minutes * CLIPPING_LLM_INPUT_TOKENS_PER_MINUTE;
   return creditsForCost(
     CLIPPING_DOWNLOADS_COST_USD +
-      CLIPPING_LLM_OUTPUT_COST_USD +
-      minutes * (CLIPPING_TRANSCRIBE_COST_PER_MINUTE_USD + CLIPPING_LLM_COST_PER_MINUTE_USD)
+      transcribeSeconds * CLIPPING_TRANSCRIBE_GPU_PER_SECOND_USD +
+      inputTokens * CLIPPING_LLM_INPUT_USD_PER_TOKEN +
+      clips * CLIPPING_LLM_OUTPUT_TOKENS_PER_CLIP * CLIPPING_LLM_OUTPUT_USD_PER_TOKEN
   );
 }
 
