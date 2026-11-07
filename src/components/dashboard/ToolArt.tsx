@@ -3,7 +3,7 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUp, Check, Copy, Flame, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Flame, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
 import { Short, Stage, rise } from "@/components/illustration/stage";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +74,12 @@ function Caret() {
 }
 
 /** A thin playback bar along a clip's foot. */
-function ClipProgress() {
+function ClipProgress({ className = "tool-art-progress" }: { className?: string }) {
   return (
     <>
       <span className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/45 to-transparent" />
       <span className="absolute inset-x-2.5 bottom-2.5 h-[3px] overflow-hidden rounded-full bg-white/30">
-        <span className="tool-art-progress block h-full origin-left rounded-full bg-white" />
+        <span className={cn("block h-full origin-left rounded-full bg-white", className)} />
       </span>
     </>
   );
@@ -405,10 +405,10 @@ export function VideoGeneratorArt() {
 
 /** A hand-drawn line: points every 10px with a gentle deterministic wobble,
  * smoothed through their midpoints (stable across server and client). */
-function wobble(x1: number, x2: number, y: number, seed: number) {
+function wobble(x1: number, x2: number, y: number, seed: number, amp = 1) {
   const pts: [number, number][] = [];
   for (let i = 0, x = x1; x < x2 + 10; i++, x += 10) {
-    const dy = Math.sin(i * 1.9 + seed) * 1.7 + Math.sin(i * 0.7 + seed * 2) * 1.3;
+    const dy = (Math.sin(i * 1.9 + seed) * 1.7 + Math.sin(i * 0.7 + seed * 2) * 1.3) * amp;
     pts.push([Math.min(x, x2), y + dy]);
   }
   let d = `M${pts[0][0]} ${pts[0][1].toFixed(1)}`;
@@ -421,14 +421,15 @@ function wobble(x1: number, x2: number, y: number, seed: number) {
   return `${d} L${lx} ${ly.toFixed(1)}`;
 }
 
-// What's already written (grey), then the AI's continuation (soft blue),
-// each stroke drawing on in turn after the button is pressed.
-const SCRIPT_STROKES = [
-  { d: wobble(78, 196, 34, 1), blue: false, step: "tool-script-1" },
-  { d: wobble(78, 322, 60, 4), blue: false, step: "tool-script-2" },
-  { d: wobble(78, 210, 84, 7), blue: false, step: "tool-script-3" },
-  { d: wobble(212, 322, 84, 9), blue: true, step: "tool-script-4" },
-  { d: wobble(78, 236, 108, 2), blue: true, step: "tool-script-5" },
+// The script's lines, written in turn after the button is pressed. The pen's
+// tip is a short soft blue blur (the `-soft` stroke, one dash riding the
+// line's head) with the crisp ink following inside it; when the line is done
+// the tip melts away, leaving it clear, and the next line starts.
+const SCRIPT_LINES = [
+  { d: wobble(78, 196, 34, 1), step: "tool-script-1" },
+  { d: wobble(78, 322, 60, 4), step: "tool-script-2" },
+  { d: wobble(78, 304, 84, 7), step: "tool-script-3" },
+  { d: wobble(78, 236, 108, 2), step: "tool-script-4" },
 ];
 
 export function ScriptwriterArt() {
@@ -437,23 +438,33 @@ export function ScriptwriterArt() {
     <ToolStage>
       <motion.svg variants={rise(0, 6)} className="absolute inset-0" width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
         <defs>
-          <filter id={blur} x="-10%" y="-200%" width="120%" height="500%">
-            <feGaussianBlur stdDeviation="2.4" />
+          <filter id={blur} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
+            <feGaussianBlur stdDeviation="3" />
           </filter>
         </defs>
-        {SCRIPT_STROKES.map((st) => (
-          <path
-            key={st.step}
-            d={st.d}
-            pathLength={1}
-            className={st.step}
-            stroke={st.blue ? "#8fb2ff" : "#a1a1aa"}
-            strokeWidth={st.blue ? 7 : 3.5}
-            // butt caps: a round cap on the not-yet-drawn dash shows as a dot
-            strokeLinecap={st.blue ? "butt" : "round"}
-            strokeLinejoin="round"
-            filter={st.blue ? `url(#${blur})` : undefined}
-          />
+        {SCRIPT_LINES.map((line) => (
+          <g key={line.step}>
+            <path
+              d={line.d}
+              pathLength={1}
+              className={line.step}
+              stroke="#a1a1aa"
+              strokeWidth={3.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d={line.d}
+              pathLength={1}
+              className={`${line.step}-soft`}
+              stroke="#8fb2ff"
+              strokeWidth={8}
+              // butt caps: a round cap on the not-yet-drawn dash shows as a dot
+              strokeLinecap="butt"
+              strokeLinejoin="round"
+              filter={`url(#${blur})`}
+            />
+          </g>
         ))}
       </motion.svg>
 
@@ -471,48 +482,134 @@ export function ScriptwriterArt() {
 
 /* ─── Transcript Extractor ────────────────────────────────────────────── */
 
-const LINES = [
-  { t: "0:00", text: "Your teeth aren\u2019t bones." },
-  { t: "0:02", text: "They can\u2019t heal themselves," },
-  { t: "0:04", text: "so braces slowly move them" },
-  { t: "0:07", text: "with steady pressure on" },
-  { t: "0:09", text: "the roots underneath." },
+// The clip wired to its transcript, one timestamped segment per beat: the
+// segment's old lines clear, a pulse runs down its wire, its card lights, and
+// its lines are written with the Scriptwriter's soft pen tip. Each card is
+// only ever cleared just before it's rewritten, so the loop is seamless and
+// never empties. One 8s clock drives it all (--tx-t, tool-art-tx-* in
+// globals.css), so each piece only carries its times in seconds (--clear,
+// --at, --for); the pulses are keyframes on the same loop. With reduced
+// motion the clock rests on a finished frame: every line written, the last
+// card lit. The clip is three cuts of one short ("24 Hours As Miles
+// Morales!": the intro, the sign flip, the crowd), 8s like the loop.
+const TX_LOOP = 8; // seconds, matches tool-art-tx-clock and tool-art-tx-pulse
+const TX_BEAT = TX_LOOP / 3;
+const TX_PEN = 200; // px per second, so longer lines take longer to write
+const TX_FROM = 141; // the clip's right edge, outside its ring
+const TX_CARD = { left: 200, width: 166, height: 58 };
+// `from`: where the segment's wire leaves the clip
+const SEGMENTS = [
+  { t: "00:00", cy: 47, from: 83, lines: [134, 92] },
+  { t: "00:03", cy: 113, from: 113, lines: [140, 116] },
+  { t: "00:07", cy: 179, from: 143, lines: [126, 78] },
 ];
-const LINE_H = 26;
+
+/** The dashed elbow from the clip into a card's left edge. */
+function txLink({ cy, from }: (typeof SEGMENTS)[number]) {
+  if (cy === from) return `M${TX_FROM} ${cy} H${TX_CARD.left}`;
+  const bend = 168;
+  const r = 8 * Math.sign(cy - from);
+  return `M${TX_FROM} ${from} H${bend - 8} Q${bend} ${from} ${bend} ${from + r} V${cy - r} Q${bend} ${cy} ${bend + 8} ${cy} H${TX_CARD.left}`;
+}
+
+const secs = (n: number) => n.toFixed(3);
+
+/** When segment `i` plays: cleared, its pulse, its card lit, then each line
+ * in turn (all inside the loop, as the clock wraps to 0). */
+function txBeat(i: number) {
+  const start = 0.3 + i * TX_BEAT;
+  let at = start + 0.55;
+  const lines = SEGMENTS[i].lines.map((len, j) => {
+    const line = { len, at, for: len / TX_PEN, d: wobble(1.5, len - 1.5, 10, i * 3 + j * 5 + 1, 0.7) };
+    at += line.for + 0.08;
+    return line;
+  });
+  return { clear: secs(start), pulse: `${start - TX_LOOP}s`, lit: secs(start + 0.35), lines };
+}
+
+const TX_BEATS = SEGMENTS.map((_, i) => txBeat(i));
+
+/** One line of a card, written left to right with the soft tip at its head. */
+function TxLine({ line, top }: { line: (typeof TX_BEATS)[number]["lines"][number]; top: number }) {
+  return (
+    <span
+      className="absolute overflow-hidden"
+      style={{
+        left: 4,
+        top,
+        width: line.len + 16,
+        height: 20,
+        ...vars({ "--at": secs(line.at), "--for": secs(line.for), "--len": `${line.len}px` }),
+      }}
+    >
+      <svg className="tool-art-tx-write absolute left-2 top-0" width={line.len} height={20} viewBox={`0 0 ${line.len} 20`} fill="none">
+        <path d={line.d} className="stroke-zinc-400 dark:stroke-zinc-500" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span
+        className="tool-art-tx-tip absolute top-[6.5px] h-[7px] w-[30px] rounded-full bg-[linear-gradient(90deg,rgba(143,178,255,0),#8fb2ff)] blur-[2.5px]"
+        style={{ left: -22 }}
+      />
+    </span>
+  );
+}
 
 export function TranscriptArt() {
+  const glow = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-pulse`;
   return (
     <ToolStage>
-      <Panel left={96} top={22} width={276} height={182} delay={0.1} className="pb-3 pl-[52px] pr-3.5 pt-3.5">
-        <div className="flex items-center justify-between">
-          <span className={cn("text-[11.5px] font-semibold tracking-[-0.01em]", INK)}>Transcript</span>
-          <span className="inline-flex h-[22px] items-center gap-1 rounded-md bg-zinc-100 px-1.5 text-[10.5px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-            <Copy className="h-3 w-3" strokeWidth={2.25} />
-            Copy
-          </span>
-        </div>
-        <div className="relative mt-1.5">
-          {/* follows playback down the lines */}
-          <span
-            className="tool-art-rows absolute inset-x-0 top-0 rounded-lg bg-[#335cff]/[0.08] dark:bg-[#335cff]/20"
-            style={vars({ height: LINE_H, "--row": `${LINE_H}px` })}
-          />
-          {LINES.map((line, i) => (
-            <span key={line.t} className="relative flex items-center gap-2.5 px-2" style={{ height: LINE_H }}>
-              <span className="w-6 shrink-0 text-[10.5px] font-semibold tabular-nums text-[#335cff]">{line.t}</span>
-              <span className={cn("truncate text-[11.5px] tracking-[-0.005em]", i < 3 ? INK : MUTED)}>{line.text}</span>
-            </span>
+      <div className="tool-art-tx-clock absolute inset-0">
+        <motion.svg variants={rise(0.3, 0)} className="absolute inset-0" width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
+          <defs>
+            <filter id={glow} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
+              <feGaussianBlur stdDeviation="2.5" />
+            </filter>
+          </defs>
+          {/* the wires first, so a lit one is never painted over */}
+          {SEGMENTS.map((seg) => (
+            <path key={seg.t} d={txLink(seg)} className="stroke-zinc-300 dark:stroke-zinc-600" strokeWidth={1.5} strokeDasharray="4 5" strokeLinecap="round" />
           ))}
-        </div>
-      </Panel>
+          {SEGMENTS.map((seg, i) => {
+            const d = txLink(seg);
+            const { pulse, lit } = TX_BEATS[i];
+            return (
+              <g key={seg.t} style={vars({ "--at": lit })}>
+                <path d={d} className="tool-art-tx-on" stroke="#335cff" strokeWidth={1.5} strokeDasharray="4 5" strokeLinecap="round" />
+                {/* the pulse: a crisp head inside a soft glow */}
+                <path d={d} pathLength={1} className="tool-art-tx-pulse" style={{ animationDelay: pulse }} stroke="#8fb2ff" strokeWidth={6} filter={`url(#${glow})`} />
+                <path d={d} pathLength={1} className="tool-art-tx-pulse" style={{ animationDelay: pulse }} stroke="#335cff" strokeWidth={2} />
+              </g>
+            );
+          })}
+        </motion.svg>
 
-      {/* the clip it came from, on the document's edge */}
-      <Clip poster="/videos/braces-poster.jpg" left={40} top={46} width={78} height={138} delay={0.25}>
-        <span className="absolute left-2 top-2">
-          <Image src="/logos/social/tiktok.png" alt="" width={14} height={14} className="h-3.5 w-3.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
-        </span>
-        <ClipProgress />
-      </Clip>
+        <Clip poster="/tools/art/transcript/miles.webp" video="/tools/art/transcript/miles.mp4" left={32} top={18.5} width={106} height={188} delay={0.1}>
+          <ClipProgress className="tool-art-tx-progress" />
+        </Clip>
+
+        {SEGMENTS.map((seg, i) => (
+          <motion.div
+            key={seg.t}
+            variants={rise(0.2 + i * 0.1, 6)}
+            className="absolute"
+            style={{ left: TX_CARD.left, top: seg.cy - TX_CARD.height / 2, width: TX_CARD.width, height: TX_CARD.height }}
+          >
+            <div className="h-full" style={vars({ "--clear": TX_BEATS[i].clear, "--at": TX_BEATS[i].lit })}>
+              <Surface className="h-full rounded-[14px]">
+                <span className="tool-art-tx-on absolute inset-0 rounded-[14px] ring-[1.5px] ring-[#335cff]/60" />
+                <span className="absolute left-3 top-2.5 text-[13px] font-semibold leading-none tabular-nums tracking-[-0.01em]">
+                  <span className={cn("tool-art-tx-off", INK)}>{seg.t}</span>
+                  <span className="tool-art-tx-on absolute inset-0 text-[#335cff] dark:text-[#6d8dff]">{seg.t}</span>
+                </span>
+                <span className="tool-art-tx-ink absolute inset-0">
+                  {TX_BEATS[i].lines.map((line, j) => (
+                    <TxLine key={j} line={line} top={24 + j * 12} />
+                  ))}
+                </span>
+              </Surface>
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </ToolStage>
   );
 }
