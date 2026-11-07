@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Check, CloudUpload, Copy, Download, Loader2, Pencil, RotateCw, Trash2, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  CloudUpload,
+  Copy,
+  Download,
+  Loader2,
+  Pencil,
+  RotateCw,
+  Share,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { INK_BUTTON } from "@/components/brand/BrandKit";
-import { clipFileName, downloadBlob, fetchJson } from "@/components/clipping/parts";
+import { clipFileName, downloadBlob, fetchJson, useMediaQuery } from "@/components/clipping/parts";
 import { exportsKey, type ClipWorkspace, type RenderState } from "@/components/clipping/useClipWorkspace";
 import { formatClock, type ClipExport, type ClipMoment, type ClipProject } from "@/lib/clips";
 import { cn } from "@/lib/utils";
@@ -32,12 +43,37 @@ function CopyCaption({ clip }: { clip: ClipMoment }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline px-3.5 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill)"
+      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-hairline px-3.5 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill) sm:h-9"
     >
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? "Copied" : "Copy caption"}
     </button>
   );
+}
+
+/**
+ * Touch devices: the finished clip as a file for the system share sheet, so
+ * it can go straight to Photos (iOS "Save Video") or an app. Built ahead of
+ * the tap, since Safari only shares from inside the tap itself.
+ */
+function useShareableFile(url: string | undefined, name: string): File | null {
+  const touch = useMediaQuery("(pointer: coarse)");
+  const [made, setMade] = useState<{ url: string; file: File } | null>(null);
+  useEffect(() => {
+    if (!touch || !url || typeof navigator.canShare !== "function") return;
+    let live = true;
+    fetch(url)
+      .then((response) => response.blob())
+      .then((blob) => {
+        const file = new File([blob], name, { type: "video/mp4" });
+        if (live && navigator.canShare({ files: [file] })) setMade({ url, file });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [touch, url, name]);
+  return touch && made && made.url === url ? made.file : null;
 }
 
 function SaveStatus({ render }: { render: RenderState | undefined }) {
@@ -85,14 +121,14 @@ export function ClipResults({
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-[20px] font-semibold tracking-[-0.02em] text-heading">Your clips</h3>
+          <h3 className="text-[22px] font-semibold tracking-[-0.02em] text-heading sm:text-[20px]">Your clips</h3>
           <p className="mt-1 text-sm text-subtle">Each one is saved here as soon as it finishes rendering.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-hairline px-4 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill)"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-hairline px-4 text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill) sm:h-10"
           >
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
@@ -100,7 +136,7 @@ export function ClipResults({
             type="button"
             onClick={downloadAll}
             disabled={!done.length}
-            className={cn(INK_BUTTON, "h-10 px-5 text-[13px]")}
+            className={cn(INK_BUTTON, "h-11 px-5 text-[13px] max-sm:flex-1 sm:h-10")}
           >
             <Download className="h-4 w-4" />
             {clips.length > 1 ? `Download all (${done.length}/${clips.length})` : "Download"}
@@ -108,7 +144,13 @@ export function ClipResults({
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
+      <div
+        className={cn(
+          "-mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none]",
+          "sm:mx-0 sm:mt-8 sm:grid sm:snap-none sm:grid-cols-2 sm:gap-x-6 sm:gap-y-10 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-3",
+          clips.length === 1 && "max-sm:justify-center"
+        )}
+      >
         {clips.map((clip, index) => (
           <ResultCard
             key={clip.id}
@@ -142,9 +184,11 @@ function ResultCard({
   const source = workspace.sources[clip.id];
   const percent = Math.round((render?.progress ?? 0) * 100);
   const duration = render?.duration ?? settings.end - settings.start;
+  const fileName = clipFileName(title, index);
+  const shareable = useShareableFile(render?.status === "done" ? render.url : undefined, fileName);
 
   return (
-    <article className="flex flex-col">
+    <article className="flex w-[min(80vw,300px)] shrink-0 snap-center flex-col sm:w-auto">
       <div
         className={cn(
           "relative mx-auto w-full overflow-hidden rounded-[24px] bg-black shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_24px_48px_-28px_rgba(16,24,40,0.45)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]",
@@ -210,24 +254,48 @@ function ResultCard({
           </p>
           <SaveStatus render={render} />
         </div>
-        <h4 className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-heading">{title}</h4>
+        <h4 dir="auto" className="mt-1 line-clamp-2 text-[15px] font-semibold leading-snug text-heading">
+          {title}
+        </h4>
 
         <div className="mt-3 rounded-xl bg-(--app-fill) p-3 text-[13px] leading-relaxed text-body">
-          <p className="whitespace-pre-line">{clip.caption}</p>
+          <p dir="auto" className="whitespace-pre-line">
+            {clip.caption}
+          </p>
           {clip.hashtags.length > 0 && (
             <p className="mt-1.5 text-primary">{clip.hashtags.map((tag) => `#${tag}`).join(" ")}</p>
           )}
         </div>
 
         <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            disabled={render?.status !== "done"}
-            onClick={() => render?.url && downloadBlob(render.url, clipFileName(title, index))}
-            className={cn(INK_BUTTON, "h-9 flex-1 px-4 text-[13px]")}
-          >
-            <Download className="h-3.5 w-3.5" /> Download
-          </button>
+          {shareable ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void navigator.share({ files: [shareable] }).catch(() => {})}
+                className={cn(INK_BUTTON, "h-10 min-w-0 flex-1 px-4 text-[13px]")}
+              >
+                <Share className="h-3.5 w-3.5" /> Save video
+              </button>
+              <button
+                type="button"
+                onClick={() => render?.url && downloadBlob(render.url, fileName)}
+                aria-label="Download"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline text-heading transition-colors hover:bg-(--app-fill)"
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled={render?.status !== "done"}
+              onClick={() => render?.url && downloadBlob(render.url, fileName)}
+              className={cn(INK_BUTTON, "h-10 min-w-0 flex-1 px-4 text-[13px] sm:h-9")}
+            >
+              <Download className="h-3.5 w-3.5" /> Download
+            </button>
+          )}
           <CopyCaption clip={clip} />
         </div>
       </div>
@@ -259,11 +327,11 @@ export function SavedClips({ project, className }: { project: ClipProject; class
   };
 
   return (
-    <section className={cn("mt-16", className)}>
+    <section className={cn("mt-12 sm:mt-16", className)}>
       <h3 className="text-[17px] font-semibold text-heading">
         Saved clips <span className="font-normal text-subtle">· {saved.length}</span>
       </h3>
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 xl:grid-cols-5">
         {saved.map((item) => {
           const clip = project.clips?.find((c) => c.id === item.clipId);
           return (
@@ -284,7 +352,7 @@ export function SavedClips({ project, className }: { project: ClipProject; class
               <div className="mt-2 flex items-center gap-1.5">
                 <a
                   href={item.downloadUrl}
-                  className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full bg-(--app-fill) text-[12px] font-medium text-heading transition-colors hover:bg-(--app-fill-strong)"
+                  className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-(--app-fill) text-[12px] font-medium text-heading transition-colors hover:bg-(--app-fill-strong) sm:h-8"
                 >
                   <Download className="h-3.5 w-3.5" /> Download
                 </a>
@@ -293,7 +361,7 @@ export function SavedClips({ project, className }: { project: ClipProject; class
                   type="button"
                   onClick={() => remove(item.id)}
                   aria-label={`Delete ${item.title}`}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors hover:bg-(--app-fill) hover:text-danger"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:bg-(--app-fill) hover:text-danger sm:h-8 sm:w-8"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -317,7 +385,7 @@ function CopyIconButton({ clip }: { clip: ClipMoment }) {
         setTimeout(() => setCopied(false), 1500);
       }}
       aria-label="Copy caption"
-      className="flex h-8 w-8 items-center justify-center rounded-full text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-subtle transition-colors hover:bg-(--app-fill) hover:text-heading sm:h-8 sm:w-8"
     >
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
     </button>

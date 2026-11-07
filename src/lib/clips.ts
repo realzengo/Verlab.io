@@ -5,6 +5,19 @@ export type ClipProjectStatus = "queued" | "transcribing" | "finding" | "ready" 
 /** One word with its timing, seconds on the source timeline: [start, end, word]. */
 export type TranscriptWord = [number, number, string];
 
+const ARABIC_RANGES = "؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿";
+const ARABIC_CHAR = new RegExp(`[${ARABIC_RANGES}]`);
+const ARABIC_CHARS = new RegExp(`[${ARABIC_RANGES}]`, "g");
+const LATIN_LETTERS = /[A-Za-zÀ-ɏ]/g;
+
+export const hasArabicScript = (text: string) => ARABIC_CHAR.test(text);
+
+/** Whether text reads right to left: more Arabic letters in it than Latin ones. */
+export function isRtlText(text: string): boolean {
+  const arabic = text.match(ARABIC_CHARS)?.length ?? 0;
+  return arabic > 0 && arabic > (text.match(LATIN_LETTERS)?.length ?? 0);
+}
+
 /** How a moment scores on the four things that make a short hold attention, 0-100 each. */
 export interface ClipScoreBreakdown {
   hook: number;

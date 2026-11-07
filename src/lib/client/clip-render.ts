@@ -20,7 +20,14 @@ import {
   type SceneFrame,
 } from "@/lib/client/clip-layouts";
 import { cameraPath, centerAt, type CameraMode, type ReframeTrack } from "@/lib/client/clip-reframe";
-import { CLIP_EXPORT_MAX_BYTES, type ClipAspect, type ClipEmoji, type TranscriptWord } from "@/lib/clips";
+import {
+  CLIP_EXPORT_MAX_BYTES,
+  hasArabicScript,
+  isRtlText,
+  type ClipAspect,
+  type ClipEmoji,
+  type TranscriptWord,
+} from "@/lib/clips";
 import { SEGMENT_ALL, SEGMENT_FRAME, SEGMENT_HEADER_BYTES } from "@/lib/clip-segments";
 
 export type CaptionTemplate =
@@ -38,7 +45,7 @@ export type CaptionTemplate =
   | "minimal"
   | "off";
 export type CaptionPosition = "top" | "middle" | "bottom" | "custom";
-export type CaptionFont = "sauce" | "montserrat" | "poppins" | "inter" | "anton" | "bebas" | "luckiest";
+export type CaptionFont = "sauce" | "montserrat" | "poppins" | "inter" | "anton" | "bebas" | "luckiest" | "arabic";
 export type HookStyle = "card" | "dark" | "outline" | "brand";
 /** How the hook comes in: pops, drops and bounces, fades, or word by word. */
 export type HookMotion = "pop" | "drop" | "fade" | "words";
@@ -134,7 +141,8 @@ export const OUTPUT_SIZES: Record<ClipAspect, { width: number; height: number }>
 /**
  * Caption and hook typefaces, loaded as web fonts by the editor. `scale`
  * evens out how big each one reads at the same size (condensed faces run
- * small); `weights` are the ones actually loaded.
+ * small); `weights` are the ones actually loaded. Montserrat Arabic is also
+ * every font's fallback, so Arabic words never drop to a system face.
  */
 export const CAPTION_FONTS: Record<CaptionFont, { label: string; family: string; weights: number[]; scale: number }> = {
   sauce: { label: "Open Sauce", family: '"Open Sauce One"', weights: [600, 700, 800, 900], scale: 1 },
@@ -144,6 +152,7 @@ export const CAPTION_FONTS: Record<CaptionFont, { label: string; family: string;
   anton: { label: "Anton", family: '"Anton"', weights: [400], scale: 1.12 },
   bebas: { label: "Bebas Neue", family: '"Bebas Neue"', weights: [400], scale: 1.24 },
   luckiest: { label: "Luckiest Guy", family: '"Luckiest Guy"', weights: [400], scale: 1.22 },
+  arabic: { label: "Montserrat Arabic", family: '"Montserrat Arabic"', weights: [600, 700, 800, 900], scale: 1 },
 };
 
 /** Roughly where the hook presets put its center; Top moves with the layout. */
@@ -168,7 +177,7 @@ const OUTPUT_FPS = 30;
 function fontSpec(id: CaptionFont, weight: number, px: number): string {
   const font = CAPTION_FONTS[id];
   const w = font.weights.reduce((a, b) => (Math.abs(b - weight) < Math.abs(a - weight) ? b : a));
-  return `${w} ${px}px ${font.family}, system-ui, sans-serif`;
+  return `${w} ${px}px ${font.family}, ${CAPTION_FONTS.arabic.family}, system-ui, sans-serif`;
 }
 
 interface TemplateStyle {
@@ -387,16 +396,34 @@ function withAccent(style: TemplateStyle, color: string): TemplateStyle {
   };
 }
 
-/** Fonts a clip's captions and hook draw with, to load before painting. */
+/** Fonts a clip's captions and hook draw with, to load before painting (the Arabic one when Arabic is on screen). */
 export function fontsFor(
-  settings: Pick<ClipEditSettings, "captions" | "captionFont" | "hookFont" | "hookTitle">
+  settings: Pick<
+    ClipEditSettings,
+    "start" | "end" | "captions" | "captionFont" | "hookFont" | "hookTitle" | "hookText"
+  >,
+  words: TranscriptWord[] = []
 ): CaptionFont[] {
   const fonts = new Set<CaptionFont>(["sauce"]);
   if (settings.captions !== "off") {
     fonts.add(settings.captionFont === "auto" ? CAPTION_TEMPLATES[settings.captions].font : settings.captionFont);
+    if (words.some((w) => w[1] > settings.start && w[0] < settings.end && hasArabicScript(w[2]))) fonts.add("arabic");
   }
-  if (settings.hookTitle) fonts.add(settings.hookFont);
+  if (settings.hookTitle) {
+    fonts.add(settings.hookFont);
+    if (hasArabicScript(settings.hookText)) fonts.add("arabic");
+  }
   return [...fonts];
+}
+
+/** Whether a clip reads right to left: its words are mostly Arabic script. */
+export function isRtlClip(words: TranscriptWord[], start: number, end: number): boolean {
+  return isRtlText(
+    words
+      .filter((w) => w[1] > start && w[0] < end)
+      .map((w) => w[2])
+      .join(" ")
+  );
 }
 
 /** Whether the bottom-video split applies (it can't in landscape). */
@@ -453,7 +480,7 @@ export function captionChunks(
     const chars = current.reduce((sum, w) => sum + w[2].length + 1, 0);
     if (
       !next ||
-      /[.,!?;:…]["')\]]?$/.test(word[2]) ||
+      /[.,!?;:…،؛؟]["')\]]?$/.test(word[2]) ||
       current.length >= maxWords ||
       chars >= maxChars ||
       next[0] - word[1] > 0.35
@@ -659,13 +686,19 @@ function drawCaption(
   ctx.font = fontSpec(fontId, style.weight, px);
 
   const texts = chunk.words.map((w) => (style.upper ? w[2].toUpperCase() : w[2]));
+  // Arabic reads right to left: the first word sits at the right end of its line.
+  const rtl = isRtlText(texts.join(" "));
+  const dir = rtl ? -1 : 1;
+  ctx.direction = rtl ? "rtl" : "ltr";
+  // Arabic letters reach further above and below the line than Latin capitals.
+  const tall = rtl ? 1.25 : 1;
   // Every word's slot leaves room for the spoken word's scale-up, so the
   // line doesn't shift (or overlap) as the highlight moves along it.
   const grow = style.active?.scale ?? 1;
   // The line length grows with the size (up to the frame), so resizing scales the block instead of reflowing it.
   const room = width - 2 * (40 * u + (style.pill ? 28 * u : 0));
   const lines = wrapWords(ctx, texts, Math.min(width * (style.pill ? 0.8 : 0.86) * settings.captionSize, room) / grow);
-  const lineHeight = px * (style.pill ? 1.2 : 1.1);
+  const lineHeight = px * (style.pill ? 1.2 : 1.1) * tall;
   const blockHeight = lineHeight * lines.length;
   const padX = 28 * u;
   const padY = 16 * u;
@@ -715,7 +748,7 @@ function drawCaption(
       placed.push({
         text,
         word: chunk.words[placed.length],
-        x: x + slots[i] / 2,
+        x: dir * (x + slots[i] / 2),
         y,
         width: widths[i],
         left: -total / 2,
@@ -735,7 +768,7 @@ function drawCaption(
       const p = from ? easeOutCubic((time - to.word[0]) / 0.14) : 1;
       const cx = from ? from.x + (to.x - from.x) * p : to.x;
       const w = (from ? from.width + (to.width - from.width) * p : to.width) + 30 * u;
-      const h = px * 1.22;
+      const h = px * 1.22 * tall;
       const s = from ? 1 : popScale(time - to.word[0]);
       ctx.save();
       ctx.translate(cx, to.y);
@@ -778,7 +811,9 @@ function drawCaption(
     const isKeyword = captions.keywords.has(bare(raw));
     let fill: string | CanvasGradient = style.fill;
     if (style.gradient) {
-      const gradient = ctx.createLinearGradient(item.left - item.x, 0, item.right - item.x, 0);
+      // Along the reading direction.
+      const [from, to] = rtl ? [item.right, item.left] : [item.left, item.right];
+      const gradient = ctx.createLinearGradient(from - item.x, 0, to - item.x, 0);
       style.gradient.forEach((color, k) => gradient.addColorStop(k / (style.gradient!.length - 1), color));
       fill = gradient;
     }
@@ -796,7 +831,7 @@ function drawCaption(
       const padX = 14 * u;
       ctx.fillStyle = style.active.box;
       ctx.beginPath();
-      ctx.roundRect(-item.width / 2 - padX, -px * 0.58, item.width + padX * 2, px * 1.16, 16 * u);
+      ctx.roundRect(-item.width / 2 - padX, -px * 0.58 * tall, item.width + padX * 2, px * 1.16 * tall, 16 * u);
       ctx.fill();
     }
     if (style.depth) {
@@ -945,8 +980,10 @@ function drawHook(
   const look = HOOK_LOOKS[settings.hookStyle];
   const highlight = hookHighlight(settings.hookStyle, settings.hookColor);
   const px = 54 * u * settings.hookSize * CAPTION_FONTS[settings.hookFont].scale;
+  const rtl = isRtlText(text);
   ctx.save();
   ctx.font = fontSpec(settings.hookFont, 800, px);
+  ctx.direction = rtl ? "rtl" : "ltr";
   const words = hookWords(text, settings);
   const padX = 34 * u * settings.hookSize;
   const padY = 24 * u * settings.hookSize;
@@ -957,7 +994,7 @@ function drawHook(
     words.map((w) => w.text),
     Math.min(width * (look.box ? 0.74 : 0.84) * settings.hookSize, width - 2 * (edge + padX))
   );
-  const lineHeight = px * 1.2;
+  const lineHeight = px * (rtl ? 1.45 : 1.2);
   const space = ctx.measureText(" ").width;
   const rowWidths = rows.map((row) => ctx.measureText(row.join(" ")).width);
   const boxWidth = Math.max(...rowWidths) + padX * 2;
@@ -1015,7 +1052,8 @@ function drawHook(
       const w = ctx.measureText(text).width;
       // Word by word: each rises in after the one before.
       const p = motion === "words" ? easeOutCubic((t - 0.08 - index * 0.09) / 0.2) : 1;
-      const item = { word: words[index++], left, w, p };
+      // `left` is the word's left edge on screen: from the right end of the row in Arabic.
+      const item = { word: words[index++], left: rtl ? -(left + w) : left, w, p };
       left += w + space;
       return item;
     });
@@ -1027,17 +1065,14 @@ function drawHook(
         while (j + 1 < placed.length && placed[j + 1].word.hot) j++;
         const first = placed[i];
         const last = placed[j];
+        const x0 = Math.min(first.left, last.left);
+        const x1 = Math.max(first.left + first.w, last.left + last.w);
+        const markerH = px * (rtl ? 1.36 : 1.12);
         ctx.save();
         ctx.globalAlpha = alpha * first.p;
         ctx.fillStyle = highlight.color;
         ctx.beginPath();
-        ctx.roundRect(
-          first.left - 10 * u,
-          rowY + (1 - first.p) * px * 0.3 - px * 0.56,
-          last.left + last.w - first.left + 20 * u,
-          px * 1.12,
-          12 * u
-        );
+        ctx.roundRect(x0 - 10 * u, rowY + (1 - first.p) * px * 0.3 - markerH / 2, x1 - x0 + 20 * u, markerH, 12 * u);
         ctx.fill();
         ctx.restore();
         i = j;
@@ -1067,8 +1102,10 @@ function drawHeadline(
 ): Placed {
   const px = 60 * u * settings.hookSize * CAPTION_FONTS[settings.hookFont].scale;
   const highlight = hookHighlight("outline", settings.hookColor);
+  const rtl = isRtlText(text);
   ctx.save();
   ctx.font = fontSpec(settings.hookFont, 800, px);
+  ctx.direction = rtl ? "rtl" : "ltr";
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
@@ -1079,7 +1116,7 @@ function drawHeadline(
     words.map((w) => w.text),
     Math.min(width * 0.84 * settings.hookSize, width * 0.92)
   );
-  const lineHeight = px * 1.18;
+  const lineHeight = px * (rtl ? 1.4 : 1.18);
   const space = ctx.measureText(" ").width;
   let index = 0;
   let widest = 0;
@@ -1090,7 +1127,8 @@ function drawHeadline(
     for (const text of row) {
       const w = ctx.measureText(text).width;
       ctx.fillStyle = words[index++].hot ? highlight.color : "#FFFFFF";
-      ctx.fillText(text, left + w / 2, bottomY - (rows.length - 1 - r) * lineHeight);
+      const x = left + w / 2;
+      ctx.fillText(text, rtl ? width - x : x, bottomY - (rows.length - 1 - r) * lineHeight);
       left += w + space;
     }
   });
@@ -1544,7 +1582,7 @@ export async function exportClip({
   if (!(total > 0.5)) throw new ClipRenderError("This clip is too short to render.");
   const bitrate = Math.round(Math.min(8e6, Math.max(2e6, (CLIP_EXPORT_MAX_BYTES * 0.9 * 8) / total - 192e3)));
 
-  await loadCaptionFonts(fontsFor(settings));
+  await loadCaptionFonts(fontsFor(settings, words));
   const canvas = makeCanvas(width, height);
   const paint = createFramePainter(canvas);
   const captions = prepareCaptions(words, settings, clip);

@@ -11,7 +11,6 @@ import { LinkFieldNote } from "@/components/transcripts/LinkFieldNote";
 import { DiscoverGrid } from "@/components/clipping/DiscoverGrid";
 import { fetchJson } from "@/components/clipping/parts";
 import {
-  CLIP_FOCUS_MAX,
   CLIP_LENGTHS,
   DEFAULT_CLIP_OPTIONS,
   formatClock,
@@ -127,16 +126,16 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
 
   return (
     <div className="@container flex w-full flex-col pb-20">
-      <section className="flex flex-col items-center pt-16 text-center sm:pt-28">
+      <section className="flex flex-col items-center pt-10 text-center sm:pt-28">
         <h1
-          className={`${INK_TITLE} max-w-3xl text-balance text-[38px] leading-[1.04] tracking-[-0.045em] sm:text-[56px]`}
+          className={`${INK_TITLE} max-w-3xl text-balance text-[36px] leading-[1.04] tracking-[-0.045em] sm:text-[56px]`}
         >
           Turn YouTube videos <br className="hidden sm:block" />
           into viral clips
         </h1>
       </section>
 
-      <div ref={fieldRef} className="relative mx-auto mt-10 w-full max-w-2xl sm:mt-12">
+      <div ref={fieldRef} className="relative mx-auto mt-8 w-full max-w-2xl scroll-mt-6 sm:mt-12">
         <LinkFieldNote>
           Turn one video
           <br />
@@ -171,7 +170,7 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
               placeholder="Paste a YouTube link"
               aria-label="YouTube video link"
               aria-invalid={Boolean(error)}
-              className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-heading outline-none placeholder:text-subtle"
+              className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-heading outline-none placeholder:text-subtle sm:text-[15px]"
             />
             <PlasticButton
               type="submit"
@@ -218,9 +217,13 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
           )}
         </div>
 
-        {/* What to look for: OpusClip asks the same two things before it starts. */}
-        <div className="mx-auto mt-6 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center">
-          <div role="radiogroup" aria-label="Clip length" className="flex shrink-0 rounded-full bg-(--app-fill) p-0.5">
+        {/* How long the clips should be */}
+        <div className="mt-6 flex justify-center">
+          <div
+            role="radiogroup"
+            aria-label="Clip length"
+            className="flex w-full rounded-full bg-(--app-fill) p-[3px] sm:w-auto"
+          >
             {CLIP_LENGTHS.map((option) => {
               const active = options.length === option.value;
               return (
@@ -231,7 +234,7 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
                   aria-checked={active}
                   onClick={() => setOptions((current) => ({ ...current, length: option.value }))}
                   className={cn(
-                    "h-8 flex-1 whitespace-nowrap rounded-full px-3 text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+                    "h-9 flex-1 whitespace-nowrap rounded-full px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-8 sm:text-[12px]",
                     active
                       ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.08)] dark:bg-white/[0.1] dark:shadow-none"
                       : "text-subtle hover:text-heading"
@@ -242,21 +245,15 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
               );
             })}
           </div>
-          <input
-            value={options.focus}
-            maxLength={CLIP_FOCUS_MAX}
-            onChange={(event) => setOptions((current) => ({ ...current, focus: event.target.value }))}
-            placeholder="Optional focus, e.g. funny moments"
-            aria-label="What the clips should focus on"
-            className="h-9 min-w-0 flex-1 rounded-full border border-hairline bg-surface px-4 text-[13px] text-heading outline-none transition-[border-color,box-shadow] placeholder:text-subtle focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:bg-white/[0.03]"
-          />
         </div>
       </div>
 
       {projects.length > 0 && (
-        <section className="mx-auto mt-14 w-full max-w-5xl sm:mt-16">
-          <h2 className="text-[13px] font-medium text-heading">Your videos</h2>
-          <div className="mt-3 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:thin]">
+        <section className="mx-auto mt-12 w-full max-w-5xl sm:mt-16">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-heading sm:text-[13px] sm:font-medium sm:tracking-normal">
+            Your videos
+          </h2>
+          <div className="-mx-4 mt-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:snap-proximity sm:scroll-px-0 sm:gap-4 sm:px-0 sm:[scrollbar-width:thin]">
             {projects.map((project) => (
               <ProjectCard
                 key={project.id}
@@ -292,7 +289,7 @@ function ProjectCard({
 }) {
   const working = isClipProjectWorking(project.status);
   return (
-    <div className="group relative w-56 shrink-0 snap-start">
+    <div className="group relative w-[62vw] max-w-56 shrink-0 snap-start sm:w-56">
       <button type="button" onClick={onOpen} className="block w-full text-left outline-none">
         <div className="relative aspect-video overflow-hidden rounded-xl bg-(--app-fill-strong) ring-primary/50 group-focus-visible:ring-2">
           {project.thumbnailUrl && (
@@ -317,9 +314,9 @@ function ProjectCard({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${project.title}`}
-          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-md transition-opacity focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+          className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full text-white opacity-0 transition-opacity before:absolute before:inset-1 before:rounded-full before:bg-black/55 before:backdrop-blur-md before:content-[''] focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="relative h-3.5 w-3.5" />
         </button>
       )}
     </div>

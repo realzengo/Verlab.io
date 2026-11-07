@@ -367,13 +367,13 @@ export function ClippingSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="flex w-full flex-col pb-20">
       {/* Hero: two-line ink title */}
-      <div className="flex flex-col items-center pt-16 sm:pt-28">
+      <div className="flex flex-col items-center pt-10 sm:pt-28">
         <Skeleton className="h-10 w-72 max-w-full rounded-xl sm:h-14 sm:w-[520px]" />
         <Skeleton className="mt-3 h-10 w-56 max-w-full rounded-xl sm:h-14 sm:w-80" />
       </div>
 
       {/* Bezel link field and the status line under it */}
-      <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-12">
+      <div className="mx-auto mt-8 w-full max-w-2xl sm:mt-12">
         <div className="rounded-[22px] border border-hairline p-1.5">
           <Skeleton className="h-[66px] w-full rounded-2xl" />
         </div>
@@ -383,16 +383,17 @@ export function ClippingSkeleton() {
       </div>
 
       {/* "Or choose": heading, search, category pills, video grid */}
-      <div className="mx-auto mt-20 flex w-full max-w-5xl flex-col items-center sm:mt-24">
+      <div className="mx-auto mt-16 flex w-full max-w-5xl flex-col items-center sm:mt-24">
         <Skeleton className="h-8 w-40 rounded-full" />
         <Skeleton className="mt-3 h-3.5 w-44 rounded-full" />
-        <Skeleton className="mt-6 h-11 w-full max-w-md rounded-full" />
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <Skeleton className="mt-5 h-12 w-full max-w-md rounded-full sm:mt-6 sm:h-11" />
+        {/* one row on phones (it scrolls), wrapped from sm up */}
+        <div className="-mx-4 mt-4 flex gap-2 self-stretch overflow-hidden px-4 sm:mx-0 sm:flex-wrap sm:justify-center sm:self-auto sm:px-0">
           {["w-28", "w-20", "w-28", "w-16", "w-16", "w-14"].map((width, index) => (
-            <Skeleton key={index} className={`h-8 ${width} rounded-full`} />
+            <Skeleton key={index} className={`h-9 shrink-0 sm:h-8 ${width} rounded-full`} />
           ))}
         </div>
-        <div className="mt-8 grid w-full grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid w-full grid-cols-1 gap-x-5 gap-y-7 sm:mt-8 sm:grid-cols-2 sm:gap-y-8 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="flex flex-col">
               <Skeleton className="aspect-video w-full rounded-xl" />

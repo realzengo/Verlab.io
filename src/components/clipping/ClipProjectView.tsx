@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import NumberFlow from "@number-flow/react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Loader2, Play } from "lucide-react";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ScorePill, fetchJson } from "@/components/clipping/parts";
+import { MobileActionBar, ScorePill, fetchJson } from "@/components/clipping/parts";
 import { ClipEditor } from "@/components/clipping/ClipEditor";
 import { ClipResults, SavedClips } from "@/components/clipping/ClipResults";
 import { useClipWorkspace } from "@/components/clipping/useClipWorkspace";
@@ -70,9 +70,12 @@ const PANEL = cn(
 );
 
 /** A 16:9 screen. */
-function Screen({ children }: { children: ReactNode }) {
+function Screen({ children, ref }: { children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   return (
-    <div className="relative aspect-video overflow-hidden rounded-[22px] bg-black shadow-[0_12px_32px_-18px_rgba(16,24,40,0.35)] ring-1 ring-black/5 dark:ring-white/10">
+    <div
+      ref={ref}
+      className="relative aspect-video scroll-mt-4 overflow-hidden rounded-[18px] bg-black shadow-[0_12px_32px_-18px_rgba(16,24,40,0.35)] ring-1 ring-black/5 sm:rounded-[22px] dark:ring-white/10"
+    >
       {children}
     </div>
   );
@@ -108,71 +111,71 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   return (
-    <div className="relative mx-auto w-full max-w-[1680px] pb-20 pt-1">
+    <div
+      className={cn(
+        "relative mx-auto w-full max-w-[1680px] pb-20 pt-1",
+        step === "choose" && project.status === "ready" && "max-lg:pb-32"
+      )}
+    >
       <div className="relative">
         {/* Floating glass bar: the video, and a segmented control for the steps */}
-        <header className="flex items-center gap-3.5 border-b border-hairline pb-5">
-          <BackButton onClick={step === "choose" ? onBack : () => goTo(step === "post" ? "edit" : "choose")} />
-          {project.thumbnailUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-            <img
-              src={project.thumbnailUrl}
-              alt=""
-              className="hidden h-12 w-[86px] shrink-0 rounded-[10px] object-cover ring-1 ring-black/5 sm:block dark:ring-white/10"
-            />
-          )}
-          <div className="relative min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold leading-snug tracking-[-0.01em] text-heading">
-              {project.title}
-            </p>
-            <p className="mt-0.5 truncate text-[13px] text-subtle">
-              {project.channelTitle && <>{project.channelTitle} · </>}
-              <span className="tabular-nums">{formatClock(project.durationSeconds)}</span>
-            </p>
-          </div>
-          <ol
-            aria-label="Steps"
-            className="ml-auto hidden shrink-0 items-center rounded-full bg-(--app-fill) p-1 lg:flex"
-          >
-            {STEPS.map((item, index) => {
-              const current = item.id === step;
-              const done = index < stepIndex;
-              const canGo = !current && reachable(item.id);
-              return (
-                <li key={item.id} className="relative">
-                  {current && (
-                    <motion.span
-                      layoutId="clip-step-thumb"
-                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                      className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.12] dark:shadow-none"
-                    />
-                  )}
-                  <button
-                    type="button"
-                    disabled={!canGo}
-                    onClick={() => goTo(item.id)}
-                    aria-current={current ? "step" : undefined}
-                    className={cn(
-                      "relative flex h-8 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
-                      current ? "text-heading" : done ? "text-body" : "text-subtle/70",
-                      canGo && "hover:text-heading"
-                    )}
-                  >
-                    {done && <Check className="h-3 w-3" strokeWidth={3} />}
-                    {item.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          <span
-            className={cn(
-              "relative ml-auto shrink-0 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums text-heading lg:hidden",
-              CHIP
+        <header className="border-b border-hairline pb-4 sm:pb-5">
+          <div className="flex items-center gap-3 sm:gap-3.5">
+            <BackButton onClick={step === "choose" ? onBack : () => goTo(step === "post" ? "edit" : "choose")} />
+            {project.thumbnailUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+              <img
+                src={project.thumbnailUrl}
+                alt=""
+                className="hidden h-12 w-[86px] shrink-0 rounded-[10px] object-cover ring-1 ring-black/5 sm:block dark:ring-white/10"
+              />
             )}
-          >
-            {stepIndex + 1}/{STEPS.length}
-          </span>
+            <div className="relative min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold leading-snug tracking-[-0.01em] text-heading">
+                {project.title}
+              </p>
+              <p className="mt-0.5 truncate text-[13px] text-subtle">
+                {project.channelTitle && <>{project.channelTitle} · </>}
+                <span className="tabular-nums">{formatClock(project.durationSeconds)}</span>
+              </p>
+            </div>
+            <ol
+              aria-label="Steps"
+              className="ml-auto hidden shrink-0 items-center rounded-full bg-(--app-fill) p-1 lg:flex"
+            >
+              {STEPS.map((item, index) => {
+                const current = item.id === step;
+                const done = index < stepIndex;
+                const canGo = !current && reachable(item.id);
+                return (
+                  <li key={item.id} className="relative">
+                    {current && (
+                      <motion.span
+                        layoutId="clip-step-thumb"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.12] dark:shadow-none"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      disabled={!canGo}
+                      onClick={() => goTo(item.id)}
+                      aria-current={current ? "step" : undefined}
+                      className={cn(
+                        "relative flex h-8 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+                        current ? "text-heading" : done ? "text-body" : "text-subtle/70",
+                        canGo && "hover:text-heading"
+                      )}
+                    >
+                      {done && <Check className="h-3 w-3" strokeWidth={3} />}
+                      {item.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+          <PhoneSteps index={stepIndex} />
         </header>
 
         <div className="mt-6">
@@ -199,6 +202,7 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
               project={project}
               clips={selectedClips}
               workspace={workspace}
+              onBack={() => goTo("choose")}
               onExport={() => {
                 workspace.exportClips(selectedClips.map((clip) => clip.id));
                 goTo("post");
@@ -209,6 +213,38 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Phones and tablets: the steps as a segmented progress bar, with the current one named. */
+function PhoneSteps({ index }: { index: number }) {
+  return (
+    <div className="mt-3.5 flex items-center gap-3 lg:hidden">
+      <ol aria-label="Steps" className="flex flex-1 gap-1">
+        {STEPS.map((item, i) => (
+          <li
+            key={item.id}
+            aria-current={i === index ? "step" : undefined}
+            className="h-1 flex-1 overflow-hidden rounded-full bg-(--app-fill-strong)"
+          >
+            <span
+              className={cn(
+                "block h-full origin-left rounded-full bg-primary transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                i <= index ? "scale-x-100" : "scale-x-0"
+              )}
+            />
+            <span className="sr-only">{item.label}</span>
+          </li>
+        ))}
+      </ol>
+      <span className="shrink-0 text-[12px] font-medium text-heading">
+        {STEPS[index].label}
+        <span className="tabular-nums text-subtle">
+          {" "}
+          · {index + 1}/{STEPS.length}
+        </span>
+      </span>
     </div>
   );
 }
@@ -254,6 +290,7 @@ function ChooseStep({
   const [previewId, setPreviewId] = useState(best?.id);
   const [playing, setPlaying] = useState(false);
   const [hint, setHint] = useState(false);
+  const screenRef = useRef<HTMLDivElement>(null);
   const preview = clips.find((clip) => clip.id === previewId) ?? best;
   if (!preview) return null;
   const isSelected = selected.includes(preview.id);
@@ -271,7 +308,7 @@ function ChooseStep({
     <div>
       <div className={SPLIT}>
         <div className="flex min-w-0 flex-col gap-5">
-          <Screen>
+          <Screen ref={screenRef}>
             {playing ? (
               <iframe
                 key={preview.id}
@@ -302,7 +339,7 @@ function ChooseStep({
             <ScorePill score={preview.score} className="pointer-events-none absolute left-4 top-4" />
           </Screen>
 
-          <section className={cn("relative rounded-[24px] p-5 sm:p-6", SURFACE)}>
+          <section className={cn("relative rounded-[22px] p-4 sm:rounded-[24px] sm:p-6", SURFACE)}>
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <span
@@ -313,7 +350,10 @@ function ChooseStep({
                 >
                   {formatClock(preview.start)} – {formatClock(preview.end)} · {Math.round(preview.end - preview.start)}s
                 </span>
-                <h3 className="mt-3 text-[22px] font-semibold leading-snug tracking-[-0.02em] text-heading">
+                <h3
+                  dir="auto"
+                  className="mt-3 text-[19px] font-semibold leading-snug tracking-[-0.02em] text-heading sm:text-[22px]"
+                >
                   {preview.title}
                 </h3>
                 <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-subtle">{preview.reason}</p>
@@ -326,7 +366,7 @@ function ChooseStep({
                 }}
                 aria-pressed={isSelected}
                 className={cn(
-                  "inline-flex h-10 shrink-0 items-center gap-1.5 self-start rounded-full px-5 text-[14px] font-medium outline-none transition-[transform,background-color] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 self-stretch rounded-full px-5 text-[14px] font-medium outline-none sm:h-10 sm:self-start transition-[transform,background-color] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary/40",
                   isSelected
                     ? "bg-primary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_16px_-6px_rgba(51,92,255,0.6)]"
                     : "border border-hairline bg-surface text-heading hover:bg-(--app-fill) dark:bg-transparent"
@@ -365,6 +405,10 @@ function ChooseStep({
                     onClick={() => {
                       setPreviewId(clip.id);
                       setPlaying(true);
+                      // Stacked (below xl), the player is above the list: bring it back into view.
+                      if (window.matchMedia("(max-width: 1279px)").matches) {
+                        screenRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }
                     }}
                     aria-current={active ? "true" : undefined}
                     aria-label={`Preview “${clip.title}”`}
@@ -379,7 +423,10 @@ function ChooseStep({
                       {clip.score}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-[14px] font-medium tracking-[-0.005em] text-heading">
+                      <span
+                        dir="auto"
+                        className="block truncate text-[14px] font-medium tracking-[-0.005em] text-heading"
+                      >
                         {clip.title}
                       </span>
                       <span className="mt-0.5 block text-[12px] tabular-nums text-subtle">
@@ -398,7 +445,7 @@ function ChooseStep({
                       setHint(false);
                     }}
                     className={cn(
-                      "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full outline-none transition-[transform,background-color] active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "relative flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full outline-none transition-[transform,background-color] before:absolute before:-inset-3 before:content-[''] active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/40",
                       checked
                         ? "bg-primary text-white"
                         : "text-transparent ring-[1.5px] ring-inset ring-black/20 hover:ring-black/40 dark:ring-white/25 dark:hover:ring-white/45",
@@ -411,7 +458,7 @@ function ChooseStep({
               );
             })}
           </ul>
-          <div className={cn("relative border-t p-4", LINE)}>
+          <div className={cn("relative border-t p-4 max-lg:hidden", LINE)}>
             <PlasticButton
               className="h-12 w-full rounded-[18px] text-[15px]"
               text={selected.length > 1 ? `Create ${selected.length} videos` : "Create video"}
@@ -429,6 +476,28 @@ function ChooseStep({
       </div>
 
       <SavedClips project={project} />
+
+      <MobileActionBar>
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1 text-[15px] font-semibold tracking-[-0.01em] text-heading">
+              <NumberFlow value={selected.length} className="tabular-nums" /> selected
+            </p>
+            <p className={cn("truncate text-[12px]", hint ? "text-danger" : "text-subtle")}>
+              {hint ? "Tick at least one clip first" : `of ${clips.length} moments found`}
+            </p>
+          </div>
+          <PlasticButton
+            className="h-12 shrink-0 rounded-[16px] px-5 text-[15px]"
+            text={selected.length > 1 ? `Create ${selected.length} videos` : "Create video"}
+            trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
+            onClick={() => {
+              if (!selected.length) setHint(true);
+              else onContinue();
+            }}
+          />
+        </div>
+      </MobileActionBar>
     </div>
   );
 }
@@ -443,11 +512,11 @@ const SCORE_PARTS: { key: keyof ClipScoreBreakdown; label: string }[] = [
 /** OpusClip-style virality breakdown, as four small tiles. */
 function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
   return (
-    <dl className="relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+    <dl className="relative mt-4 grid grid-cols-4 gap-2 sm:mt-5 sm:gap-2.5">
       {SCORE_PARTS.map(({ key, label }) => (
-        <div key={key} className={cn("rounded-[18px] px-3.5 py-3", CHIP)}>
-          <dt className="text-[12px] text-subtle">{label}</dt>
-          <dd className="mt-0.5 text-[20px] font-semibold tabular-nums tracking-[-0.02em] text-heading">
+        <div key={key} className={cn("rounded-[14px] px-2.5 py-2.5 sm:rounded-[18px] sm:px-3.5 sm:py-3", CHIP)}>
+          <dt className="text-[11px] text-subtle sm:text-[12px]">{label}</dt>
+          <dd className="mt-0.5 text-[17px] font-semibold tabular-nums tracking-[-0.02em] text-heading sm:text-[20px]">
             {scores[key]}
           </dd>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/[0.07] dark:bg-white/[0.1]">
@@ -587,7 +656,7 @@ function FailedState({ project, onBack }: { project: ClipProject; onBack: () => 
   return (
     <div
       className={cn(
-        "relative flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-[24px] p-6 text-center",
+        "relative flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-[24px] p-6 text-center sm:min-h-[420px]",
         SURFACE
       )}
     >
@@ -617,8 +686,12 @@ function ProjectSkeleton() {
         </div>
         <Skeleton className="hidden h-10 w-[360px] rounded-full lg:block" />
       </div>
+      <div className="mt-3.5 flex items-center gap-3 px-1 lg:hidden">
+        <Skeleton className="h-1 flex-1 rounded-full" />
+        <Skeleton className="h-3 w-28 rounded-full" />
+      </div>
       <div className={cn(SPLIT, "mt-5")}>
-        <Skeleton className="aspect-video w-full rounded-[30px]" />
+        <Skeleton className="aspect-video w-full rounded-[18px] sm:rounded-[30px]" />
         <Skeleton className="h-[420px] w-full rounded-[28px]" />
       </div>
     </div>

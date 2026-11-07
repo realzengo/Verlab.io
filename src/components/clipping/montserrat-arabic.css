@@ -1,0 +1,30 @@
+/* Montserrat Arabic (Mohamed Gaber, SIL OFL 1.1, public/fonts/montserrat-arabic/OFL.txt):
+   the captions and hook of Arabic videos, and every caption font's fallback for Arabic letters. */
+@font-face {
+  font-family: "Montserrat Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url("/fonts/montserrat-arabic/Montserrat-Arabic-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url("/fonts/montserrat-arabic/Montserrat-Arabic-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url("/fonts/montserrat-arabic/Montserrat-Arabic-ExtraBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url("/fonts/montserrat-arabic/Montserrat-Arabic-Black.woff2") format("woff2");
+}

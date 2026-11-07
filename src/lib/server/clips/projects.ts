@@ -5,6 +5,7 @@ import { refundUser } from "@/lib/server/credits";
 import { fetchDownloadLink, humanizeVideoProviderError, VideoProviderError } from "@/lib/server/video-provider";
 import { getTranscription, startTranscription } from "@/lib/server/clips/transcribe";
 import { ClipMomentsError, findViralMoments } from "@/lib/server/clips/moments";
+import { romanizeClip, romanizeDarija } from "@/lib/server/clips/darija";
 import {
   normalizeClipOptions,
   type ClipMoment,
@@ -23,6 +24,9 @@ import {
 export const CLIP_PROJECT_COLUMNS =
   "id, user_id, source_url, video_id, title, channel_title, thumbnail_url, duration_seconds, status, options, credits_charged, prediction_id, media_url, clips, error_message, created_at, updated_at";
 
+/** A stored word: [start, end, word as transcribed, its caption spelling when that differs (Latin Darija)]. */
+export type StoredTranscriptWord = [number, number, string, string?];
+
 export interface ClipProjectRow {
   id: string;
   user_id: string;
@@ -38,7 +42,7 @@ export interface ClipProjectRow {
   prediction_id: string | null;
   media_url: string | null;
   clips: ClipMoment[] | null;
-  transcript?: TranscriptWord[] | null;
+  transcript?: StoredTranscriptWord[] | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -56,7 +60,10 @@ export function toClipProject(row: ClipProjectRow): ClipProject {
     status: row.status,
     options: normalizeClipOptions(row.options),
     clips: row.clips,
-    ...(row.transcript !== undefined ? { transcript: row.transcript } : {}),
+    // The editor captions with each word's caption spelling.
+    ...(row.transcript !== undefined
+      ? { transcript: row.transcript?.map(([start, end, word, caption]) => [start, end, caption ?? word]) ?? null }
+      : {}),
     errorMessage: row.error_message,
     createdAt: row.created_at,
   };
@@ -145,16 +152,27 @@ async function findMoments(
   words: TranscriptWord[]
 ): Promise<ClipProjectRow> {
   try {
-    const clips = await findViralMoments({
+    const found = await findViralMoments({
       title: row.title,
       channelTitle: row.channel_title,
       durationSeconds: row.duration_seconds,
       words,
       options: normalizeClipOptions(row.options),
     });
+    let clips = found.clips;
+    let romanized: { transcript: StoredTranscriptWord[]; language: string } | null = null;
+    if (found.darija) {
+      // Darija captions in Latin letters; the Arabic-script words are kept beside them.
+      const latin = await romanizeDarija(words, clips);
+      clips = clips.map((clip) => romanizeClip(clip, words, latin));
+      romanized = {
+        transcript: words.map((w, i) => (latin.has(i) ? [w[0], w[1], w[2], latin.get(i)] : w)),
+        language: "ar-MA",
+      };
+    }
     const { data: ready } = await admin
       .from("clip_projects")
-      .update({ status: "ready", clips })
+      .update({ status: "ready", clips, ...romanized })
       .eq("id", row.id)
       .eq("status", "finding")
       .select(CLIP_PROJECT_COLUMNS)
@@ -211,7 +229,11 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
       .maybeSingle<ClipProjectRow>();
     if (!reclaimed) return row;
     if (!reclaimed.transcript?.length) return failProject(admin, reclaimed, GENERIC_ERROR);
-    return findMoments(admin, reclaimed, reclaimed.transcript);
+    return findMoments(
+      admin,
+      reclaimed,
+      reclaimed.transcript.map(([start, end, word]) => [start, end, word])
+    );
   }
 
   return row;

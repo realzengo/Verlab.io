@@ -7,6 +7,7 @@ import {
   ClipRenderError,
   exportClip,
   fetchClipSources,
+  isRtlClip,
   usesTracking,
   wordKey,
   type ClipEditSettings,
@@ -91,7 +92,8 @@ const STYLE_KEYS = [
   "removePauses",
 ] as const satisfies (keyof ClipEditSettings)[];
 
-export function defaultSettings(clip: ClipMoment): ClipEditSettings {
+/** A clip's starting settings; an Arabic one (`rtl`) captions and titles in Montserrat Arabic. */
+export function defaultSettings(clip: ClipMoment, rtl = false): ClipEditSettings {
   // The hook starts with up to two of the clip's keywords highlighted.
   const keywords = new Set((clip.keywords ?? []).map(wordKey));
   const hookWords = (clip.hookTitle ?? "").split(/\s+/).map(wordKey);
@@ -108,7 +110,7 @@ export function defaultSettings(clip: ClipMoment): ClipEditSettings {
     captionPosition: "bottom",
     captionX: 0.5,
     captionY: 0.72,
-    captionFont: "auto",
+    captionFont: rtl ? "arabic" : "auto",
     captionSize: 1,
     captionWords: 0,
     captionColor: "auto",
@@ -116,7 +118,7 @@ export function defaultSettings(clip: ClipMoment): ClipEditSettings {
     hookTitle: Boolean(clip.hookTitle),
     hookText: clip.hookTitle ?? "",
     hookStyle: "card",
-    hookFont: "sauce",
+    hookFont: rtl ? "arabic" : "sauce",
     hookSize: 1,
     hookPosition: "top",
     hookX: 0.5,
@@ -226,30 +228,45 @@ export function useClipWorkspace(project: ClipProject) {
   }, []);
 
   const clips = useMemo(() => project.clips ?? [], [project.clips]);
-  const settingsFor = useCallback((clip: ClipMoment) => settings[clip.id] ?? defaultSettings(clip), [settings]);
+  // Clips spoken in Arabic (in Arabic script; Darija comes romanized) start in the Arabic font.
+  const rtlClips = useMemo(
+    () => new Set(clips.filter((clip) => isRtlClip(project.transcript ?? [], clip.start, clip.end)).map((c) => c.id)),
+    [clips, project.transcript]
+  );
+  const defaultsFor = useCallback((clip: ClipMoment) => defaultSettings(clip, rtlClips.has(clip.id)), [rtlClips]);
+  const settingsFor = useCallback(
+    (clip: ClipMoment) => settings[clip.id] ?? defaultsFor(clip),
+    [settings, defaultsFor]
+  );
 
-  const updateSettings = useCallback((clip: ClipMoment, patch: Partial<ClipEditSettings>) => {
-    setSettings((current) => ({ ...current, [clip.id]: { ...(current[clip.id] ?? defaultSettings(clip)), ...patch } }));
-  }, []);
+  const updateSettings = useCallback(
+    (clip: ClipMoment, patch: Partial<ClipEditSettings>) => {
+      setSettings((current) => ({ ...current, [clip.id]: { ...(current[clip.id] ?? defaultsFor(clip)), ...patch } }));
+    },
+    [defaultsFor]
+  );
 
   /** Copies one clip's style (not its title, hook text or trim) to others. */
-  const applyStyleToAll = useCallback((from: ClipMoment, targets: ClipMoment[]) => {
-    setSettings((current) => {
-      const style = current[from.id] ?? defaultSettings(from);
-      const next = { ...current };
-      for (const clip of targets) {
-        if (clip.id === from.id) continue;
-        const base = next[clip.id] ?? defaultSettings(clip);
-        next[clip.id] = {
-          ...base,
-          ...Object.fromEntries(
-            STYLE_KEYS.map((key) => [key, Array.isArray(style[key]) ? [...style[key]] : style[key]])
-          ),
-        };
-      }
-      return next;
-    });
-  }, []);
+  const applyStyleToAll = useCallback(
+    (from: ClipMoment, targets: ClipMoment[]) => {
+      setSettings((current) => {
+        const style = current[from.id] ?? defaultsFor(from);
+        const next = { ...current };
+        for (const clip of targets) {
+          if (clip.id === from.id) continue;
+          const base = next[clip.id] ?? defaultsFor(clip);
+          next[clip.id] = {
+            ...base,
+            ...Object.fromEntries(
+              STYLE_KEYS.map((key) => [key, Array.isArray(style[key]) ? [...style[key]] : style[key]])
+            ),
+          };
+        }
+        return next;
+      });
+    },
+    [defaultsFor]
+  );
 
   const setBackground = useCallback((file: File | null) => {
     setBackgroundState((current) => {
@@ -377,7 +394,7 @@ export function useClipWorkspace(project: ClipProject) {
       try {
         for (const clip of targets) {
           if (abort.current.signal.aborted) return;
-          const clipSettings = settingsRef.current[clip.id] ?? defaultSettings(clip);
+          const clipSettings = settingsRef.current[clip.id] ?? defaultsFor(clip);
           try {
             const source = await requestSource(clip);
             // A reframe that failed just falls back to a centered Fill.
@@ -431,7 +448,7 @@ export function useClipWorkspace(project: ClipProject) {
         exporting.current = false;
       }
     },
-    [clips, project.id, project.transcript, requestSource]
+    [clips, project.id, project.transcript, requestSource, defaultsFor]
   );
 
   return {

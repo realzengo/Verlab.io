@@ -2,7 +2,7 @@ import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { clipMomentsFallbackModel, clipMomentsModel } from "@/lib/server/openrouter-client";
-import { CLIP_LENGTHS, type ClipMoment, type ClipOptions, type TranscriptWord } from "@/lib/clips";
+import { CLIP_LENGTHS, isRtlText, type ClipMoment, type ClipOptions, type TranscriptWord } from "@/lib/clips";
 
 // Picks the viral moments of a long-form video from its timed transcript
 // (the "AI-Youtube-Shorts-Generator" highlight step), then snaps each pick to
@@ -16,6 +16,7 @@ const MIN_SCORE = 50;
 const REQUEST_TIMEOUT_MS = 150_000;
 
 const MomentsSchema = z.object({
+  moroccan_darija: z.boolean(),
   clips: z.array(
     z.object({
       start: z.number(),
@@ -60,7 +61,9 @@ Fields:
 - emojis: 2 to 5 pairs of a single word spoken in the clip (exactly as in the transcript) and one emoji that fits it.
 - caption: a ready-to-post caption, at most 150 characters, no hashtags.
 - hashtags: 3 to 5 lowercase tags without the "#".
-Write title, hook_title, caption and hashtags in the transcript's language. Return the clips sorted by score, best first.`;
+Write title, hook_title, caption and hashtags in the transcript's language.
+- moroccan_darija: true only when the speakers mainly speak Moroccan Darija (Moroccan Arabic), not Standard Arabic or another dialect. When true, write title, hook_title, caption and hashtags in Darija with Latin letters, the way Moroccans write it online, never digits for sounds (like "salam alikom ana smiti saad"). keywords, emoji words and hook still copy the transcript exactly.
+Return the clips sorted by score, best first.`;
 
 /** Groups words into transcript lines: sentence ends, long pauses, or ~25 words. */
 function transcriptLines(words: TranscriptWord[]): { start: number; text: string }[] {
@@ -74,7 +77,7 @@ function transcriptLines(words: TranscriptWord[]): { start: number; text: string
   words.forEach((word, index) => {
     const next = words[index + 1];
     current.push(word);
-    const sentenceEnd = /[.!?…]["')\]]?$/.test(word[2]);
+    const sentenceEnd = /[.!?…؟]["')\]]?$/.test(word[2]);
     const pause = next ? next[0] - word[1] > 1.2 : false;
     if (sentenceEnd || pause || current.length >= 25) flush();
   });
@@ -132,13 +135,24 @@ async function askModel(system: string, prompt: string) {
   }
 }
 
+/** Whether a transcript is mostly in Arabic script (a sample of it). */
+function isArabicTranscript(words: TranscriptWord[]): boolean {
+  const step = Math.max(1, Math.floor(words.length / 600));
+  return isRtlText(
+    words
+      .filter((_, i) => i % step === 0)
+      .map((w) => w[2])
+      .join(" ")
+  );
+}
+
 export async function findViralMoments(input: {
   title: string;
   channelTitle: string | null;
   durationSeconds: number;
   words: TranscriptWord[];
   options: ClipOptions;
-}): Promise<ClipMoment[]> {
+}): Promise<{ clips: ClipMoment[]; darija: boolean }> {
   const lines = transcriptLines(input.words);
   if (lines.length < 5) {
     throw new ClipMomentsError("There isn't enough speech in this video to find clips.");
@@ -209,5 +223,7 @@ export async function findViralMoments(input: {
   }
 
   // The strip reads left to right through the video, like the timeline.
-  return picked.sort((a, b) => a.start - b.start).map((clip, index) => ({ ...clip, id: `c${index + 1}` }));
+  const clips = picked.sort((a, b) => a.start - b.start).map((clip, index) => ({ ...clip, id: `c${index + 1}` }));
+  // Darija captions get romanized; the flag only counts for a transcript in Arabic script.
+  return { clips, darija: object.moroccan_darija === true && isArabicTranscript(input.words) };
 }

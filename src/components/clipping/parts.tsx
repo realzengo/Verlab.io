@@ -1,7 +1,30 @@
 "use client";
 
+import { useSyncExternalStore, type ReactNode } from "react";
 import { Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Whether a media query matches, kept live (false on the server). */
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const list = window.matchMedia(query);
+      list.addEventListener("change", onChange);
+      return () => list.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false
+  );
+}
+
+/** Phones: the step's main action, pinned to the bottom of the screen above the home indicator. */
+export function MobileActionBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-surface px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-18px_rgba(16,24,40,0.22)] lg:hidden dark:shadow-[0_-12px_32px_-18px_rgba(0,0,0,0.8)]">
+      {children}
+    </div>
+  );
+}
 
 /** GET/POST JSON, throwing the server's own `error` message on failure. */
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -50,7 +73,7 @@ export function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "h-8 flex-1 rounded-[8px] px-3 text-[13px] font-medium outline-none transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-primary/40",
+              "h-9 flex-1 whitespace-nowrap rounded-[8px] px-2 text-[13px] font-medium outline-none sm:h-8 sm:px-3 transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-primary/40",
               active
                 ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.1] dark:shadow-none"
                 : "text-subtle hover:text-heading"

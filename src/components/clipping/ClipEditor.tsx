@@ -3,8 +3,12 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
+  Captions,
   Check,
+  ChevronDown,
+  Clapperboard,
   Copy,
   Loader2,
   Move,
@@ -14,12 +18,13 @@ import {
   RotateCw,
   ScanFace,
   Scaling,
+  Type,
   Upload,
   X,
 } from "lucide-react";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Switch } from "@/components/ui/Switch";
-import { Segmented } from "@/components/clipping/parts";
+import { Segmented, useMediaQuery } from "@/components/clipping/parts";
 import type { ClipWorkspace, SourceState, TrackState } from "@/components/clipping/useClipWorkspace";
 import {
   CAPTION_FONTS,
@@ -52,7 +57,14 @@ import {
 import { ALL_LAYOUTS, LAYOUTS, sceneAt, type LayoutId } from "@/lib/client/clip-layouts";
 import { cameraPath, centerAt, type CameraMode } from "@/lib/client/clip-reframe";
 import { loadWaveform, type Waveform } from "@/lib/client/clip-waveform";
-import { formatClock, type ClipAspect, type ClipMoment, type ClipProject, type TranscriptWord } from "@/lib/clips";
+import {
+  formatClock,
+  isRtlText,
+  type ClipAspect,
+  type ClipMoment,
+  type ClipProject,
+  type TranscriptWord,
+} from "@/lib/clips";
 import { cn } from "@/lib/utils";
 // Caption and hook typefaces (Open Sauce One comes from the root layout).
 import "@fontsource/montserrat/latin-700.css";
@@ -67,6 +79,7 @@ import "@fontsource/inter/latin-900.css";
 import "@fontsource/anton/latin-400.css";
 import "@fontsource/bebas-neue/latin-400.css";
 import "@fontsource/luckiest-guy/latin-400.css";
+import "./montserrat-arabic.css";
 
 const MIN_CLIP_SECONDS = 5;
 const TRIM_STEP = 0.5;
@@ -86,6 +99,15 @@ const STAGE_BACKDROP =
   "bg-[#F6F6F7] bg-[radial-gradient(rgba(16,24,40,0.09)_1px,transparent_1px)] [background-size:18px_18px] dark:bg-black/20 dark:bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)]";
 
 type SettingsTab = "captions" | "hook" | "video";
+
+const SETTINGS_TABS: { value: SettingsTab; label: string; icon: typeof Captions }[] = [
+  { value: "captions", label: "Captions", icon: Captions },
+  { value: "hook", label: "Hook", icon: Type },
+  { value: "video", label: "Video", icon: Clapperboard },
+];
+
+/** Phones get the editor as a full-screen view, like a native editing app. */
+const PHONE = "(max-width: 767px)";
 
 type Point = { x: number; y: number };
 
@@ -167,16 +189,31 @@ export function ClipEditor({
   project,
   clips,
   workspace,
+  onBack,
   onExport,
 }: {
   project: ClipProject;
   clips: ClipMoment[];
   workspace: ClipWorkspace;
+  onBack: () => void;
   onExport: () => void;
 }) {
   const [activeId, setActiveId] = useState(clips[0]?.id);
   const [applied, setApplied] = useState(false);
   const [tab, setTab] = useState<SettingsTab>("captions");
+  // Phones: the settings open as a sheet over the lower part of the screen.
+  const [sheet, setSheet] = useState(false);
+  const phone = useMediaQuery(PHONE);
+  // The full-screen editor covers the page; the page under it stays put.
+  useEffect(() => {
+    if (!phone) return;
+    const root = document.documentElement;
+    const before = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = before;
+    };
+  }, [phone]);
   // Where the preview last put the captions and hook (presets move with the
   // layout), and which position pad is in use, so the preview shows what moves.
   const [anchors, setAnchors] = useState<Record<Movable, Point | null> & { key: string }>({
@@ -213,16 +250,70 @@ export function ClipEditor({
     workspace.updateSettings(active, patch);
   };
 
+  const applyToAll = clips.length > 1 && (
+    <button
+      type="button"
+      onClick={() => {
+        workspace.applyStyleToAll(active, clips);
+        setApplied(true);
+      }}
+      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-hairline text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill) md:h-9"
+    >
+      {applied ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" />}
+      {applied ? "Style applied to all clips" : `Apply this style to all ${clips.length} clips`}
+    </button>
+  );
+
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div
+      className={cn(
+        "grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_420px]",
+        "max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:flex-col max-md:items-stretch max-md:gap-0 max-md:bg-app"
+      )}
+    >
+      {/* Phones: the editor's own top bar (the page header is under this view) */}
+      <div className="flex items-center gap-1.5 border-b border-hairline bg-surface pb-2 pl-1.5 pr-3 pt-[max(8px,env(safe-area-inset-top))] md:hidden">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to clips"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-heading outline-none transition-[transform,background-color] active:scale-95 active:bg-(--app-fill) focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <input
+          value={settings.title}
+          dir="auto"
+          maxLength={90}
+          onChange={(event) => change({ title: event.target.value })}
+          placeholder="Name this clip"
+          aria-label="Post title"
+          className="h-10 min-w-0 flex-1 truncate rounded-[10px] bg-transparent px-2 text-[16px] font-semibold tracking-[-0.01em] text-heading outline-none transition-colors placeholder:text-subtle/60 focus:bg-(--app-fill)"
+        />
+        <PlasticButton
+          className="mb-1 h-10 shrink-0 rounded-[14px] px-4"
+          text={clips.length > 1 ? `Export ${clips.length}` : "Export"}
+          trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
+          onClick={onExport}
+        />
+      </div>
+
       {/* The stage: which clip, its name, the preview and the timeline */}
       <section
         className={cn(
           "flex h-[min(82dvh,780px)] min-h-[520px] flex-col overflow-hidden rounded-[24px] xl:sticky xl:top-6 xl:h-[calc(100dvh-190px)]",
-          SURFACE
+          SURFACE,
+          "max-md:h-auto max-md:min-h-0 max-md:flex-1 max-md:rounded-none max-md:border-0 max-md:shadow-none"
         )}
       >
-        <div className="flex items-center gap-3 border-b border-hairline px-3 py-2.5 sm:px-4">
+        <div
+          className={cn(
+            "flex items-center gap-3 border-b border-hairline px-3 py-2.5 sm:px-4",
+            // Phones show the title in the top bar, so this row is only the clip switcher there
+            // (hidden while the settings sheet is up, to keep the preview big).
+            clips.length > 1 && !sheet ? "max-md:justify-center max-md:py-2" : "max-md:hidden"
+          )}
+        >
           {clips.length > 1 && (
             <div
               role="tablist"
@@ -242,7 +333,7 @@ export function ClipEditor({
                     title={workspace.settingsFor(clip).title || clip.title}
                     onClick={() => setActiveId(clip.id)}
                     className={cn(
-                      "relative flex h-7 min-w-9 items-center justify-center rounded-full px-2.5 font-mono text-[12px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "relative flex h-8 min-w-10 items-center justify-center rounded-full px-2.5 font-mono text-[12px] outline-none md:h-7 md:min-w-9 transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
                       current
                         ? "bg-surface text-heading shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.12] dark:shadow-none"
                         : "text-subtle hover:text-heading"
@@ -256,9 +347,10 @@ export function ClipEditor({
               })}
             </div>
           )}
-          <label className="group flex min-w-0 flex-1 items-center gap-1.5 rounded-[10px] px-2 py-1 transition-colors focus-within:bg-(--app-fill) hover:bg-(--app-fill)">
+          <label className="group flex min-w-0 flex-1 items-center gap-1.5 rounded-[10px] px-2 py-1 transition-colors focus-within:bg-(--app-fill) hover:bg-(--app-fill) max-md:hidden">
             <input
               value={settings.title}
+              dir="auto"
               maxLength={90}
               onChange={(event) => change({ title: event.target.value })}
               placeholder="Name this clip"
@@ -284,6 +376,7 @@ export function ClipEditor({
           thumbnailUrl={project.thumbnailUrl}
           focus={tab === "hook" ? "hook" : "caption"}
           placing={placing}
+          compact={sheet}
           onAnchor={onAnchor}
           onRetry={() => workspace.retrySource(active)}
           onChange={change}
@@ -294,22 +387,40 @@ export function ClipEditor({
       <aside
         className={cn(
           "flex flex-col overflow-hidden rounded-[24px] xl:sticky xl:top-6 xl:h-[calc(100dvh-190px)] xl:min-h-[520px]",
-          SURFACE
+          SURFACE,
+          "max-md:shrink-0",
+          sheet
+            ? "max-md:relative max-md:z-10 max-md:-mt-3 max-md:h-[min(46dvh,460px)] max-md:rounded-b-none max-md:rounded-t-[22px] max-md:border-x-0 max-md:border-b-0 max-md:shadow-[0_-16px_40px_-20px_rgba(16,24,40,0.35)]"
+            : "max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:shadow-none"
         )}
       >
-        <div className="border-b border-hairline p-3">
-          <Segmented<SettingsTab>
-            label="Settings"
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: "captions", label: "Captions" },
-              { value: "hook", label: "Hook" },
-              { value: "video", label: "Video" },
-            ]}
-          />
+        <div className={cn("border-b border-hairline p-3", !sheet && "max-md:hidden")}>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <Segmented<SettingsTab>
+                label="Settings"
+                value={tab}
+                onChange={setTab}
+                options={SETTINGS_TABS.map(({ value, label }) => ({ value, label }))}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSheet(false)}
+              aria-label="Close settings"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-(--app-fill) text-heading outline-none transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-primary/40 md:hidden"
+            >
+              <ChevronDown className="h-[18px] w-[18px]" strokeWidth={2} />
+            </button>
+          </div>
         </div>
-        <div className="min-h-0 flex-1 xl:overflow-y-auto xl:[scrollbar-width:thin]">
+        <div
+          className={cn(
+            "min-h-0 flex-1 xl:overflow-y-auto xl:[scrollbar-width:thin]",
+            "max-md:overflow-y-auto max-md:overscroll-contain max-md:pb-[env(safe-area-inset-bottom)]",
+            !sheet && "max-md:hidden"
+          )}
+        >
           <ClipSettingsPanel
             tab={tab}
             thumbnailUrl={project.thumbnailUrl}
@@ -323,21 +434,10 @@ export function ClipEditor({
             onPlacing={setPlacing}
             onChange={change}
           />
+          {applyToAll && <div className="border-t border-hairline px-5 py-4 md:hidden">{applyToAll}</div>}
         </div>
-        <div className="border-t border-hairline p-4">
-          {clips.length > 1 && (
-            <button
-              type="button"
-              onClick={() => {
-                workspace.applyStyleToAll(active, clips);
-                setApplied(true);
-              }}
-              className="mb-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-hairline text-[13px] font-medium text-heading transition-colors hover:bg-(--app-fill)"
-            >
-              {applied ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Copy className="h-3.5 w-3.5" />}
-              {applied ? "Style applied to all clips" : `Apply this style to all ${clips.length} clips`}
-            </button>
-          )}
+        <div className="border-t border-hairline p-4 max-md:hidden">
+          {applyToAll && <div className="mb-3">{applyToAll}</div>}
           <PlasticButton
             className="h-12 w-full rounded-[18px] text-[15px]"
             text={clips.length > 1 ? `Export ${clips.length} clips` : "Export clip"}
@@ -346,6 +446,28 @@ export function ClipEditor({
           />
           <p className="mt-2.5 text-center text-[12px] text-subtle">Rendered in your browser in full HD.</p>
         </div>
+        {/* Phones: a tab bar at the foot; each tab opens the settings sheet */}
+        <nav
+          aria-label="Edit"
+          className={
+            sheet ? "hidden" : "grid grid-cols-3 px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 md:hidden"
+          }
+        >
+          {SETTINGS_TABS.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setTab(value);
+                setSheet(true);
+              }}
+              className="flex flex-col items-center gap-1 rounded-[14px] py-2 text-[11px] font-medium text-body outline-none transition-[background-color,transform] active:scale-95 active:bg-(--app-fill) focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Icon className="h-[22px] w-[22px] text-heading" strokeWidth={1.75} />
+              {label}
+            </button>
+          ))}
+        </nav>
       </aside>
     </div>
   );
@@ -396,7 +518,7 @@ function ToggleRow({
 }
 
 const INPUT =
-  "h-10 w-full rounded-[10px] border border-hairline bg-surface px-3.5 text-[14px] text-heading outline-none transition-[border-color,box-shadow] placeholder:text-subtle/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:bg-transparent";
+  "h-11 w-full rounded-[10px] border border-hairline bg-surface px-3.5 text-[16px] text-heading md:h-10 md:text-[14px] outline-none transition-[border-color,box-shadow] placeholder:text-subtle/60 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 dark:bg-transparent";
 
 // Swatches for the template picker: CSS stand-ins for what the painter draws.
 // The animated ones play their motion while hovered or selected (clip-swatch-* in globals.css).
@@ -677,7 +799,12 @@ function HookWordPicker({
     .map((text, index) => ({ text, index, key: wordKey(text) }))
     .filter((word) => word.key);
   return (
-    <div role="group" aria-label="Highlight words" className="flex flex-wrap gap-1.5">
+    <div
+      role="group"
+      aria-label="Highlight words"
+      dir={isRtlText(settings.hookText) ? "rtl" : "ltr"}
+      className="flex flex-wrap gap-1.5"
+    >
       {words.map((word) => {
         const on = emphasis.includes(word.key);
         return (
@@ -1142,8 +1269,8 @@ function PlacementPad({
         </div>
       </div>
       <p className="text-[12px] leading-snug text-subtle">
-        Drag the {noun} on the preview or in the frame, or a corner on the preview to resize. Arrow keys nudge, Shift
-        for bigger steps.
+        Drag the {noun} on the preview or in the frame, or a corner on the preview to resize.
+        <span className="[@media(pointer:coarse)]:hidden"> Arrow keys nudge, Shift for bigger steps.</span>
         {settings.aspect === "9:16" && " Hatched areas sit under the app's buttons."}
       </p>
     </div>
@@ -1223,6 +1350,7 @@ function ClipSettingsPanel({
               <>
                 <input
                   value={settings.hookText}
+                  dir="auto"
                   maxLength={80}
                   onChange={(event) => onChange({ hookText: event.target.value })}
                   placeholder="He lost everything in 24 hours"
@@ -1703,6 +1831,7 @@ function ClipPreview({
   thumbnailUrl,
   focus,
   placing,
+  compact,
   onAnchor,
   onRetry,
   onChange,
@@ -1718,6 +1847,8 @@ function ClipPreview({
   focus: Movable;
   /** Its position pad is in use: show it (even when not on screen now) and the app's safe zones. */
   placing: Movable | null;
+  /** Phones, with the settings sheet open: just the picture, no transport. */
+  compact: boolean;
   onAnchor: (what: Movable, anchor: Point | null) => void;
   onRetry: () => void;
   onChange: (patch: Partial<ClipEditSettings>) => void;
@@ -1776,8 +1907,10 @@ function ClipPreview({
   const [snap, setSnap] = useState({ x: false, y: false });
   const [captionCovered, setCaptionCovered] = useState(false);
   const [hookCovered, setHookCovered] = useState(false);
+  // No hover on a touch screen: a paused preview shows what can be moved instead.
+  const touch = useMediaQuery("(pointer: coarse)");
 
-  const latest = useRef({ settings, captions, offset, ranges, path, plan, placing, focus, onAnchor });
+  const latest = useRef({ settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor });
   const paint = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -1792,6 +1925,7 @@ function ClipPreview({
       plan: l,
       placing: pl,
       focus: f,
+      touch: tt,
       onAnchor: report,
     } = latest.current;
     const bg = backgroundRef.current;
@@ -1800,7 +1934,7 @@ function ClipPreview({
     setLiveLayout(scene?.layout ?? null);
     const paused = video.paused;
     const wants = (what: Movable) =>
-      pl === what || draggingRef.current === what || (f === what && hovering.current && paused);
+      pl === what || draggingRef.current === what || (f === what && (hovering.current || tt) && paused);
     const placed = painterRef.current({
       source: video,
       sourceWidth: video.videoWidth,
@@ -1848,11 +1982,11 @@ function ClipPreview({
   }, []);
 
   useEffect(() => {
-    latest.current = { settings, captions, offset, ranges, path, plan, placing, focus, onAnchor };
+    latest.current = { settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor };
     paint();
-  }, [settings, captions, offset, ranges, path, plan, placing, focus, onAnchor, paint]);
+  }, [settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor, paint]);
 
-  const fontKey = fontsFor(settings).join();
+  const fontKey = fontsFor(settings, words).join();
   useEffect(() => {
     void loadCaptionFonts(fontKey.split(",") as CaptionFont[]).then(paint);
   }, [fontKey, paint]);
@@ -2024,11 +2158,14 @@ function ClipPreview({
   const showZones = settings.aspect === "9:16" && moving !== null;
   const hasHook = settings.hookTitle && Boolean(settings.hookText.trim());
   /** Each handle: always outlined while placed, on stage hover when it's the tab's, else on its own hover. */
-  const handleVisibility = (what: Movable) => (placing === what ? "shown" : focus === what ? "stage" : "self");
+  const handleVisibility = (what: Movable) =>
+    placing === what || (touch && focus === what && !playing) ? "shown" : focus === what ? "stage" : "self";
   const reframing = usesTracking(settings) && !settings.bottomVideo;
   const clamped = Math.min(end, Math.max(start, time));
   const areaRef = useRef<HTMLDivElement>(null);
   const box = useFitBox(areaRef, size.width / size.height);
+  // A small preview (a phone with the settings sheet up) gets a shorter status card.
+  const narrow = box !== null && box.width < 240;
   // The stretch of source the timeline shows: the fetched cut, or the clip itself until it arrives.
   const from = Math.min(source?.from ?? start, start);
   const to = Math.max(source?.to ?? end, end);
@@ -2052,7 +2189,7 @@ function ClipPreview({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={cn("relative min-h-0 flex-1", STAGE_BACKDROP)}>
-        <div ref={areaRef} className="absolute inset-0 flex items-center justify-center p-5 sm:p-8">
+        <div ref={areaRef} className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
           <div
             className="group/stage relative overflow-hidden rounded-[20px] bg-black shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_24px_60px_-24px_rgba(16,24,40,0.5)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-24px_rgba(0,0,0,0.8)]"
             style={box ? { width: box.width, height: box.height } : { visibility: "hidden" }}
@@ -2200,7 +2337,12 @@ function ClipPreview({
                     className="absolute inset-0 h-full w-full object-cover opacity-50 blur-[2px]"
                   />
                 )}
-                <div className="absolute left-1/2 top-1/2 w-[min(320px,calc(100%-2.5rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/60 p-4 text-center text-white backdrop-blur-xl">
+                <div
+                  className={cn(
+                    "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/60 text-center text-white backdrop-blur-xl",
+                    narrow ? "w-[calc(100%-1.5rem)] p-3" : "w-[min(320px,calc(100%-2.5rem))] p-4"
+                  )}
+                >
                   {source?.status === "error" ? (
                     <>
                       <p className="text-[13px] leading-relaxed">{source.error}</p>
@@ -2215,7 +2357,9 @@ function ClipPreview({
                   ) : (
                     <>
                       <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                      <p className="mt-2.5 text-[13px] font-medium">Cutting this clip from the video</p>
+                      <p className="mt-2.5 text-[13px] font-medium">
+                        {narrow ? "Cutting this clip" : "Cutting this clip from the video"}
+                      </p>
                       {/* The server reads the video from the start to reach the clip; show where it is. */}
                       {source && source.from > 20 ? (
                         <>
@@ -2234,9 +2378,11 @@ function ClipPreview({
                       ) : (
                         <p className="mt-1 font-mono text-[12px] text-white/60">{formatClock(elapsed)}</p>
                       )}
-                      <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                        Clips later in the video take longer to reach.
-                      </p>
+                      {!narrow && (
+                        <p className="mt-2 text-[12px] leading-relaxed text-white/60">
+                          Clips later in the video take longer to reach.
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -2246,7 +2392,12 @@ function ClipPreview({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-hairline px-3 py-3 sm:gap-4 sm:px-4">
+      <div
+        className={cn(
+          "flex items-center gap-3 border-t border-hairline px-3 py-3 sm:gap-4 sm:px-4",
+          compact && "max-md:hidden"
+        )}
+      >
         <button
           type="button"
           onClick={toggle}
@@ -2368,7 +2519,7 @@ function MoveHandle({
           }}
           className={cn(
             // a 9px square with a 25px reach
-            "absolute h-[9px] w-[9px] rounded-[2.5px] transition-[transform,background-color] duration-150 before:absolute before:-inset-2 before:content-[''] hover:scale-[1.35]",
+            "absolute h-[9px] w-[9px] rounded-[2.5px] transition-[transform,background-color] duration-150 before:absolute before:-inset-2 before:content-[''] hover:scale-[1.35] [@media(pointer:coarse)]:before:-inset-4",
             grip.at,
             grip.cursor,
             // cn() doesn't merge classes, so the held and resting looks are kept apart
@@ -2693,7 +2844,7 @@ function Timeline({
         event.preventDefault();
       }}
       className={cn(
-        "absolute inset-y-0 z-10 flex w-3 cursor-ew-resize touch-none items-center justify-center bg-primary outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
+        "absolute inset-y-0 z-10 flex w-3 cursor-ew-resize touch-none items-center justify-center bg-primary outline-none before:absolute before:inset-y-0 before:-inset-x-1.5 before:content-[''] focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 [@media(pointer:coarse)]:before:-inset-x-3.5",
         edge === "start" ? "-left-px rounded-l-[9px]" : "-right-px rounded-r-[9px]"
       )}
     >

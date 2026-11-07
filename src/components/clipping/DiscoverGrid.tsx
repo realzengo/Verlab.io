@@ -31,7 +31,7 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
   });
 
   return (
-    <section className="mx-auto mt-20 w-full max-w-5xl sm:mt-24">
+    <section className="mx-auto mt-16 w-full max-w-5xl sm:mt-24">
       <div className="flex flex-col items-center text-center">
         <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-heading sm:text-[32px]">Or choose</h2>
         <p className="mt-1.5 text-sm text-subtle">Find a video worth clipping</p>
@@ -41,7 +41,7 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
             event.preventDefault();
             setQuery(draft.trim());
           }}
-          className="mt-6 flex h-11 w-full max-w-md items-center gap-2.5 rounded-full border border-hairline bg-surface pl-4 pr-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 dark:bg-white/[0.03]"
+          className="mt-5 flex h-12 w-full max-w-md items-center sm:mt-6 sm:h-11 gap-2.5 rounded-full border border-hairline bg-surface pl-4 pr-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 dark:bg-white/[0.03]"
         >
           <Search className="h-4 w-4 shrink-0 text-subtle" strokeWidth={1.75} />
           <input
@@ -53,18 +53,22 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
             }}
             placeholder="Search YouTube"
             aria-label="Search YouTube"
-            className="h-full min-w-0 flex-1 bg-transparent text-sm text-heading outline-none placeholder:text-subtle [&::-webkit-search-cancel-button]:hidden"
+            className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-heading outline-none sm:text-sm placeholder:text-subtle [&::-webkit-search-cancel-button]:hidden"
           />
           <button
             type="submit"
             aria-label="Search"
-            className="flex h-8 w-11 shrink-0 items-center justify-center rounded-full bg-(--app-fill) outline-none transition-colors hover:bg-(--app-fill-strong) focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="flex h-9 w-12 shrink-0 items-center justify-center rounded-full bg-(--app-fill) sm:h-8 sm:w-11 outline-none transition-colors hover:bg-(--app-fill-strong) focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <YouTubeIcon className="h-4 w-4" />
           </button>
         </form>
 
-        <div role="tablist" aria-label="Categories" className="mt-4 flex max-w-full flex-wrap justify-center gap-2">
+        <div
+          role="tablist"
+          aria-label="Categories"
+          className="-mx-4 mt-4 flex gap-2 self-stretch overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:max-w-full sm:flex-wrap sm:justify-center sm:self-auto sm:overflow-visible sm:px-0"
+        >
           {DISCOVER_CATEGORIES.map((item) => {
             const active = !query && category === item.id;
             return (
@@ -79,7 +83,7 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
                   setDraft("");
                 }}
                 className={cn(
-                  "h-8 rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-8 sm:px-3.5",
                   active
                     ? "border-transparent bg-heading text-surface dark:bg-white dark:text-[#0B0D12]"
                     : "border-hairline text-body hover:bg-(--app-fill) hover:text-heading"
@@ -92,7 +96,7 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-x-5 gap-y-7 sm:mt-8 sm:grid-cols-2 sm:gap-y-8 lg:grid-cols-3">
         {isLoading || (!data && !error)
           ? Array.from({ length: SKELETON_CARDS }, (_, index) => <VideoCardSkeleton key={index} />)
           : null}
@@ -124,7 +128,11 @@ function Stat({ icon: Icon, value, label }: { icon: typeof Eye; value: number | 
 
 function VideoCard({ video, onPick }: { video: ClipSourceVideo; onPick: () => void }) {
   return (
-    <button type="button" onClick={onPick} className="group flex flex-col text-left outline-none">
+    <button
+      type="button"
+      onClick={onPick}
+      className="group flex flex-col text-left outline-none transition-transform duration-150 active:scale-[0.985] sm:active:scale-100"
+    >
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-(--app-fill-strong) ring-primary/50 transition-shadow group-focus-visible:ring-2">
         {/* eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail */}
         <img
@@ -151,14 +159,18 @@ function VideoCard({ video, onPick }: { video: ClipSourceVideo; onPick: () => vo
       <div className="mt-3 flex gap-2.5">
         {video.channelAvatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- remote channel avatar
-          <img src={video.channelAvatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+          <img
+            src={video.channelAvatarUrl}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded-full object-cover sm:h-7 sm:w-7"
+          />
         ) : (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--app-fill-strong) text-[11px] font-semibold text-subtle">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--app-fill-strong) text-[11px] font-semibold text-subtle sm:h-7 sm:w-7">
             {video.channelTitle.charAt(0).toUpperCase()}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-[13px] font-medium leading-snug text-heading">{video.title}</p>
+          <p className="line-clamp-2 text-[14px] font-medium leading-snug text-heading sm:text-[13px]">{video.title}</p>
           <p className="mt-0.5 truncate text-[12px] text-subtle">{video.channelTitle}</p>
           <div className="mt-1.5 flex items-center gap-3 text-[12px] tabular-nums text-subtle">
             <Stat icon={Eye} value={video.views} label="views" />
