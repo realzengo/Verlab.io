@@ -93,7 +93,11 @@ export function Sidebar({
         collapsed ? "lg:w-16" : "lg:w-60"
       )}
     >
-      {/* 15px gutter centres the 32px mark on the same axis as the nav icons. */}
+      {/* One wordmark image in both states: collapsing narrows its clip box to
+          the mark (37px of the 122px-wide, 36px-tall logo), so the text slides
+          away and the "V" never swaps or moves. The mark's centre sits ~19px
+          into the image, so -ml-[3px] off the 15px gutter puts it on the nav
+          icons' axis. */}
       <div className="relative flex h-16 shrink-0 items-center justify-between px-[15px]">
         <button
           type="button"
@@ -103,31 +107,10 @@ export function Sidebar({
         >
           <span
             className={cn(
-              "relative block h-8 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
-              collapsed ? "w-8" : "w-[108px]"
+              "relative -ml-[3px] block h-9 shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+              collapsed ? "w-[37px]" : "w-[122px]"
             )}
           >
-            <Image
-              src="/logo-icon.png"
-              alt="Verlab Studio"
-              width={128}
-              height={128}
-              priority
-              draggable={false}
-              onContextMenu={(event) => event.preventDefault()}
-              className={cn(
-                "absolute left-0 top-0 h-8 w-8 object-contain transition-opacity duration-200 ease-in-out",
-                collapsed ? "opacity-100 group-hover:opacity-0" : "opacity-0"
-              )}
-            />
-            {collapsed && (
-              <span
-                aria-hidden="true"
-                className="absolute left-0 top-0 flex h-8 w-8 scale-90 items-center justify-center rounded-lg border border-hairline bg-surface opacity-0 transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
-              >
-                <ChevronRight className="h-4 w-4 text-subtle" />
-              </span>
-            )}
             <Image
               src="/logo-full-light.png"
               alt="Verlab Studio"
@@ -137,8 +120,8 @@ export function Sidebar({
               draggable={false}
               onContextMenu={(event) => event.preventDefault()}
               className={cn(
-                "absolute left-0 top-0 h-8 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
-                collapsed ? "opacity-0" : "opacity-100"
+                "absolute left-0 top-0 h-9 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:hidden",
+                collapsed && "group-hover:opacity-0"
               )}
             />
             <Image
@@ -150,13 +133,21 @@ export function Sidebar({
               draggable={false}
               onContextMenu={(event) => event.preventDefault()}
               className={cn(
-                "absolute left-0 top-0 hidden h-8 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
-                collapsed ? "opacity-0" : "opacity-100"
+                "absolute left-0 top-0 hidden h-9 w-auto max-w-none transition-opacity duration-200 ease-in-out dark:block",
+                collapsed && "group-hover:opacity-0"
               )}
             />
+            {collapsed && (
+              <span
+                aria-hidden="true"
+                className="absolute left-0.5 top-px flex h-[34px] w-[34px] scale-90 items-center justify-center rounded-lg border border-hairline bg-surface opacity-0 transition-all duration-200 ease-out group-hover:scale-100 group-hover:opacity-100"
+              >
+                <ChevronRight className="h-4 w-4 text-subtle" />
+              </span>
+            )}
           </span>
         </button>
-        <span className="relative block h-8 w-[108px] overflow-hidden lg:hidden">
+        <span className="relative -ml-[3px] block h-9 w-[122px] overflow-hidden lg:hidden">
           <Image
             src="/logo-full-light.png"
             alt="Verlab Studio"
@@ -164,7 +155,7 @@ export function Sidebar({
             height={178}
             draggable={false}
             onContextMenu={(event) => event.preventDefault()}
-            className="h-8 w-auto max-w-none dark:hidden"
+            className="h-9 w-auto max-w-none dark:hidden"
           />
           <Image
             src="/logo-full-dark.png"
@@ -173,7 +164,7 @@ export function Sidebar({
             height={178}
             draggable={false}
             onContextMenu={(event) => event.preventDefault()}
-            className="hidden h-8 w-auto max-w-none dark:block"
+            className="hidden h-9 w-auto max-w-none dark:block"
           />
         </span>
         <button
