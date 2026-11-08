@@ -111,7 +111,9 @@ const PHASE_TEXT: Record<NicheBendJobStatus, { statusText: string; progress: num
 
 // Deterministic QA hook: a source URL containing "fail" or "error" always
 // fails (without spending an API call) so the error UI is reachable on demand.
+// Dev only -- in production it failed real channels like FailArmy.
 function isFailureTrigger(sourceUrl: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   const haystack = sourceUrl.toLowerCase();
   return haystack.includes("fail") || haystack.includes("error");
 }

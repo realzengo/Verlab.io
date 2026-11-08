@@ -1,4 +1,19 @@
-import { connectApp, escapeHtml, openLink, sendChatMessage, LOGO_MARK } from "../../shared/host";
+import {
+  connectApp,
+  downloadUrl,
+  escapeHtml,
+  openLink,
+  sendChatMessage,
+  LOGO_MARK,
+  DOWNLOAD_ICON,
+  pollTool,
+  progressBlock,
+  renderErrorState,
+  stageList,
+  startElapsedTicker,
+  startedAtFor,
+  type ToolError,
+} from "../../shared/host";
 
 interface AnalyzedVideo {
   title: string;
@@ -19,20 +34,21 @@ interface CreatorAnalysisDetail {
   actionSteps: string[];
 }
 interface CreatorProfileData {
+  id?: string;
   status?: string;
   channelName?: string | null;
   videos?: AnalyzedVideo[];
   summary?: string | null;
   analysis?: CreatorAnalysisDetail;
-  docBase64?: string;
-  docFilename?: string;
-  note?: string;
-  error_message?: string | null;
+  docUrl?: string | null;
+  docFilename?: string | null;
 }
 
 const root = document.getElementById("root")!;
 let videos: AnalyzedVideo[] = [];
 let channelName = "Creator";
+let current: CreatorProfileData | null = null;
+let renderToken = 0;
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
@@ -73,7 +89,7 @@ function renderSection(title: string, body: string): string {
   `;
 }
 
-function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): string {
+function renderFullReport(analysis: CreatorAnalysisDetail, docUrl: string | null | undefined): string {
   const steps = analysis.actionSteps
     .map((step, index) => `<li class="v-step"><span class="v-step-num">${index + 1}</span><span>${escapeHtml(step)}</span></li>`)
     .join("");
@@ -87,22 +103,27 @@ function renderFullReport(analysis: CreatorAnalysisDetail, hasDoc: boolean): str
       <div class="v-report-heading">How to replicate this</div>
       <ol class="v-steps">${steps}</ol>
     </div>
-    ${
-      hasDoc
-        ? `<div class="v-doc-hint">${LOGO_MARK}<span>Full branded report ready. Ask Claude to save this as a Google Doc.</span></div>`
-        : ""
-    }
+    ${docUrl ? `<button type="button" class="v-btn v-btn-primary v-doc-btn" id="doc-download">${DOWNLOAD_ICON}Download the branded report (.docx)</button>` : ""}
   `;
 }
 
+function renderError(error: ToolError) {
+  renderToken++;
+  root.innerHTML = `
+    <div class="v-card v-enter">
+      <div class="v-header">${LOGO_MARK}<span class="v-title">${escapeHtml(channelName)}</span></div>
+      ${renderErrorState(error)}
+    </div>`;
+}
+
 function render(data: CreatorProfileData | null) {
+  const token = ++renderToken;
+  current = data;
   videos = data?.videos ?? [];
   channelName = data?.channelName ?? "Creator";
 
   let body: string;
-  if (data?.error_message) {
-    body = `<div class="v-error">${escapeHtml(data.error_message)}</div>`;
-  } else if (videos.length) {
+  if (data?.status === "complete" && videos.length) {
     const peakViews = videos[0]?.views ?? "N/A";
     body = `
       <div class="v-stat-row">
@@ -111,7 +132,7 @@ function render(data: CreatorProfileData | null) {
       </div>
       <div class="v-bench">${renderBars(videos)}</div>
       ${data?.summary ? `<p class="v-summary">${escapeHtml(data.summary)}</p>` : ""}
-      ${data?.analysis ? renderFullReport(data.analysis, Boolean(data.docBase64)) : ""}
+      ${data?.analysis ? renderFullReport(data.analysis, data.docUrl) : ""}
       <div class="v-quick-actions">
         <button type="button" class="v-quick-pill" id="action-hooks">Extract top hooks</button>
         <button type="button" class="v-quick-pill" id="action-script">Write a script in this style</button>
@@ -119,16 +140,32 @@ function render(data: CreatorProfileData | null) {
       <div class="v-quick-status" id="quick-status" hidden></div>
     `;
   } else {
-    body = `<div class="v-empty">${escapeHtml(data?.note ?? `Analyzing ${channelName}'s top videos…`)}</div>`;
+    body = `
+      ${progressBlock({ label: "Analyzing the creator", sublabel: "Scraping top videos and reading real transcripts -- about 1-3 minutes", startedAt: startedAtFor(data?.id) })}
+      ${stageList(["Finding their most-viewed videos", "Extracting transcripts", "Breaking down hooks, pacing and delivery"], 1)}`;
+    if (data?.id && data.status === "processing") {
+      void pollTool<CreatorProfileData>(app, {
+        tool: "check_creator_analysis_status",
+        args: { id: data.id },
+        isCurrent: () => token === renderToken,
+        isDone: (next) => next.status === "complete",
+        onUpdate: (next) => {
+          if (next.status === "complete") render(next);
+        },
+        onError: renderError,
+        intervalMs: 4000,
+        maxMs: 10 * 60_000,
+      });
+    }
   }
 
   root.innerHTML = `
-    <div class="v-card">
+    <div class="v-card v-enter">
       <div class="v-header">
         ${LOGO_MARK}
         <span class="v-title">${escapeHtml(channelName)}</span>
         <span class="v-spacer"></span>
-        ${data?.status ? `<span class="v-pill">${escapeHtml(data.status)}</span>` : ""}
+        ${data?.status === "complete" ? `<span class="v-pill v-pill-success">Complete</span>` : ""}
       </div>
       ${body}
     </div>
@@ -145,10 +182,12 @@ function showQuickStatus(message: string) {
   }, 3000);
 }
 
+startElapsedTicker();
 render(null);
 const app = connectApp({
   name: "Verlab Creator Analysis",
   onResult: (result) => render((result.structuredContent as CreatorProfileData | undefined) ?? null),
+  onError: renderError,
 });
 
 root.addEventListener("click", (event) => {
@@ -158,6 +197,11 @@ root.addEventListener("click", (event) => {
   if (bench) {
     const video = videos[Number(bench.dataset.index)];
     openLink(app, video?.url);
+    return;
+  }
+
+  if (target.closest("#doc-download") && current?.docUrl) {
+    void downloadUrl(app, current.docUrl, current.docFilename ?? "Creator Analysis.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     return;
   }
 

@@ -1,0 +1,96 @@
+.vc-stage {
+  display: flex;
+  justify-content: center;
+}
+
+.vc-frame {
+  height: min(460px, 78vw);
+  max-width: 100%;
+}
+
+.vc-frame video {
+  object-fit: contain;
+  background: #000;
+}
+
+.vc-rendering {
+  background: radial-gradient(120% 80% at 50% 0%, #1b2459 0%, #0b0d1a 60%, #07080f 100%);
+}
+
+.vc-glow {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 0deg, transparent 0 70%, rgba(91, 123, 255, 0.35) 80%, transparent 90%);
+  animation: vc-rotate 4s linear infinite;
+  filter: blur(30px);
+}
+
+.vc-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  text-align: center;
+  padding: 16px;
+}
+
+.vc-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #fff;
+  animation: vc-rotate 0.9s linear infinite;
+  margin-bottom: 6px;
+}
+
+.vc-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.vc-time {
+  font-family: var(--v-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.vc-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.vc-unavailable {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  padding: 24px;
+  text-align: center;
+}
+
+.vc-prompt {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@keyframes vc-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-glow,
+  .vc-spinner {
+    animation: none;
+  }
+}

@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { MCP_PUBLIC_ORIGIN } from "./links";
 
 // MCP App widgets run in a sandboxed iframe with a static per-resource CSP
 // (`_meta.ui.csp.resourceDomains`), so we can't allowlist the arbitrary,
@@ -19,11 +20,6 @@ function sign(url: string): string {
   return createHmac("sha256", secret()).update(url).digest("hex").slice(0, 32);
 }
 
-// The MCP route is served from one fixed URL for every user (see the
-// comment in src/app/api/mcp/route.ts), so the proxy origin is fixed too --
-// no need to thread the request origin through every tool handler.
-const VERLAB_ORIGIN = "https://verlab.io";
-
 /** Builds a same-origin, signed proxy URL for an external thumbnail image. */
 export function signThumbUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -35,7 +31,7 @@ export function signThumbUrl(url: string | null | undefined): string | null {
   }
 
   const params = new URLSearchParams({ u: url, sig: sign(url) });
-  return `${VERLAB_ORIGIN}/api/mcp/thumb?${params.toString()}`;
+  return `${MCP_PUBLIC_ORIGIN}/api/mcp/thumb?${params.toString()}`;
 }
 
 export function verifyThumbSignature(url: string, sig: string): boolean {

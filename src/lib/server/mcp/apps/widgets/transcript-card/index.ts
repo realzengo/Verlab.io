@@ -1,17 +1,35 @@
-import { connectApp, escapeHtml, openLink, LOGO_MARK, DOWNLOAD_ICON, CHEVRON_DOWN_ICON } from "../../shared/host";
+import {
+  connectApp,
+  copyText,
+  escapeHtml,
+  flashButton,
+  openLink,
+  sendChatMessage,
+  LOGO_MARK,
+  DOWNLOAD_ICON,
+  CHEVRON_DOWN_ICON,
+  COPY_ICON,
+  SPARK_ICON,
+  pollTool,
+  progressBlock,
+  renderErrorState,
+  startElapsedTicker,
+  startedAtFor,
+  type ToolError,
+} from "../../shared/host";
 
 interface Line {
   timestamp: string;
   text: string;
 }
 interface TranscriptData {
+  id?: string;
+  status?: string;
   title?: string | null;
   coverUrl?: string | null;
   videoUrl?: string | null;
   embedUrl?: string | null;
   lines?: Line[];
-  note?: string;
-  error_message?: string | null;
 }
 
 const root = document.getElementById("root")!;
@@ -19,6 +37,8 @@ let watchUrl: string | null = null;
 let currentLines: Line[] = [];
 let currentTitle = "transcript";
 let exportOpen = false;
+let currentId: string | null = null;
+let renderToken = 0;
 
 // Lines only carry a start timestamp ("M:SS" or "H:MM:SS", see
 // formatTimestamp in lib/server/video-provider.ts) -- there's no per-line
@@ -77,19 +97,29 @@ function slugify(text: string): string {
   );
 }
 
+function renderError(error: ToolError) {
+  renderToken++;
+  root.innerHTML = `
+    <div class="v-card v-enter">
+      <div class="v-header">${LOGO_MARK}<span class="v-title">Verlab Transcript</span></div>
+      ${renderErrorState(error)}
+    </div>`;
+}
+
 function render(data: TranscriptData | null) {
+  const token = ++renderToken;
+  currentId = data?.id ?? null;
   watchUrl = data?.videoUrl ?? data?.embedUrl ?? null;
   currentLines = data?.lines ?? [];
   currentTitle = data?.title ?? "transcript";
   exportOpen = false;
 
   let body: string;
-  if (data?.error_message) {
-    body = `<div class="v-error">${escapeHtml(data.error_message)}</div>`;
-  } else if (currentLines.length) {
+  if (currentLines.length) {
+    const words = currentLines.reduce((sum, line) => sum + line.text.split(/\s+/).filter(Boolean).length, 0);
     body = `
       <div class="v-meta">
-        <span>${currentLines.length} line${currentLines.length === 1 ? "" : "s"}</span>
+        <span>${currentLines.length} line${currentLines.length === 1 ? "" : "s"}</span><span class="v-meta-dot">&middot;</span><span>${words.toLocaleString()} words</span>
       </div>
       <div class="v-transcript">${currentLines
         .map(
@@ -108,13 +138,33 @@ function render(data: TranscriptData | null) {
         </div>
         <div class="v-export-status" id="export-status" hidden></div>
       </div>
+      <div class="v-quick-actions">
+        <button type="button" class="v-quick-pill" id="copy-all">${COPY_ICON}Copy text</button>
+        <button type="button" class="v-quick-pill" id="write-script">${SPARK_ICON}Write a script in this style</button>
+      </div>
+      <div class="v-quick-status" id="quick-status" hidden></div>
     `;
+  } else if (data?.status === "complete") {
+    body = `<div class="v-empty">No speech was found in this video.</div>`;
   } else {
-    body = `<div class="v-empty">${escapeHtml(data?.note ?? "Extracting transcript…")}</div>`;
+    body = progressBlock({ label: "Extracting transcript", sublabel: "Usually 10-60 seconds", startedAt: startedAtFor(data?.id) });
+    if (data?.id && data.status === "processing") {
+      void pollTool<TranscriptData>(app, {
+        tool: "check_transcript_status",
+        args: { id: data.id },
+        isCurrent: () => token === renderToken,
+        isDone: (next) => next.status === "complete",
+        onUpdate: (next) => {
+          if (next.status === "complete") render(next);
+        },
+        onError: renderError,
+        maxMs: 9 * 60_000,
+      });
+    }
   }
 
   root.innerHTML = `
-    <div class="v-card">
+    <div class="v-card v-enter">
       <div class="v-header">
         ${LOGO_MARK}
         ${data?.coverUrl ? `<img src="${escapeHtml(data.coverUrl)}" alt="">` : ""}
@@ -127,11 +177,21 @@ function render(data: TranscriptData | null) {
   `;
 }
 
+startElapsedTicker();
 render(null);
 const app = connectApp({
   name: "Verlab Transcript",
   onResult: (result) => render((result.structuredContent as TranscriptData | undefined) ?? null),
+  onError: renderError,
 });
+
+function showQuickStatus(message: string) {
+  const el = document.getElementById("quick-status");
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = message;
+  setTimeout(() => (el.hidden = true), 3500);
+}
 
 function closeExportPanel() {
   if (!exportOpen) return;
@@ -182,6 +242,23 @@ root.addEventListener("click", (event) => {
 
   if (target.closest("#watch-btn")) {
     openLink(app, watchUrl);
+    return;
+  }
+
+  const copyAll = target.closest<HTMLElement>("#copy-all");
+  if (copyAll) {
+    void copyText(buildTxt(currentLines)).then((ok) => flashButton(copyAll, ok ? `${COPY_ICON}Copied` : "Copy failed"));
+    return;
+  }
+
+  if (target.closest("#write-script")) {
+    sendChatMessage(
+      app,
+      currentId
+        ? `Write a new script in the style of this video, using generate_script with transcriptIds ["${currentId}"]. Ask me for the topic if you need it.`
+        : "Write a new script in the style of this transcript.",
+      showQuickStatus
+    );
     return;
   }
 

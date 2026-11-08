@@ -1,3 +1,32 @@
-.v-card .v-btn {
-  width: 100%;
+.dl-ready {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.dl-check {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-success);
+  color: var(--text-success);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.dl-check svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dl-ready-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
 }

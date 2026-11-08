@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Compass, Download, FileText, Image as ImageIcon, Subtitles, UserSearch } from "lucide-react";
+import { Clapperboard, Compass, FileText, GitBranch, Image as ImageIcon, Mic, Scissors, Subtitles, UserSearch } from "lucide-react";
 import { Nav } from "@/components/landing/Nav";
 import { Footer } from "@/components/landing/Footer";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
@@ -10,14 +10,14 @@ import { MCP_FAQ_ITEMS } from "@/lib/mock/faq";
 export const metadata: Metadata = {
   title: "MCP, Verlab AI",
   description:
-    "Connect Verlab to Claude and ChatGPT over MCP. Find niches, analyze creators, and generate scripts straight from your assistant.",
+    "Connect Verlab to Claude and ChatGPT over MCP. Find niches, analyze creators, write scripts, and make voiceovers, images, videos and clips straight from your assistant.",
 };
 
 const CAPABILITIES = [
   {
     icon: Compass,
     title: "Find niches",
-    description: "Surface faceless niches blowing up right now, with growth data pulled straight into chat.",
+    description: "Surface niches blowing up right now, matched to what you know, with real example videos.",
   },
   {
     icon: UserSearch,
@@ -25,24 +25,39 @@ const CAPABILITIES = [
     description: "Reverse-engineer a channel's real strategy from its actual transcripts, not just view counts.",
   },
   {
+    icon: GitBranch,
+    title: "Bend a niche into an SOP",
+    description: "Turn a competitor's proven format into a full script playbook for your own niche.",
+  },
+  {
     icon: FileText,
     title: "Generate scripts",
-    description: "Turn a niche or reference video into a ready-to-record script without leaving the chat.",
+    description: "Write ready-to-record scripts in a proven style, grounded in your SOP or reference videos.",
+  },
+  {
+    icon: Mic,
+    title: "Generate voiceovers",
+    description: "Narrate any script with ElevenLabs voices or your own cloned voice, playable right in chat.",
   },
   {
     icon: ImageIcon,
     title: "Generate images",
-    description: "Create thumbnails and visuals on the fly for whatever you're scripting.",
+    description: "Create thumbnails, scenes and characters, then hand them straight to the video generator.",
+  },
+  {
+    icon: Clapperboard,
+    title: "Generate videos",
+    description: "Render AI clips on Veo, Kling, Sora and more from a prompt or an image, played inline.",
+  },
+  {
+    icon: Scissors,
+    title: "Clip long videos",
+    description: "Turn a podcast or stream into scored viral clips with hooks, captions and hashtags.",
   },
   {
     icon: Subtitles,
-    title: "Extract transcripts",
-    description: "Pull a clean transcript from any video to study, translate, or repurpose.",
-  },
-  {
-    icon: Download,
-    title: "Download videos",
-    description: "Save reference videos straight from a link, no browser extension needed.",
+    title: "Transcripts & downloads",
+    description: "Pull a timestamped transcript or a watermark-free download from any video link.",
   },
 ];
 

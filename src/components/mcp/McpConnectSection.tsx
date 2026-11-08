@@ -43,8 +43,8 @@ export function McpConnectSection({ className, compact = false }: { className?: 
           </h1>
 
           <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600 sm:mt-6 sm:text-base dark:text-slate-400">
-            Connect Verlab to Claude over MCP and research niches, analyze creators, and generate scripts straight
-            from your prompts. The whole toolkit, driven by chat.
+            Connect Verlab to Claude over MCP and research niches, write scripts, and make voiceovers, videos and
+            clips straight from your prompts. The whole toolkit, driven by chat.
           </p>
 
           <div className="mt-6 flex w-full max-w-md items-center gap-2 rounded-full border-2 border-black/10 bg-white p-1.5 pl-4 sm:mt-8 sm:pl-6 dark:border-white/15 dark:bg-black">

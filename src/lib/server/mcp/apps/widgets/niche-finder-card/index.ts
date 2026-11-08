@@ -329,7 +329,7 @@ function applyResult(data: FindNicheData | null) {
 }
 
 const POLL_INTERVAL_MS = 4000;
-const MAX_POLLS = 45; // ~3 minutes
+const MAX_POLLS = 75; // ~5 minutes, the research job's own ceiling
 
 async function pollReport(id: string) {
   for (let i = 0; i < MAX_POLLS; i++) {
@@ -340,6 +340,9 @@ async function pollReport(id: string) {
       const data = result.structuredContent as FindNicheData | undefined;
       if (data?.stage === "result" && data.niches) {
         renderReport(data.platform ?? "both", data.niches, data.live ?? true);
+        // The model never saw this result (the card fetched it) -- hand it
+        // the report so follow-ups like "go with #2" work.
+        if (result.content?.length) void app.updateModelContext({ content: result.content }).catch(() => undefined);
         return;
       }
       if (data?.stage === "error") {
