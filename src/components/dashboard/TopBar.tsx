@@ -135,12 +135,14 @@ export function TopBar({
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {!isPaywalled && (
           // Landing's 3D blue CTA face (button3d), kept in the top bar's
-          // compact pill shape.
+          // compact pill shape. The 3px lip is drawn below the face, so the
+          // face is 33px and mb-[3px] reserves the lip: face + lip fill the
+          // same 36px box as the account pill beside it, centered together.
           <button
             type="button"
             onClick={() => setIsUpgradeOpen(true)}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-white",
+              "mb-[3px] flex h-[33px] items-center justify-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-white",
               BUTTON_3D_MOTION
             )}
             style={button3d(3)}
