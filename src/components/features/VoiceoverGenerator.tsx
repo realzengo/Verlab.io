@@ -17,6 +17,11 @@ import {
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { CreditCost } from "@/components/ui/CreditCost";
+import { PlasticButton } from "@/components/ui/plastic-button";
+import { TRAY_CHIP, TRAY_CHIP_OPEN } from "@/components/ui/PillDropdown";
+import { COMPOSER_RIM, COMPOSER_SHEET, COMPOSER_SHEET_STATIC, SHEET_RULE, SubmitHint } from "@/components/ui/ComposerKit";
+import { INK_TITLE } from "@/components/brand/BrandKit";
 import { IconButton } from "@/components/ui/IconButton";
 import { ProgressiveFluxLoader } from "@/components/ui/ProgressiveFluxLoader";
 import { HistoryPanel } from "@/components/features/voiceover-generator/HistoryPanel";
@@ -126,7 +131,6 @@ const PRIMARY_BUTTON =
   "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-btn-primary px-4 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.15),inset_0_1px_0_rgba(255,255,255,0.18)] transition-colors hover:bg-btn-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-45";
 const SECONDARY_BUTTON =
   "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-body ring-1 ring-inset ring-hairline transition-colors hover:bg-(--app-fill) hover:text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
-const PANEL = "rounded-2xl border border-hairline bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:shadow-none";
 const FIELD =
   "w-full rounded-lg border border-hairline bg-surface px-3 text-sm text-heading outline-none transition-colors hover:bg-(--app-fill) focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/15";
 const SECTION_LABEL = "text-[13px] font-medium text-heading";
@@ -182,7 +186,7 @@ function SegmentedControl<T extends string | number>({
           {value === option.value && (
             <motion.span
               layoutId={`${pillId}-active`}
-              transition={{ type: "spring", stiffness: 500, damping: 34 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className={SEGMENT_ACTIVE}
             />
           )}
@@ -198,6 +202,15 @@ function SegmentedControl<T extends string | number>({
 // The selected half of every segmented control on the page.
 const SEGMENT_ACTIVE = "absolute inset-0 rounded-md bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-black/[0.04] dark:bg-white/[0.1] dark:ring-white/[0.06]";
 
+// An [audio tag] in the footer hint, drawn the way the editor highlights it.
+function AudioTagSample({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-md bg-primary/[0.06] px-1 py-px font-mono text-[11px] text-primary shadow-[inset_0_0_0_1px_rgba(51,92,255,0.3)] dark:bg-primary/15 dark:text-blue-300">
+      {children}
+    </span>
+  );
+}
+
 // The explanation lives in the label's tooltip rather than an info icon
 // beside every control.
 function SettingLabel({ label, hint, value }: { label: string; hint: string; value?: string }) {
@@ -206,7 +219,7 @@ function SettingLabel({ label, hint, value }: { label: string; hint: string; val
       <span title={hint} className="cursor-help text-[13px] font-medium text-heading">
         {label}
       </span>
-      {value !== undefined && <span className="text-xs tabular-nums text-subtle">{value}</span>}
+      {value !== undefined && <span className="text-xs font-medium tabular-nums text-heading">{value}</span>}
     </div>
   );
 }
@@ -576,6 +589,13 @@ export function VoiceoverGenerator() {
   const [playingCloneId, setPlayingCloneId] = useState<string | null>(null);
   const [deletingCloneId, setDeletingCloneId] = useState<string | null>(null);
   const cloneAudioRef = useRef<HTMLAudioElement | null>(null);
+  // The picked voice's static sample, played from its card.
+  const voicePreviewRef = useRef<HTMLAudioElement | null>(null);
+  const [isVoicePreviewPlaying, setIsVoicePreviewPlaying] = useState(false);
+  // Generate never greys out: pressed with no script it says so and puts
+  // the cursor in the editor (same as the image and video generators).
+  const [scriptHint, setScriptHint] = useState(false);
+  const scriptRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [view, setView] = useState<View>("input");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -647,6 +667,31 @@ export function VoiceoverGenerator() {
   const currentModel = ELEVENLABS_MODELS.find((m) => m.id === modelId) ?? ELEVENLABS_MODELS[0];
   const discreteStability = hasDiscreteStability(currentModel.id);
   const showLanguage = supportsLanguageSelection(currentModel.id);
+
+  // A new voice stops the previous one's sample (its onPause clears the state).
+  useEffect(() => {
+    voicePreviewRef.current?.pause();
+  }, [voiceId]);
+
+  function toggleVoicePreview() {
+    const audio = voicePreviewRef.current;
+    if (!audio || !elevenLabsVoice.previewUrl) return;
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+    audio.src = elevenLabsVoice.previewUrl;
+    void audio.play().catch(() => setIsVoicePreviewPlaying(false));
+  }
+
+  function submitScript() {
+    if (!script.trim()) {
+      setScriptHint(true);
+      scriptRef.current?.focus();
+      return;
+    }
+    void handleGenerate();
+  }
 
   function selectElevenLabsVoice(voice: ElevenLabsVoice) {
     setElevenLabsVoice(voice);
@@ -1147,6 +1192,13 @@ export function VoiceoverGenerator() {
   return (
     <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
       <audio ref={cloneAudioRef} className="hidden" onEnded={() => setPlayingCloneId(null)} />
+      <audio
+        ref={voicePreviewRef}
+        className="hidden"
+        onPlay={() => setIsVoicePreviewPlaying(true)}
+        onPause={() => setIsVoicePreviewPlaying(false)}
+        onEnded={() => setIsVoicePreviewPlaying(false)}
+      />
       <VoiceLibraryModal
         isOpen={isVoiceModalOpen}
         onClose={closeVoiceModal}
@@ -1174,11 +1226,11 @@ export function VoiceoverGenerator() {
       />
 
       <div className="mx-auto w-full max-w-7xl">
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">
+        <header className="mb-8">
+          <h1 className={cn(INK_TITLE, "text-[32px] leading-[1.1] tracking-[-0.03em] sm:text-[40px]")}>
             {view === "editor" ? "Edit voiceover" : "Create voiceover"}
           </h1>
-          <p className="mt-1.5 text-sm text-subtle">Turn a script into natural-sounding narration.</p>
+          <p className="mt-2 text-sm text-subtle sm:text-[15px]">Turn a script into natural-sounding narration</p>
         </header>
 
         {generationError && (
@@ -1187,9 +1239,10 @@ export function VoiceoverGenerator() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* ── Left column: main workspace ───────────────────────────── */}
-          <div className={cn(PANEL, "relative flex min-h-[600px] flex-col overflow-hidden")}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_372px]">
+          {/* ── Left column: main workspace, in the composer bezel ─────── */}
+          <div className={cn(COMPOSER_RIM, "flex")}>
+          <div className={cn(COMPOSER_SHEET, "relative flex min-h-[600px] flex-1 flex-col overflow-hidden")}>
             {view !== "editor" && (
               <>
                 <div className="flex flex-1 flex-col">
@@ -1200,12 +1253,12 @@ export function VoiceoverGenerator() {
                     aria-label="Title"
                     disabled={view === "loading"}
                     maxLength={NAME_MAX}
-                    className="w-full bg-transparent px-5 pt-5 text-lg font-semibold tracking-[-0.01em] text-heading outline-none placeholder:text-subtle/70 disabled:opacity-60"
+                    className="w-full bg-transparent px-6 pt-6 text-xl font-semibold tracking-[-0.02em] text-heading outline-none placeholder:text-[#9AA0AB] disabled:opacity-60 dark:placeholder:text-zinc-600"
                   />
 
                   {view === "loading" ? (
                     <div className="relative flex flex-1 flex-col items-center justify-center gap-3 px-6">
-                      <span className="absolute right-5 top-3 text-xs text-subtle">Usually 1–3 minutes</span>
+                      <span className="absolute right-6 top-3 text-xs text-subtle">Usually 1–3 minutes</span>
                       <ProgressiveFluxLoader
                         phases={VOICEOVER_LOADING_PHASES}
                         value={loadingProgress}
@@ -1214,35 +1267,44 @@ export function VoiceoverGenerator() {
                   ) : (
                     <>
                       <ScriptTextarea
+                        textareaRef={scriptRef}
                         value={script}
-                        onChange={(value) => setScript(value.slice(0, MAX_SCRIPT_CHARS))}
+                        onChange={(value) => {
+                          setScript(value.slice(0, MAX_SCRIPT_CHARS));
+                          setScriptHint(false);
+                        }}
+                        onSubmit={submitScript}
                         highlightTags
-                        placeholder="Type or paste your script…"
+                        placeholder="Type or paste your script"
                         maxLength={MAX_SCRIPT_CHARS}
                         className="mt-2 min-h-[300px] flex-1"
-                        paddingClassName="px-5 pb-4"
+                        paddingClassName="px-6 pb-4"
                       />
                     </>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
+                <div className={cn("flex items-center justify-between gap-3 border-t py-3 pl-6 pr-3", SHEET_RULE)}>
                   <span className="min-w-0 truncate text-xs text-subtle">
-                    <span className="tabular-nums">
+                    <span className="font-mono tabular-nums">
                       {charCount.toLocaleString()} / {MAX_SCRIPT_CHARS.toLocaleString()}
                     </span>
                     {supportsAudioTags(currentModel.id) && view !== "loading" && (
-                      <span className="ml-3 hidden lg:inline">Audio tags like [excited] or [whispers] work with {currentModel.name}</span>
+                      <span className="ml-4 hidden lg:inline">
+                        Tags like <AudioTagSample>[excited]</AudioTagSample> or <AudioTagSample>[whispers]</AudioTagSample> work with{" "}
+                        {currentModel.name}
+                      </span>
                     )}
                   </span>
                   <div className="flex shrink-0 items-center gap-3">
-                    {script.trim() && <span className="text-xs tabular-nums text-subtle">{creditsLabel(estimatedCredits)}</span>}
-                    <PrimaryButton
+                    <SubmitHint hint={scriptHint && !script.trim() ? "Write a script first" : null} />
+                    <PlasticButton
                       text="Generate"
                       loading={view === "loading"}
                       loadingText="Generating…"
-                      disabled={!script.trim()}
-                      onClick={handleGenerate}
+                      onClick={submitScript}
+                      trailing={script.trim() ? <CreditCost amount={estimatedCredits} className="text-blue-200/80" /> : undefined}
+                      className="shrink-0 !px-5 !py-2.5 font-semibold"
                     />
                   </div>
                 </div>
@@ -1251,9 +1313,9 @@ export function VoiceoverGenerator() {
 
             {view === "editor" && generationId && (
               <>
-                <div className="flex items-start justify-between gap-3 px-5 pt-5">
+                <div className="flex items-start justify-between gap-3 px-6 pt-6">
                   <div className="min-w-0">
-                    <h2 className="truncate text-lg font-semibold tracking-[-0.01em] text-heading">{title || "Untitled script"}</h2>
+                    <h2 className="truncate text-xl font-semibold tracking-[-0.02em] text-heading">{title || "Untitled script"}</h2>
                     <p className="mt-0.5 text-xs text-subtle">
                       {[
                         `${segments.length} segment${segments.length === 1 ? "" : "s"}`,
@@ -1270,7 +1332,7 @@ export function VoiceoverGenerator() {
                   </button>
                 </div>
 
-                <div className="mt-4 flex gap-5 border-b border-hairline px-5">
+                <div className={cn("mt-4 flex gap-5 border-b px-6", SHEET_RULE)}>
                   {(
                     [
                       { key: "audio", label: "Audio" },
@@ -1301,20 +1363,22 @@ export function VoiceoverGenerator() {
                       placeholder="Type or paste your script…"
                       maxLength={MAX_SCRIPT_CHARS}
                       className="min-h-[300px] flex-1"
-                      paddingClassName="px-5 py-4"
+                      paddingClassName="px-6 py-4"
+                      onSubmit={() => void handleGenerate()}
                     />
-                    <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
-                      <span className="text-xs tabular-nums text-subtle">
+                    <div className={cn("flex items-center justify-between gap-3 border-t py-3 pl-6 pr-3", SHEET_RULE)}>
+                      <span className="font-mono text-xs tabular-nums text-subtle">
                         {charCount.toLocaleString()} / {MAX_SCRIPT_CHARS.toLocaleString()}
                       </span>
                       <div className="flex shrink-0 items-center gap-3">
-                        {script.trim() && <span className="text-xs tabular-nums text-subtle">{creditsLabel(estimatedCredits)}</span>}
-                        <PrimaryButton
+                        <PlasticButton
                           text="Regenerate"
                           loading={isGenerating}
                           loadingText="Regenerating…"
                           disabled={!script.trim()}
                           onClick={handleGenerate}
+                          trailing={script.trim() ? <CreditCost amount={estimatedCredits} className="text-blue-200/80" /> : undefined}
+                          className="shrink-0 !px-5 !py-2.5 font-semibold"
                         />
                       </div>
                     </div>
@@ -1431,7 +1495,7 @@ export function VoiceoverGenerator() {
                       )}
                     </div>
 
-                    <div className="border-t border-hairline px-5 py-4">
+                    <div className={cn("border-t px-6 py-4", SHEET_RULE)}>
                     <Timeline
                       durations={durations.length > 0 ? durations : [1]}
                       currentTime={currentTime}
@@ -1461,13 +1525,18 @@ export function VoiceoverGenerator() {
                           <SkipForward className="h-4 w-4" />
                         </IconButton>
                       </div>
-                      <PrimaryButton
-                        text="Download"
+                      <PlasticButton
+                        text={
+                          <>
+                            <Download className="h-4 w-4" />
+                            Download
+                          </>
+                        }
                         loading={isExporting}
                         loadingText="Exporting…"
                         disabled={segments.length === 0}
                         onClick={handleExport}
-                        icon={<Download className="h-4 w-4" />}
+                        className="shrink-0 !px-5 !py-2.5 font-semibold"
                       />
                     </div>
                     </div>
@@ -1476,13 +1545,16 @@ export function VoiceoverGenerator() {
               </>
             )}
           </div>
+          </div>
 
-          {/* ── Right column: settings / history sidebar ──────────────── */}
+          {/* ── Right column: settings / history, in the same bezel. The
+              tabs sit on the rim like the generators' settings tray, and
+              the active one lifts onto a white chip. ─────────────────── */}
           <div className="relative">
               <div
                 className={cn(
-                  PANEL,
-                  "flex flex-col overflow-hidden",
+                  COMPOSER_RIM,
+                  "flex flex-col",
                   // History needs the full column height to size its own scroll
                   // area (see HistoryPanel's h-full max-h-[720px]); Settings has
                   // no such need and should just hug its content instead of
@@ -1490,7 +1562,7 @@ export function VoiceoverGenerator() {
                   sidebarTab === "history" && "h-full"
                 )}
               >
-                <div className="flex shrink-0 gap-5 border-b border-hairline px-5 pt-4">
+                <div role="tablist" aria-label="Sidebar" className="flex shrink-0 items-center gap-1 px-[11px] pb-1.5">
                   {(
                     [
                       { key: "settings", label: "Settings" },
@@ -1500,17 +1572,17 @@ export function VoiceoverGenerator() {
                     <button
                       key={key}
                       type="button"
+                      role="tab"
                       onClick={() => setSidebarTab(key)}
-                      aria-pressed={sidebarTab === key}
-                      className={cn(
-                        "-mb-px border-b-2 pb-2.5 text-sm font-medium transition-colors",
-                        sidebarTab === key ? "border-heading text-heading" : "border-transparent text-subtle hover:text-heading"
-                      )}
+                      aria-selected={sidebarTab === key}
+                      className={cn(TRAY_CHIP, sidebarTab === key && TRAY_CHIP_OPEN)}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
+
+                <div className={cn(COMPOSER_SHEET_STATIC, "flex min-h-0 flex-1 flex-col overflow-hidden")}>
 
                   {sidebarTab === "history" ? (
                     <HistoryPanel onSelect={(item) => void loadGeneration(item.id)} selectingId={selectingHistoryId} refreshSignal={historyRefreshSignal} />
@@ -1518,23 +1590,54 @@ export function VoiceoverGenerator() {
                     <div>
                     <div className="p-5">
                       <h2 className={SECTION_LABEL}>Voice</h2>
-                    <button
-                    type="button"
-                    onClick={() => setIsVoiceModalOpen(true)}
-                    className="group/row mt-2.5 flex w-full items-center gap-3 rounded-xl border border-hairline p-3 text-left transition-colors hover:bg-(--app-fill)"
-                    >
-                    <Avatar name={selectedClone ? selectedClone.name : elevenLabsVoice.name} size="md" hideInitials />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : elevenLabsVoice.name}</p>
-                      <p className="mt-0.5 truncate text-xs text-subtle">
-                        {selectedClone ? "Your cloned voice" : voiceMeta(elevenLabsVoice)}
-                      </p>
+                    <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-hairline py-2.5 pl-2.5 pr-1.5">
+                      {selectedClone || !elevenLabsVoice.previewUrl ? (
+                        <Avatar name={selectedClone ? selectedClone.name : elevenLabsVoice.name} size="lg" hideInitials />
+                      ) : (
+                        // The voice's own sample: the one place on the page
+                        // you can hear the voice before spending credits.
+                        <button
+                          type="button"
+                          onClick={toggleVoicePreview}
+                          aria-label={isVoicePreviewPlaying ? "Stop sample" : `Play ${elevenLabsVoice.name}'s sample`}
+                          title={isVoicePreviewPlaying ? "Stop sample" : "Play sample"}
+                          className="group/preview relative shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <Avatar name={elevenLabsVoice.name} size="lg" hideInitials />
+                          <span
+                            className={cn(
+                              "absolute inset-0 flex items-center justify-center rounded-full bg-black/30 text-white transition-opacity duration-150",
+                              isVoicePreviewPlaying ? "opacity-100" : "opacity-0 group-hover/preview:opacity-100 [@media(hover:none)]:opacity-100"
+                            )}
+                          >
+                            {isVoicePreviewPlaying ? (
+                              <Pause className="h-4 w-4" fill="currentColor" />
+                            ) : (
+                              <Play className="h-4 w-4 translate-x-px" fill="currentColor" />
+                            )}
+                          </span>
+                          {isVoicePreviewPlaying && <span aria-hidden="true" className="absolute -inset-[3px] rounded-full ring-2 ring-[#335cff] dark:ring-[#5c7cff]" />}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsVoiceModalOpen(true)}
+                        className="group/row flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pl-0.5 pr-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-heading">{selectedClone ? selectedClone.name : elevenLabsVoice.name}</p>
+                          <p className="mt-0.5 truncate text-xs text-subtle">
+                            {selectedClone ? "Your cloned voice" : voiceMeta(elevenLabsVoice)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-body transition-colors group-hover/row:bg-(--app-fill) group-hover/row:text-heading">
+                          Change
+                        </span>
+                      </button>
                     </div>
-                    <span className="shrink-0 text-xs font-medium text-subtle transition-colors group-hover/row:text-heading">Change</span>
-                    </button>
                   </div>
 
-                  <div className="border-t border-hairline p-5">
+                  <div className={cn("border-t p-5", SHEET_RULE)}>
                     <h2 className={SECTION_LABEL}>Model</h2>
                     <button
                     type="button"
@@ -1569,7 +1672,7 @@ export function VoiceoverGenerator() {
                               <span className="block truncate text-sm font-medium text-heading">{model.name}</span>
                               {details.length > 0 && <span className="mt-0.5 block truncate text-xs text-subtle">{details.join(" · ")}</span>}
                             </span>
-                            {selected && <Check className="h-4 w-4 shrink-0 text-heading" />}
+                            {selected && <Check className="h-4 w-4 shrink-0 text-[#335cff] dark:text-[#7d97ff]" />}
                           </button>
                         );
                       })}
@@ -1595,7 +1698,7 @@ export function VoiceoverGenerator() {
                   )}
                 </div>
 
-                <div className="border-t border-hairline p-5">
+                <div className={cn("border-t p-5", SHEET_RULE)}>
                   <h2 className={SECTION_LABEL}>Generation mode</h2>
 
                   <div className="relative mt-2.5 flex shrink-0 rounded-lg bg-(--app-fill) p-0.5">
@@ -1614,7 +1717,7 @@ export function VoiceoverGenerator() {
                         {generationMode === key && (
                           <motion.span
                             layoutId={`${generationModePillId}-active`}
-                            transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                             className={SEGMENT_ACTIVE}
                           />
                         )}
@@ -1636,7 +1739,7 @@ export function VoiceoverGenerator() {
                   </p>
                 </div>
 
-                <div className="border-t border-hairline p-5">
+                <div className={cn("border-t p-5", SHEET_RULE)}>
                   <div className="flex items-center justify-between">
                     <h2 className={SECTION_LABEL}>Voice settings</h2>
                     <button
@@ -1731,6 +1834,7 @@ export function VoiceoverGenerator() {
                 </div>
                   </div>
                 )}
+                </div>
               </div>
           </div>
         </div>

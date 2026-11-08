@@ -241,60 +241,64 @@ export function VoiceoverSkeleton() {
     <div role="status" aria-label="Loading" className="pt-2">
       <div className="w-full px-0 pt-8 pb-16 sm:px-6 sm:pt-10">
         <div className="mx-auto w-full max-w-7xl">
-          <header className="mb-6">
-            <Skeleton className="h-7 w-56 rounded-full sm:h-8" />
-            <Skeleton className="mt-2.5 h-4 w-72 max-w-full rounded-full" />
+          <header className="mb-8">
+            <Skeleton className="h-9 w-64 rounded-xl sm:h-11 sm:w-80" />
+            <Skeleton className="mt-3 h-4 w-72 max-w-full rounded-full" />
           </header>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            {/* Script workspace */}
-            <div className={`${VOICEOVER_PANEL} flex min-h-[600px] flex-col overflow-hidden`}>
-              <div className="flex flex-1 flex-col px-5 pt-5">
-                <Skeleton className="h-6 w-48 rounded-full" />
-                <div className="mt-6 flex flex-col gap-3">
-                  <Skeleton className="h-3.5 w-full rounded-full" />
-                  <Skeleton className="h-3.5 w-11/12 rounded-full" />
-                  <Skeleton className="h-3.5 w-4/5 rounded-full" />
-                  <Skeleton className="h-3.5 w-2/3 rounded-full" />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_372px]">
+            {/* Script workspace: the composer bezel */}
+            <div className="flex rounded-[28px] border border-hairline p-1.5">
+              <div className={`${VOICEOVER_PANEL} flex min-h-[600px] flex-1 flex-col overflow-hidden rounded-[22px]`}>
+                <div className="flex flex-1 flex-col px-6 pt-6">
+                  <Skeleton className="h-6 w-48 rounded-full" />
+                  <div className="mt-6 flex flex-col gap-3">
+                    <Skeleton className="h-3.5 w-full rounded-full" />
+                    <Skeleton className="h-3.5 w-11/12 rounded-full" />
+                    <Skeleton className="h-3.5 w-4/5 rounded-full" />
+                    <Skeleton className="h-3.5 w-2/3 rounded-full" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-5 pr-3">
-                <Skeleton className="h-3 w-24 rounded-full" />
-                <Skeleton className="h-9 w-28 rounded-lg" />
+                <div className="flex items-center justify-between gap-3 border-t border-hairline py-3 pl-6 pr-3">
+                  <Skeleton className="h-3 w-24 rounded-full" />
+                  <Skeleton className="h-10 w-32 rounded-2xl" />
+                </div>
               </div>
             </div>
 
-            {/* Settings sidebar */}
-            <div className={`${VOICEOVER_PANEL} flex flex-col overflow-hidden`}>
-              <div className="flex gap-5 border-b border-hairline px-5 pt-4">
-                <Skeleton className="mb-3 h-4 w-16 rounded-full" />
-                <Skeleton className="mb-3 h-4 w-14 rounded-full" />
+            {/* Settings sidebar: tabs on the rim, sections in the sheet */}
+            <div className="flex flex-col rounded-[28px] border border-hairline p-1.5">
+              <div className="flex h-8 items-center gap-5 px-[21px]">
+                <Skeleton className="h-3.5 w-14 rounded-full" />
+                <Skeleton className="h-3.5 w-12 rounded-full" />
               </div>
-              <div className="p-5">
-                <Skeleton className="h-3 w-12 rounded-full" />
-                <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-hairline p-3">
-                  <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Skeleton className="h-3.5 w-28 rounded-full" />
-                    <Skeleton className="h-3 w-20 rounded-full" />
+              <div className={`${VOICEOVER_PANEL} mt-1.5 flex flex-col overflow-hidden rounded-[22px]`}>
+                <div className="p-5">
+                  <Skeleton className="h-3 w-12 rounded-full" />
+                  <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-hairline p-2.5">
+                    <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+                    <div className="flex flex-1 flex-col gap-2">
+                      <Skeleton className="h-3.5 w-28 rounded-full" />
+                      <Skeleton className="h-3 w-20 rounded-full" />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="border-t border-hairline p-5">
-                <Skeleton className="h-3 w-12 rounded-full" />
-                <Skeleton className="mt-2.5 h-10 w-full rounded-lg" />
-                <Skeleton className="mt-3 h-3 w-4/5 rounded-full" />
-              </div>
-              <div className="flex flex-col gap-5 border-t border-hairline p-5">
-                {[0, 1, 2].map((i) => (
-                  <div key={i}>
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="h-3 w-20 rounded-full" />
-                      <Skeleton className="h-3 w-8 rounded-full" />
+                <div className="border-t border-hairline p-5">
+                  <Skeleton className="h-3 w-12 rounded-full" />
+                  <Skeleton className="mt-2.5 h-10 w-full rounded-lg" />
+                  <Skeleton className="mt-3 h-3 w-4/5 rounded-full" />
+                </div>
+                <div className="flex flex-col gap-5 border-t border-hairline p-5">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i}>
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-3 w-20 rounded-full" />
+                        <Skeleton className="h-3 w-8 rounded-full" />
+                      </div>
+                      <Skeleton className="mt-3 h-1 w-full rounded-full" />
                     </div>
-                    <Skeleton className="mt-3 h-1 w-full rounded-full" />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

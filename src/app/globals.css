@@ -2065,12 +2065,20 @@ html[data-scrolling="true"] *::after {
   background: transparent;
   cursor: pointer;
 }
+/* Verlab blue for the filled side -- the voice's levels are the one place
+   the settings sidebar carries the brand color. */
+.voiceover-range {
+  --range-fill: #335cff;
+}
+.dark .voiceover-range {
+  --range-fill: #5c7cff;
+}
 .voiceover-range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 9999px;
   background: linear-gradient(
     to right,
-    var(--color-heading) var(--fill, 0%),
+    var(--range-fill) var(--fill, 0%),
     var(--app-fill-strong, rgba(16, 24, 40, 0.08)) var(--fill, 0%)
   );
 }
@@ -2082,7 +2090,7 @@ html[data-scrolling="true"] *::after {
 .voiceover-range::-moz-range-progress {
   height: 4px;
   border-radius: 9999px;
-  background: var(--color-heading);
+  background: var(--range-fill);
 }
 .voiceover-range::-webkit-slider-thumb {
   appearance: none;

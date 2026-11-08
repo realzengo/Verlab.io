@@ -10,9 +10,17 @@ import { useSyncExternalStore } from "react";
 export const COMPOSER_RIM =
   "rounded-[28px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.03]";
 
-/** The white sheet; pair with px-5 so the tray's chips land on its text column. */
+/** The white sheet without a focus state -- for a rim that holds settings rather than a prompt. */
+export const COMPOSER_SHEET_STATIC =
+  "rounded-[22px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[#141417] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+
+/** The white prompt sheet; pair with px-5 so the tray's chips land on its text column. */
 export const COMPOSER_SHEET =
-  "rounded-[22px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 dark:border-white/[0.07] dark:bg-[#141417] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+  COMPOSER_SHEET_STATIC +
+  " transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10";
+
+/** A hairline between sections inside a sheet. */
+export const SHEET_RULE = "border-[#EEF0F2] dark:border-white/[0.06]";
 
 /** The settings tray: px-[11px] plus a tray chip's own 10px puts each chip's content on the sheet's px-5 text column. */
 export const COMPOSER_TRAY = "flex flex-wrap items-center gap-1 px-[11px] pt-1.5";

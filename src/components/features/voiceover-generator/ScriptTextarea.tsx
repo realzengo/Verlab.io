@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils";
 
 // Eleven v3 audio tags, e.g. [angry], [whispers], [laughs harder].
@@ -38,6 +38,8 @@ export function ScriptTextarea({
   maxLength,
   className,
   paddingClassName,
+  onSubmit,
+  textareaRef,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -48,10 +50,13 @@ export function ScriptTextarea({
   className?: string;
   /** Text inset, shared by the textarea and the highlight layer so they line up. */
   paddingClassName: string;
+  /** Called on ⌘/Ctrl+Enter. */
+  onSubmit?: () => void;
+  textareaRef?: Ref<HTMLTextAreaElement>;
 }) {
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const shared = cn(
-    "h-full w-full whitespace-pre-wrap break-words text-sm font-normal leading-relaxed [scrollbar-gutter:stable]",
+    "h-full w-full whitespace-pre-wrap break-words text-[15px] font-normal leading-7 [scrollbar-gutter:stable]",
     paddingClassName
   );
 
@@ -65,8 +70,15 @@ export function ScriptTextarea({
         </div>
       )}
       <textarea
+        ref={textareaRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (onSubmit && event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            onSubmit();
+          }
+        }}
         onScroll={(event) => {
           if (backdropRef.current) backdropRef.current.scrollTop = event.currentTarget.scrollTop;
         }}
@@ -74,7 +86,7 @@ export function ScriptTextarea({
         maxLength={maxLength}
         className={cn(
           shared,
-          "relative flex-1 resize-none overflow-y-auto bg-transparent outline-none placeholder:font-normal placeholder:text-subtle",
+          "relative flex-1 resize-none overflow-y-auto bg-transparent outline-none placeholder:font-normal placeholder:text-[#9AA0AB] dark:placeholder:text-zinc-500",
           highlightTags ? "text-transparent caret-heading selection:bg-primary/25" : "text-body"
         )}
       />
