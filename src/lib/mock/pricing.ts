@@ -10,7 +10,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       { text: "1,250 Credits (Across every AI tool)" },
       { text: "20 Niche Bends (Per month)" },
-      { text: "Niche Finder (Spot trending niches early)" },
       { text: "AI Script Writer (Generate & edit scripts)" },
       { text: "AI Image Generator (Thumbnails & cover art)" },
       { text: "AI Video Generator (Veo 3, Kling 3.0, Seedance 2 & more)" },
@@ -69,7 +68,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { feature: "AI image generation", core: true, pro: true, scale: true },
   { feature: "AI video generation", core: true, pro: true, scale: true },
   { feature: "AI voiceover generation", core: true, pro: true, scale: true },
-  { feature: "Niche Finder", core: true, pro: true, scale: true },
+  { feature: "Niche Finder", core: false, pro: true, scale: true },
   { feature: "Creator / channel analysis", core: false, pro: true, scale: true },
   { feature: "Study niches saved", core: "5", pro: "15", scale: "Unlimited" },
   { feature: "Saved videos", core: "100", pro: "Unlimited", scale: "Unlimited" },

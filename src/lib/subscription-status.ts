@@ -51,10 +51,12 @@ export interface PlanProfile extends SubscriptionProfile {
   plan: string | null;
 }
 
-// Niche Finder (trending-niche discovery, /niches) is available on every paid
-// plan (Core/Pro/Scale) -- gates only on having an active subscription, not a
-// specific tier, reusing hasActiveSubscription above so the two checks can't
-// drift apart on billing-status edge cases.
+// Plans that include Niche Finder (trending-niche discovery, /niches). Core
+// doesn't -- it's one of the reasons to upgrade, and the pricing cards say so.
+export const NICHE_FINDER_PLANS = new Set(["pro", "scale"]);
+
+// An active subscription (same billing-status rules as hasActiveSubscription,
+// so the two can't drift) on a plan that includes Niche Finder.
 export function hasNicheFinderAccess(profile: PlanProfile | null): boolean {
-  return hasActiveSubscription(profile);
+  return hasActiveSubscription(profile) && NICHE_FINDER_PLANS.has(profile?.plan ?? "");
 }
