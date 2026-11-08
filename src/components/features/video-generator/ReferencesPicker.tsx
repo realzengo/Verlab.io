@@ -1,10 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Clock, ImageIcon, Plus, Sparkles, Upload, X } from "lucide-react";
+import { Clock, ImageIcon, ImagePlus, Upload, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { GLASS_PANEL, GLASS_PILL_ACTIVE, GLASS_PILL_BASE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE } from "@/components/ui/PillDropdown";
+import { SHEET_BUTTON, SHEET_BUTTON_OPEN, TRAY_MENU_ITEM, TRAY_PANEL } from "@/components/ui/PillDropdown";
 import { loadFrameFile } from "./FrameImagePicker";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 
@@ -51,14 +51,14 @@ function RecentlyUsedPanel({ onSelect, onBack }: { onSelect: (dataUrl: string) =
       <button
         type="button"
         onClick={onBack}
-        className="mb-2 flex items-center gap-1 text-xs font-medium text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+        className="mb-2 flex items-center gap-1 text-xs font-medium text-subtle transition-colors hover:text-heading"
       >
         ← Back
       </button>
       {images === null ? (
-        <div className="flex h-20 items-center justify-center text-xs text-slate-400">Loading…</div>
+        <div className="flex h-20 items-center justify-center text-xs text-subtle">Loading…</div>
       ) : images.length === 0 ? (
-        <div className="flex h-20 flex-col items-center justify-center gap-1 text-slate-300 dark:text-slate-600">
+        <div className="flex h-20 flex-col items-center justify-center gap-1 text-subtle">
           <ImageIcon className="h-5 w-5" />
           <span className="text-[11px] font-medium">No recent images</span>
         </div>
@@ -76,7 +76,7 @@ function RecentlyUsedPanel({ onSelect, onBack }: { onSelect: (dataUrl: string) =
                 if (dataUrl) onSelect(dataUrl);
               }}
               aria-label={image.prompt}
-              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200 transition-opacity hover:opacity-80 disabled:opacity-50 dark:ring-white/10"
+              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/[0.06] transition-opacity hover:opacity-80 disabled:opacity-50 dark:ring-white/10"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image */}
               <img
@@ -158,10 +158,15 @@ export function ReferencesPicker({ images, onChange, max, className }: Reference
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={cn("group", GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, (open || images.length > 0) && GLASS_PILL_ACTIVE)}
+        className={cn(SHEET_BUTTON, open && SHEET_BUTTON_OPEN)}
       >
-        <Plus className="h-3.5 w-3.5 shrink-0" />
+        <ImagePlus className="h-4 w-4 shrink-0 text-subtle" />
         References
+        {images.length > 0 && (
+          <span className="font-mono text-xs text-subtle tabular-nums">
+            {images.length}/{max}
+          </span>
+        )}
       </button>
 
       <AnimatePresence>
@@ -171,10 +176,10 @@ export function ReferencesPicker({ images, onChange, max, className }: Reference
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn("absolute left-0 top-full z-50 mt-2 w-64 origin-top-left rounded-2xl p-1.5", GLASS_PANEL)}
+            className={cn("absolute left-0 top-full z-50 mt-2 w-60 origin-top-left rounded-2xl p-1.5", TRAY_PANEL)}
           >
             {atMax ? (
-              <p className="px-3 py-4 text-center text-xs text-slate-400">You&apos;ve attached the max of {max} references.</p>
+              <p className="px-3 py-4 text-center text-xs text-subtle">You&apos;ve attached the max of {max} references</p>
             ) : panel === "recent" ? (
               <div className="p-1.5">
                 <RecentlyUsedPanel
@@ -193,17 +198,17 @@ export function ReferencesPicker({ images, onChange, max, className }: Reference
                     setOpen(false);
                     setShowGenerateModal(true);
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                  className={TRAY_MENU_ITEM}
                 >
-                  <Sparkles className="h-4 w-4 shrink-0 text-slate-400" />
-                  AI Generate Image
+                  <Wand2 className="h-4 w-4 shrink-0 text-subtle" />
+                  Generate with AI
                 </button>
                 <button
                   type="button"
                   onClick={() => setPanel("recent")}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                  className={TRAY_MENU_ITEM}
                 >
-                  <Clock className="h-4 w-4 shrink-0 text-slate-400" />
+                  <Clock className="h-4 w-4 shrink-0 text-subtle" />
                   Recently used
                 </button>
                 <button
@@ -212,9 +217,9 @@ export function ReferencesPicker({ images, onChange, max, className }: Reference
                     setOpen(false);
                     fileInputRef.current?.click();
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                  className={TRAY_MENU_ITEM}
                 >
-                  <Upload className="h-4 w-4 shrink-0 text-slate-400" />
+                  <Upload className="h-4 w-4 shrink-0 text-subtle" />
                   Upload image
                 </button>
               </>

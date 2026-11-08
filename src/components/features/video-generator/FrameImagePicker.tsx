@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ImagePlus, Sparkles, Upload, X } from "lucide-react";
+import { ImagePlus, Upload, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn, readFileAsDataUrl } from "@/lib/utils";
+import { TRAY_MENU_ITEM, TRAY_PANEL } from "@/components/ui/PillDropdown";
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 
 export { readFileAsDataUrl } from "@/lib/utils";
@@ -175,7 +176,7 @@ function FrameBox({
       onDrop={handleDrop}
     >
       {slot.dataUrl ? (
-        <div className="group/frame relative h-28 w-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10">
+        <div className="group/frame relative h-28 w-20 shrink-0 overflow-hidden rounded-xl ring-1 ring-black/[0.06] dark:ring-white/10">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
           <img
             src={slot.dataUrl}
@@ -209,13 +210,14 @@ function FrameBox({
           onClick={() => setOpen((prev) => !prev)}
           aria-expanded={open}
           className={cn(
-            "flex h-28 w-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-1.5 text-center text-xs font-medium transition-colors duration-150",
-            "border-slate-300 text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500",
-            "dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06] dark:hover:text-blue-400",
-            (open || isDragOver) && "border-blue-400 bg-blue-50/60 text-blue-500 dark:border-blue-400/50 dark:bg-blue-500/10 dark:text-blue-400"
+            "flex h-28 w-20 shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-1.5 text-center text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary/40",
+            "border-[#D9DCE1] text-subtle hover:border-[#BFC4CC] hover:bg-[var(--app-fill)] hover:text-heading",
+            "dark:border-white/[0.12] dark:hover:border-white/[0.24]",
+            open && "border-[#BFC4CC] bg-[var(--app-fill)] text-heading dark:border-white/[0.24]",
+            isDragOver && "border-primary/60 bg-primary/[0.05] text-heading"
           )}
         >
-          <ImagePlus className="h-5 w-5" />
+          <ImagePlus className="h-[18px] w-[18px]" />
           <span className="leading-tight">{isDragOver ? "Drop image" : label}</span>
         </button>
       )}
@@ -227,11 +229,7 @@ function FrameBox({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(
-              "absolute right-0 top-full z-50 mt-2 w-56 origin-top-right overflow-hidden rounded-2xl border p-1.5",
-              "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
-            )}
+            className={cn("absolute right-0 top-full z-50 mt-2 w-52 origin-top-right overflow-hidden rounded-2xl p-1.5", TRAY_PANEL)}
           >
             <button
               type="button"
@@ -239,10 +237,10 @@ function FrameBox({
                 setOpen(false);
                 setShowGenerateModal(true);
               }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+              className={TRAY_MENU_ITEM}
             >
-              <Sparkles className="h-4 w-4 shrink-0 text-slate-400" />
-              AI Generate
+              <Wand2 className="h-4 w-4 shrink-0 text-subtle" />
+              Generate with AI
             </button>
             <button
               type="button"
@@ -250,10 +248,10 @@ function FrameBox({
                 setOpen(false);
                 fileInputRef.current?.click();
               }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+              className={TRAY_MENU_ITEM}
             >
-              <Upload className="h-4 w-4 shrink-0 text-slate-400" />
-              Upload
+              <Upload className="h-4 w-4 shrink-0 text-subtle" />
+              Upload image
             </button>
           </motion.div>
         )}

@@ -22,7 +22,8 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
-import { GLASS_PILL_ACTIVE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE, PillDropdown } from "@/components/ui/PillDropdown";
+import { PillDropdown, TRAY_CHIP } from "@/components/ui/PillDropdown";
+import { COMPOSER_RIM, COMPOSER_SHEET, COMPOSER_TRAY, COMPOSER_TRAY_RULE, SubmitHint } from "@/components/ui/ComposerKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -120,6 +121,8 @@ function defaultSettingsFor(modelId: string): ModelSettings {
 }
 
 const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({ value: String(value), label: `${value} Output${value > 1 ? "s" : ""}` }));
+// The desktop composer tray's wording for the same counts.
+const VIDEO_COUNT_OPTIONS = [1, 2, 3, 4].map((value) => ({ value: String(value), label: `${value} video${value > 1 ? "s" : ""}` }));
 
 // Video renders genuinely take a couple of minutes (see STALE_JOB_MS in
 // generate-video/route.ts) -- a bare spinner with no sense of progress reads
@@ -587,6 +590,10 @@ export function VideoGenerator() {
   // rather than pinning a specific frame, sent as its own field to the model.
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [showPromptModal, setShowPromptModal] = useState(false);
+  const [createHint, setCreateHint] = useState(false);
+  const [editHint, setEditHint] = useState<"source" | "prompt" | null>(null);
+  const createPromptRef = useRef<HTMLDivElement>(null);
+  const editPromptRef = useRef<HTMLDivElement>(null);
 
   // Recent Generations renders as independent flex columns (see
   // distributeColumns below) instead of a CSS grid so items keep their own
@@ -1419,6 +1426,45 @@ export function VideoGenerator() {
       .finally(() => setIsGeneratingEditReference(false));
   }
 
+  // Generate never greys out on desktop: pressed with nothing to send, it
+  // says what's missing next to the button and puts the cursor in the
+  // prompt (same as /bend, /downloads and the image generator).
+  function focusPrompt(box: HTMLDivElement | null) {
+    box?.querySelector<HTMLElement>("[contenteditable]")?.focus();
+  }
+
+  function submitCreate() {
+    if (isGenerating) return;
+    if (!prompt.trim() && !startFrame.dataUrl && !endFrame.dataUrl) {
+      setCreateHint(true);
+      focusPrompt(createPromptRef.current);
+      return;
+    }
+    // Too long or disallowed characters: the line under the prompt says which.
+    if (!canSubmit) {
+      focusPrompt(createPromptRef.current);
+      return;
+    }
+    void handleGenerate();
+  }
+
+  function submitEdit() {
+    if (editIsGenerating) return;
+    if (!editSource) {
+      setEditHint("source");
+      return;
+    }
+    if (!editPrompt.trim()) {
+      setEditHint("prompt");
+      focusPrompt(editPromptRef.current);
+      return;
+    }
+    // A source outside the model's length, or a disallowed prompt: the
+    // warnings under the composer say which.
+    if (!canSubmitEdit) return;
+    void handleGenerateEdit();
+  }
+
   function recreateFromHistory(item: GenerationHistoryItem) {
     setActiveTab("create");
     setMobileView("generate");
@@ -1578,7 +1624,8 @@ export function VideoGenerator() {
 
             <div className="mt-4 flex flex-col gap-4 lg:mt-6 lg:flex-row lg:items-start">
               {/* Mode rail -- desktop */}
-              <div className="hidden shrink-0 flex-col gap-1 rounded-2xl border border-slate-200/70 bg-white p-1.5 dark:border-white/[0.08] dark:bg-zinc-950 lg:flex">
+              {/* The composer's rim and sheet, at the rail's size: radius 22 = the item's 16 + 6px padding. */}
+              <div className="hidden shrink-0 flex-col gap-1 rounded-[22px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.03] lg:flex">
                 {MODE_TABS.map((tab) => {
                   const active = tab.id === activeTab;
                   return (
@@ -1586,20 +1633,19 @@ export function VideoGenerator() {
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id)}
-                      whileTap={{ scale: 0.95 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      aria-pressed={active}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ duration: 0.1 }}
                       className={cn(
-                        "relative flex flex-col items-center gap-1 rounded-xl px-4 py-2 text-xs",
-                        active
-                          ? "font-bold text-slate-900 dark:text-white"
-                          : "font-medium text-slate-400 transition-colors duration-300 ease-out hover:bg-slate-50 hover:text-slate-500 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-400"
+                        "relative flex w-[72px] flex-col items-center gap-1 rounded-2xl py-2.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        active ? "text-heading" : "text-subtle transition-colors duration-150 hover:text-heading"
                       )}
                     >
                       {active && (
                         <motion.span
                           layoutId="mode-tab-desktop-active"
-                          transition={{ type: "spring", stiffness: 450, damping: 38, mass: 0.9 }}
-                          className="absolute inset-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_10px_-4px_rgba(15,23,42,0.15),inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] ring-1 ring-slate-900/[0.04] dark:bg-white/10 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:ring-white/[0.06]"
+                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="absolute inset-0 rounded-2xl border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06)] dark:border-white/[0.07] dark:bg-[#141417] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                         />
                       )}
                       <span className="relative z-10 flex flex-col items-center gap-1">
@@ -1732,61 +1778,83 @@ export function VideoGenerator() {
                 ) : activeTab === "edit" ? (
                   <>
                   <div className="relative isolate z-20 hidden lg:block">
-                    <div
-                      className={cn(
-                        "flex w-full min-h-[180px] flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
-                        "dark:border-white/[0.08] dark:bg-[#131318]"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <SourceVideoPicker
-                          source={
-                            editSource
-                              ? { id: editSource.id, thumbnail_path: editSource.thumbnail_path, durationSeconds: editSourceDurationSeconds }
-                              : null
-                          }
-                          onSelect={(id) => {
-                            const picked = completedForEditGallery.find((item) => item.id === id);
-                            if (picked) setEditSource(picked);
-                          }}
-                          onClear={() => setEditSource(null)}
-                          onUploadFile={handleUploadSourceVideo}
-                          isUploading={isUploadingSource}
-                          durationRange={{ min: editModelConfig.minSourceDurationSeconds, max: editModelConfig.maxSourceDurationSeconds }}
-                          library={completedForEditGallery
-                            .filter((item) => item.status === "completed" && item.output_video_path)
-                            .map((item) => ({
-                              id: item.id,
-                              thumbnail_path: item.thumbnail_path,
-                              durationSeconds: item.params.durationSeconds ?? null,
-                            }))}
-                        />
+                    <div className={COMPOSER_RIM}>
+                      <div className={cn(COMPOSER_SHEET, "px-5 pt-4 pb-3")}>
+                        <div className="flex items-stretch gap-4">
+                          <SourceVideoPicker
+                            source={
+                              editSource
+                                ? { id: editSource.id, thumbnail_path: editSource.thumbnail_path, durationSeconds: editSourceDurationSeconds }
+                                : null
+                            }
+                            onSelect={(id) => {
+                              const picked = completedForEditGallery.find((item) => item.id === id);
+                              if (picked) setEditSource(picked);
+                            }}
+                            onClear={() => setEditSource(null)}
+                            onUploadFile={handleUploadSourceVideo}
+                            isUploading={isUploadingSource}
+                            durationRange={{ min: editModelConfig.minSourceDurationSeconds, max: editModelConfig.maxSourceDurationSeconds }}
+                            library={completedForEditGallery
+                              .filter((item) => item.status === "completed" && item.output_video_path)
+                              .map((item) => ({
+                                id: item.id,
+                                thumbnail_path: item.thumbnail_path,
+                                durationSeconds: item.params.durationSeconds ?? null,
+                              }))}
+                          />
 
-                        <MentionTextarea
-                          value={editPrompt}
-                          onChange={setEditPrompt}
-                          images={editReferenceImages}
-                          placeholder="Describe how you want to edit this video. Type @ to insert attached refs."
-                          className="h-28 w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
-                        />
+                          <div ref={editPromptRef} className="flex min-h-28 min-w-0 flex-1 text-[15px] leading-6">
+                            <MentionTextarea
+                              value={editPrompt}
+                              onChange={(value) => {
+                                setEditPrompt(value);
+                                setEditHint(null);
+                              }}
+                              onSubmit={submitEdit}
+                              images={editReferenceImages}
+                              placeholder="Describe how you want to edit this video. Type @ to insert attached refs"
+                              className="h-full w-full resize-none bg-transparent text-heading outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-3">
+                          <ReferenceImagesPicker
+                            className="-ml-2"
+                            images={editReferenceImages}
+                            onChange={setEditReferenceImages}
+                            max={editModelConfig.maxReferenceImages}
+                          />
+                          <div className="ml-auto flex items-center gap-3">
+                            <SubmitHint
+                              hint={
+                                editHint === "source" && !editSource
+                                  ? "Add the video to edit first"
+                                  : editHint === "prompt" && !editPrompt.trim()
+                                    ? "Describe the edit first"
+                                    : null
+                              }
+                            />
+                            <PlasticButton
+                              text="Generate"
+                              loading={editIsGenerating}
+                              onClick={submitEdit}
+                              trailing={<CreditCost amount={estimatedEditCost} className="text-blue-200/80" />}
+                              className="shrink-0 !px-5 !py-2.5 font-semibold"
+                            />
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className={COMPOSER_TRAY}>
                         <VideoModelPicker value={editModel} onChange={setEditModel} models={EDIT_VIDEO_MODELS} />
-                        <ReferenceImagesPicker
-                          images={editReferenceImages}
-                          onChange={setEditReferenceImages}
-                          max={editModelConfig.maxReferenceImages}
-                        />
-                        <PillDropdown value={String(editOutputs)} options={OUTPUT_OPTIONS} onChange={(value) => setEditOutputs(Number(value))} />
-
-                        <PlasticButton
-                          text="Generate"
-                          loading={editIsGenerating}
-                          disabled={!canSubmitEdit}
-                          onClick={handleGenerateEdit}
-                          trailing={<CreditCost amount={estimatedEditCost} className="text-blue-200/80" />}
-                          className="ml-auto shrink-0 !px-6 !py-2.5 !text-sm font-semibold"
+                        <span aria-hidden="true" className={COMPOSER_TRAY_RULE} />
+                        <PillDropdown
+                          variant="tray"
+                          value={String(editOutputs)}
+                          options={VIDEO_COUNT_OPTIONS}
+                          onChange={(value) => setEditOutputs(Number(value))}
                         />
                       </div>
                     </div>
@@ -1864,114 +1932,65 @@ export function VideoGenerator() {
                 ) : (
                   <>
                   <div className="relative isolate z-20 hidden lg:block">
-                    <div
-                      className={cn(
-                        "flex w-full min-h-[180px] gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm",
-                        "dark:border-white/[0.08] dark:bg-[#131318]"
+                    <AnimatePresence>
+                      {showPromptModal && (
+                        <PromptExpandModal
+                          value={prompt}
+                          onChange={setPrompt}
+                          images={referenceImages}
+                          onImagesChange={setReferenceImages}
+                          placeholder="Describe a new video..."
+                          onClose={() => setShowPromptModal(false)}
+                          maxLength={model.maxPromptLength}
+                        />
                       )}
-                    >
-                      <AnimatePresence>
-                        {showPromptModal && (
-                          <PromptExpandModal
-                            value={prompt}
-                            onChange={setPrompt}
-                            images={referenceImages}
-                            onImagesChange={setReferenceImages}
-                            placeholder="Describe a new video..."
-                            onClose={() => setShowPromptModal(false)}
-                            maxLength={model.maxPromptLength}
-                          />
-                        )}
-                      </AnimatePresence>
+                    </AnimatePresence>
 
-                      {/* Left column: prompt textarea + config pills, locked to the bottom */}
-                      <div className="flex min-w-0 flex-grow flex-col justify-between">
-                        <div className="relative flex flex-col">
-                          <button
-                            type="button"
-                            onClick={() => setShowPromptModal(true)}
-                            aria-label="Expand prompt"
-                            className="absolute right-0 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-300"
-                          >
-                            <Maximize2 className="h-3.5 w-3.5" />
-                          </button>
-                          <div className="pr-8">
-                            <ReferenceImageChips images={referenceImages} onChange={setReferenceImages} />
-                          </div>
-                          {/* Fixed height regardless of prompt length -- a contenteditable div has no
-                              intrinsic "hug ~2 rows" sizing the way a plain <textarea> did, so without this
-                              cap a long prompt would balloon the whole docked card instead of scrolling
-                              inside it. Full content is still one click away via the expand button above. */}
-                          <div className="h-24">
-                            <MentionTextarea
-                              value={prompt}
-                              onChange={setPrompt}
-                              images={referenceImages}
-                              placeholder={referenceImages.length > 0 ? "Describe a new video... Type @ to insert a reference" : "Describe a new video..."}
-                              className="h-full w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
-                            />
-                          </div>
-                          {promptTooLong && (
-                            <p className="mt-1 text-xs font-medium text-red-500">
-                              {prompt.length} / {model.maxPromptLength} -- tap the expand icon above to trim it
-                            </p>
-                          )}
-                          {!promptTooLong && promptUnsafe && (
-                            <p className="mt-1 text-xs font-medium text-red-500">
-                              Prompt contains characters that aren&apos;t allowed (e.g. raw HTML tags or control characters)
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <VideoModelPicker
-                            value={selectedModel}
-                            onChange={setSelectedModel}
-                            models={VIDEO_MODELS}
-                            isPro={isPro}
-                            isScale={isScale}
-                            onRequestUpgrade={() => setShowUpgrade(true)}
-                          />
-                          <PillDropdown
-                            icon={Clock}
-                            value={String(durationSeconds)}
-                            options={durationOptions}
-                            onChange={(value) => updateSettings({ durationSeconds: Number(value) })}
-                          />
-                          {model.resolutions && (
-                            <PillDropdown value={resolution} options={resolutionOptions} onChange={(value) => updateSettings({ resolution: value })} />
-                          )}
-                          <PillDropdown value={aspectRatio} options={aspectRatioOptions} onChange={(value) => updateSettings({ aspectRatio: value })} />
-                          {model.supportsAudio && (
+                    <div className={COMPOSER_RIM}>
+                      <div className={cn(COMPOSER_SHEET, "px-5 pt-4 pb-3")}>
+                        <div className="flex gap-4">
+                          <div ref={createPromptRef} className="relative min-w-0 flex-1">
                             <button
                               type="button"
-                              onClick={() => updateSettings({ soundEnabled: !soundEnabled })}
-                              aria-pressed={soundEnabled}
-                              aria-label="Toggle sound"
-                              className={cn(
-                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border outline-none transition-all duration-200 active:scale-[0.96]",
-                                GLASS_PILL_IDLE,
-                                GLASS_PILL_FOCUS,
-                                soundEnabled && GLASS_PILL_ACTIVE
-                              )}
+                              onClick={() => setShowPromptModal(true)}
+                              aria-label="Expand prompt"
+                              className="absolute -right-1.5 -top-1 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-subtle transition-colors duration-150 hover:bg-[var(--app-fill)] hover:text-heading"
                             >
-                              {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                              <Maximize2 className="h-3.5 w-3.5" />
                             </button>
-                          )}
-                          {model.supportsReferenceImages && (
-                            <ReferencesPicker images={referenceImages} onChange={setReferenceImages} max={model.maxReferenceImages ?? 4} />
-                          )}
-                          <PillDropdown
-                            value={String(outputs)}
-                            options={OUTPUT_OPTIONS}
-                            onChange={(value) => updateSettings({ outputs: Number(value) })}
-                          />
-                        </div>
-                      </div>
+                            <div className="pr-8">
+                              <ReferenceImageChips images={referenceImages} onChange={setReferenceImages} />
+                            </div>
+                            {/* Fixed height regardless of prompt length -- a contenteditable div has no
+                                intrinsic "hug ~2 rows" sizing the way a plain <textarea> did, so without this
+                                cap a long prompt would balloon the whole docked card instead of scrolling
+                                inside it. Full content is still one click away via the expand button above.
+                                h-28 matches the frame tiles beside it. */}
+                            <div className="h-28 pr-8 text-[15px] leading-6">
+                              <MentionTextarea
+                                value={prompt}
+                                onChange={(value) => {
+                                  setPrompt(value);
+                                  setCreateHint(false);
+                                }}
+                                onSubmit={submitCreate}
+                                images={referenceImages}
+                                placeholder={referenceImages.length > 0 ? "Describe a new video. Type @ to insert a reference" : "Describe a new video"}
+                                className="h-full w-full resize-none bg-transparent text-heading outline-none"
+                              />
+                            </div>
+                            {promptTooLong && (
+                              <p className="mt-1 text-xs font-medium text-red-500">
+                                {prompt.length} / {model.maxPromptLength} -- tap the expand icon above to trim it
+                              </p>
+                            )}
+                            {!promptTooLong && promptUnsafe && (
+                              <p className="mt-1 text-xs font-medium text-red-500">
+                                Prompt contains characters that aren&apos;t allowed (e.g. raw HTML tags or control characters)
+                              </p>
+                            )}
+                          </div>
 
-                      {/* Right column: frame pickers + Generate button, locked to the bottom */}
-                      <div className="flex shrink-0 flex-col items-end justify-between">
-                        <div className="flex items-start gap-2">
                           {model.supportsImageToVideo && (
                             <FrameImagePicker
                               startFrame={startFrame}
@@ -1984,13 +2003,72 @@ export function VideoGenerator() {
                           )}
                         </div>
 
-                        <PlasticButton
-                          text="Generate"
-                          loading={isGenerating}
-                          disabled={!canSubmit}
-                          onClick={handleGenerate}
-                          trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                          className="mt-3 shrink-0 !px-6 !py-2.5 !text-sm font-semibold"
+                        <div className="mt-3 flex items-center gap-3">
+                          {model.supportsReferenceImages && (
+                            <ReferencesPicker className="-ml-2" images={referenceImages} onChange={setReferenceImages} max={model.maxReferenceImages ?? 4} />
+                          )}
+                          <div className="ml-auto flex items-center gap-3">
+                            <SubmitHint
+                              hint={createHint && !prompt.trim() && !startFrame.dataUrl && !endFrame.dataUrl ? "Describe the video first" : null}
+                            />
+                            <PlasticButton
+                              text="Generate"
+                              loading={isGenerating}
+                              onClick={submitCreate}
+                              trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
+                              className="shrink-0 !px-5 !py-2.5 font-semibold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={COMPOSER_TRAY}>
+                        <VideoModelPicker
+                          value={selectedModel}
+                          onChange={setSelectedModel}
+                          models={VIDEO_MODELS}
+                          isPro={isPro}
+                          isScale={isScale}
+                          onRequestUpgrade={() => setShowUpgrade(true)}
+                        />
+                        <span aria-hidden="true" className={COMPOSER_TRAY_RULE} />
+                        <PillDropdown
+                          variant="tray"
+                          icon={Clock}
+                          value={String(durationSeconds)}
+                          options={durationOptions}
+                          onChange={(value) => updateSettings({ durationSeconds: Number(value) })}
+                        />
+                        {model.resolutions && (
+                          <PillDropdown
+                            variant="tray"
+                            value={resolution}
+                            options={resolutionOptions}
+                            onChange={(value) => updateSettings({ resolution: value })}
+                          />
+                        )}
+                        <PillDropdown
+                          variant="tray"
+                          value={aspectRatio}
+                          options={aspectRatioOptions}
+                          onChange={(value) => updateSettings({ aspectRatio: value })}
+                        />
+                        {model.supportsAudio && (
+                          <button
+                            type="button"
+                            onClick={() => updateSettings({ soundEnabled: !soundEnabled })}
+                            aria-pressed={soundEnabled}
+                            className={TRAY_CHIP}
+                          >
+                            {soundEnabled ? <Volume2 className="h-4 w-4 text-subtle" /> : <VolumeX className="h-4 w-4 text-subtle" />}
+                            {soundEnabled ? "Sound on" : "Sound off"}
+                          </button>
+                        )}
+                        <PillDropdown
+                          variant="tray"
+                          value={String(outputs)}
+                          options={VIDEO_COUNT_OPTIONS}
+                          onChange={(value) => updateSettings({ outputs: Number(value) })}
                         />
                       </div>
                     </div>

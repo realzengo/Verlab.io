@@ -135,6 +135,8 @@ interface MentionTextareaProps {
   images: string[];
   placeholder?: string;
   className?: string;
+  /** Called on ⌘/Ctrl+Enter (plain Enter still inserts a line break). */
+  onSubmit?: () => void;
 }
 
 /**
@@ -151,7 +153,7 @@ interface MentionTextareaProps {
  * PromptExpandModal open at once, stay in sync without fighting each
  * other's cursor).
  */
-export function MentionTextarea({ value, onChange, images, placeholder, className }: MentionTextareaProps) {
+export function MentionTextarea({ value, onChange, images, placeholder, className, onSubmit }: MentionTextareaProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [mention, setMention] = useState<{ start: number; query: string; coords: { top: number; left: number; height: number } } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -280,6 +282,11 @@ export function MentionTextarea({ value, onChange, images, placeholder, classNam
               return;
             }
           }
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && onSubmit) {
+            event.preventDefault();
+            onSubmit();
+            return;
+          }
           if (event.key === "Enter") {
             event.preventDefault();
             document.execCommand("insertLineBreak");
@@ -295,7 +302,7 @@ export function MentionTextarea({ value, onChange, images, placeholder, classNam
       />
 
       {isEmpty && (
-        <span className="pointer-events-none absolute left-0 top-0 select-none font-normal text-slate-400 dark:text-zinc-500">{placeholder}</span>
+        <span className="pointer-events-none absolute left-0 top-0 select-none font-normal text-[#9AA0AB] dark:text-zinc-500">{placeholder}</span>
       )}
 
       <AnimatePresence>

@@ -36,6 +36,32 @@ export const GLASS_PANEL =
   "border border-slate-200/80 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,1)] backdrop-blur-2xl backdrop-saturate-150 " +
   "dark:border-white/[0.10] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)] dark:backdrop-blur-2xl";
 
+/** The quiet "tray" look: borderless chips sitting on a composer's gray rim
+ * (the image generator's settings tray). Hover is a neutral fill; an open
+ * chip lifts onto a white surface. No blue until something is chosen. */
+export const TRAY_CHIP =
+  "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2.5 text-[13px] font-medium text-body outline-none transition-colors duration-150 hover:bg-[var(--app-fill-strong)] hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50";
+
+export const TRAY_CHIP_OPEN =
+  "bg-white text-heading shadow-[0_0_0_1px_#E6E8EC,0_1px_2px_rgba(16,24,40,0.06)] hover:bg-white dark:bg-white/[0.08] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] dark:hover:bg-white/[0.08]";
+
+export const TRAY_PANEL =
+  "border border-[#E6E8EC] bg-white shadow-[0_2px_6px_rgba(16,24,40,0.05),0_20px_44px_-16px_rgba(16,24,40,0.22)] dark:border-white/[0.08] dark:bg-[#161619] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.75)]";
+
+/** A row in a TRAY_PANEL menu. */
+export const TRAY_MENU_ITEM =
+  "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left text-[13px] font-medium text-body transition-colors duration-150 hover:bg-[var(--app-fill)] hover:text-heading disabled:pointer-events-none disabled:opacity-50";
+
+/** A quiet ghost button inside a composer's white sheet (attach references). */
+export const SHEET_BUTTON =
+  "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 text-[13px] font-medium text-body outline-none transition-colors duration-150 hover:bg-[var(--app-fill)] hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50";
+
+export const SHEET_BUTTON_OPEN = "bg-[var(--app-fill)] text-heading";
+
+/** A small app-icon tile for a model logo inside a tray chip or menu row. */
+export const TRAY_ICON_TILE =
+  "flex shrink-0 items-center justify-center border border-[#E6E8EC] bg-white dark:border-white/[0.08] dark:bg-[#1B1D20]";
+
 interface PillDropdownOption {
   value: string;
   label: string;
@@ -82,6 +108,8 @@ interface PillDropdownProps {
   icon?: LucideIcon;
   /** Opens the menu above the trigger instead of below -- for pills docked near the bottom of a panel (e.g. a generator modal's control bar) where a downward menu would overflow. */
   openUp?: boolean;
+  /** "glass" (default) is the bordered pill; "tray" is the quiet chip for a composer's settings tray. */
+  variant?: "glass" | "tray";
 }
 
 export function PillDropdown({
@@ -92,7 +120,9 @@ export function PillDropdown({
   labelPrefix,
   icon: Icon,
   openUp = false,
+  variant = "glass",
 }: PillDropdownProps) {
+  const tray = variant === "tray";
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -131,17 +161,22 @@ export function PillDropdown({
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           "group",
-          GLASS_PILL_BASE,
-          GLASS_PILL_IDLE,
-          GLASS_PILL_FOCUS,
-          open && GLASS_PILL_ACTIVE,
+          tray
+            ? cn(TRAY_CHIP, open && TRAY_CHIP_OPEN)
+            : cn(GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, open && GLASS_PILL_ACTIVE),
         )}
       >
         {Icon && (
-          <Icon className="h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
+          <Icon className={cn("shrink-0", tray ? "h-4 w-4 text-subtle" : "h-3 w-3 text-slate-500 dark:text-slate-400")} />
         )}
         {current?.icon && (
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]">
+          <span
+            className={
+              tray
+                ? cn(TRAY_ICON_TILE, "h-[18px] w-[18px] rounded-[5px]")
+                : "flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]"
+            }
+          >
             <Image
               src={current.icon}
               alt=""
@@ -155,19 +190,24 @@ export function PillDropdown({
           </span>
         )}
         {current?.ratio && (
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400">
+          <span
+            className={cn(
+              "flex h-4 w-4 shrink-0 items-center justify-center",
+              tray ? "text-subtle" : "text-slate-500 dark:text-slate-400",
+            )}
+          >
             <RatioIcon ratio={current.ratio} />
           </span>
         )}
-        <span className="whitespace-nowrap tracking-[-0.01em]">
+        <span className={cn("whitespace-nowrap", !tray && "tracking-[-0.01em]")}>
           {labelPrefix && (
-            <span className="text-slate-500 dark:text-slate-400">
+            <span className={tray ? "font-normal text-subtle" : "text-slate-500 dark:text-slate-400"}>
               {labelPrefix}{" "}
             </span>
           )}
           <span
             className={
-              labelPrefix
+              labelPrefix && !tray
                 ? "font-semibold text-blue-600 dark:text-blue-400"
                 : undefined
             }
@@ -177,8 +217,10 @@ export function PillDropdown({
         </span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 shrink-0 text-slate-500 transition-transform duration-200 dark:text-slate-400",
-            open && "rotate-180 text-blue-500 dark:text-blue-400",
+            "shrink-0 transition-transform duration-200",
+            tray ? "h-3.5 w-3.5 text-subtle" : "h-3 w-3 text-slate-500 dark:text-slate-400",
+            open && "rotate-180",
+            open && !tray && "text-blue-500 dark:text-blue-400",
           )}
         />
       </button>
@@ -196,7 +238,7 @@ export function PillDropdown({
               openUp
                 ? "bottom-full mb-2 origin-bottom-left"
                 : "top-full mt-2 origin-top-left",
-              GLASS_PANEL,
+              tray ? TRAY_PANEL : GLASS_PANEL,
             )}
           >
             {options.map((option) => {
@@ -212,20 +254,34 @@ export function PillDropdown({
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150",
-                    selected
-                      ? "bg-blue-500/10 font-semibold text-blue-600 dark:bg-blue-500/15 dark:text-blue-300"
-                      : "text-slate-600 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:bg-white/[0.06]",
+                    "flex w-full min-w-0 items-center text-left transition-colors duration-150",
+                    tray
+                      ? cn(
+                          "gap-2.5 rounded-[10px] px-2.5 py-2 text-[13px]",
+                          selected
+                            ? "bg-[var(--app-fill)] font-medium text-heading"
+                            : "text-body hover:bg-[var(--app-fill)] hover:text-heading",
+                        )
+                      : cn(
+                          "gap-2.5 rounded-xl px-3 py-2 text-sm",
+                          selected
+                            ? "bg-blue-500/10 font-semibold text-blue-600 dark:bg-blue-500/15 dark:text-blue-300"
+                            : "text-slate-600 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:bg-white/[0.06]",
+                        ),
                   )}
                 >
                   {option.icon && (
                     <span
-                      className={cn(
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
-                        selected
-                          ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
-                          : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
-                      )}
+                      className={
+                        tray
+                          ? cn(TRAY_ICON_TILE, "h-7 w-7 rounded-lg")
+                          : cn(
+                              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
+                              selected
+                                ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
+                                : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
+                            )
+                      }
                     >
                       <Image
                         src={option.icon}
@@ -243,9 +299,11 @@ export function PillDropdown({
                     <span
                       className={cn(
                         "flex h-6 w-6 shrink-0 items-center justify-center",
-                        selected
-                          ? "text-blue-500 dark:text-blue-400"
-                          : "text-slate-400 dark:text-slate-500",
+                        tray
+                          ? selected ? "text-heading" : "text-subtle"
+                          : selected
+                            ? "text-blue-500 dark:text-blue-400"
+                            : "text-slate-400 dark:text-slate-500",
                       )}
                     >
                       <RatioIcon ratio={option.ratio} />
@@ -259,9 +317,11 @@ export function PillDropdown({
                       <span
                         className={cn(
                           "block truncate text-xs font-normal",
-                          selected
-                            ? "text-blue-500/70 dark:text-blue-400/60"
-                            : "text-slate-400 dark:text-slate-500",
+                          tray
+                            ? "text-subtle"
+                            : selected
+                              ? "text-blue-500/70 dark:text-blue-400/60"
+                              : "text-slate-400 dark:text-slate-500",
                         )}
                       >
                         {option.description}
@@ -269,7 +329,12 @@ export function PillDropdown({
                     )}
                   </span>
                   {selected && (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-blue-500 dark:text-blue-400" />
+                    <Check
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0",
+                        tray ? "text-[#335cff] dark:text-[#7d97ff]" : "text-blue-500 dark:text-blue-400",
+                      )}
+                    />
                   )}
                 </button>
               );

@@ -5,7 +5,7 @@ import { Check, ChevronDown, Lock, Search } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { GLASS_PANEL, GLASS_PILL_ACTIVE, GLASS_PILL_BASE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE } from "@/components/ui/PillDropdown";
+import { TRAY_CHIP, TRAY_CHIP_OPEN, TRAY_ICON_TILE, TRAY_PANEL } from "@/components/ui/PillDropdown";
 
 export interface ModelPickerOption {
   id: string;
@@ -19,9 +19,35 @@ export interface ModelPickerOption {
   requiresScale?: boolean;
 }
 
-export function ModelIcon({ model, small }: { model: ModelPickerOption; small?: boolean }) {
+/**
+ * A model's logo. `tile` draws it as a small app-icon tile (the composer
+ * tray's look) instead of the round avatar the phone panels use.
+ */
+export function ModelIcon({ model, small, tile }: { model: ModelPickerOption; small?: boolean; tile?: boolean }) {
   const wrapperSize = small ? "h-5 w-5" : "h-8 w-8";
   const glyphSize = small ? 11 : 16;
+
+  if (tile) {
+    const tileShape = small ? "h-[18px] w-[18px] rounded-[5px]" : "h-7 w-7 rounded-lg";
+    if (model.logo && model.logoFullBleed) {
+      const px = small ? 18 : 28;
+      return (
+        <span className={cn("flex shrink-0 overflow-hidden ring-1 ring-black/[0.06] dark:ring-white/[0.08]", tileShape)}>
+          <Image src={model.logo} alt="" width={px} height={px} className="h-full w-full object-cover" />
+        </span>
+      );
+    }
+    const tileGlyph = small ? 11 : 14;
+    return (
+      <span className={cn(TRAY_ICON_TILE, tileShape, !model.logo && "text-[10px] font-semibold text-subtle")}>
+        {model.logo ? (
+          <Image src={model.logo} alt="" width={tileGlyph} height={tileGlyph} className="shrink-0 object-contain" style={{ width: tileGlyph, height: tileGlyph }} />
+        ) : (
+          model.id.slice(0, 1)
+        )}
+      </span>
+    );
+  }
 
   if (model.logo && model.logoFullBleed) {
     const px = small ? 20 : 32;
@@ -149,30 +175,26 @@ export function VideoModelPicker<T extends ModelPickerOption>({
           setOpen(false);
         }}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150",
-          selected ? "bg-blue-500/10 dark:bg-blue-500/15" : "hover:bg-slate-100/80 dark:hover:bg-white/[0.06]",
-          locked && "opacity-60"
+          "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors duration-150",
+          selected ? "bg-[var(--app-fill)]" : "hover:bg-[var(--app-fill)]"
         )}
       >
-        <ModelIcon model={model} />
+        <span className={cn("flex", locked && "opacity-50")}>
+          <ModelIcon model={model} tile />
+        </span>
         <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "flex items-center gap-1.5 text-sm font-semibold",
-              selected ? "text-blue-600 dark:text-blue-400" : "text-slate-900 dark:text-white"
-            )}
-          >
+          <span className={cn("flex items-center gap-1.5 text-[13px] font-medium", locked ? "text-subtle" : "text-heading")}>
             {model.id}
             {locked && (
-              <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-white/[0.08] dark:text-slate-400">
-                <Lock className="h-2.5 w-2.5" />
+              <span className="inline-flex items-center gap-1 text-xs font-normal text-subtle">
+                <Lock className="h-3 w-3" />
                 {lockLabel}
               </span>
             )}
           </span>
-          <span className="block truncate text-xs text-slate-400">{model.description}</span>
+          <span className="block truncate text-xs text-subtle">{model.description}</span>
         </span>
-        {selected && !locked && <Check className="h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />}
+        {selected && !locked && <Check className="h-3.5 w-3.5 shrink-0 text-[#335cff] dark:text-[#7d97ff]" />}
       </button>
     );
   }
@@ -187,16 +209,11 @@ export function VideoModelPicker<T extends ModelPickerOption>({
           if (!open) setQuery("");
           setOpen((prev) => !prev);
         }}
-        className={cn("group", GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, open && GLASS_PILL_ACTIVE)}
+        className={cn("group", TRAY_CHIP, open && TRAY_CHIP_OPEN)}
       >
-        {current && <ModelIcon model={current} small />}
-        <span className="tracking-[-0.01em]">{current?.id ?? value}</span>
-        <ChevronDown
-          className={cn(
-            "h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500",
-            open && "rotate-180 text-blue-500 dark:text-blue-400"
-          )}
-        />
+        {current && <ModelIcon model={current} small tile />}
+        <span>{current?.id ?? value}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-subtle transition-transform duration-200", open && "rotate-180")} />
       </button>
 
       <AnimatePresence>
@@ -207,22 +224,23 @@ export function VideoModelPicker<T extends ModelPickerOption>({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn("absolute left-0 top-full z-50 mt-2 flex max-h-96 w-72 origin-top-left flex-col overflow-hidden rounded-2xl", GLASS_PANEL)}
+            className={cn("absolute left-0 top-full z-50 mt-2 flex max-h-96 w-80 origin-top-left flex-col overflow-hidden rounded-2xl", TRAY_PANEL)}
           >
-            <div className="flex items-center gap-2 border-b border-slate-200/70 px-3 py-2.5 dark:border-white/[0.08]">
-              <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-2 border-b border-[#EEF0F2] px-4 py-3 dark:border-white/[0.06]">
+              <Search className="h-4 w-4 shrink-0 text-subtle" />
               <input
                 ref={searchRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search models..."
-                className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
+                placeholder="Search models"
+                aria-label="Search models"
+                className="w-full bg-transparent text-[13px] text-heading outline-none placeholder:text-subtle"
               />
             </div>
             <div className="flex-1 overflow-y-auto p-1.5">
               {popular.length > 0 && (
                 <div className="mb-1">
-                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  <p className="px-2.5 pt-2 pb-1 text-xs font-medium text-subtle">
                     Popular
                   </p>
                   {popular.map(renderRow)}
@@ -231,7 +249,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
               {more.length > 0 && (
                 <div>
                   {hasSections && (
-                    <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    <p className="px-2.5 pt-2 pb-1 text-xs font-medium text-subtle">
                       More
                     </p>
                   )}
@@ -239,7 +257,7 @@ export function VideoModelPicker<T extends ModelPickerOption>({
                 </div>
               )}
               {popular.length === 0 && more.length === 0 && (
-                <p className="px-3 py-6 text-center text-sm text-slate-400">No models match &ldquo;{query}&rdquo;</p>
+                <p className="px-3 py-6 text-center text-[13px] text-subtle">No models match &ldquo;{query}&rdquo;</p>
               )}
             </div>
           </motion.div>

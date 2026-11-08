@@ -111,16 +111,21 @@ export function ImageGeneratorSkeleton() {
             </div>
           </div>
 
-          {/* Desktop: prompt composer */}
-          <div className="mt-8 hidden rounded-[28px] border border-hairline bg-surface px-9 py-5 shadow-card md:block">
-            <div className="min-h-[96px]">
-              <PromptLinesSkeleton />
+          {/* Desktop: the bezel composer -- the prompt sheet, then the settings tray */}
+          <div className="mt-8 hidden rounded-[28px] border border-hairline p-1.5 md:block">
+            <div className="rounded-[22px] border border-hairline bg-surface px-5 pt-4 pb-3">
+              <div className="min-h-[112px]">
+                <PromptLinesSkeleton />
+              </div>
+              <div className="mt-2 flex items-center">
+                <Skeleton className="h-3.5 w-32 rounded-full" />
+                <Skeleton className="ml-auto h-10 w-36 rounded-2xl" />
+              </div>
             </div>
-            <div className="mt-3 flex items-center gap-1.5">
-              {["w-32", "w-20", "w-28", "w-24"].map((width) => (
-                <Skeleton key={width} className={`h-8 rounded-full ${width}`} />
+            <div className="mt-1.5 flex h-8 items-center gap-6 px-[21px]">
+              {["w-28", "w-12", "w-24", "w-16", "w-28"].map((width, i) => (
+                <Skeleton key={i} className={`h-3.5 rounded-full ${width}`} />
               ))}
-              <Skeleton className="ml-auto h-10 w-36 rounded-xl" />
             </div>
           </div>
         </div>
@@ -158,9 +163,9 @@ export function VideoGeneratorSkeleton() {
 
           <div className="mt-4 flex flex-col gap-4 lg:mt-6 lg:flex-row lg:items-start">
             {/* Mode rail -- desktop */}
-            <div className="hidden shrink-0 flex-col gap-1 rounded-2xl border border-hairline bg-surface p-1.5 lg:flex">
+            <div className="hidden shrink-0 flex-col gap-1 rounded-[22px] border border-hairline p-1.5 lg:flex">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5 px-4 py-2">
+                <div key={i} className="flex w-[72px] flex-col items-center gap-1.5 py-2.5">
                   <Skeleton className="h-4 w-4 rounded-md" />
                   <Skeleton className="h-2.5 w-9 rounded-full" />
                 </div>
@@ -170,8 +175,32 @@ export function VideoGeneratorSkeleton() {
             {/* Mode tabs -- mobile */}
             <Skeleton className="h-11 w-full rounded-2xl lg:hidden" />
 
-            {/* Composer */}
-            <div className="flex min-h-[180px] min-w-0 flex-1 flex-col gap-4 rounded-[2rem] border border-hairline bg-surface p-5 shadow-sm">
+            {/* Composer -- desktop: the bezel, prompt sheet with the frame tiles, then the settings tray */}
+            <div className="hidden min-w-0 flex-1 rounded-[28px] border border-hairline p-1.5 lg:block">
+              <div className="rounded-[22px] border border-hairline bg-surface px-5 pt-4 pb-3">
+                <div className="flex gap-4">
+                  <div className="h-28 min-w-0 flex-1">
+                    <PromptLinesSkeleton />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-28 w-20 rounded-xl" />
+                    <Skeleton className="h-28 w-20 rounded-xl" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center">
+                  <Skeleton className="h-3.5 w-28 rounded-full" />
+                  <Skeleton className="ml-auto h-10 w-36 rounded-2xl" />
+                </div>
+              </div>
+              <div className="mt-1.5 flex h-8 items-center gap-6 px-[21px]">
+                {["w-24", "w-10", "w-12", "w-12", "w-20", "w-16"].map((width, i) => (
+                  <Skeleton key={i} className={`h-3.5 rounded-full ${width}`} />
+                ))}
+              </div>
+            </div>
+
+            {/* Composer -- mobile */}
+            <div className="flex min-h-[180px] min-w-0 flex-1 flex-col gap-4 rounded-[2rem] border border-hairline bg-surface p-5 shadow-sm lg:hidden">
               <div className="flex flex-1 items-start gap-3">
                 <Skeleton className="h-16 w-16 shrink-0 rounded-xl" />
                 <div className="flex-1">

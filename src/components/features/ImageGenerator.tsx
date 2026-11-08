@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motio
 import {
   AlignLeft,
   Check,
+  ChevronDown,
   Clipboard,
   Copy,
   Download,
@@ -31,17 +32,16 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   PillDropdown,
-  GLASS_PILL_BASE,
-  GLASS_PILL_IDLE,
-  GLASS_PILL_FOCUS,
-  GLASS_PILL_ACTIVE,
-  GLASS_PANEL,
+  TRAY_CHIP,
+  TRAY_CHIP_OPEN,
+  TRAY_PANEL,
+  SHEET_BUTTON,
 } from "@/components/ui/PillDropdown";
+import { COMPOSER_RIM, COMPOSER_SHEET, COMPOSER_TRAY, COMPOSER_TRAY_RULE, SubmitHint } from "@/components/ui/ComposerKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { TopUpModal } from "@/components/TopUpModal";
-import { BorderTrail } from "@/components/ui/BorderTrail";
 import { notifyCreditsChanged } from "@/lib/client/credits-bus";
 import { readHistoryCache, writeHistoryCache } from "@/lib/client/history-cache";
 import { writeImageToVideoHandoff } from "@/lib/client/image-to-video-handoff";
@@ -95,7 +95,7 @@ export const ASPECT_RATIO_OPTIONS = ASPECT_RATIOS.map((value) => ({ value, label
 
 export const OUTPUT_OPTIONS = [1, 2, 3, 4].map((value) => ({
   value: String(value),
-  label: `${value} Output${value > 1 ? "s" : ""}`,
+  label: `${value} image${value > 1 ? "s" : ""}`,
 }));
 
 export const QUALITY_OPTIONS = [
@@ -724,6 +724,10 @@ export function ImageGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  // Set when Generate is pressed with no prompt: the button never greys
+  // out, it points at the field instead (same as /bend and /downloads).
+  const [promptHint, setPromptHint] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
   const activeTabPillId = useId();
@@ -1153,6 +1157,15 @@ export function ImageGenerator() {
     setTimeout(() => setPreviewLoadError(null), 3000);
   }
 
+  function submitPrompt() {
+    if (!canSubmit) {
+      setPromptHint(true);
+      promptRef.current?.focus();
+      return;
+    }
+    void handleGenerate();
+  }
+
   async function handleGenerate() {
     if (!canSubmit) return;
 
@@ -1252,26 +1265,27 @@ export function ImageGenerator() {
       type="button"
       onClick={() => fileInputRef.current?.click()}
       disabled={refImages.length >= MAX_REF_IMAGES}
-      className={cn(
-        GLASS_PILL_BASE,
-        refImages.length > 0
-          ? cn(GLASS_PILL_ACTIVE, "text-blue-600 dark:text-blue-400")
-          : GLASS_PILL_IDLE,
-        GLASS_PILL_FOCUS,
-      )}
+      // -ml-2 puts the icon on the prompt's text column.
+      className={cn(SHEET_BUTTON, "-ml-2")}
     >
-      <Upload className="h-3.5 w-3.5 shrink-0" />
-      {refImages.length > 0 ? `${refImages.length} Ref` : "Ref Image"}
+      <ImagePlus className="h-4 w-4 shrink-0 text-subtle" />
+      Reference image
+      {refImages.length > 0 && (
+        <span className="font-mono text-xs text-subtle tabular-nums">
+          {refImages.length}/{MAX_REF_IMAGES}
+        </span>
+      )}
     </button>
   );
 
   const referenceImageStrip = refImages.length > 0 && (
-    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200/70 pb-4 dark:border-white/[0.08]">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       {refImages.map((file, index) => (
         <RefPreviewThumbnail
           key={`${file.name}-${file.lastModified}-${index}`}
           src={refImagePreviewUrls[index]}
           onRemove={() => removeRefImage(index)}
+          size="h-14 w-14"
         />
       ))}
       {refImages.length < MAX_REF_IMAGES && (
@@ -1279,9 +1293,9 @@ export function ImageGenerator() {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Add reference image"
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 transition-colors duration-150 hover:border-blue-400 hover:text-blue-500 dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:text-blue-400"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#D9DCE1] text-subtle transition-colors duration-150 hover:border-[#BFC4CC] hover:text-heading dark:border-white/[0.12] dark:hover:border-white/[0.24]"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
         </button>
       )}
     </div>
@@ -1677,161 +1691,131 @@ export function ImageGenerator() {
 
         {/* ---------------- Desktop layout (>= md) ---------------- */}
         <div className="hidden md:block">
-          <div className="group relative isolate z-20 mt-8">
-            {/* Border wrapper — a thin gradient stroke (light blue to lighter
-                blue; dark blue to darker blue in dark mode) plus an animated
-                light trail that travels the perimeter for a premium, "alive" edge. */}
-            <div
-              className={cn(
-                "relative rounded-[28px] border-2 border-transparent shadow-[0_12px_32px_-16px_rgba(37,99,235,0.18)] transition-shadow duration-300",
-                // Focus ring: a soft blue glow that appears the moment the
-                // textarea is focused, so it's obvious where typing lands.
-                "focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.16),0_16px_40px_-16px_rgba(37,99,235,0.4)]",
-                // Crisp hairline ring + dark ambient shadow for definition
-                // against the black page -- no colored glow bloom.
-                "dark:shadow-[0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-20px_rgba(0,0,0,0.65)]",
-                "dark:focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.28),0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-20px_rgba(0,0,0,0.65)]"
-              )}
-            >
-              {/* Gradient stroke, masked to the border ring only so it never
-                  bleeds into the semi-transparent white panel beneath it.
-                  Dimmed until the textarea is focused, then brightens to a
-                  crisp premium edge so the active box is unmistakable. */}
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-transparent bg-gradient-to-br from-sky-400 to-cyan-300 opacity-60 transition-opacity duration-300 group-focus-within:opacity-100",
-                  "[mask-clip:padding-box,border-box] [mask-composite:exclude] [mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
-                  "[-webkit-mask-clip:padding-box,border-box] [-webkit-mask-composite:xor] [-webkit-mask-image:linear-gradient(#000,#000),linear-gradient(#000,#000)]",
-                  "dark:from-blue-500 dark:to-cyan-400"
-                )}
-              />
-              <BorderTrail
-                size={90}
-                className="bg-gradient-to-l from-blue-200 via-blue-500 to-blue-200 opacity-80 blur-[1px] dark:from-blue-400 dark:via-blue-300 dark:to-blue-400"
-                transition={{ repeat: Infinity, duration: 7, ease: "linear" }}
-              />
+          <div className="relative z-20 mt-8">
+            <div className={COMPOSER_RIM}>
+              <div className={cn(COMPOSER_SHEET, "px-5 pt-4 pb-3")}>
+                {referenceImageStrip}
+                <textarea
+                  ref={promptRef}
+                  value={prompt}
+                  onChange={(event) => {
+                    setPrompt(event.target.value);
+                    setPromptHint(false);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                      event.preventDefault();
+                      submitPrompt();
+                    }
+                  }}
+                  placeholder="Describe the image you want to create"
+                  aria-label="Prompt"
+                  maxLength={PROMPT_MAX}
+                  className="block min-h-[112px] w-full resize-none bg-transparent text-[15px] leading-6 text-heading outline-none placeholder:text-[#9AA0AB] dark:placeholder:text-zinc-500"
+                />
 
-              <div
-                className={cn(
-                  "relative flex w-full flex-col rounded-[26px] border border-slate-200 bg-slate-100/95 px-9 py-5 backdrop-blur-2xl backdrop-saturate-150",
-                  // Gray-toned fill (was bg-white/60) so the card reads as a distinct surface against the near-identical #fafafa page in light mode.
-                  // Lighter than the page background (not near-black-on-black)
-                  // plus a faint top sheen, so the panel reads as a distinct
-                  // raised surface -- the glass-card look of premium SaaS UIs.
-                  "dark:border-transparent dark:bg-[#131318] dark:bg-gradient-to-b dark:from-white/[0.04] dark:to-transparent"
-                )}
-              >
-            {referenceImageStrip}
-            <textarea
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the image you want to create..."
-              maxLength={PROMPT_MAX}
-              className="min-h-[96px] w-full resize-none bg-transparent text-sm font-normal leading-relaxed text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500"
-            />
+                <div className="mt-2 flex items-center gap-3">
+                  {refImageToolbarButton}
+                  <div className="ml-auto flex items-center gap-3">
+                    <SubmitHint hint={promptHint ? "Describe the image first" : null} />
+                    <PlasticButton
+                      text="Generate"
+                      onClick={submitPrompt}
+                      trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
+                      className="shrink-0 !px-5 !py-2.5 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div className="mt-3 flex flex-nowrap items-center gap-2">
-              <div className="-ml-3 flex flex-nowrap items-center gap-1.5">
-                <PillDropdown value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
-                <PillDropdown value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />
+              <div className={COMPOSER_TRAY}>
+                <PillDropdown variant="tray" value={selectedModel} options={MODEL_OPTIONS} onChange={setSelectedModel} />
+                <span aria-hidden="true" className={COMPOSER_TRAY_RULE} />
+                <PillDropdown variant="tray" value={aspectRatio} options={ASPECT_RATIO_OPTIONS} onChange={setAspectRatio} />
                 {QUALITY_LADDER_MODELS.has(selectedModel) && (
-                  <PillDropdown value={quality} options={QUALITY_OPTIONS} onChange={setQuality} labelPrefix="Quality" />
+                  <PillDropdown variant="tray" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} labelPrefix="Quality" />
                 )}
                 <PillDropdown
+                  variant="tray"
                   value={String(outputs)}
                   options={OUTPUT_OPTIONS}
                   onChange={(value) => setOutputs(Number(value))}
                 />
-                {refImageToolbarButton}
 
                 {RESOLUTION_MODELS.has(selectedModel) && (
-                <div ref={settingsMenuRef} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsSettingsOpen((prev) => !prev)}
-                    aria-expanded={isSettingsOpen}
-                    className={cn(
-                      GLASS_PILL_BASE,
-                      isSettingsOpen ? GLASS_PILL_ACTIVE : GLASS_PILL_IDLE,
-                      GLASS_PILL_FOCUS,
-                    )}
-                  >
-                    <SlidersHorizontal className={cn("h-3.5 w-3.5 transition-colors", isSettingsOpen && "text-blue-500 dark:text-blue-400")} />
-                    Settings
-                  </button>
+                  <div ref={settingsMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen((prev) => !prev)}
+                      aria-expanded={isSettingsOpen}
+                      aria-haspopup="dialog"
+                      className={cn(TRAY_CHIP, isSettingsOpen && TRAY_CHIP_OPEN)}
+                    >
+                      <span>
+                        <span className="font-normal text-subtle">Resolution</span> {resolution}
+                      </span>
+                      <ChevronDown
+                        className={cn("h-3.5 w-3.5 shrink-0 text-subtle transition-transform duration-200", isSettingsOpen && "rotate-180")}
+                      />
+                    </button>
 
-                  <AnimatePresence>
-                    {isSettingsOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                        className={cn(
-                          "absolute top-full right-0 z-50 mt-2 flex w-64 origin-top-right flex-col gap-4 rounded-2xl p-4",
-                          GLASS_PANEL,
-                        )}
-                      >
-                        <div>
-                          <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">Resolution</h3>
-                          <div className="flex flex-wrap gap-1">
+                    <AnimatePresence>
+                      {isSettingsOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                          className={cn("absolute top-full left-0 z-50 mt-2 w-72 origin-top-left rounded-2xl p-3", TRAY_PANEL)}
+                        >
+                          <p className="mb-2 text-xs font-medium text-subtle">Resolution</p>
+                          <div className="flex gap-1 rounded-[10px] bg-[var(--app-fill)] p-1">
                             {RESOLUTIONS.map((value) => (
                               <button
                                 key={value}
                                 type="button"
                                 onClick={() => setResolution(value)}
-                                className={
+                                aria-pressed={resolution === value}
+                                className={cn(
+                                  "h-7 flex-1 rounded-md text-[13px] font-medium tabular-nums transition-colors duration-150",
                                   resolution === value
-                                    ? "rounded-lg bg-blue-500 px-3 py-1 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_2px_6px_rgba(37,99,235,0.35)]"
-                                    : "cursor-pointer rounded-lg px-3 py-1 text-sm text-slate-600 transition-colors duration-150 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/[0.06]"
-                                }
+                                    ? "bg-white text-heading shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_1px_2px_rgba(16,24,40,0.08)] dark:bg-white/[0.12] dark:shadow-none"
+                                    : "text-subtle hover:text-heading"
+                                )}
                               >
                                 {value}
                               </button>
                             ))}
                           </div>
-                        </div>
 
-                        <div className="mt-2 flex items-center justify-between rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04]">
-                          <div className="flex items-center gap-2.5">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-900/[0.04] dark:bg-zinc-800 dark:ring-white/[0.06]">
-                              <Search className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-                            </span>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900 dark:text-white">Web Search</p>
-                              <p className="text-xs text-slate-500">Coming soon</p>
+                          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EEF0F2] pt-3 dark:border-white/[0.06]">
+                            <div className="flex items-center gap-2.5">
+                              <Search className="h-4 w-4 shrink-0 text-subtle" />
+                              <div>
+                                <p className="text-[13px] font-medium text-heading">Web search</p>
+                                <p className="text-xs text-subtle">Coming soon</p>
+                              </div>
                             </div>
+                            <button
+                              type="button"
+                              disabled
+                              aria-disabled="true"
+                              aria-label="Web search (coming soon)"
+                              className="relative h-5 w-9 shrink-0 cursor-not-allowed rounded-full bg-[var(--app-fill-strong)] opacity-60"
+                            >
+                              <span
+                                className={cn(
+                                  "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform dark:bg-zinc-400",
+                                  webSearchEnabled ? "left-0.5 translate-x-4" : "left-0.5"
+                                )}
+                              />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            disabled
-                            aria-disabled="true"
-                            aria-label="Web Search (coming soon)"
-                            className="relative h-5 w-9 shrink-0 cursor-not-allowed rounded-full bg-slate-200 opacity-60 dark:bg-zinc-700"
-                          >
-                            <span
-                              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all dark:bg-zinc-400 ${
-                                webSearchEnabled ? "left-4" : "left-0.5"
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 )}
-              </div>
-
-              <PlasticButton
-                text="Generate"
-                disabled={!canSubmit}
-                onClick={handleGenerate}
-                trailing={<CreditCost amount={estimatedCost} className="text-blue-200/80" />}
-                className="ml-auto shrink-0 !px-5 !py-2.5 font-semibold"
-              />
-            </div>
               </div>
             </div>
           </div>

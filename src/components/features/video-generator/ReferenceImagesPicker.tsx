@@ -1,10 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ImagePlus, Images, X } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { GLASS_PANEL, GLASS_PILL_ACTIVE, GLASS_PILL_BASE, GLASS_PILL_FOCUS, GLASS_PILL_IDLE } from "@/components/ui/PillDropdown";
+import { SHEET_BUTTON, SHEET_BUTTON_OPEN, TRAY_PANEL } from "@/components/ui/PillDropdown";
 import { readFileAsDataUrl } from "./FrameImagePicker";
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -53,11 +53,15 @@ export function ReferenceImagesPicker({ images, onChange, max, className }: Refe
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={cn("group", GLASS_PILL_BASE, GLASS_PILL_IDLE, GLASS_PILL_FOCUS, open && GLASS_PILL_ACTIVE)}
+        className={cn(SHEET_BUTTON, open && SHEET_BUTTON_OPEN)}
       >
-        <Images className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-        <span className="tracking-[-0.01em]">Images{images.length > 0 ? ` (${images.length})` : ""}</span>
-        <ChevronDown className={cn("h-3 w-3 shrink-0 text-slate-400 transition-transform duration-200 dark:text-slate-500", open && "rotate-180 text-blue-500 dark:text-blue-400")} />
+        <ImagePlus className="h-4 w-4 shrink-0 text-subtle" />
+        Reference images
+        {images.length > 0 && (
+          <span className="font-mono text-xs text-subtle tabular-nums">
+            {images.length}/{max}
+          </span>
+        )}
       </button>
 
       <AnimatePresence>
@@ -67,12 +71,12 @@ export function ReferenceImagesPicker({ images, onChange, max, className }: Refe
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className={cn("absolute left-0 top-full z-50 mt-2 w-64 origin-top-left rounded-2xl p-3", GLASS_PANEL)}
+            className={cn("absolute left-0 top-full z-50 mt-2 w-64 origin-top-left rounded-2xl p-3", TRAY_PANEL)}
           >
-            <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Reference images (up to {max})</p>
+            <p className="mb-2 text-xs font-medium text-subtle">Up to {max} images, referenced as @Image1, @Image2</p>
             <div className="flex flex-wrap gap-2">
               {images.map((image, index) => (
-                <div key={index} className="group/ref relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-white/10">
+                <div key={index} className="group/ref relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ring-1 ring-black/[0.06] dark:ring-white/10">
                   {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
                   <img src={image} alt="" className="h-full w-full object-cover" />
                   <button
@@ -90,7 +94,7 @@ export function ReferenceImagesPicker({ images, onChange, max, className }: Refe
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Add reference image"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 text-slate-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-zinc-700 dark:text-slate-500 dark:hover:border-blue-400/50 dark:hover:text-blue-400"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-[#D9DCE1] text-subtle transition-colors hover:border-[#BFC4CC] hover:text-heading dark:border-white/[0.12] dark:hover:border-white/[0.24]"
                 >
                   <ImagePlus className="h-4 w-4" />
                 </button>
