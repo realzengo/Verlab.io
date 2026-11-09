@@ -6,12 +6,13 @@ import { CLIP_SOURCE_MAX_SECONDS, type ClipSourceVideo, type DiscoverCategory } 
 // YouTube Data API reads for the Clipping page: the "Or choose" grid, its
 // search box and the pasted-link preview. Quota is shared with the Niche
 // Finder crons (~4,000 of the 10,000 daily units), so every call here is
-// cached: charts cost 1 unit, search.list costs 100.
+// cached: charts and playlist reads cost 1 unit, search.list costs 100.
 
 interface YoutubeVideoItem {
   id: string;
   snippet?: {
     title?: string;
+    publishedAt?: string;
     channelId?: string;
     channelTitle?: string;
     liveBroadcastContent?: string;
@@ -29,6 +30,35 @@ interface YoutubeChannelItem {
 // Long enough to be worth clipping; anything shorter is already short-form.
 const DISCOVER_MIN_SECONDS = 4 * 60;
 const DISCOVER_WINDOW_DAYS = 21;
+
+// "Recommended" is the big creators people actually clip, not YouTube's
+// trending chart (which is mostly music, trailers and regional uploads).
+// Ordered by billing: the grid's first row is the top of this list.
+const RECOMMENDED_CHANNELS = [
+  "UCX6OQ3DkcsbYNE6H8uQQuVA", // MrBeast
+  "UCGmnsW623G1r-Chmo5RB4Yw", // KSI
+  "UCoEmptob-eEGKk18c2VplJg", // Kai Cenat
+  "UCWsDFcIhY2DBi3GB5uykGXA", // IShowSpeed
+  "UCDogdKl7t7NHzQ95aEwkdMw", // Sidemen
+  "UCG8rbF3g2AMX70yOd8vqIZg", // Logan Paul
+  "UCxOzbkk0bdVl6-tH1Fcajfg", // Beta Squad
+  "UCcgVECVN4OKV6DH1jLkqmcA", // Jake Paul
+  "UCmDTrq0LNgPodDOFZiSbsww", // xQc
+  "UC63anZxfVGHUEmfBAf5w7pw", // CaseOh
+  "UCnmGIkw-KdI0W5siakKPKog", // Ryan Trahan
+  "UCey-eDTR5J6xU6pZ2f4guoA", // Adin Ross (Adin Live)
+  "UC-lHJZR3Gqxm24_Vd_AJ5Yw", // PewDiePie
+  "UCGeBogGDZ9W3dsGx-mWQGJA", // Impaulsive
+  "UCyps-v4WNjWDnYRKmZ4BUGw", // Airrack
+  "UC4PQqjGczpgmqbpicKjkwvw", // Druski
+  "UCY1kMZp36IQSyNx_9h4mpCg", // Mark Rober
+  "UCdcUmdOxMrhRjKMw-BX19AA", // Niko Omilana
+  "UCWZmCMB7mmKWcXJSIPRhzZw", // Miniminter
+  "UCrPseYLGpNygVi34QpGNqpA", // Ludwig
+  "UCRijo3ddMTht_IHyNSNXpNQ", // Dude Perfect
+];
+const RECOMMENDED_PER_CHANNEL = 3;
+const RECOMMENDED_MAX_AGE_DAYS = 180;
 
 function parseIsoDuration(value: string | undefined): number {
   const match = value?.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/);
@@ -131,6 +161,48 @@ async function searchIds(params: Record<string, string>): Promise<string[]> {
   return (data.items ?? []).map((item) => item.id?.videoId).filter((id): id is string => Boolean(id));
 }
 
+async function latestUploadIds(channelId: string): Promise<string[]> {
+  const data = await youtubeGet<{ items?: { contentDetails?: { videoId?: string } }[] }>("/playlistItems", {
+    part: "contentDetails",
+    // A channel's uploads playlist is its id with the UC prefix swapped for UU.
+    playlistId: `UU${channelId.slice(2)}`,
+    // Shorts and 3h+ streams make up most uploads, so read deep enough to
+    // find a few long videos; the page size doesn't change the 1-unit cost.
+    maxResults: "25",
+  });
+  return (data.items ?? []).map((item) => item.contentDetails?.videoId).filter((id): id is string => Boolean(id));
+}
+
+async function recommended(): Promise<YoutubeVideoItem[]> {
+  const uploads = await Promise.allSettled(RECOMMENDED_CHANNELS.map(latestUploadIds));
+  const failures = uploads.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (failures.length === uploads.length) throw failures[0].reason;
+  if (failures.length) console.error("[clips/youtube] recommended uploads failed:", failures[0].reason);
+
+  const perChannel = uploads.map((result) => (result.status === "fulfilled" ? result.value : []));
+  const ids = perChannel.flat();
+  const batches = [];
+  for (let start = 0; start < ids.length; start += 50) batches.push(videosById(ids.slice(start, start + 50)));
+  const details = new Map((await Promise.all(batches)).flat().map((item) => [item.id, item]));
+
+  const cutoff = Date.now() - RECOMMENDED_MAX_AGE_DAYS * 86_400_000;
+  const columns = perChannel.map((channelIds) =>
+    channelIds
+      .flatMap((id) => {
+        const item = details.get(id);
+        return item && isClippable(item) && Date.parse(item.snippet?.publishedAt ?? "") >= cutoff ? [item] : [];
+      })
+      .slice(0, RECOMMENDED_PER_CHANNEL)
+  );
+  // Round-robin, so the grid opens on each creator's newest video rather
+  // than one daily streamer's whole week.
+  const interleaved: YoutubeVideoItem[] = [];
+  for (let round = 0; round < RECOMMENDED_PER_CHANNEL; round++) {
+    for (const column of columns) if (column[round]) interleaved.push(column[round]);
+  }
+  return interleaved;
+}
+
 function recentWindow(): string {
   // Rounded to the day so the cached search key doesn't change every call.
   const day = Math.floor(Date.now() / 86_400_000) - DISCOVER_WINDOW_DAYS;
@@ -146,12 +218,8 @@ async function finish(items: YoutubeVideoItem[]): Promise<ClipSourceVideo[]> {
 
 async function loadCategory(category: DiscoverCategory): Promise<ClipSourceVideo[]> {
   switch (category) {
-    case "recommended": {
-      // The all-categories chart is mostly short music videos and trailers;
-      // People & Blogs (vlogs, podcasts, commentary) fills it out.
-      const [all, people] = await Promise.all([chart(), chart("22")]);
-      return finish([...all, ...people]);
-    }
+    case "recommended":
+      return finish(await recommended());
     case "gaming":
       return finish(await chart("20"));
     case "news":
@@ -196,7 +264,7 @@ async function loadCategory(category: DiscoverCategory): Promise<ClipSourceVideo
   }
 }
 
-export const discoverClipSources = unstable_cache(loadCategory, ["clips-discover-v1"], { revalidate: 12 * 3600 });
+export const discoverClipSources = unstable_cache(loadCategory, ["clips-discover-v2"], { revalidate: 12 * 3600 });
 
 export const searchClipSources = unstable_cache(
   async (query: string) => finish(await videosById(await searchIds({ q: query, relevanceLanguage: "en" }))),
