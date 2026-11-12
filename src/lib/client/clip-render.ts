@@ -13,6 +13,7 @@
 import {
   CLIP_STYLES,
   LAYOUT_PANELS,
+  STACKED_LAYOUTS,
   detectClipStyle,
   layoutPlan,
   sceneAt,
@@ -48,7 +49,12 @@ export type CaptionTemplate =
   | "neon"
   | "minimal"
   | "off";
-export type CaptionPosition = "top" | "middle" | "bottom" | "custom";
+/** The fixed spots the position presets offer. */
+export type PlacementPreset = "top" | "middle" | "bottom";
+/** A preset (which moves with the layout), or a spot of the user's own. */
+export type HookPosition = PlacementPreset | "custom";
+/** Captions can also be Auto: the middle on stacked layouts (gameplay, screen, split), else the bottom. */
+export type CaptionPosition = HookPosition | "auto";
 export type CaptionFont = "sauce" | "montserrat" | "poppins" | "inter" | "anton" | "bebas" | "luckiest" | "arabic";
 export type HookStyle = "card" | "dark" | "outline" | "brand";
 /** How the hook comes in: pops, drops and bounces, fades, or word by word. */
@@ -93,7 +99,7 @@ export interface ClipEditSettings {
   hookFont: CaptionFont;
   hookSize: number;
   /** Top sits where suits the layout (in Fit, a headline over the video); "custom" pins it at hookX/hookY. */
-  hookPosition: CaptionPosition;
+  hookPosition: HookPosition;
   /** The hook's center as a fraction of the frame (0-1), when its position is "custom". */
   hookX: number;
   hookY: number;
@@ -162,20 +168,36 @@ export const CAPTION_FONTS: Record<CaptionFont, { label: string; family: string;
 };
 
 /** Roughly where the hook presets put its center; Top moves with the layout. */
-export const HOOK_PRESET_Y: Record<Exclude<CaptionPosition, "custom">, number> = {
+export const HOOK_PRESET_Y: Record<PlacementPreset, number> = {
   top: 0.17,
   middle: 0.5,
   bottom: 0.74,
 };
 
 /** Where the presets put captions over a Fill frame; other layouts move them to suit. */
-export const CAPTION_PRESET_Y: Record<Exclude<CaptionPosition, "custom">, number> = {
+export const CAPTION_PRESET_Y: Record<PlacementPreset, number> = {
   top: 0.24,
   middle: 0.5,
   bottom: 0.72,
 };
 
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+/**
+ * The preset a caption position comes to on this frame. Auto takes the middle
+ * (the seam) on stacked clips and the bottom-video split, else the bottom:
+ * in Fill above the app's description, in Fit just under the video.
+ */
+export function captionPreset(
+  position: CaptionPosition,
+  layout: LayoutId | "bottom",
+  scene: SceneFrame | null | undefined
+): PlacementPreset {
+  if (position === "custom") return "bottom";
+  if (position !== "auto") return position;
+  if (layout === "bottom") return "middle";
+  return (scene?.stacked ?? STACKED_LAYOUTS.has(layout)) ? "middle" : "bottom";
+}
+
 const POP_SECONDS = 0.12;
 const OUTPUT_FPS = 30;
 
@@ -1400,8 +1422,11 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     const followed = settings.reframe === "auto" ? center : null;
     const hook = settings.hookTitle && settings.hookText.trim() ? settings.hookText.trim() : "";
     // The presets' spots move with the layout; a custom spot is fixed (applied below).
-    const preset = settings.captionPosition === "custom" ? "bottom" : settings.captionPosition;
+    const preset = captionPreset(settings.captionPosition, layout, scene);
     let captionY = height * CAPTION_PRESET_Y[preset];
+    // Auto over a square or landscape Fill: no app buttons to clear, so lower.
+    if (settings.captionPosition === "auto" && preset === "bottom" && layout === "fill" && settings.aspect !== "9:16")
+      captionY = height * 0.8;
     let hookY = height * 0.13;
     // In Fit, room above the video for the hook as a plain headline.
     let headlineY: number | null = null;

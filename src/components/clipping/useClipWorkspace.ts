@@ -126,7 +126,8 @@ export function defaultSettings(clip: ClipMoment, rtl = false): ClipEditSettings
     zoom: "auto",
     focusX: 0.5,
     captions: "hormozi",
-    captionPosition: "bottom",
+    // Auto: the middle on gameplay, screen and split clips, low on the rest.
+    captionPosition: "auto",
     captionX: 0.5,
     captionY: 0.72,
     captionFont: rtl ? "arabic" : "auto",

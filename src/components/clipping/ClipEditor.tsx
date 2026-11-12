@@ -18,6 +18,7 @@ import {
   RotateCw,
   ScanFace,
   Scaling,
+  Sparkles,
   Type,
   Upload,
   X,
@@ -1022,10 +1023,16 @@ function LayoutPicker({
   );
 }
 
-const POSITION_PRESETS: { value: Exclude<CaptionPosition, "custom">; label: string }[] = [
+type PresetValue = Exclude<CaptionPosition, "custom">;
+const POSITION_PRESETS: { value: PresetValue; label: string }[] = [
   { value: "top", label: "Top" },
   { value: "middle", label: "Middle" },
   { value: "bottom", label: "Bottom" },
+];
+/** Captions also get Auto, which picks the spot from the layout. */
+const CAPTION_PRESETS: { value: PresetValue; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  ...POSITION_PRESETS,
 ];
 const PAD_SIZES: Record<ClipAspect, { width: number; height: number }> = {
   "9:16": { width: 92, height: 164 },
@@ -1042,8 +1049,14 @@ const HOOK_MARKERS: Record<HookStyle, { box: string; ink: string }> = {
   outline: { box: "bg-black/30", ink: "bg-white" },
 };
 
-/** A frame with a bar where the preset puts the captions. */
-function PresetGlyph({ at }: { at: Exclude<CaptionPosition, "custom"> }) {
+/** A frame with a bar where the preset puts the captions; Auto gets a sparkle. */
+function PresetGlyph({ at }: { at: PresetValue }) {
+  if (at === "auto")
+    return (
+      <span className="flex h-4 w-[11px] shrink-0 items-center justify-center">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" />
+      </span>
+    );
   return (
     <span className="relative h-4 w-[11px] shrink-0 rounded-[3px] border-[1.5px] border-current">
       <span
@@ -1088,9 +1101,9 @@ function PlacementPad({
   const position = positionOf(settings, what);
   const presetY = what === "caption" ? CAPTION_PRESET_Y : HOOK_PRESET_Y;
   const spot: Point = customSpot(settings, what) ??
-    anchor ?? { x: 0.5, y: presetY[position === "custom" ? "top" : position] };
+    anchor ?? { x: 0.5, y: presetY[position === "custom" ? "top" : position === "auto" ? "bottom" : position] };
   const setPosition = (value: CaptionPosition) =>
-    onChange(what === "caption" ? { captionPosition: value } : { hookPosition: value });
+    onChange(what === "caption" ? { captionPosition: value } : value === "auto" ? {} : { hookPosition: value });
   const size = PAD_SIZES[settings.aspect];
   const markerWidth = PAD_MARKER[what];
   const half = markerWidth / 2;
@@ -1237,7 +1250,7 @@ function PlacementPad({
             aria-label={what === "caption" ? "Caption position presets" : "Hook position presets"}
             className="flex flex-col gap-[3px] rounded-[10px] bg-(--app-fill) p-[3px]"
           >
-            {POSITION_PRESETS.map((preset) => {
+            {(what === "caption" ? CAPTION_PRESETS : POSITION_PRESETS).map((preset) => {
               const on = position === preset.value;
               return (
                 <button
@@ -1271,7 +1284,7 @@ function PlacementPad({
             {position === "custom" && (
               <button
                 type="button"
-                onClick={() => setPosition(what === "caption" ? "bottom" : "top")}
+                onClick={() => setPosition(what === "caption" ? "auto" : "top")}
                 className="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-heading transition-colors hover:bg-(--app-fill)"
               >
                 <RotateCw className="h-3 w-3" /> Reset
@@ -1281,6 +1294,9 @@ function PlacementPad({
         </div>
       </div>
       <p className="text-[12px] leading-snug text-subtle">
+        {what === "caption" &&
+          position === "auto" &&
+          "Auto puts captions on the seam of Gameplay, ScreenShare and Split layouts, and low on the rest. "}
         Drag the {noun} on the preview or in the frame, or a corner on the preview to resize.
         <span className="[@media(pointer:coarse)]:hidden"> Arrow keys nudge, Shift for bigger steps.</span>
         {settings.aspect === "9:16" && " Hatched areas sit under the app's buttons."}
@@ -1633,7 +1649,13 @@ function ClipSettingsPanel({
                 <Switch
                   checked={settings.bottomVideo}
                   onCheckedChange={(bottomVideo) =>
-                    onChange({ bottomVideo, ...(bottomVideo ? { captionPosition: "middle" as const } : {}) })
+                    onChange({
+                      bottomVideo,
+                      // Auto already moves to the seam.
+                      ...(bottomVideo && settings.captionPosition !== "auto"
+                        ? { captionPosition: "middle" as const }
+                        : {}),
+                    })
                   }
                   size="sm"
                   label="Bottom video"

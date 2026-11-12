@@ -60,7 +60,14 @@ export interface SceneFrame {
   layout: LayoutId;
   crops: PanelCrop[];
   divide?: number;
+  /** The clip is mostly stacked panels (see LayoutPlan.stacked). */
+  stacked?: boolean;
 }
+
+/** Layouts that stack panels, with a seam across the frame where captions read best. */
+export const STACKED_LAYOUTS: ReadonlySet<LayoutId> = new Set(["split", "three", "four", "screen", "gameplay"]);
+// Share of a clip's time in stacked layouts that makes it a stacked clip.
+const STACKED_SHARE = 0.4;
 
 export const LAYOUT_PANELS: Record<PanelLayout, Rect[]> = {
   split: [
@@ -145,6 +152,11 @@ export interface LayoutPlan {
   used: LayoutId[];
   /** In Auto, the kind of footage the AI read the clip as. */
   style?: ClipStyle;
+  /**
+   * Mostly stacked panels: Auto captions then sit on the seam for the whole
+   * clip, so they don't jump between shots (a cam-less Fill shot in a stream).
+   */
+  stacked?: boolean;
 }
 
 const median = (values: number[]) => {
@@ -515,7 +527,9 @@ export function layoutPlan(
 
   const used: LayoutId[] = [];
   for (const shot of shots) if (!used.includes(shot.layout)) used.push(shot.layout);
-  return { shots, used };
+  const span = (list: Shot[]) => list.reduce((sum, shot) => sum + shot.end - shot.start, 0);
+  const stacked = span(shots.filter((shot) => STACKED_LAYOUTS.has(shot.layout))) >= STACKED_SHARE * span(shots);
+  return { shots, used, stacked: shots.length > 0 && stacked };
 }
 
 /** What the output shows at `time`. */
@@ -535,7 +549,7 @@ export function sceneAt(plan: LayoutPlan | null | undefined, time: number): Scen
     };
   });
   if (shot.fixed) crops.push(...shot.fixed);
-  return { layout: shot.layout, crops, divide: shot.divide };
+  return { layout: shot.layout, crops, divide: shot.divide, stacked: plan.stacked };
 }
 
 /** The kinds of footage Auto tells apart, and what each gets. */
