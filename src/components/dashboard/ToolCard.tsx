@@ -41,7 +41,7 @@ export function ToolCard({
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-bold text-heading">{title}</h3>
           {beta && (
-            <span className="rounded-full bg-btn-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+            <span className="inline-flex h-4 items-center rounded-full bg-btn-primary px-1.5 text-[9px] font-semibold uppercase leading-none tracking-wide text-white">
               Beta
             </span>
           )}

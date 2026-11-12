@@ -33,7 +33,16 @@ const STEPS: { id: "video" | Step; label: string }[] = [
 
 const POLL_MS = 3000;
 
-export function ClipProjectView({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+export function ClipProjectView({
+  projectId,
+  initialClipId,
+  onBack,
+}: {
+  projectId: string;
+  /** A moment to start with selected and previewed. */
+  initialClipId?: string | null;
+  onBack: () => void;
+}) {
   const { data, error } = useSWR<{ project: ClipProject }>(`/api/clips/${projectId}`, fetchJson, {
     refreshInterval: (latest) => (latest && isClipProjectWorking(latest.project.status) ? POLL_MS : 0),
     revalidateOnFocus: false,
@@ -55,7 +64,7 @@ export function ClipProjectView({ projectId, onBack }: { projectId: string; onBa
     );
   }
   if (!project) return <ProjectSkeleton />;
-  return <ProjectWorkspace key={project.id} project={project} onBack={onBack} />;
+  return <ProjectWorkspace key={project.id} project={project} initialClipId={initialClipId} onBack={onBack} />;
 }
 
 /* Quiet premium surfaces: a solid fill, a hairline edge and one soft
@@ -82,16 +91,29 @@ function Screen({ children, ref }: { children: ReactNode; ref?: React.Ref<HTMLDi
   );
 }
 
-function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: () => void }) {
-  // Coming back to a project whose clips this tab rendered (or is still
-  // rendering) opens on them; otherwise it starts at Choose.
-  const [selected, setSelected] = useState<string[]>(() => {
+function ProjectWorkspace({
+  project,
+  initialClipId,
+  onBack,
+}: {
+  project: ClipProject;
+  initialClipId?: string | null;
+  onBack: () => void;
+}) {
+  // Opened for one moment (from a video's page in Your clips): Choose, with
+  // it ticked and previewed. Coming back to a project whose clips this tab
+  // rendered (or is still rendering): their Download step. Otherwise: Choose.
+  const [picked] = useState(() =>
+    initialClipId && project.clips?.some((clip) => clip.id === initialClipId) ? initialClipId : null
+  );
+  const [rendered] = useState(() => {
     const ids = new Set((project.clips ?? []).map((clip) => clip.id));
     return rendersFor(project.id)
       .map((entry) => entry.clip.id)
       .filter((id) => ids.has(id));
   });
-  const [step, setStep] = useState<Step>(() => (selected.length ? "post" : "choose"));
+  const [selected, setSelected] = useState<string[]>(() => (picked ? [picked] : rendered));
+  const [step, setStep] = useState<Step>(() => (!picked && rendered.length ? "post" : "choose"));
   const workspace = useClipWorkspace(project);
   const clips = useMemo(() => project.clips ?? [], [project.clips]);
   const selectedClips = clips.filter((clip) => selected.includes(clip.id));
@@ -188,6 +210,7 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
           ) : step === "choose" ? (
             <ChooseStep
               project={project}
+              initialPreviewId={picked}
               clips={clips}
               selected={selected}
               onToggle={(id) =>
@@ -277,19 +300,21 @@ function PanelHeader({ title, children }: { title: string; children?: ReactNode 
 
 function ChooseStep({
   project,
+  initialPreviewId,
   clips,
   selected,
   onToggle,
   onContinue,
 }: {
   project: ClipProject;
+  initialPreviewId?: string | null;
   clips: ClipMoment[];
   selected: string[];
   onToggle: (id: string) => void;
   onContinue: () => void;
 }) {
   const best = useMemo(() => [...clips].sort((a, b) => b.score - a.score)[0], [clips]);
-  const [previewId, setPreviewId] = useState(best?.id);
+  const [previewId, setPreviewId] = useState(initialPreviewId ?? best?.id);
   const [playing, setPlaying] = useState(false);
   const [hint, setHint] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
@@ -513,7 +538,10 @@ function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
   return (
     <dl className="relative mt-5 grid grid-cols-4 border-t border-hairline pt-4 sm:mt-6 sm:pt-5">
       {SCORE_PARTS.map(({ key, label }, index) => (
-        <div key={key} className={cn("min-w-0 px-3 sm:px-5", index === 0 ? "pl-0 sm:pl-0" : "border-l border-hairline")}>
+        <div
+          key={key}
+          className={cn("min-w-0 px-3 sm:px-5", index === 0 ? "pl-0 sm:pl-0" : "border-l border-hairline")}
+        >
           <dt className="text-[12px] text-subtle">{label}</dt>
           <dd className="mt-1 text-[20px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-heading sm:text-[24px]">
             {scores[key]}
