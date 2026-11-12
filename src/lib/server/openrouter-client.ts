@@ -33,10 +33,10 @@ export const openrouterInstructModel = openrouter(OPENROUTER_INSTRUCT_MODEL);
 export const OPENROUTER_MAX_OUTPUT_TOKENS = 16000;
 
 // Google Gemini Flash via OpenRouter -- fast, cheap structured-output
-// classification pass for the faceless-channel classifier (see
-// lib/server/faceless-classifier.ts). Kept distinct from
+// classification pass for the Niche Finder's per-video niche/faceless
+// verdict (see lib/server/niche-video-enrichment.ts). Kept distinct from
 // OPENROUTER_INSTRUCT_MODEL because this call is high-volume/low-latency
-// (one per ingested channel) rather than a creative-writing pass.
+// (one per scraped video) rather than a creative-writing pass.
 // Originally gemini-flash-1.5, which OpenRouter has since retired --
 // google/gemini-2.5-flash is the current pinned equivalent (checked against
 // GET https://openrouter.ai/api/v1/models on 2026-08-08; the catalog now

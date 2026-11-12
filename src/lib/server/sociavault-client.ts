@@ -375,14 +375,6 @@ export async function fetchTikTokProfileFollowerCount(handle: string): Promise<n
   return Number(json.data?.stats?.followerCount) || 0;
 }
 
-interface SociaVaultTrendingFeedResponse {
-  success?: boolean;
-  data?: {
-    success?: boolean;
-    aweme_list?: SociaVaultAwemeItem[] | Record<string, SociaVaultAwemeItem>;
-  };
-}
-
 function captionHashtags(desc: string | undefined): string[] {
   if (!desc) return [];
   return [...desc.matchAll(/#(\w+)/g)].map((match) => match[1]);
@@ -429,48 +421,6 @@ function mapUnscopedAwemeItems(items: SociaVaultAwemeItem[]): TrendingTikTokVide
   }
 
   return videos;
-}
-
-/**
- * Pulls TikTok's real, unfiltered trending feed (region-scoped, not
- * hashtag-scoped) -- unlike fetchFacelessTrendingVideos, this isn't limited
- * to faceless-niche content, so it reflects whatever's actually trending
- * platform-wide right now, including videos outside our niche catalog.
- * Cached for a minute via Next's fetch cache since it's billed per request
- * (1 credit) and would otherwise get re-billed on every page load/filter
- * toggle across every visitor.
- */
-export async function fetchTikTokTrendingFeed(region = "US"): Promise<TrendingTikTokVideo[]> {
-  const apiKey = process.env.SOCIAVAULT_API_KEY;
-  if (!apiKey) {
-    throw new SociaVaultError("not_configured", "SociaVault is not configured (missing SOCIAVAULT_API_KEY).");
-  }
-
-  const endpoint = new URL("/v1/scrape/tiktok/trending", SOCIAVAULT_BASE_URL);
-  endpoint.searchParams.set("region", region);
-
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      headers: { "x-api-key": apiKey },
-      signal: AbortSignal.timeout(30_000),
-      next: { revalidate: 60 },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new SociaVaultError("provider_error", `Could not reach SociaVault: ${message}`);
-  }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new SociaVaultError(
-      "provider_error",
-      `SociaVault request failed (${response.status}): ${body.slice(0, 300)}`
-    );
-  }
-
-  const json = (await response.json()) as SociaVaultTrendingFeedResponse;
-  return filterEnglishOnly(mapUnscopedAwemeItems(toAwemeArray(json.data?.aweme_list)));
 }
 
 interface SociaVaultKeywordSearchResponse {

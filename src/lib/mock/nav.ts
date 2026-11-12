@@ -3,7 +3,6 @@ import {
   BarChart3,
   Coins,
   DollarSign,
-  EyeOff,
   LayoutDashboard,
   Settings,
   Wallet,
@@ -36,7 +35,6 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Overview", href: "/admin", icon: LayoutDashboard },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Plans", href: "/admin/plans", icon: Tag },
-  { label: "Niche Channels", href: "/admin/niche-channels", icon: EyeOff },
   { label: "Credits", href: "/admin/credits", icon: Coins },
   { label: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
   { label: "Revenue", href: "/admin/revenue", icon: DollarSign },
@@ -52,7 +50,7 @@ const ADMIN_NAV_GROUPS: { label: string | null; hrefs: string[] }[] = [
   { label: null, hrefs: ["/admin"] },
   { label: "Customers", hrefs: ["/admin/users", "/admin/credits", "/admin/promo-codes"] },
   { label: "Revenue", hrefs: ["/admin/revenue", "/admin/plans", "/admin/api-costs"] },
-  { label: "Product", hrefs: ["/admin/usage", "/admin/niche-channels"] },
+  { label: "Product", hrefs: ["/admin/usage"] },
   { label: "Operations", hrefs: ["/admin/system", "/admin/settings"] },
 ];
 

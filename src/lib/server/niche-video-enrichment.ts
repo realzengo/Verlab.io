@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchTranscript, VideoProviderError } from "@/lib/server/video-provider";
+import { fetchTranscript, VideoProviderError, type VideoProviderErrorCode } from "@/lib/server/video-provider";
 import { facelessClassifierModel, FACELESS_CLASSIFIER_MODEL } from "@/lib/server/openrouter-client";
 import { NICHE_ORDER } from "@/lib/niches-catalog";
 import type { TrendingVideoRow } from "@/lib/server/trending-videos";
@@ -23,10 +23,9 @@ const AnalysisSchema = z.object({
 
 export type VideoTranscriptAnalysis = z.infer<typeof AnalysisSchema>;
 
-// Shared with the client via lib/types.ts (TranscriptAnalysis) -- see that
-// file for why: it's the same convention faceless-classifier.ts follows for
-// FacelessClassification, so a structured AI-analysis shape only has one
-// definition regardless of which side of the client/server boundary reads it.
+// Shared with the client via lib/types.ts (TranscriptAnalysis), so a
+// structured AI-analysis shape only has one definition regardless of which
+// side of the client/server boundary reads it.
 
 const ANALYSIS_TIMEOUT_MS = 45_000;
 const ANALYSIS_MAX_OUTPUT_TOKENS = 800;
@@ -102,25 +101,30 @@ export type EnrichmentQueueRow = Pick<TrendingVideoRow, "id" | "title" | "author
 /**
  * Enriches a single trending_videos row: fetches its transcript, runs the
  * Gemini analysis pass, and writes the verdict onto transcript_analysis.
- * Returns the terminal status that got stored, or `null` if the Supabase
- * write itself failed (row is left NULL, so the next tick's queue query
- * picks it back up).
+ * Returns the terminal status that got stored, `"deferred"` when the
+ * transcript provider itself is unavailable (row left NULL), or `null` if
+ * the Supabase write itself failed (row is left NULL, so the next tick's
+ * queue query picks it back up).
  *
- * Every reachable outcome -- a real analysis, an unavailable transcript, or
- * a provider/model error -- writes a non-null, terminal JSONB value. This is
+ * Every outcome about the video itself -- a real analysis, an unavailable
+ * transcript, or a model error -- writes a non-null, terminal JSONB value
+ * (a provider-wide outage is the one exception, see VIDEO_LEVEL_FAILURES). This is
  * deliberate: the queue (runNicheVideoEnrichmentTick) selects strictly on
  * `transcript_analysis IS NULL` via the partial index added in
  * 20260819130000_trending_videos_transcript_analysis.sql, so a video that
  * fails permanently (dead link, no captions, unsupported platform) has to be
  * marked terminal or it gets re-selected -- and re-billed against the same
- * failure -- forever. There's no retry/backoff on top of this yet; add one
- * (e.g. an attempt counter inside the stored JSONB) if transient failures
- * turn out to be common enough to matter.
+ * failure -- forever.
  */
+// Provider errors that say something about this one video. Anything else
+// (provider_error, rate_limited, not_configured) is the provider's problem
+// and is retried on a later tick.
+const VIDEO_LEVEL_FAILURES = new Set<VideoProviderErrorCode>(["not_found", "no_captions", "unsupported_url"]);
+
 export async function enrichVideo(
   admin: SupabaseClient,
   video: EnrichmentQueueRow
-): Promise<TranscriptAnalysis["status"] | null> {
+): Promise<TranscriptAnalysis["status"] | "deferred" | null> {
   let stored: TranscriptAnalysis;
 
   try {
@@ -147,6 +151,13 @@ export async function enrichVideo(
       };
     }
   } catch (error) {
+    if (error instanceof VideoProviderError && !VIDEO_LEVEL_FAILURES.has(error.code)) {
+      // The transcript provider itself is down, rate limiting, or out of
+      // credit (402). Nothing is wrong with this video, so it stays queued
+      // (NULL) for a later tick instead of being written off for good.
+      console.warn(`[niche-video-enrichment] transcript provider unavailable, deferring ${video.id}:`, error.message);
+      return "deferred";
+    }
     if (error instanceof VideoProviderError) {
       // Not found, no captions available, unsupported platform, etc. --
       // an expected shape of failure, not a system error.
@@ -188,6 +199,8 @@ export interface EnrichmentTickResult {
   analyzed: number;
   unavailable: number;
   failed: number;
+  /** Rows left queued because the transcript provider was unavailable. */
+  deferred: number;
 }
 
 /**
@@ -251,7 +264,7 @@ export async function runNicheVideoEnrichmentTick(
 ): Promise<EnrichmentTickResult> {
   const limit = Math.min(MAX_BATCH_SIZE, Math.max(1, batchSize));
 
-  const result: EnrichmentTickResult = { processed: 0, analyzed: 0, unavailable: 0, failed: 0 };
+  const result: EnrichmentTickResult = { processed: 0, analyzed: 0, unavailable: 0, failed: 0, deferred: 0 };
 
   const queue = await loadEnrichmentQueue(admin, limit);
   if (queue.length === 0) return result;
@@ -259,9 +272,19 @@ export async function runNicheVideoEnrichmentTick(
   let nextIndex = 0;
   const deadline = Date.now() + TICK_WALL_CLOCK_BUDGET_MS;
 
+  // Set once the transcript provider reports an outage (see enrichVideo):
+  // every other row in the queue would hit the same wall, so the tick stops
+  // rather than spending the rest of its budget on calls that can't succeed.
+  let providerDown = false;
+
   async function worker(): Promise<void> {
-    for (let i = nextIndex++; i < queue.length && Date.now() < deadline; i = nextIndex++) {
+    for (let i = nextIndex++; i < queue.length && Date.now() < deadline && !providerDown; i = nextIndex++) {
       const status = await enrichVideo(admin, queue[i]);
+      if (status === "deferred") {
+        providerDown = true;
+        result.deferred++;
+        continue;
+      }
       result.processed++;
       if (status === "analyzed") result.analyzed++;
       else if (status === "unavailable") result.unavailable++;

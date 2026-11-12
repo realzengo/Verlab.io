@@ -21,7 +21,6 @@ export const dynamic = "force-dynamic";
 const TOOL_DESCRIPTIONS: Record<string, string> = {
   "/admin/users": "Accounts, plans and usage per user",
   "/admin/plans": "Pricing tiers and plan features",
-  "/admin/niche-channels": "Faceless channel library and classifier",
   "/admin/credits": "Balances, spend and manual grants",
   "/admin/promo-codes": "Discount and credit codes",
   "/admin/revenue": "MRR, churn and transactions",

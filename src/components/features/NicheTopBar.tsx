@@ -51,10 +51,9 @@ export interface VideoRangeFilters {
   viewsPerHourMax: string;
   /** 2-letter YouTube region codes; empty means worldwide. */
   countries: string[];
-  /** AI-verified "no real face on camera" — matched by channel name against
-   * the niche_channels classifier (see getFacelessAuthorSet in
-   * niche-video-query.ts). A channel that's never been submitted for
-   * classification won't match, even if its content is genuinely faceless. */
+  /** AI-verified "no real face on camera" — each video's own transcript
+   * verdict, falling back to its creator's other analyzed videos (see
+   * getFacelessAuthorSet in niche-video-query.ts). */
   faceless: boolean;
 }
 

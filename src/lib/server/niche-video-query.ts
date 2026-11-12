@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_VIRAL_VIEW_FLOOR,
@@ -141,11 +142,9 @@ export interface NicheVideoQueryParams {
   /** Views ÷ hours since posted. Same derived-in-JS treatment as outlier. */
   viewsPerHourMin?: string | null;
   viewsPerHourMax?: string | null;
-  /** AI-verified "no real face on camera", matched by channel name against
-   * niche_channels' classifier verdicts (see getFacelessAuthorSet) -- an
-   * inexact join since trending_videos has no real foreign key to
-   * niche_channels, but the only usable signal today. A video whose channel
-   * was never submitted for classification simply won't match. */
+  /** AI-verified "no real face on camera": the video's own transcript
+   * verdict, or for a not-yet-analyzed video, whether its creator already has
+   * another video judged faceless (see getFacelessAuthorSet). */
   faceless?: boolean;
   /** Free-text match against title/author/hashtag -- the search box in the
    * niche finder's top bar. Empty/omitted means no text filter. */
@@ -359,7 +358,7 @@ async function searchLiveVideos(rawQuery: string, params: NicheVideoQueryParams)
   ];
 
   const admin = createAdminClient() as SupabaseClient;
-  const facelessAuthorSet = params.faceless ? await getFacelessAuthorSet(admin) : new Set<string>();
+  const facelessAuthorSet = params.faceless ? await getFacelessAuthorSet() : new Set<string>();
 
   let results = filterAndSortLiveResults(raw, params, true, facelessAuthorSet);
 
@@ -405,30 +404,47 @@ function parseNonNegativeNumber(raw: string | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-// The "faceless only" filter prefers each video's own transcript_analysis
-// verdict when available -- analyzeVideoTranscript (niche-video-enrichment.ts)
-// runs Gemini against that specific video's transcript, so it's the same
-// signal already driving the "Faceless" badge on the video card, and more
-// precise than a name match. transcript_analysis used to have near-zero
-// coverage because the TikTok refresh cron deleted+reinserted every row
-// every 30 minutes, wiping it back to NULL even for videos still trending --
-// fixed in trending-videos/refresh/route.ts, so coverage now grows instead
-// of resetting every cycle. Until a given video has been enriched, this
-// falls back to matching its channel name against niche_channels' classifier
-// verdicts (104/136 real verified channels as of 2026-09) -- inexact (no
-// real foreign key, only a lowercased/trimmed name match), but still better
-// than nothing for not-yet-enriched rows.
-async function getFacelessAuthorSet(admin: SupabaseClient): Promise<Set<string>> {
-  const { data, error } = await admin.from("niche_channels").select("channel_title, platform").eq("is_faceless", true);
-  if (error) {
-    console.error("[niche-video-query] failed to load faceless channel set:", error);
+// The "faceless only" filter uses each video's own transcript_analysis
+// verdict when it has one -- analyzeVideoTranscript (niche-video-enrichment.ts)
+// runs Gemini against that specific video's transcript on the hourly
+// enrichment cron, the same signal behind the "Faceless" badge on the card.
+// A video the cron hasn't reached yet falls back to its creator: if any other
+// video by the same author has already been judged faceless, the channel is
+// treated as faceless. That set grows on its own as the cron works through
+// new scrapes, so nobody has to curate a channel list by hand.
+const LEARNED_FACELESS_PAGE = 1000;
+
+const getLearnedFacelessAuthors = unstable_cache(
+  async (): Promise<string[]> => {
+    const admin = createAdminClient();
+    const keys = new Set<string>();
+    for (let from = 0; ; from += LEARNED_FACELESS_PAGE) {
+      const { data, error } = await admin
+        .from("trending_videos")
+        .select("platform, author")
+        .eq("transcript_analysis->>status", "analyzed")
+        .eq("transcript_analysis->>is_faceless", "true")
+        .order("id")
+        .range(from, from + LEARNED_FACELESS_PAGE - 1);
+      if (error) throw new Error(error.message);
+      for (const row of data ?? []) {
+        if (row.author) keys.add(`${row.platform}::${row.author.trim().toLowerCase()}`);
+      }
+      if (!data || data.length < LEARNED_FACELESS_PAGE) break;
+    }
+    return [...keys];
+  },
+  ["niche-learned-faceless-authors-v1"],
+  { revalidate: 3600 }
+);
+
+async function getFacelessAuthorSet(): Promise<Set<string>> {
+  try {
+    return new Set(await getLearnedFacelessAuthors());
+  } catch (error) {
+    console.error("[niche-video-query] failed to load learned faceless authors:", error);
     return new Set();
   }
-  return new Set(
-    (data ?? [])
-      .filter((c): c is { channel_title: string; platform: string } => Boolean(c.channel_title))
-      .map((c) => `${c.platform}::${c.channel_title.trim().toLowerCase()}`)
-  );
 }
 
 function isFacelessAuthor(authorSet: Set<string>, platform: string, author: string): boolean {
@@ -553,12 +569,12 @@ export async function getNicheVideosPage(
   const offset = (page - 1) * limit;
   const countries = country ? country.split(",").filter(Boolean) : [];
   // faceless rides the same JS-side derived-filter path as outlier/vph --
-  // there's no clean SQL join to niche_channels, so matching rows are scanned
-  // and filtered in JS (see getFacelessAuthorSet/runDerivedFilterScan below)
+  // the creator fallback can't be expressed as a column filter, so matching
+  // rows are scanned and filtered in JS (see getFacelessAuthorSet/runDerivedFilterScan below)
   // rather than pushed down as a query filter.
   const hasDerivedFilters =
     outlierMin !== null || outlierMax !== null || viewsPerHourMin !== null || viewsPerHourMax !== null || faceless;
-  const facelessAuthorSet = faceless ? await getFacelessAuthorSet(admin) : new Set<string>();
+  const facelessAuthorSet = faceless ? await getFacelessAuthorSet() : new Set<string>();
 
   // Every filter the user actually applied, counted so scrape depth can scale
   // with how much of a raw pool the filters are about to throw away. The
