@@ -364,7 +364,7 @@ export function ClipEditor({
             />
             <Pencil className="h-3.5 w-3.5 shrink-0 text-subtle opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-0" />
           </label>
-          <span className="hidden shrink-0 rounded-full bg-(--app-fill) px-2.5 py-1 text-[12px] font-medium tabular-nums text-subtle sm:inline">
+          <span className="hidden shrink-0 font-mono text-[11px] tabular-nums text-subtle sm:inline">
             {settings.aspect} · {output.width}×{output.height}
           </span>
         </div>
@@ -449,7 +449,7 @@ export function ClipEditor({
             trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
             onClick={onExport}
           />
-          <p className="mt-2.5 text-center text-[12px] text-subtle">Rendered in your browser in full HD.</p>
+          <p className="mt-2.5 text-center text-[12px] text-subtle">Rendered in your browser in full HD</p>
         </div>
         {/* Phones: a tab bar at the foot; each tab opens the settings sheet */}
         <nav
@@ -2328,17 +2328,17 @@ function ClipPreview({
                     />
                   ))}
                   {!(moving === "caption" ? captionCovered : moving === "hook" && hookCovered) && (
-                    <span className="absolute inset-x-0 bottom-[7%] text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                    <span className="absolute inset-x-0 bottom-[7%] text-center text-[11px] font-medium text-white/70">
                       App buttons
                     </span>
                   )}
                 </div>
                 {/* center lines, while what's dragged is snapped to them */}
                 {dragging && snap.x && (
-                  <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary shadow-[0_0_6px_rgba(51,92,255,0.8)]" />
+                  <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
                 )}
                 {dragging && snap.y && (
-                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-primary shadow-[0_0_6px_rgba(51,92,255,0.8)]" />
+                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
                 )}
                 {settings.captions !== "off" && (
                   <MoveHandle
@@ -2381,7 +2381,7 @@ function ClipPreview({
                     type="button"
                     onClick={toggle}
                     aria-label="Play preview"
-                    className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/20 backdrop-blur-md transition-transform hover:scale-105"
+                    className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/20 backdrop-blur-md transition-colors hover:bg-black/60"
                   >
                     <Play className="ml-0.5 h-6 w-6 fill-white" />
                   </button>

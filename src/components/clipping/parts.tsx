@@ -36,16 +36,32 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
   return data;
 }
 
-export function ScorePill({ score, className }: { score: number; className?: string }) {
+/**
+ * The product's signature: a moment's virality score as a white chip with a
+ * blue flame, the same on the player, the clip covers and the Tools card.
+ */
+export function ScoreChip({
+  score,
+  size = "sm",
+  className,
+}: {
+  score: number;
+  size?: "sm" | "md";
+  className?: string;
+}) {
   return (
     <span
       className={cn(
-        "inline-flex h-8 items-center gap-1 rounded-full bg-black/35 px-3 text-[13px] font-semibold tabular-nums text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-white/15 backdrop-blur-xl backdrop-saturate-150",
+        "inline-flex items-center rounded-full bg-white/95 font-semibold tabular-nums leading-none text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
+        size === "md" ? "h-8 gap-1 pl-2.5 pr-3 text-[14px]" : "h-6 gap-0.5 pl-1.5 pr-2 text-[12px]",
         className
       )}
     >
-      Score {score}
-      <Flame className="h-3.5 w-3.5 fill-orange-400 text-orange-400" strokeWidth={1.5} />
+      <Flame
+        className={cn("fill-[#335cff] text-[#335cff]", size === "md" ? "h-3.5 w-3.5" : "h-3 w-3")}
+        strokeWidth={2}
+      />
+      {score}
     </span>
   );
 }

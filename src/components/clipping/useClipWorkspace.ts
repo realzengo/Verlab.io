@@ -22,11 +22,20 @@ import {
   type ClipProject,
   type ClipStoredSource,
 } from "@/lib/clips";
+import {
+  getRender,
+  isCurrentRender,
+  queueRenders,
+  runInQueue,
+  updateRender,
+  useClipRenders,
+} from "@/components/clipping/renderQueue";
 
 // Everything the Edit and Post steps share for one project: each clip's
 // settings, its cut of the source video, its face-tracking path, the split
 // screen's background, and its rendered MP4 (saved to the library once
 // rendered). Lives above both steps so moving between them keeps the work.
+// Renders themselves live in renderQueue, so leaving the page doesn't stop them.
 
 export interface SourceState {
   status: "loading" | "ready" | "error";
@@ -247,7 +256,6 @@ export function useClipWorkspace(project: ClipProject) {
   const [settings, setSettings] = useState<Record<string, ClipEditSettings>>({});
   const [sources, setSources] = useState<Record<string, SourceState>>({});
   const [tracks, setTracks] = useState<Record<string, TrackState>>({});
-  const [renders, setRenders] = useState<Record<string, RenderState>>({});
   const [background, setBackgroundState] = useState<BackgroundVideo | null>(null);
 
   // Read by exportClips, which runs across many renders.
@@ -264,7 +272,11 @@ export function useClipWorkspace(project: ClipProject) {
   const trackChain = useRef<Promise<unknown>>(Promise.resolve());
   const abort = useRef(new AbortController());
   const urls = useRef(new Set<string>());
-  const exporting = useRef(false);
+  // Exports queued or running from this workspace. Leaving the page while
+  // there are any keeps their cuts, tracking and encoding going; the
+  // cleanup waits until the last one is done.
+  const exportsPending = useRef(0);
+  const cleanupLater = useRef<(() => void) | null>(null);
 
   // Created here, not at first render: StrictMode's rehearsal unmount would
   // otherwise leave every later request holding an already-aborted signal.
@@ -272,12 +284,23 @@ export function useClipWorkspace(project: ClipProject) {
     const controller = new AbortController();
     abort.current = controller;
     const objectUrls = urls.current;
-    return () => {
+    const cleanup = () => {
       controller.abort();
       for (const url of objectUrls) URL.revokeObjectURL(url);
       objectUrls.clear();
     };
+    return () => {
+      if (exportsPending.current > 0) cleanupLater.current = cleanup;
+      else cleanup();
+    };
   }, []);
+
+  const allRenders = useClipRenders();
+  const renders = useMemo(() => {
+    const mine: Record<string, RenderState> = {};
+    for (const entry of allRenders) if (entry.projectId === project.id) mine[entry.clip.id] = entry;
+    return mine;
+  }, [allRenders, project.id]);
 
   const clips = useMemo(() => project.clips ?? [], [project.clips]);
   // Clips spoken in Arabic (in Arabic script; Darija comes romanized) start in the Arabic font.
@@ -287,15 +310,18 @@ export function useClipWorkspace(project: ClipProject) {
   );
   const defaultsFor = useCallback((clip: ClipMoment) => defaultSettings(clip, rtlClips.has(clip.id)), [rtlClips]);
   const settingsFor = useCallback(
-    (clip: ClipMoment) => settings[clip.id] ?? defaultsFor(clip),
-    [settings, defaultsFor]
+    (clip: ClipMoment) => settings[clip.id] ?? getRender(project.id, clip.id)?.settings ?? defaultsFor(clip),
+    [settings, defaultsFor, project.id]
   );
 
   const updateSettings = useCallback(
     (clip: ClipMoment, patch: Partial<ClipEditSettings>) => {
-      setSettings((current) => ({ ...current, [clip.id]: { ...(current[clip.id] ?? defaultsFor(clip)), ...patch } }));
+      setSettings((current) => ({
+        ...current,
+        [clip.id]: { ...(current[clip.id] ?? getRender(project.id, clip.id)?.settings ?? defaultsFor(clip)), ...patch },
+      }));
     },
-    [defaultsFor]
+    [defaultsFor, project.id]
   );
 
   /** Copies one clip's style (not its title, hook text or trim) to others. */
@@ -486,76 +512,87 @@ export function useClipWorkspace(project: ClipProject) {
 
   const retrySource = useCallback((clip: ClipMoment) => void requestSource(clip), [requestSource]);
 
-  /** Renders each clip in turn (one encoder at a time), then saves it to the library. */
+  /**
+   * Queues each clip's render (one encoder at a time, across projects), then
+   * saves it to the library. Keeps running if the page is left.
+   */
   const exportClips = useCallback(
     async (ids: string[]) => {
-      if (exporting.current) return;
-      exporting.current = true;
       const targets = ids.map((id) => clips.find((clip) => clip.id === id)).filter((c): c is ClipMoment => Boolean(c));
-      setRenders((current) => {
-        const next = { ...current };
-        for (const clip of targets) next[clip.id] = { status: "waiting", progress: 0 };
-        return next;
-      });
+      if (!targets.length) return;
+      const settingsOf = (clip: ClipMoment) =>
+        settingsRef.current[clip.id] ?? getRender(project.id, clip.id)?.settings ?? defaultsFor(clip);
+      const tokens = queueRenders(
+        project.id,
+        { title: project.title, thumbnailUrl: project.thumbnailUrl },
+        targets.map((clip) => ({ clip, settings: settingsOf(clip) }))
+      );
+      const signal = abort.current.signal;
+      exportsPending.current += 1;
 
       try {
-        for (const clip of targets) {
-          if (abort.current.signal.aborted) return;
-          const clipSettings = settingsRef.current[clip.id] ?? defaultsFor(clip);
-          try {
-            const source = await requestSource(clip);
-            // A reframe that failed just falls back to a centered Fill.
-            const track = usesTracking(clipSettings)
-              ? await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null)
-              : null;
-            setRenders((current) => ({ ...current, [clip.id]: { status: "rendering", progress: 0 } }));
-            const result = await exportClip({
-              source,
-              settings: clipSettings,
-              words: project.transcript ?? [],
-              clip,
-              track,
-              background: clipSettings.bottomVideo ? (backgroundRef.current?.file ?? null) : null,
-              signal: abort.current.signal,
-              onProgress: (progress) =>
-                setRenders((current) => ({ ...current, [clip.id]: { ...current[clip.id], progress } })),
-            });
-            const url = URL.createObjectURL(result.blob);
-            urls.current.add(url);
-            const tooLarge = result.blob.size > CLIP_EXPORT_MAX_BYTES;
-            setRenders((current) => ({
-              ...current,
-              [clip.id]: {
+        await runInQueue(async () => {
+          for (const clip of targets) {
+            const token = tokens.get(clip.id)!;
+            // Queued again since (Try again, or a second export): that one renders it.
+            if (signal.aborted || !isCurrentRender(project.id, clip.id, token)) continue;
+            const update = (patch: Parameters<typeof updateRender>[3]) => updateRender(project.id, clip.id, token, patch);
+            const clipSettings = settingsOf(clip);
+            try {
+              update({ preparing: true, settings: clipSettings });
+              const source = await requestSource(clip);
+              // A reframe that failed just falls back to a centered Fill.
+              const track = usesTracking(clipSettings)
+                ? await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null)
+                : null;
+              update({ status: "rendering", progress: 0, preparing: false });
+              const result = await exportClip({
+                source,
+                settings: clipSettings,
+                words: project.transcript ?? [],
+                clip,
+                track,
+                background: clipSettings.bottomVideo ? (backgroundRef.current?.file ?? null) : null,
+                signal,
+                onProgress: (progress) => update({ progress }),
+              });
+              // The queue owns this URL (the Download step and Your clips both use it).
+              const url = URL.createObjectURL(result.blob);
+              const tooLarge = result.blob.size > CLIP_EXPORT_MAX_BYTES;
+              update({
                 status: "done",
                 progress: 1,
                 url,
                 size: result.blob.size,
                 duration: result.duration,
                 saved: tooLarge ? "too-large" : "saving",
-              },
-            }));
-            if (!tooLarge) {
-              saveToLibrary(project.id, clip, clipSettings, result.blob, result.duration)
-                .then(() => {
-                  setRenders((current) => ({ ...current, [clip.id]: { ...current[clip.id], saved: "saved" } }));
-                  void mutate(exportsKey(project.id));
-                })
-                .catch((error) => {
-                  console.error("[clips] saving to library failed:", error);
-                  setRenders((current) => ({ ...current, [clip.id]: { ...current[clip.id], saved: "failed" } }));
-                });
+              });
+              if (!tooLarge) {
+                saveToLibrary(project.id, clip, clipSettings, result.blob, result.duration)
+                  // Refresh the lists first, so Your clips swaps the live tile for the saved one without a gap.
+                  .then(() => Promise.all([mutate(exportsKey(project.id)), mutate("/api/clips/exports")]).catch(() => {}))
+                  .then(() => update({ saved: "saved" }))
+                  .catch((error) => {
+                    console.error("[clips] saving to library failed:", error);
+                    update({ saved: "failed" });
+                  });
+              }
+            } catch (error) {
+              if (signal.aborted) continue;
+              const message = error instanceof Error && error.message ? error.message : "We couldn't render this clip.";
+              update({ status: "error", progress: 0, preparing: false, error: message });
             }
-          } catch (error) {
-            if (abort.current.signal.aborted) return;
-            const message = error instanceof Error && error.message ? error.message : "We couldn't render this clip.";
-            setRenders((current) => ({ ...current, [clip.id]: { status: "error", progress: 0, error: message } }));
           }
-        }
+        });
       } finally {
-        exporting.current = false;
+        exportsPending.current -= 1;
+        if (exportsPending.current === 0 && cleanupLater.current) {
+          cleanupLater.current();
+          cleanupLater.current = null;
+        }
       }
     },
-    [clips, project.id, project.transcript, requestSource, defaultsFor]
+    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, defaultsFor]
   );
 
   return {

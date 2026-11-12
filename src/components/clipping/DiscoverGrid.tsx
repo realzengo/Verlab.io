@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Eye, Heart, MessageCircle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CreditCost } from "@/components/ui/CreditCost";
 import { YouTubeIcon } from "@/components/landing/PlatformIcons";
@@ -115,45 +115,32 @@ export function DiscoverGrid({ onPick }: { onPick: (video: ClipSourceVideo) => v
   );
 }
 
-function Stat({ icon: Icon, value, label }: { icon: typeof Eye; value: number | null; label: string }) {
-  const text = formatCompactNumber(value);
-  if (!text) return null;
-  return (
-    <span className="flex items-center gap-1" aria-label={`${text} ${label}`}>
-      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {text}
-    </span>
-  );
-}
-
 function VideoCard({ video, onPick }: { video: ClipSourceVideo; onPick: () => void }) {
+  const credits = getClippingCost(video.durationSeconds);
+  const stats = [
+    [formatCompactNumber(video.views), "views"],
+    [formatCompactNumber(video.likes), "likes"],
+  ].filter(([value]) => value);
   return (
     <button
       type="button"
       onClick={onPick}
       className="group flex flex-col text-left outline-none transition-transform duration-150 active:scale-[0.985] sm:active:scale-100"
     >
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-(--app-fill-strong) ring-primary/50 transition-shadow group-focus-visible:ring-2">
+      <div className="relative aspect-video w-full overflow-hidden rounded-[14px] bg-(--app-fill-strong) ring-1 ring-black/[0.04] transition-shadow group-focus-visible:ring-2 group-focus-visible:ring-primary/50 dark:ring-white/[0.06]">
         {/* eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail */}
         <img
           src={video.thumbnailUrl}
           alt=""
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.03]"
+          className="h-full w-full object-cover transition-[filter] duration-200 group-hover:brightness-[0.92]"
         />
-        <span
-          title="Credits to clip this video"
-          aria-label={`${getClippingCost(video.durationSeconds)} credits`}
-          className="absolute left-2 top-2 inline-flex h-6 items-center rounded-full bg-primary px-2 text-[11px] font-semibold text-white shadow-sm"
-        >
-          <CreditCost
-            amount={getClippingCost(video.durationSeconds)}
-            bullet={false}
-            className="gap-0.5 [&>svg]:h-3 [&>svg]:w-3"
-          />
-        </span>
-        <span className="absolute bottom-2 right-2 rounded-[5px] bg-black/75 px-1.5 py-0.5 font-mono text-[11px] font-medium text-white">
+        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums text-white">
           {formatClock(video.durationSeconds)}
+        </span>
+        {/* Fine pointers: what picking it costs, shown on hover */}
+        <span className="absolute left-2 top-2 inline-flex h-7 items-center gap-1 rounded-full bg-white/95 px-2.5 text-[12px] font-medium text-zinc-900 opacity-0 shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:hidden">
+          Clip this video
         </span>
       </div>
       <div className="mt-3 flex gap-2.5">
@@ -171,12 +158,15 @@ function VideoCard({ video, onPick }: { video: ClipSourceVideo; onPick: () => vo
         )}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[14px] font-medium leading-snug text-heading sm:text-[13px]">{video.title}</p>
-          <p className="mt-0.5 truncate text-[12px] text-subtle">{video.channelTitle}</p>
-          <div className="mt-1.5 flex items-center gap-3 text-[12px] tabular-nums text-subtle">
-            <Stat icon={Eye} value={video.views} label="views" />
-            <Stat icon={Heart} value={video.likes} label="likes" />
-            <Stat icon={MessageCircle} value={video.comments} label="comments" />
-          </div>
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] tabular-nums text-subtle">
+            <span className="truncate">
+              {video.channelTitle}
+              {stats.map(([value, label]) => ` · ${value} ${label}`).join("")}
+            </span>
+            <span title="Credits to clip this video" className="ml-auto shrink-0">
+              <CreditCost amount={credits} bullet={false} className="gap-0.5 [&>svg]:h-3 [&>svg]:w-3" />
+            </span>
+          </p>
         </div>
       </div>
     </button>
@@ -186,12 +176,11 @@ function VideoCard({ video, onPick }: { video: ClipSourceVideo; onPick: () => vo
 function VideoCardSkeleton() {
   return (
     <div className="flex flex-col">
-      <Skeleton className="aspect-video w-full rounded-xl" />
+      <Skeleton className="aspect-video w-full rounded-[14px]" />
       <div className="mt-3 flex gap-2.5">
         <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
         <div className="flex flex-1 flex-col gap-2 pt-0.5">
           <Skeleton className="h-3.5 w-11/12 rounded-full" />
-          <Skeleton className="h-3 w-1/2 rounded-full" />
           <Skeleton className="h-3 w-2/3 rounded-full" />
         </div>
       </div>

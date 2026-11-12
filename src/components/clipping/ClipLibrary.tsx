@@ -7,9 +7,10 @@ import { INK_BUTTON, INK_TITLE } from "@/components/brand/BrandKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Portal } from "@/components/ui/Portal";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { downloadBlob, fetchJson } from "@/components/clipping/parts";
+import { ScoreChip, downloadBlob, fetchJson } from "@/components/clipping/parts";
 import { BackButton, STAGES, useElapsedSeconds } from "@/components/clipping/ClipProjectView";
-import { CopyIconButton } from "@/components/clipping/ClipResults";
+import { CopyIconButton, PendingFrame } from "@/components/clipping/ClipResults";
+import { rendersAhead, useClipRenders, type RenderEntry } from "@/components/clipping/renderQueue";
 import { exportsKey } from "@/components/clipping/useClipWorkspace";
 import {
   formatClock,
@@ -67,6 +68,13 @@ export function ClipLibrary({
   const { data: exportsData, mutate: mutateExports } = useSWR<{ exports: ClipExport[] }>(EXPORTS_KEY, fetchJson, {
     revalidateOnFocus: false,
   });
+
+  // Renders this tab is still working on (they keep going after the project
+  // page is left), plus finished ones that didn't make it into the library.
+  const queue = useClipRenders();
+  const rendering = queue.filter(
+    (entry) => entry.status !== "done" || (entry.saved !== "saved" && entry.saved !== undefined)
+  );
 
   const loading = !projectsData || !exportsData;
   const projects = projectsData?.projects ?? [];
@@ -165,7 +173,7 @@ export function ClipLibrary({
           <div role="tablist" aria-label="Your clips view" className="mt-10 flex gap-6 border-b border-hairline">
             {(
               [
-                { id: "clips", label: "Clips", count: clips.length },
+                { id: "clips", label: "Clips", count: clips.length + rendering.length },
                 { id: "videos", label: "Videos", count: videos.length },
               ] as const
             ).map((item) => (
@@ -187,8 +195,16 @@ export function ClipLibrary({
           </div>
 
           {tab === "clips" ? (
-            clips.length ? (
+            clips.length || rendering.length ? (
               <div className={cn(CLIP_GRID, "mt-6")}>
+                {rendering.map((entry) => (
+                  <RenderTile
+                    key={entry.key}
+                    entry={entry}
+                    ahead={rendersAhead(queue, entry)}
+                    onOpen={() => onOpenProject(entry.projectId)}
+                  />
+                ))}
                 {clips.map((entry) => (
                   <ClipTile
                     key={entry.item.id}
@@ -256,18 +272,75 @@ export function ClipLibrary({
 
 /* ---------------------------------------------------------------- pieces */
 
-/** The product's signature: the moment's virality score, as on the Clipping card. */
-function ScoreChip({ score, className }: { score: number; className?: string }) {
+/**
+ * A clip this tab is rendering (or just rendered but couldn't save): the
+ * Download step's live frame, at tile size. Opens its project on Download.
+ */
+function RenderTile({ entry, ahead, onOpen }: { entry: RenderEntry; ahead: number; onOpen: () => void }) {
+  const title = entry.settings.title || entry.clip.title;
+  const done = entry.status === "done" && entry.url;
   return (
-    <span
-      className={cn(
-        "inline-flex h-6 items-center gap-0.5 rounded-full bg-white/95 pl-1.5 pr-2 text-[12px] font-semibold tabular-nums leading-none text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
-        className
-      )}
-    >
-      <Flame className="h-3 w-3 fill-[#335cff] text-[#335cff]" strokeWidth={2} />
-      {score}
-    </span>
+    <div className="group/clip flex min-w-0 flex-col">
+      <div className="relative aspect-[9/16] overflow-hidden rounded-[14px] bg-black shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
+        {done ? (
+          <video src={`${entry.url}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+        ) : (
+          <>
+            {entry.project.thumbnailUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+              <img
+                src={entry.project.thumbnailUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-55 blur-lg"
+              />
+            )}
+            <span className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/50" />
+          </>
+        )}
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Open “${title}”`}
+          className="absolute inset-0 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
+        >
+          {done ? (
+            // Rendered, but not in the library: still downloadable from this tab.
+            <span className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-10 text-center">
+              <span className="text-[12px] font-medium text-white">
+                {entry.saved === "saving" ? "Saving to Your clips" : "Not saved. Download it."}
+              </span>
+            </span>
+          ) : (
+            <PendingFrame render={entry} ahead={ahead} compact />
+          )}
+        </button>
+        <ScoreChip score={entry.clip.score} className="pointer-events-none absolute left-2.5 top-2.5" />
+        {done && entry.saved !== "saving" && (
+          <a
+            href={entry.url}
+            download={`${title}.mp4`}
+            aria-label={`Download ${title}`}
+            className={cn(ON_VIDEO_BUTTON, "absolute right-2 top-2")}
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={2} />
+          </a>
+        )}
+      </div>
+      <button type="button" onClick={onOpen} className="mt-2.5 text-left outline-none" tabIndex={-1}>
+        <p dir="auto" className="line-clamp-2 text-[13px] font-medium leading-snug text-heading">
+          {title}
+        </p>
+      </button>
+      <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-subtle">
+        {entry.project.thumbnailUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+          <img src={entry.project.thumbnailUrl} alt="" className="h-3 w-5 shrink-0 rounded-[2px] object-cover" />
+        )}
+        <span dir="auto" className="truncate">
+          {entry.project.title}
+        </span>
+      </span>
+    </div>
   );
 }
 

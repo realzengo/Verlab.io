@@ -7,10 +7,11 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Loader2, Play } from "lucide-react";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { MobileActionBar, ScorePill, fetchJson } from "@/components/clipping/parts";
+import { MobileActionBar, ScoreChip, fetchJson } from "@/components/clipping/parts";
 import { ClipEditor } from "@/components/clipping/ClipEditor";
 import { ClipResults, SavedClips } from "@/components/clipping/ClipResults";
 import { useClipWorkspace } from "@/components/clipping/useClipWorkspace";
+import { rendersFor } from "@/components/clipping/renderQueue";
 import {
   formatClipOffset,
   formatClock,
@@ -82,20 +83,21 @@ function Screen({ children, ref }: { children: ReactNode; ref?: React.Ref<HTMLDi
 }
 
 function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: () => void }) {
-  const [step, setStep] = useState<Step>("choose");
-  const [selected, setSelected] = useState<string[]>([]);
+  // Coming back to a project whose clips this tab rendered (or is still
+  // rendering) opens on them; otherwise it starts at Choose.
+  const [selected, setSelected] = useState<string[]>(() => {
+    const ids = new Set((project.clips ?? []).map((clip) => clip.id));
+    return rendersFor(project.id)
+      .map((entry) => entry.clip.id)
+      .filter((id) => ids.has(id));
+  });
+  const [step, setStep] = useState<Step>(() => (selected.length ? "post" : "choose"));
   const workspace = useClipWorkspace(project);
   const clips = useMemo(() => project.clips ?? [], [project.clips]);
   const selectedClips = clips.filter((clip) => selected.includes(clip.id));
 
-  // Finished renders live only in this tab; warn before they're lost.
+  // The render queue warns before a tab close would lose a render.
   const hasRenders = Object.values(workspace.renders).some((r) => r.status !== "error");
-  useEffect(() => {
-    if (!hasRenders) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [hasRenders]);
 
   const goTo = (target: "video" | Step) => {
     if (target === "video") onBack();
@@ -118,7 +120,7 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
       )}
     >
       <div className="relative">
-        {/* Floating glass bar: the video, and a segmented control for the steps */}
+        {/* The video, and a segmented control for the steps */}
         <header className="border-b border-hairline pb-4 sm:pb-5">
           <div className="flex items-center gap-3 sm:gap-3.5">
             <BackButton onClick={step === "choose" ? onBack : () => goTo(step === "post" ? "edit" : "choose")} />
@@ -152,7 +154,7 @@ function ProjectWorkspace({ project, onBack }: { project: ClipProject; onBack: (
                     {current && (
                       <motion.span
                         layoutId="clip-step-thumb"
-                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 rounded-full bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.06)] dark:bg-white/[0.12] dark:shadow-none"
                       />
                     )}
@@ -331,28 +333,25 @@ function ChooseStep({
                 )}
                 <span className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/25" />
                 {/* a frosted play button, like Apple TV's */}
-                <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_10px_30px_-8px_rgba(0,0,0,0.5)] ring-1 ring-white/30 backdrop-blur-xl transition-transform duration-300 group-hover:scale-105">
+                <span className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_10px_30px_-8px_rgba(0,0,0,0.5)] ring-1 ring-white/30 backdrop-blur-xl transition-colors duration-200 group-hover:bg-white/30">
                   <Play className="ml-1 h-7 w-7 fill-white text-white" strokeWidth={0} />
                 </span>
               </button>
             )}
-            <ScorePill score={preview.score} className="pointer-events-none absolute left-4 top-4" />
+            <ScoreChip score={preview.score} size="md" className="pointer-events-none absolute left-4 top-4" />
           </Screen>
 
           <section className={cn("relative rounded-[22px] p-4 sm:rounded-[24px] sm:p-6", SURFACE)}>
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <span
-                  className={cn(
-                    "inline-flex h-7 items-center rounded-full px-3 text-[12px] font-medium tabular-nums text-body",
-                    CHIP
-                  )}
-                >
-                  {formatClock(preview.start)} – {formatClock(preview.end)} · {Math.round(preview.end - preview.start)}s
-                </span>
+                <p className="font-mono text-[12px] tabular-nums text-subtle">
+                  {formatClock(preview.start)} – {formatClock(preview.end)}
+                  <span className="text-subtle/60"> · </span>
+                  {Math.round(preview.end - preview.start)}s
+                </p>
                 <h3
                   dir="auto"
-                  className="mt-3 text-[19px] font-semibold leading-snug tracking-[-0.02em] text-heading sm:text-[22px]"
+                  className="mt-2 text-[19px] font-semibold leading-snug tracking-[-0.02em] text-heading sm:text-[22px]"
                 >
                   {preview.title}
                 </h3>
@@ -368,7 +367,7 @@ function ChooseStep({
                 className={cn(
                   "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 self-stretch rounded-full px-5 text-[14px] font-medium outline-none sm:h-10 sm:self-start transition-[transform,background-color] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary/40",
                   isSelected
-                    ? "bg-primary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_16px_-6px_rgba(51,92,255,0.6)]"
+                    ? "bg-primary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary/90"
                     : "border border-hairline bg-surface text-heading hover:bg-(--app-fill) dark:bg-transparent"
                 )}
               >
@@ -449,7 +448,7 @@ function ChooseStep({
                       checked
                         ? "bg-primary text-white"
                         : "text-transparent ring-[1.5px] ring-inset ring-black/20 hover:ring-black/40 dark:ring-white/25 dark:hover:ring-white/45",
-                      hint && !checked && "animate-pulse ring-primary"
+                      hint && !checked && "ring-primary"
                     )}
                   >
                     <Check className="h-3 w-3" strokeWidth={3.5} />
@@ -509,18 +508,18 @@ const SCORE_PARTS: { key: keyof ClipScoreBreakdown; label: string }[] = [
   { key: "trend", label: "Trend" },
 ];
 
-/** OpusClip-style virality breakdown, as four small tiles. */
+/** OpusClip-style virality breakdown: one ruled strip, four columns. */
 function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
   return (
-    <dl className="relative mt-4 grid grid-cols-4 gap-2 sm:mt-5 sm:gap-2.5">
-      {SCORE_PARTS.map(({ key, label }) => (
-        <div key={key} className={cn("rounded-[14px] px-2.5 py-2.5 sm:rounded-[18px] sm:px-3.5 sm:py-3", CHIP)}>
-          <dt className="text-[11px] text-subtle sm:text-[12px]">{label}</dt>
-          <dd className="mt-0.5 text-[17px] font-semibold tabular-nums tracking-[-0.02em] text-heading sm:text-[20px]">
+    <dl className="relative mt-5 grid grid-cols-4 border-t border-hairline pt-4 sm:mt-6 sm:pt-5">
+      {SCORE_PARTS.map(({ key, label }, index) => (
+        <div key={key} className={cn("min-w-0 px-3 sm:px-5", index === 0 ? "pl-0 sm:pl-0" : "border-l border-hairline")}>
+          <dt className="text-[12px] text-subtle">{label}</dt>
+          <dd className="mt-1 text-[20px] font-semibold leading-none tabular-nums tracking-[-0.02em] text-heading sm:text-[24px]">
             {scores[key]}
           </dd>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/[0.07] dark:bg-white/[0.1]">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${scores[key]}%` }} />
+          <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-(--app-fill-strong)">
+            <div className="h-full rounded-full bg-heading/80" style={{ width: `${scores[key]}%` }} />
           </div>
         </div>
       ))}
@@ -677,22 +676,22 @@ function FailedState({ project, onBack }: { project: ClipProject; onBack: () => 
 function ProjectSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="mx-auto w-full max-w-[1680px] pb-20 pt-1">
-      <div className="flex items-center gap-3.5 rounded-[24px] border border-hairline p-2.5">
+      <div className="flex items-center gap-3 border-b border-hairline pb-4 sm:gap-3.5 sm:pb-5">
         <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-        <Skeleton className="hidden h-12 w-[86px] shrink-0 rounded-[12px] sm:block" />
+        <Skeleton className="hidden h-12 w-[86px] shrink-0 rounded-[10px] sm:block" />
         <div className="flex flex-1 flex-col gap-2">
           <Skeleton className="h-4 w-1/2 rounded-full" />
           <Skeleton className="h-3 w-40 rounded-full" />
         </div>
         <Skeleton className="hidden h-10 w-[360px] rounded-full lg:block" />
       </div>
-      <div className="mt-3.5 flex items-center gap-3 px-1 lg:hidden">
+      <div className="mt-3.5 flex items-center gap-3 lg:hidden">
         <Skeleton className="h-1 flex-1 rounded-full" />
         <Skeleton className="h-3 w-28 rounded-full" />
       </div>
-      <div className={cn(SPLIT, "mt-5")}>
-        <Skeleton className="aspect-video w-full rounded-[18px] sm:rounded-[30px]" />
-        <Skeleton className="h-[420px] w-full rounded-[28px]" />
+      <div className={cn(SPLIT, "mt-6")}>
+        <Skeleton className="aspect-video w-full rounded-[18px] sm:rounded-[22px]" />
+        <Skeleton className="h-[420px] w-full rounded-[24px]" />
       </div>
     </div>
   );

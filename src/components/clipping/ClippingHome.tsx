@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Link2, X } from "lucide-react";
+import { ArrowRight, ChevronRight, Link2, Loader2, X } from "lucide-react";
 import { BEZEL_FIELD, BEZEL_FIELD_ROW, INK_TITLE } from "@/components/brand/BrandKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -282,13 +282,6 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
   );
 }
 
-function projectStatusLabel(project: ClipProject): string {
-  if (isClipProjectWorking(project.status)) return "Finding clips…";
-  if (project.status === "failed") return "Failed";
-  const count = project.clips?.length ?? 0;
-  return `${count} clip${count === 1 ? "" : "s"}`;
-}
-
 function ProjectCard({
   project,
   onOpen,
@@ -301,25 +294,41 @@ function ProjectCard({
   className?: string;
 }) {
   const working = isClipProjectWorking(project.status);
+  const failed = project.status === "failed";
+  const count = project.clips?.length ?? 0;
   return (
     <div className={cn("group relative", className)}>
       <button type="button" onClick={onOpen} className="block w-full text-left outline-none">
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-(--app-fill-strong) ring-primary/50 group-focus-visible:ring-2">
+        <div className="relative aspect-video overflow-hidden rounded-[14px] bg-(--app-fill-strong) ring-1 ring-black/[0.04] group-focus-visible:ring-2 group-focus-visible:ring-primary/50 dark:ring-white/[0.06]">
           {project.thumbnailUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-            <img src={project.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+            <img
+              src={project.thumbnailUrl}
+              alt=""
+              className={cn("h-full w-full object-cover", failed && "opacity-50 grayscale")}
+            />
           )}
-          <span
-            className={cn(
-              "absolute bottom-2 left-2 inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium backdrop-blur-md",
-              project.status === "failed" ? "bg-danger/90 text-white" : "bg-black/60 text-white"
-            )}
-          >
-            {working && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />}
-            {projectStatusLabel(project)}
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums text-white">
+            {formatClock(project.durationSeconds)}
           </span>
         </div>
-        <p className="mt-2 line-clamp-2 text-[13px] font-medium leading-snug text-heading">{project.title}</p>
+        <p dir="auto" className="mt-2.5 line-clamp-2 text-[13px] font-medium leading-snug text-heading">
+          {project.title}
+        </p>
+        <p className="mt-1 flex items-center gap-1.5 text-[12px] tabular-nums text-subtle">
+          {working ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin text-primary" strokeWidth={2.5} />
+              Finding clips
+            </>
+          ) : failed ? (
+            <span className="text-danger">Failed</span>
+          ) : (
+            <>
+              {count} clip{count === 1 ? "" : "s"} found
+            </>
+          )}
+        </p>
       </button>
       {/* A project still working can't be removed: its credits are already spent. */}
       {!working && (
@@ -327,9 +336,9 @@ function ProjectCard({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${project.title}`}
-          className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full text-white opacity-0 transition-opacity before:absolute before:inset-1 before:rounded-full before:bg-black/55 before:backdrop-blur-md before:content-[''] focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white opacity-0 ring-1 ring-white/15 backdrop-blur-md transition-[opacity,background-color] hover:bg-black/65 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
         >
-          <X className="relative h-3.5 w-3.5" />
+          <X className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
       )}
     </div>

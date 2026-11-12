@@ -429,12 +429,12 @@ export function ClippingSkeleton() {
         <div className="mt-6 grid w-full grid-cols-1 gap-x-5 gap-y-7 sm:mt-8 sm:grid-cols-2 sm:gap-y-8 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="flex flex-col">
-              <Skeleton className="aspect-video w-full rounded-xl" />
+              <Skeleton className="aspect-video w-full rounded-[14px]" />
               <div className="mt-3 flex gap-2.5">
                 <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
                 <div className="flex flex-1 flex-col gap-2 pt-0.5">
                   <Skeleton className="h-3.5 w-11/12 rounded-full" />
-                  <Skeleton className="h-3 w-1/2 rounded-full" />
+                  <Skeleton className="h-3 w-2/3 rounded-full" />
                 </div>
               </div>
             </div>
