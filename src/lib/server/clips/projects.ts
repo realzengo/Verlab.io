@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refundUser } from "@/lib/server/credits";
@@ -6,20 +7,28 @@ import { fetchDownloadLink, humanizeVideoProviderError, VideoProviderError } fro
 import { getTranscription, startTranscription } from "@/lib/server/clips/transcribe";
 import { ClipMomentsError, findViralMoments } from "@/lib/server/clips/moments";
 import { romanizeClip, romanizeDarija } from "@/lib/server/clips/darija";
+import { mediaFormatFor } from "@/lib/server/clips/cut-source";
+import { precutClipSources, withoutCut, type StoredClipMoment } from "@/lib/server/clips/precut";
+import { MCP_PUBLIC_ORIGIN } from "@/lib/server/mcp/links";
 import {
   normalizeClipOptions,
-  type ClipMoment,
   type ClipProject,
   type ClipProjectStatus,
   type TranscriptWord,
 } from "@/lib/clips";
 
-// A clip project moves queued -> transcribing -> finding -> ready | failed.
-// Nothing runs in the background past the create request except the first
-// hop (fetching audio and starting WhisperX, in after()); every later hop
-// happens when the browser polls GET /api/clips/[id], which calls
-// advanceClipProject. Each transition is a conditional update on the current
-// status, so concurrent polls can't both run the LLM or both refund.
+// A clip project moves queued -> transcribing -> finding -> ready | failed,
+// on the server whether or not anyone has the page open:
+// - the create request fetches the audio and starts WhisperX in after();
+// - Replicate's webhook (/api/webhooks/replicate) advances the project the
+//   moment the transcript is done, running the moment-finding LLM in after();
+// - /api/cron/clips-poll sweeps every working project as the backstop for a
+//   missed webhook, a dead after() and the stale-state timeouts below;
+// - the page's poll (GET /api/clips/[id]) and the MCP status check advance it
+//   too, which is the only path in local dev (Replicate can't reach localhost).
+// Each transition is a conditional update on the current status, so
+// concurrent callers can't both run the LLM or both refund. Becoming ready
+// starts the clips' pre-cut (precut.ts) in after().
 
 export const CLIP_PROJECT_COLUMNS =
   "id, user_id, source_url, video_id, title, channel_title, thumbnail_url, duration_seconds, status, options, credits_charged, prediction_id, media_url, clips, error_message, created_at, updated_at";
@@ -41,7 +50,7 @@ export interface ClipProjectRow {
   credits_charged: number;
   prediction_id: string | null;
   media_url: string | null;
-  clips: ClipMoment[] | null;
+  clips: StoredClipMoment[] | null;
   transcript?: StoredTranscriptWord[] | null;
   error_message: string | null;
   created_at: string;
@@ -59,7 +68,8 @@ export function toClipProject(row: ClipProjectRow): ClipProject {
     durationSeconds: row.duration_seconds,
     status: row.status,
     options: normalizeClipOptions(row.options),
-    clips: row.clips,
+    // The cut state is the server's (GET /api/clips/[id]/sources reports it).
+    clips: row.clips?.map(withoutCut) ?? null,
     // The editor captions with each word's caption spelling.
     ...(row.transcript !== undefined
       ? { transcript: row.transcript?.map(([start, end, word, caption]) => [start, end, caption ?? word]) ?? null }
@@ -73,17 +83,29 @@ const QUEUED_STALE_MS = 5 * 60_000;
 // Longer than the poll route's own 300s limit, so a live LLM pass is never re-claimed.
 const FINDING_STALE_MS = 6 * 60_000;
 const TRANSCRIBING_TIMEOUT_MS = 45 * 60_000;
+// Every caller of advanceClipProject runs in a 300s function and calls it
+// first thing; the pre-cut that follows a ready project stops reading this
+// long after that, leaving time to store what it has.
+const PRECUT_BUDGET_MS = 260_000;
 
 const GENERIC_ERROR = "Something went wrong while processing that video. Your credits were refunded.";
 
-/**
- * The provider's stream has no Range support, so cutting a clip means
- * reading the video from the start up to it, at ~2-10 MB/s depending on the
- * provider's server. 1080p is ~2x the bytes of 720p, so only short videos get
- * it; longer ones stay at 720p to keep deep clips inside the cut route's
- * time limit.
- */
-export const mediaFormatFor = (durationSeconds: number) => (durationSeconds <= 12 * 60 ? "1080" : "720");
+// WhisperX downloads the audio from the provider's file servers, which now
+// and then drop the connection or time out mid-download ("Input validation
+// error: Connection broken: IncompleteRead", "Read timed out"). That isn't
+// the video's fault: the project goes back to queued for a fresh audio link
+// and a new transcription, up to this many tries in all.
+const TRANSCRIBE_ATTEMPTS = 3;
+const DOWNLOAD_FAILURE = /input validation error|connection broken|incompleteread|timed out|connectionpool|connection reset/i;
+// Replicate's callback for a retried transcription (https only; local dev polls).
+const RETRY_WEBHOOK_URL = MCP_PUBLIC_ORIGIN.startsWith("https://")
+  ? `${MCP_PUBLIC_ORIGIN}/api/webhooks/replicate`
+  : undefined;
+
+const transcribeAttempts = (row: Pick<ClipProjectRow, "options">) => {
+  const value = (row.options as { transcribeAttempts?: unknown } | null)?.transcribeAttempts;
+  return typeof value === "number" ? value : 1;
+};
 
 function describeError(error: unknown): string {
   if (error instanceof ClipMomentsError) return `${error.message} Your credits were refunded.`;
@@ -109,8 +131,12 @@ async function failProject(admin: SupabaseClient, row: ClipProjectRow, message: 
   return failed ?? { ...row, status: "failed", error_message: message };
 }
 
-/** Runs right after the create request: audio + video links, then WhisperX. */
-export async function prepareClipProject(projectId: string): Promise<void> {
+/**
+ * Runs right after the create request: audio + video links, then WhisperX.
+ * `webhookUrl` is the https Replicate callback; without it (local dev) the
+ * project only moves on when something polls it.
+ */
+export async function prepareClipProject(projectId: string, webhookUrl?: string): Promise<void> {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from("clip_projects")
@@ -119,37 +145,45 @@ export async function prepareClipProject(projectId: string): Promise<void> {
     .maybeSingle<ClipProjectRow>();
   if (!row || row.status !== "queued") return;
 
-  try {
-    const [audio, video] = await Promise.allSettled([
-      fetchDownloadLink(row.source_url, "mp3"),
-      fetchDownloadLink(row.source_url, mediaFormatFor(row.duration_seconds)),
-    ]);
-    if (audio.status === "rejected") throw audio.reason;
-    if (video.status === "rejected") {
-      // Not fatal: the clip cutter fetches a fresh link when this is empty.
-      console.error("[clips] video link failed, will retry on first cut:", video.reason);
-    }
+  // The video link is only needed once clips get cut, so WhisperX starts as
+  // soon as the audio is ready instead of waiting on both jobs. A retried
+  // transcription keeps the link it already has.
+  const videoLink = row.media_url
+    ? Promise.resolve(null)
+    : fetchDownloadLink(row.source_url, mediaFormatFor(row.duration_seconds)).then(
+        (video) => video.directUrl,
+        (error) => {
+          // Not fatal: the clip cutter fetches a fresh link when this is empty.
+          console.error("[clips] video link failed, will retry on first cut:", error);
+          return null;
+        }
+      );
 
-    const predictionId = await startTranscription(audio.value.directUrl);
+  try {
+    const audio = await fetchDownloadLink(row.source_url, "mp3");
+    const predictionId = await startTranscription(audio.directUrl, webhookUrl);
     await admin
       .from("clip_projects")
-      .update({
-        status: "transcribing",
-        prediction_id: predictionId,
-        media_url: video.status === "fulfilled" ? video.value.directUrl : null,
-      })
+      .update({ status: "transcribing", prediction_id: predictionId })
       .eq("id", row.id)
       .eq("status", "queued");
   } catch (error) {
     console.error("[clips] prepare failed:", error);
     await failProject(admin, row, describeError(error));
+    return;
+  }
+
+  const mediaUrl = await videoLink;
+  if (mediaUrl) {
+    await admin.from("clip_projects").update({ media_url: mediaUrl }).eq("id", row.id).is("media_url", null);
   }
 }
 
 async function findMoments(
   admin: SupabaseClient,
   row: ClipProjectRow,
-  words: TranscriptWord[]
+  words: TranscriptWord[],
+  precutDeadline: number
 ): Promise<ClipProjectRow> {
   try {
     const found = await findViralMoments({
@@ -177,7 +211,11 @@ async function findMoments(
       .eq("status", "finding")
       .select(CLIP_PROJECT_COLUMNS)
       .maybeSingle<ClipProjectRow>();
-    return ready ?? row;
+    if (!ready) return row;
+    after(() =>
+      precutClipSources(ready, precutDeadline).catch((error) => console.error("[clips] pre-cut failed:", error))
+    );
+    return ready;
   } catch (error) {
     console.error("[clips] moment finding failed:", error);
     return failProject(admin, row, describeError(error));
@@ -187,6 +225,7 @@ async function findMoments(
 /** Advances a working project one step, if its next step is ready. */
 export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProjectRow> {
   const admin = createAdminClient();
+  const precutDeadline = Date.now() + PRECUT_BUDGET_MS;
 
   if (row.status === "queued") {
     return ageMs(row) > QUEUED_STALE_MS ? failProject(admin, row, GENERIC_ERROR) : row;
@@ -198,7 +237,26 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
       return ageMs(row) > TRANSCRIBING_TIMEOUT_MS ? failProject(admin, row, GENERIC_ERROR) : row;
     }
     if (state.status === "failed") {
-      console.error("[clips] transcription failed:", state.error);
+      const attempts = transcribeAttempts(row);
+      console.error(`[clips] transcription failed (try ${attempts} of ${TRANSCRIBE_ATTEMPTS}):`, state.error);
+      if (DOWNLOAD_FAILURE.test(state.error) && attempts < TRANSCRIBE_ATTEMPTS) {
+        // Back to queued, once (conditional on this prediction), for a fresh audio link.
+        const { data: requeued } = await admin
+          .from("clip_projects")
+          .update({
+            status: "queued",
+            prediction_id: null,
+            options: { ...((row.options as object | null) ?? {}), transcribeAttempts: attempts + 1 },
+          })
+          .eq("id", row.id)
+          .eq("status", "transcribing")
+          .eq("prediction_id", row.prediction_id)
+          .select(CLIP_PROJECT_COLUMNS)
+          .maybeSingle<ClipProjectRow>();
+        if (!requeued) return row;
+        after(() => prepareClipProject(requeued.id, RETRY_WEBHOOK_URL));
+        return requeued;
+      }
       return failProject(admin, row, GENERIC_ERROR);
     }
     if (!state.words.length) {
@@ -213,7 +271,7 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
       .maybeSingle<ClipProjectRow>();
     // Another poll got there first; it's running the LLM.
     if (!claimed) return { ...row, status: "finding" };
-    return findMoments(admin, claimed, state.words);
+    return findMoments(admin, claimed, state.words, precutDeadline);
   }
 
   if (row.status === "finding" && ageMs(row) > FINDING_STALE_MS) {
@@ -232,18 +290,71 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
     return findMoments(
       admin,
       reclaimed,
-      reclaimed.transcript.map(([start, end, word]) => [start, end, word])
+      reclaimed.transcript.map(([start, end, word]) => [start, end, word]),
+      precutDeadline
     );
   }
 
   return row;
 }
 
-/** A fresh provider link for the source video, saved on the row. */
-export async function refreshClipMediaUrl(
-  row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds">
-): Promise<string> {
-  const { directUrl } = await fetchDownloadLink(row.source_url, mediaFormatFor(row.duration_seconds));
-  await createAdminClient().from("clip_projects").update({ media_url: directUrl }).eq("id", row.id);
-  return directUrl;
+/**
+ * Advances a project for a caller that can't wait on the moment-finding pass
+ * (~70s for an hour of transcript). Whatever isn't done within `budgetMs`
+ * keeps running in after(), and the row is re-read so the caller sees the
+ * step the project has reached ("finding" while the LLM runs).
+ */
+export async function advanceClipProjectWithin(row: ClipProjectRow, budgetMs: number): Promise<ClipProjectRow> {
+  const advancing = advanceClipProject(row).catch((error) => {
+    // A failed status check (Replicate blip) just means "still working";
+    // the next caller tries again.
+    console.error("[clips] advance failed:", error);
+    return row;
+  });
+  after(() => advancing.then(() => undefined));
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const done = await Promise.race([
+    advancing,
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), budgetMs);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (done) return done;
+
+  const { data: latest } = await createAdminClient()
+    .from("clip_projects")
+    .select(CLIP_PROJECT_COLUMNS)
+    .eq("id", row.id)
+    .maybeSingle<ClipProjectRow>();
+  return latest ?? row;
+}
+
+/** The webhook's hop: the project whose transcription just finished, if it's still working. */
+export async function advanceClipProjectForPrediction(predictionId: string): Promise<void> {
+  const { data: row } = await createAdminClient()
+    .from("clip_projects")
+    .select(CLIP_PROJECT_COLUMNS)
+    .eq("prediction_id", predictionId)
+    .maybeSingle<ClipProjectRow>();
+  if (row?.status !== "transcribing") return;
+  after(() => advanceClipProject(row).catch((error) => console.error("[clips] webhook advance failed:", error)));
+}
+
+/** The cron sweep: one step for every project still working. */
+export async function advanceWorkingClipProjects(): Promise<number> {
+  const { data: rows, error } = await createAdminClient()
+    .from("clip_projects")
+    .select(CLIP_PROJECT_COLUMNS)
+    .in("status", ["queued", "transcribing", "finding"])
+    .returns<ClipProjectRow[]>();
+  if (error) throw error;
+
+  await Promise.all(
+    (rows ?? []).map((row) =>
+      advanceClipProject(row).catch((error) => console.error(`[clips] sweep failed for ${row.id}:`, error))
+    )
+  );
+  return rows?.length ?? 0;
 }

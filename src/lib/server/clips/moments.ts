@@ -2,7 +2,14 @@ import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { clipMomentsFallbackModel, clipMomentsModel } from "@/lib/server/openrouter-client";
-import { CLIP_LENGTHS, isRtlText, type ClipMoment, type ClipOptions, type TranscriptWord } from "@/lib/clips";
+import {
+  CLIP_LENGTHS,
+  formatClock,
+  isRtlText,
+  type ClipMoment,
+  type ClipOptions,
+  type TranscriptWord,
+} from "@/lib/clips";
 
 // Picks the viral moments of a long-form video from its timed transcript
 // (the "AI-Youtube-Shorts-Generator" highlight step), then snaps each pick to
@@ -14,6 +21,17 @@ const MIN_CLIP_SECONDS = 10;
 const MAX_CLIP_SECONDS = 95;
 const MIN_SCORE = 50;
 const REQUEST_TIMEOUT_MS = 150_000;
+
+// The model's answer time grows with what it writes (~340 output tokens a
+// clip), so a long transcript is split into parts read in parallel: an hour
+// as 4 parts of 4 clips each comes back in about the time one call takes to
+// write 4, instead of 12 (~20s instead of ~70s). The parts overlap by more
+// than the longest clip, so a moment on a seam lies whole inside one of
+// them; if both pick it, the overlap check below keeps the better one.
+const SINGLE_PART_MAX_SECONDS = 20 * 60;
+const PART_SECONDS = 15 * 60;
+const MAX_PARTS = 8;
+const PART_OVERLAP_SECONDS = 100;
 
 const MomentsSchema = z.object({
   moroccan_darija: z.boolean(),
@@ -66,8 +84,10 @@ Write title, hook_title, caption and hashtags in the transcript's language.
 Return the clips sorted by score, best first.`;
 
 /** Groups words into transcript lines: sentence ends, long pauses, or ~25 words. */
-function transcriptLines(words: TranscriptWord[]): { start: number; text: string }[] {
-  const lines: { start: number; text: string }[] = [];
+type TranscriptLine = { start: number; text: string };
+
+function transcriptLines(words: TranscriptWord[]): TranscriptLine[] {
+  const lines: TranscriptLine[] = [];
   let current: TranscriptWord[] = [];
   const flush = () => {
     if (!current.length) return;
@@ -83,6 +103,25 @@ function transcriptLines(words: TranscriptWord[]): { start: number; text: string
   });
   flush();
   return lines;
+}
+
+interface TranscriptPart {
+  from: number;
+  to: number;
+  lines: TranscriptLine[];
+}
+
+/** The transcript as one part, or as overlapping parts for a long video. */
+function transcriptParts(lines: TranscriptLine[], durationSeconds: number): TranscriptPart[] {
+  const count =
+    durationSeconds <= SINGLE_PART_MAX_SECONDS ? 1 : Math.min(MAX_PARTS, Math.ceil(durationSeconds / PART_SECONDS));
+  const size = durationSeconds / count;
+  return Array.from({ length: count }, (_, index) => {
+    const from = index === 0 ? 0 : index * size - PART_OVERLAP_SECONDS;
+    const last = index === count - 1;
+    const to = last ? durationSeconds : (index + 1) * size;
+    return { from, to, lines: lines.filter((line) => line.start >= from && (last || line.start < to)) };
+  }).filter((part) => part.lines.length > 0);
 }
 
 function targetClipCount(durationSeconds: number, options: ClipOptions): number {
@@ -160,22 +199,42 @@ export async function findViralMoments(input: {
 
   const count = targetClipCount(input.durationSeconds, input.options);
   const [minLength, maxLength] = CLIP_LENGTHS.find((option) => option.value === input.options.length)!.range;
-  const transcript = lines.map((line) => `[${line.start.toFixed(1)}] ${line.text}`).join("\n");
-  const brief = [
-    `Video: "${input.title}"${input.channelTitle ? ` by ${input.channelTitle}` : ""}, ${Math.round(input.durationSeconds / 60)} minutes.`,
-    `Each clip must be ${minLength} to ${maxLength} seconds long.`,
-    input.options.focus
-      ? `The creator wants clips about: "${input.options.focus}". Prefer moments that match; only fill the rest with the strongest other moments.`
-      : null,
-    `Return ${count} clips; return fewer only if the video truly lacks that many standalone moments.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const parts = transcriptParts(lines, input.durationSeconds);
+  // A few more than an even share, so the strongest parts can carry more of the final picks.
+  const perPart = parts.length === 1 ? count : Math.min(count, Math.ceil(count / parts.length) + 1);
+  const briefFor = (part: TranscriptPart, index: number) =>
+    [
+      `Video: "${input.title}"${input.channelTitle ? ` by ${input.channelTitle}` : ""}, ${Math.round(input.durationSeconds / 60)} minutes.`,
+      parts.length > 1
+        ? `This is part ${index + 1} of ${parts.length} of its transcript, from ${formatClock(part.from)} to ${formatClock(part.to)}; the other parts are handled separately.`
+        : null,
+      `Each clip must be ${minLength} to ${maxLength} seconds long.`,
+      input.options.focus
+        ? `The creator wants clips about: "${input.options.focus}". Prefer moments that match; only fill the rest with the strongest other moments.`
+        : null,
+      `Return ${perPart} clips; return fewer only if the ${parts.length > 1 ? "part" : "video"} truly lacks that many standalone moments.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  const object = await askModel(SYSTEM_PROMPT, `${brief}\n\nTranscript:\n${transcript}`);
+  const results = await Promise.allSettled(
+    parts.map((part, index) =>
+      askModel(
+        SYSTEM_PROMPT,
+        `${briefFor(part, index)}\n\nTranscript:\n${part.lines.map((line) => `[${line.start.toFixed(1)}] ${line.text}`).join("\n")}`
+      )
+    )
+  );
+  const answers = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+  const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+  // A part that failed on both models only costs its own clips.
+  if (!answers.length) throw failures[0].reason;
+  if (failures.length) console.error(`[clips/moments] ${failures.length} of ${parts.length} parts failed:`, failures[0].reason);
+  const rawClips = answers.flatMap((answer) => answer.clips);
+  const darijaVotes = answers.filter((answer) => answer.moroccan_darija === true).length;
 
   const picked: ClipMoment[] = [];
-  for (const raw of [...object.clips].sort((a, b) => b.score - a.score)) {
+  for (const raw of rawClips.sort((a, b) => b.score - a.score)) {
     if (!Number.isFinite(raw.start) || !Number.isFinite(raw.end) || raw.end <= raw.start) continue;
     const range = snapToWords(input.words, Math.max(0, raw.start), Math.min(input.durationSeconds, raw.end));
     if (!range) continue;
@@ -225,5 +284,5 @@ export async function findViralMoments(input: {
   // The strip reads left to right through the video, like the timeline.
   const clips = picked.sort((a, b) => a.start - b.start).map((clip, index) => ({ ...clip, id: `c${index + 1}` }));
   // Darija captions get romanized; the flag only counts for a transcript in Arabic script.
-  return { clips, darija: object.moroccan_darija === true && isArabicTranscript(input.words) };
+  return { clips, darija: darijaVotes * 2 >= answers.length && isArabicTranscript(input.words) };
 }

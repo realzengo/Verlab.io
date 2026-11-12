@@ -1,6 +1,13 @@
 // AI layouts, OpusClip's "Layouts AI can use": for each shot, picks how a
 // 16:9 source fills a vertical or square frame from who is in it, among the
 // layouts the user allows, and frames each person in a panel of their own.
+// Fill shots get the editor-style camera of clip-fill-camera (zoom to the
+// face, follow the speaker, punch-ins).
+//
+// In Auto, detectClipStyle first reads what kind of footage the clip is (a
+// stream with a face cam, a podcast, a fast-cut vlog, someone talking to
+// camera, footage with hardly any faces) and uses that kind's layouts for
+// the whole clip, so it doesn't flip between layouts shot by shot.
 //
 // A shot where the streamer's face cam shows (see clip-facecam) gets a cam
 // layout: Gameplay when the rest of the frame moves a lot, ScreenShare when
@@ -12,6 +19,7 @@
 
 import { findFaceCams, shotFaceCam, type Box, type FaceCam } from "@/lib/client/clip-facecam";
 import { centerAt, fillGaps, gaussian, medianFilter, operate } from "@/lib/client/clip-reframe";
+import { fillPanel, type FillOptions, type ZoomStyle } from "@/lib/client/clip-fill-camera";
 import type { CameraMode, CameraPath, ReframeTrack } from "@/lib/client/clip-reframe";
 
 export type LayoutId = "fill" | "fit" | "split" | "three" | "four" | "screen" | "gameplay";
@@ -115,6 +123,10 @@ interface PanelPath {
   h: number;
   /** A region crop (see PanelCrop). */
   w?: number;
+  /** Fill's camera: the height over time, a punch-in zoom on top, and where the face sits (see FillPanel). */
+  heights?: CameraPath;
+  zoomAt?: (time: number) => number;
+  lift?: number;
 }
 
 interface Shot {
@@ -131,6 +143,8 @@ export interface LayoutPlan {
   shots: Shot[];
   /** The layouts the plan actually uses, in order of first use. */
   used: LayoutId[];
+  /** In Auto, the kind of footage the AI read the clip as. */
+  style?: ClipStyle;
 }
 
 const median = (values: number[]) => {
@@ -352,7 +366,12 @@ function camFaces(cam: FaceCam, track: ReframeTrack, from: number, to: number): 
  */
 export function layoutPlan(
   track: ReframeTrack,
-  { layouts, outputAspect, camera }: { layouts: LayoutId[]; outputAspect: number; camera: CameraMode }
+  {
+    layouts,
+    outputAspect,
+    camera,
+    fill,
+  }: { layouts: LayoutId[]; outputAspect: number; camera: CameraMode; fill?: FillOptions }
 ): LayoutPlan {
   const allowed = new Set<LayoutId>(layouts.length ? layouts : ["fill"]);
   const starts = [0, ...track.cuts.flatMap((cut, i) => (cut && i > 0 ? [i] : []))];
@@ -458,6 +477,13 @@ export function layoutPlan(
       };
     });
 
+    // Only where Fill was asked for: Gameplay's shots without a cam keep their plain crop.
+    if (layout === "fill" && fill && allowed.has("fill")) {
+      // A shot with nobody in it holds the middle of the frame.
+      const view = fillPanel(track, from, to, end, people, outputAspect, camera, fill, 0.5);
+      panels.push({ x: view.x, y: view.y, h: 1, heights: view.heights, zoomAt: view.zoomAt, lift: view.lift });
+    }
+
     const shot: Shot = {
       start: s === 0 ? -Infinity : times[0],
       end: s === starts.length - 1 ? Infinity : end,
@@ -496,12 +522,72 @@ export function layoutPlan(
 export function sceneAt(plan: LayoutPlan | null | undefined, time: number): SceneFrame | null {
   if (!plan?.shots.length) return null;
   const shot = plan.shots.find((s) => time >= s.start && time < s.end) ?? plan.shots[plan.shots.length - 1];
-  const crops: PanelCrop[] = shot.panels.map((panel) => ({
-    cx: centerAt(panel.x, time) ?? 0.5,
-    cy: centerAt(panel.y, time) ?? 0.5,
-    h: panel.h,
-    ...(panel.w !== undefined ? { w: panel.w } : {}),
-  }));
+  const crops: PanelCrop[] = shot.panels.map((panel) => {
+    const h = panel.heights ? (centerAt(panel.heights, time) ?? panel.h) : panel.h;
+    // A punch-in tightens around the face, not the crop's center.
+    const zoom = panel.zoomAt?.(time) ?? 1;
+    const cy = centerAt(panel.y, time) ?? 0.5;
+    return {
+      cx: centerAt(panel.x, time) ?? 0.5,
+      cy: cy - (panel.lift ?? 0) * h * (1 - 1 / zoom),
+      h: h / zoom,
+      ...(panel.w !== undefined ? { w: panel.w } : {}),
+    };
+  });
   if (shot.fixed) crops.push(...shot.fixed);
   return { layout: shot.layout, crops, divide: shot.divide };
+}
+
+/** The kinds of footage Auto tells apart, and what each gets. */
+export type ClipStyle = "gameplay" | "screen" | "podcast" | "vlog" | "talking" | "broll";
+
+export const CLIP_STYLES: Record<ClipStyle, { label: string; why: string; layouts: LayoutId[]; zoom: ZoomStyle }> = {
+  gameplay: { label: "Gameplay", why: "a streamer's cam over gameplay", layouts: ["gameplay"], zoom: "subtle" },
+  screen: { label: "ScreenShare", why: "a webcam over a screen", layouts: ["screen"], zoom: "subtle" },
+  podcast: {
+    label: "Split",
+    why: "people sharing the shot",
+    layouts: ["split", "three", "four", "fill"],
+    zoom: "subtle",
+  },
+  vlog: { label: "Fill", why: "fast cuts and action", layouts: ["fill"], zoom: "punchy" },
+  talking: { label: "Fill", why: "someone talking on camera", layouts: ["fill"], zoom: "subtle" },
+  broll: { label: "Fit", why: "few faces on screen", layouts: ["fit"], zoom: "subtle" },
+};
+
+// Share of the clip's time a cam layout needs before the clip counts as a stream.
+const STREAM_SHARE = 0.4;
+// Below this share of samples with a face, the clip is footage, not people.
+const FACES_SHARE = 0.25;
+// Shared shots this much of the time, without fast cutting, make a podcast.
+const SHARED_SHARE = 0.4;
+// Vlog editing: this many cuts a minute, or this much motion between samples.
+const VLOG_CUTS = 10;
+const VLOG_MOTION = 8;
+
+/**
+ * What kind of footage a clip is, read from its analysed track: the
+ * per-shot layouts the AI would pick from everything, how often it cuts,
+ * how much moves, and how often anyone is on screen.
+ */
+export function detectClipStyle(track: ReframeTrack, outputAspect: number): ClipStyle {
+  const times = track.times;
+  if (times.length < 2) return "talking";
+  const t0 = times[0];
+  const t1 = times[times.length - 1];
+  const length = Math.max(0.5, t1 - t0);
+  const share = new Map<LayoutId, number>();
+  for (const shot of layoutPlan(track, { layouts: ALL_LAYOUTS, outputAspect, camera: "smooth" }).shots) {
+    const span = Math.min(t1, shot.end) - Math.max(t0, shot.start);
+    if (span > 0) share.set(shot.layout, (share.get(shot.layout) ?? 0) + span / length);
+  }
+  const of = (...ids: LayoutId[]) => ids.reduce((sum, id) => sum + (share.get(id) ?? 0), 0);
+
+  if (of("gameplay", "screen") >= STREAM_SHARE) return of("gameplay") >= of("screen") ? "gameplay" : "screen";
+  const withFaces = track.frames.filter((faces) => faces.some((f) => f.h >= 0.05)).length / track.frames.length;
+  if (withFaces < FACES_SHARE) return "broll";
+  const cutsPerMinute = (track.cuts.filter(Boolean).length / length) * 60;
+  if (of("split", "three", "four") >= SHARED_SHARE && cutsPerMinute < VLOG_CUTS) return "podcast";
+  if (cutsPerMinute >= VLOG_CUTS || median(track.motion.slice(1)) >= VLOG_MOTION) return "vlog";
+  return "talking";
 }

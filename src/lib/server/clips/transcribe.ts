@@ -26,12 +26,14 @@ export type TranscriptionState =
   | { status: "failed"; error: string }
   | { status: "succeeded"; words: TranscriptWord[]; language: string | null };
 
-export async function startTranscription(audioUrl: string): Promise<string> {
+/** `webhookUrl` (https only) has Replicate call back when the transcript is done. */
+export async function startTranscription(audioUrl: string, webhookUrl?: string): Promise<string> {
   const replicate = getReplicateClient();
   const prediction = await withReplicateRetry(() =>
     replicate.predictions.create({
       version: WHISPERX_VERSION,
       input: { audio_file: audioUrl, align_output: true, batch_size: 64 },
+      ...(webhookUrl ? { webhook: webhookUrl, webhook_events_filter: ["completed"] as const } : {}),
     })
   );
   return prediction.id;

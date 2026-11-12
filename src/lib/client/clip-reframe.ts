@@ -26,6 +26,8 @@ import type { ClipSource } from "@/lib/client/clip-render";
 export interface ReframeTrack {
   /** Width / height of the analysed video. */
   aspect: number;
+  /** The source's own height in pixels: how far a crop can zoom before it goes soft. */
+  height?: number;
   times: number[];
   /** Horizontal center of the subject (0 = left edge, 1 = right edge), or null if not seen. */
   subject: (number | null)[];
@@ -366,6 +368,7 @@ export async function analyzeReframe(
       seen.push({ time, change, faces });
     }
     const cuts = findCuts(seen);
+    const height = track.displayHeight;
 
     // Pin each cut to its frame: the first frame between the two samples that
     // looks like the new shot. Layouts and the camera switch there.
@@ -390,6 +393,7 @@ export async function analyzeReframe(
     const samples = linkIdentities(seen, cuts, aspect);
     return {
       ...chooseSubject(samples, aspect),
+      height,
       frames: samples.map((sample) =>
         sample.faces.map((f) => ({ id: f.id, x: f.x + f.w / 2, y: f.y + f.h / 2, w: f.w, h: f.h, score: f.score }))
       ),

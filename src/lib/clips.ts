@@ -145,6 +145,29 @@ export const CLIP_SOURCE_MAX_SECONDS = 3 * 60 * 60;
 /** Longest single clip the editor will cut. */
 export const CLIP_MAX_SECONDS = 180;
 
+// Room to stretch a clip in the editor without fetching again.
+const SOURCE_MARGIN_SECONDS = 8;
+
+/**
+ * The stretch of the source a clip's cut covers (the editor's trims can't
+ * leave it). The server's pre-cut and the editor's own requests both use it,
+ * so a stored cut matches what the editor asks for.
+ */
+export function clipSourceRange(clip: Pick<ClipMoment, "start" | "end">, durationSeconds: number) {
+  const from = Math.max(0, clip.start - SOURCE_MARGIN_SECONDS);
+  const to = Math.min(durationSeconds, clip.end + SOURCE_MARGIN_SECONDS, from + CLIP_MAX_SECONDS);
+  return { from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100 };
+}
+
+/** A clip's cut as GET /api/clips/[id]/sources reports it. */
+export type ClipStoredSource =
+  /** Cut and stored: its parts concatenate into one fMP4; `offset` is the source time at 0 in it. */
+  | { state: "stored"; from: number; to: number; offset: number; urls: string[] }
+  /** The server is still reading towards it; `reached` is how far (source seconds). */
+  | { state: "cutting"; reached: number }
+  /** Not stored (the editor cuts it itself). */
+  | { state: "none" };
+
 export const DISCOVER_CATEGORIES = [
   { id: "recommended", label: "Recommended" },
   { id: "podcasts", label: "Podcasts" },

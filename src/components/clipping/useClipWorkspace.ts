@@ -14,7 +14,14 @@ import {
   type ClipSource,
 } from "@/lib/client/clip-render";
 import { analyzeReframe, type ReframeTrack } from "@/lib/client/clip-reframe";
-import { CLIP_EXPORT_MAX_BYTES, CLIP_MAX_SECONDS, type ClipMoment, type ClipProject } from "@/lib/clips";
+import { ALL_LAYOUTS } from "@/lib/client/clip-layouts";
+import {
+  CLIP_EXPORT_MAX_BYTES,
+  clipSourceRange,
+  type ClipMoment,
+  type ClipProject,
+  type ClipStoredSource,
+} from "@/lib/clips";
 
 // Everything the Edit and Post steps share for one project: each clip's
 // settings, its cut of the source video, its face-tracking path, the split
@@ -57,10 +64,10 @@ export interface BackgroundVideo {
   name: string;
 }
 
-// Room to stretch a clip in the editor without fetching again.
-const SOURCE_MARGIN_SECONDS = 8;
 // Most cuts one request carries (the route's own cap).
 const BATCH_MAX = 12;
+// How often to look again for clips the server is still cutting.
+const STORED_POLL_MS = 2500;
 
 /** The parts of the settings that are style, not content: "Apply to all" copies these. */
 const STYLE_KEYS = [
@@ -69,6 +76,7 @@ const STYLE_KEYS = [
   "bottomVideo",
   "reframe",
   "camera",
+  "zoom",
   "captions",
   "captionPosition",
   "captionX",
@@ -101,10 +109,12 @@ export function defaultSettings(clip: ClipMoment, rtl = false): ClipEditSettings
     start: clip.start,
     end: clip.end,
     aspect: "9:16",
-    layouts: ["fill"],
+    // Auto: the AI reads the footage and picks the layout, until the user picks one.
+    layouts: [...ALL_LAYOUTS],
     bottomVideo: false,
     reframe: "auto",
     camera: "smooth",
+    zoom: "auto",
     focusX: 0.5,
     captions: "hormozi",
     captionPosition: "bottom",
@@ -152,6 +162,48 @@ function deferred<T>(): Deferred<T> {
 }
 
 export const exportsKey = (projectId: string) => `/api/clips/${projectId}/exports`;
+
+/** The clips the server has cut ahead (GET /api/clips/[id]/sources); null if that check fails. */
+async function fetchStoredSources(projectId: string, signal: AbortSignal) {
+  try {
+    const response = await fetch(`/api/clips/${projectId}/sources`, { cache: "no-store", signal });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { sources?: Record<string, ClipStoredSource> };
+    return data.sources ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A stored cut's parts, joined back into one fMP4. */
+async function downloadStoredSource(
+  stored: Extract<ClipStoredSource, { state: "stored" }>,
+  signal: AbortSignal
+): Promise<ClipSource> {
+  const parts = await Promise.all(
+    stored.urls.map(async (url) => {
+      const response = await fetch(url, { signal });
+      if (!response.ok) throw new Error(`Stored cut returned ${response.status}`);
+      return response.blob();
+    })
+  );
+  return { blob: new Blob(parts, { type: "video/mp4" }), offset: stored.offset };
+}
+
+const wait = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true }
+    );
+  });
+
+type SourceRequest = { clip: ClipMoment; from: number; to: number };
 
 async function saveToLibrary(
   projectId: string,
@@ -207,7 +259,7 @@ export function useClipWorkspace(project: ClipProject) {
   }, [settings, background]);
   const sourceJobs = useRef(new Map<string, Deferred<ClipSource>>());
   const trackJobs = useRef(new Map<string, Deferred<ReframeTrack>>());
-  const batch = useRef<{ clip: ClipMoment; from: number; to: number }[]>([]);
+  const batch = useRef<SourceRequest[]>([]);
   const batchScheduled = useRef(false);
   const trackChain = useRef<Promise<unknown>>(Promise.resolve());
   const abort = useRef(new AbortController());
@@ -305,56 +357,112 @@ export function useClipWorkspace(project: ClipProject) {
     });
   }, []);
 
-  // Every clip requested in the same tick goes out in one request: the
-  // server reads the source once for all of them, and early clips arrive
-  // long before the read reaches the last one.
+  const sourceReady = useCallback(
+    ({ clip, from, to }: SourceRequest, source: ClipSource) => {
+      const url = URL.createObjectURL(source.blob);
+      urls.current.add(url);
+      setSources((current) => ({ ...current, [clip.id]: { ...current[clip.id], status: "ready", source, url } }));
+      sourceJobs.current.get(clip.id)?.resolve(source);
+      startTrack(clip, source, from, to);
+    },
+    [startTrack]
+  );
+
+  const sourceFailed = useCallback((clip: ClipMoment, message: string) => {
+    const job = sourceJobs.current.get(clip.id);
+    sourceJobs.current.delete(clip.id);
+    setSources((current) => ({ ...current, [clip.id]: { ...current[clip.id], status: "error", error: message } }));
+    job?.reject(new ClipRenderError(message));
+  }, []);
+
+  const setReached = useCallback((reached: Map<string, number>) => {
+    setSources((current) => {
+      const next = { ...current };
+      for (const [id, time] of reached) {
+        if (next[id]?.status === "loading") next[id] = { ...next[id], reached: time };
+      }
+      return next;
+    });
+  }, []);
+
+  // Clips cut here go out in one request: the server reads the source once
+  // for all of them, and early clips arrive long before the read reaches
+  // the last one.
+  const cutSources = useCallback(
+    (items: SourceRequest[]) => {
+      for (let i = 0; i < items.length; i += BATCH_MAX) {
+        const group = items.slice(i, i + BATCH_MAX);
+        const now = Date.now();
+        setSources((current) => {
+          const next = { ...current };
+          for (const { clip } of group)
+            next[clip.id] = { ...next[clip.id], status: "loading", startedAt: now, reached: 0 };
+          return next;
+        });
+        void fetchClipSources(
+          project.id,
+          group.map(({ from, to }) => ({ start: from, end: to })),
+          {
+            onReady: (index, source) => sourceReady(group[index], source),
+            onProgress: (time) => setReached(new Map(group.map(({ clip }) => [clip.id, time]))),
+            onError: (index, message) => sourceFailed(group[index].clip, message),
+          },
+          abort.current.signal
+        );
+      }
+    },
+    [project.id, sourceReady, sourceFailed, setReached]
+  );
+
+  // The server cuts every clip ahead as soon as the project is ready
+  // (precut.ts). Stored ones download straight from Storage, ones it's still
+  // reading towards are waited for (it's ahead of any new read), and only
+  // the rest get cut now.
+  const loadSources = useCallback(
+    async (items: SourceRequest[]) => {
+      const signal = abort.current.signal;
+      let pending = items;
+      while (pending.length && !signal.aborted) {
+        const stored = await fetchStoredSources(project.id, signal);
+        const waiting: SourceRequest[] = [];
+        const missing: SourceRequest[] = [];
+        const reached = new Map<string, number>();
+        for (const item of pending) {
+          const entry = stored?.[item.clip.id];
+          if (
+            entry?.state === "stored" &&
+            Math.abs(entry.from - item.from) < 0.05 &&
+            Math.abs(entry.to - item.to) < 0.05
+          ) {
+            reached.set(item.clip.id, item.from);
+            downloadStoredSource(entry, signal).then(
+              (source) => sourceReady(item, source),
+              () => {
+                if (!signal.aborted) cutSources([item]);
+              }
+            );
+          } else if (entry?.state === "cutting") {
+            reached.set(item.clip.id, entry.reached);
+            waiting.push(item);
+          } else {
+            missing.push(item);
+          }
+        }
+        setReached(reached);
+        if (missing.length) cutSources(missing);
+        pending = waiting;
+        if (pending.length) await wait(STORED_POLL_MS, signal);
+      }
+    },
+    [project.id, sourceReady, cutSources, setReached]
+  );
+
+  // Every clip requested in the same tick is looked up (and cut) together.
   const flushBatch = useCallback(() => {
     batchScheduled.current = false;
     const items = batch.current.splice(0).sort((a, b) => a.from - b.from);
-    for (let i = 0; i < items.length; i += BATCH_MAX) {
-      const group = items.slice(i, i + BATCH_MAX);
-      const now = Date.now();
-      setSources((current) => {
-        const next = { ...current };
-        for (const { clip } of group)
-          next[clip.id] = { ...next[clip.id], status: "loading", startedAt: now, reached: 0 };
-        return next;
-      });
-      void fetchClipSources(
-        project.id,
-        group.map(({ from, to }) => ({ start: from, end: to })),
-        {
-          onReady: (index, source) => {
-            const { clip, from, to } = group[index];
-            const url = URL.createObjectURL(source.blob);
-            urls.current.add(url);
-            setSources((current) => ({ ...current, [clip.id]: { ...current[clip.id], status: "ready", source, url } }));
-            sourceJobs.current.get(clip.id)?.resolve(source);
-            startTrack(clip, source, from, to);
-          },
-          onProgress: (time) =>
-            setSources((current) => {
-              const next = { ...current };
-              for (const { clip } of group) {
-                if (next[clip.id]?.status === "loading") next[clip.id] = { ...next[clip.id], reached: time };
-              }
-              return next;
-            }),
-          onError: (index, message) => {
-            const { clip } = group[index];
-            const job = sourceJobs.current.get(clip.id);
-            sourceJobs.current.delete(clip.id);
-            setSources((current) => ({
-              ...current,
-              [clip.id]: { ...current[clip.id], status: "error", error: message },
-            }));
-            job?.reject(new ClipRenderError(message));
-          },
-        },
-        abort.current.signal
-      );
-    }
-  }, [project.id, startTrack]);
+    if (items.length) void loadSources(items);
+  }, [loadSources]);
 
   /** The clip's cut of the source, fetching it (queued) the first time. */
   const requestSource = useCallback(
@@ -364,8 +472,7 @@ export function useClipWorkspace(project: ClipProject) {
 
       const job = deferred<ClipSource>();
       sourceJobs.current.set(clip.id, job);
-      const from = Math.max(0, clip.start - SOURCE_MARGIN_SECONDS);
-      const to = Math.min(project.durationSeconds, clip.end + SOURCE_MARGIN_SECONDS, from + CLIP_MAX_SECONDS);
+      const { from, to } = clipSourceRange(clip, project.durationSeconds);
       setSources((current) => ({ ...current, [clip.id]: { status: "loading", from, to, startedAt: Date.now() } }));
       batch.current.push({ clip, from, to });
       if (!batchScheduled.current) {

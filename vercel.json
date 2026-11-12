@@ -21,6 +21,14 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/cron/clips-poll",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/clip-sources-cleanup",
+      "schedule": "30 4 * * *"
+    },
+    {
       "path": "/api/cron/redact-webhook-payloads",
       "schedule": "0 3 * * *"
     },

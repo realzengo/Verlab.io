@@ -4,7 +4,8 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { humanizeVideoProviderError } from "@/lib/server/video-provider";
 import { Fmp4CutError, cutFragmentedMp4Ranges } from "@/lib/server/clips/fmp4-cut";
-import { refreshClipMediaUrl, type ClipProjectRow } from "@/lib/server/clips/projects";
+import type { ClipProjectRow } from "@/lib/server/clips/projects";
+import { openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
 import { CLIP_MAX_SECONDS } from "@/lib/clips";
 import { SEGMENT_ALL, SEGMENT_FRAME, SEGMENT_MAX_RANGES, encodeSegmentFrame, float64 } from "@/lib/clip-segments";
 
@@ -19,33 +20,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Reading stops a little before the route's own limit, so unfinished clips
 // get an error frame instead of the response being cut off mid-body.
 const UPSTREAM_TIMEOUT_MS = 285_000;
-// The keyframe a clip decodes from sits before its first frame.
-const LEAD_SECONDS = 1;
-const TAIL_SECONDS = 0.5;
-
-// Same browser-like UA the downloads proxy sends; the provider rejects bare fetches.
-const UPSTREAM_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-};
-
-async function openSource(
-  row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds" | "media_url">,
-  signal: AbortSignal
-) {
-  if (row.media_url) {
-    const response = await fetch(row.media_url, { headers: UPSTREAM_HEADERS, signal }).catch(() => null);
-    if (response?.ok && response.body) return response.body;
-    await response?.body?.cancel().catch(() => {});
-  }
-  // Provider links are short-lived; mint a new one and try once more.
-  const fresh = await refreshClipMediaUrl(row);
-  const response = await fetch(fresh, { headers: UPSTREAM_HEADERS, signal });
-  if (!response.ok || !response.body) {
-    throw new Error(`Source stream returned ${response.status}`);
-  }
-  return response.body;
-}
 
 type Range = { start: number; end: number };
 
@@ -102,7 +76,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
   const timeout = setTimeout(() => upstream.abort(), UPSTREAM_TIMEOUT_MS);
   let source: ReadableStream<Uint8Array>;
   try {
-    source = await openSource(row, upstream.signal);
+    source = await openClipSource(row, upstream.signal);
   } catch (error) {
     clearTimeout(timeout);
     console.error("[clips/segments] source unavailable:", error);
@@ -117,7 +91,7 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     try {
       await cutFragmentedMp4Ranges(
         source,
-        ranges.map((range) => ({ start: Math.max(0, range.start - LEAD_SECONDS), end: range.end + TAIL_SECONDS })),
+        ranges.map(paddedCutRange),
         async (event) => {
           if (event.type === "start") {
             await writer.write(encodeSegmentFrame(SEGMENT_FRAME.start, event.index, float64(event.offset)));

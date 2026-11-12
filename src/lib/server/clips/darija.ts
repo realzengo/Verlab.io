@@ -11,7 +11,7 @@ import { hasArabicScript, type ClipMoment, type TranscriptWord } from "@/lib/cli
 // one batch per clip in parallel and word for word, so every word keeps its
 // timing. A batch the model gets wrong falls back to a letter mapping.
 
-// The editor lets a trim stretch 8s past the clip (SOURCE_MARGIN_SECONDS).
+// The editor lets a trim stretch 8s past the clip (clipSourceRange in lib/clips).
 const MARGIN_SECONDS = 10;
 const BATCH_WORDS = 160;
 const REQUEST_TIMEOUT_MS = 60_000;

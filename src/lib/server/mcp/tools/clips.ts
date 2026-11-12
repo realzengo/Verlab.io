@@ -7,7 +7,12 @@ import { refundUser } from "@/lib/server/credits";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 import { getClipSourceVideo } from "@/lib/server/clips/youtube";
 import { YoutubeError } from "@/lib/server/youtube-client";
-import { CLIP_PROJECT_COLUMNS, advanceClipProject, prepareClipProject, type ClipProjectRow } from "@/lib/server/clips/projects";
+import {
+  CLIP_PROJECT_COLUMNS,
+  advanceClipProjectWithin,
+  prepareClipProject,
+  type ClipProjectRow,
+} from "@/lib/server/clips/projects";
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
 import {
   CLIP_LENGTHS,
@@ -17,7 +22,7 @@ import {
   youtubeWatchUrl,
   type ClipMoment,
 } from "@/lib/clips";
-import { APP_LINKS } from "../links";
+import { APP_LINKS, MCP_PUBLIC_ORIGIN } from "../links";
 import { signThumbUrl } from "../thumb-proxy";
 import {
   appResult,
@@ -33,15 +38,17 @@ import {
 
 // Clipping in Claude: the same project pipeline as /clipping (fetch audio ->
 // WhisperX -> moment-finding LLM, with refunds on failure inside
-// projects.ts). Only the first hop runs in the background (after()); every
-// later hop happens when a status check advances the project, exactly like
-// the web page's poll. Rendering the 9:16 clips (reframe, captions, export)
-// is client-side in the web editor, so the card hands off to it.
+// projects.ts). The project finishes on the server by itself (Replicate
+// webhook + cron sweep); a status check also advances it, exactly like the
+// web page's poll. Rendering the 9:16 clips (reframe, captions, export) is
+// client-side in the web editor, so the card hands off to it.
 
-// Moment-finding runs inline in the advancing call (~70s for an hour of
-// transcript). Cap how long one status check waits on it; the rest keeps
-// running in after() and the next check picks up the result.
+// Moment-finding takes ~70s for an hour of transcript. Cap how long one
+// status check waits on it; the rest keeps running in after() and the next
+// check picks up the result.
 const ADVANCE_BUDGET_MS = 40_000;
+
+const WEBHOOK_URL = MCP_PUBLIC_ORIGIN.startsWith("https://") ? `${MCP_PUBLIC_ORIGIN}/api/webhooks/replicate` : undefined;
 
 const STAGES: Record<string, string> = {
   queued: "Fetching the video's audio",
@@ -164,7 +171,7 @@ const createClipsTool: McpToolDefinition = {
       return errorResult("Couldn't start clipping. Your credits were refunded.");
     }
 
-    after(() => prepareClipProject(data.id));
+    after(() => prepareClipProject(data.id, WEBHOOK_URL));
 
     const payload = clipPayload(data);
     return appResult(`Clipping "${video.title}" (${cost} credits). ${clipsText(payload)}`, payload);
@@ -189,24 +196,7 @@ const checkClipsStatusTool: McpToolDefinition = {
       .maybeSingle<ClipProjectRow>();
     if (!row) return errorResult("That clip project wasn't found on this account.", "not_found");
 
-    let current = row;
-    if (isClipProjectWorking(row.status)) {
-      const advancing = advanceClipProject(row).catch((error) => {
-        // A provider blip just means "still working"; the next check retries.
-        console.error("[mcp/check_clips_status] advance failed:", error);
-        return row;
-      });
-      after(() => advancing.then(() => undefined));
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const waited = await Promise.race([
-        advancing,
-        new Promise<null>((resolve) => {
-          timer = setTimeout(() => resolve(null), ADVANCE_BUDGET_MS);
-        }),
-      ]);
-      clearTimeout(timer);
-      current = waited ?? row;
-    }
+    const current = isClipProjectWorking(row.status) ? await advanceClipProjectWithin(row, ADVANCE_BUDGET_MS) : row;
 
     if (current.status === "failed") {
       return errorResult(current.error_message ?? "Clipping failed. Your credits were refunded.");

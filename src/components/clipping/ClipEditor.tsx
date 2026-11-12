@@ -54,7 +54,8 @@ import {
   type HookMotion,
   type HookStyle,
 } from "@/lib/client/clip-render";
-import { ALL_LAYOUTS, LAYOUTS, sceneAt, type LayoutId } from "@/lib/client/clip-layouts";
+import { ALL_LAYOUTS, CLIP_STYLES, LAYOUTS, sceneAt, type LayoutId } from "@/lib/client/clip-layouts";
+import type { ZoomStyle } from "@/lib/client/clip-fill-camera";
 import { cameraPath, centerAt, type CameraMode } from "@/lib/client/clip-reframe";
 import { loadWaveform, type Waveform } from "@/lib/client/clip-waveform";
 import {
@@ -240,6 +241,9 @@ export function ClipEditor({
   useEffect(() => {
     for (const clip of clips) requestSource(clip);
   }, [clips, requestSource]);
+
+  // The cut's loudness: jump cuts go only where it's really quiet.
+  const audio = useWaveform(active ? workspace.sources[active.id]?.source : undefined);
 
   if (!active) return null;
   const settings = workspace.settingsFor(active);
@@ -428,6 +432,7 @@ export function ClipEditor({
             settings={settings}
             track={workspace.tracks[active.id]}
             words={project.transcript ?? []}
+            audio={audio}
             background={workspace.background}
             onBackground={workspace.setBackground}
             anchors={anchors.key === previewKey ? anchors : { caption: null, hook: null }}
@@ -944,8 +949,8 @@ const LAYOUT_ART = "/tools/art/clipping/layouts";
 
 /** What each choice does, under the picker. */
 const LAYOUT_NOTES: Record<LayoutChoice, string> = {
-  auto: "The AI picks the best layout for each shot from who is on screen.",
-  fill: "Fills the frame and follows the speaker, cutting to whoever talks.",
+  auto: "The AI reads the video and picks its layout: Gameplay for streams, Split for podcasts, Fill for vlogs.",
+  fill: "Zooms in on the speaker and follows them, cutting to whoever talks.",
   fit: "The whole frame, over a blur of itself.",
   split: "Two people, one per panel. Shots with fewer use Fill.",
   three: "Three people: one on top, two below. Shots with fewer use Fill.",
@@ -954,7 +959,14 @@ const LAYOUT_NOTES: Record<LayoutChoice, string> = {
   gameplay: "The streamer's webcam on top, the game below.",
 };
 
-/** The layout as one choice: a fixed layout, or Auto (the AI picks per shot). */
+const ZOOM_NOTES: Record<ZoomStyle | "auto", string> = {
+  auto: "Punchy for fast-cut vlogs, subtle for people talking.",
+  off: "The framing holds; no punch-ins.",
+  subtle: "Slow push-ins and gentle zooms on new thoughts.",
+  punchy: "Hard zoom cuts on new phrases and key words, MrBeast-style.",
+};
+
+/** The layout as one choice: a fixed layout, or Auto (the AI picks from the kind of video). */
 const choiceOf = (layouts: LayoutId[]): LayoutChoice => (layouts.length === 1 ? layouts[0] : "auto");
 
 function LayoutPicker({
@@ -967,7 +979,7 @@ function LayoutPicker({
   disabled?: boolean;
 }) {
   const current = choiceOf(value);
-  const choices: { id: LayoutChoice; label: string }[] = [...LAYOUTS, { id: "auto", label: "Auto" }];
+  const choices: { id: LayoutChoice; label: string }[] = [{ id: "auto", label: "Auto" }, ...LAYOUTS];
   return (
     <div
       role="radiogroup"
@@ -1284,6 +1296,7 @@ function ClipSettingsPanel({
   settings,
   track,
   words,
+  audio,
   background,
   onBackground,
   anchors,
@@ -1296,6 +1309,7 @@ function ClipSettingsPanel({
   settings: ClipEditSettings;
   track: TrackState | undefined;
   words: TranscriptWord[];
+  audio: Waveform | null;
   background: ClipWorkspace["background"];
   onBackground: (file: File | null) => void;
   anchors: Record<Movable, Point | null>;
@@ -1311,26 +1325,39 @@ function ClipSettingsPanel({
   const captionsOn = settings.captions !== "off";
   const length = settings.end - settings.start;
   const kept = useMemo(
-    () => rangesDuration(keepRanges(words, settings.start, settings.end, true)),
-    [words, settings.start, settings.end]
+    () => rangesDuration(keepRanges(words, settings.start, settings.end, true, audio)),
+    [words, settings.start, settings.end, audio]
   );
 
   const found = track?.track;
-  const { aspect, reframe, layouts, camera, bottomVideo } = settings;
+  const { aspect, reframe, layouts, camera, bottomVideo, zoom, start, end, removePauses } = settings;
   const plan = useMemo(
-    () => planFor(found, { aspect, reframe, layouts, camera, bottomVideo }),
-    [found, aspect, reframe, layouts, camera, bottomVideo]
+    () =>
+      planFor(
+        found,
+        { aspect, reframe, layouts, camera, bottomVideo, zoom, start, end, removePauses },
+        words,
+        clip.keywords,
+        audio
+      ),
+    [found, aspect, reframe, layouts, camera, bottomVideo, zoom, start, end, removePauses, words, clip.keywords, audio]
   );
   const layoutHint =
     track?.status === "running" || track?.status === "waiting"
-      ? `Finding faces ${Math.round((track.progress ?? 0) * 100)}%`
+      ? `Reading the video ${Math.round((track.progress ?? 0) * 100)}%`
       : track?.status === "error"
         ? "Face tracking unavailable"
-        : plan?.used.length && (layouts.length > 1 || plan.used.some((id) => id !== layouts[0]))
-          ? `${layouts.length > 1 ? "AI picked" : "Used"} ${plan.used.map((id) => LAYOUTS.find((l) => l.id === id)?.label).join(", ")}`
-          : found && !found.faces
-            ? "No faces found"
-            : null;
+        : plan?.style
+          ? `AI picked ${CLIP_STYLES[plan.style].label}`
+          : plan?.used.length && plan.used.some((id) => id !== layouts[0])
+            ? `Used ${plan.used.map((id) => LAYOUTS.find((l) => l.id === id)?.label).join(", ")}`
+            : found && !found.faces
+              ? "No faces found"
+              : null;
+  // What the AI saw, under the picker while Auto is on.
+  const autoNote = plan?.style
+    ? `Detected ${CLIP_STYLES[plan.style].why}. Pick a layout to override it.`
+    : LAYOUT_NOTES.auto;
 
   return (
     <div className="divide-y divide-hairline">
@@ -1543,7 +1570,9 @@ function ClipSettingsPanel({
                       <p className="text-[12px] leading-snug text-subtle">
                         {settings.bottomVideo
                           ? "Off while the bottom video is on: the clip fills the top half."
-                          : LAYOUT_NOTES[choiceOf(settings.layouts)]}
+                          : choiceOf(settings.layouts) === "auto"
+                            ? autoNote
+                            : LAYOUT_NOTES[choiceOf(settings.layouts)]}
                       </p>
                     </Field>
                     <Field label="Camera">
@@ -1562,6 +1591,24 @@ function ClipSettingsPanel({
                           : "Stays locked on each person as they move. Cuts to whoever is speaking."}
                       </p>
                     </Field>
+                    {(plan
+                      ? plan.used.includes("fill") && plan.style !== "gameplay" && plan.style !== "screen"
+                      : !["gameplay", "screen", "fit"].includes(choiceOf(settings.layouts))) && (
+                      <Field label="Zooms">
+                        <Segmented<ZoomStyle | "auto">
+                          label="Zooms"
+                          value={settings.zoom}
+                          onChange={(zoom) => onChange({ zoom })}
+                          options={[
+                            { value: "auto", label: "Auto" },
+                            { value: "off", label: "Off" },
+                            { value: "subtle", label: "Subtle" },
+                            { value: "punchy", label: "Punchy" },
+                          ]}
+                        />
+                        <p className="text-[12px] leading-snug text-subtle">{ZOOM_NOTES[settings.zoom]}</p>
+                      </Field>
+                    )}
                   </>
                 ) : (
                   <Field label="Position" value={`${Math.round(settings.focusX * 100)}%`}>
@@ -1873,14 +1920,18 @@ function ClipPreview({
     reframe,
     bottomVideo,
     camera,
+    zoom,
   } = settings;
   const captions = useMemo(
     () => prepareCaptions(words, { start, end, captions: template, captionWords }, clip),
     [words, start, end, template, captionWords, clip]
   );
-  const ranges = useMemo(() => keepRanges(words, start, end, removePauses), [words, start, end, removePauses]);
-  const outputLength = rangesDuration(ranges);
   const waveform = useWaveform(source?.source);
+  const ranges = useMemo(
+    () => keepRanges(words, start, end, removePauses, waveform),
+    [words, start, end, removePauses, waveform]
+  );
+  const outputLength = rangesDuration(ranges);
   const elapsed = useElapsed(source?.startedAt, source?.status === "loading");
   const subject = track?.track;
   const path = useMemo(
@@ -1888,8 +1939,29 @@ function ClipPreview({
     [subject, aspect, bottomVideo, camera]
   );
   const plan = useMemo(
-    () => planFor(subject, { aspect, reframe, layouts, camera, bottomVideo }),
-    [subject, aspect, reframe, layouts, camera, bottomVideo]
+    () =>
+      planFor(
+        subject,
+        { aspect, reframe, layouts, camera, bottomVideo, zoom, start, end, removePauses },
+        words,
+        clip.keywords,
+        waveform
+      ),
+    [
+      subject,
+      aspect,
+      reframe,
+      layouts,
+      camera,
+      bottomVideo,
+      zoom,
+      start,
+      end,
+      removePauses,
+      words,
+      clip.keywords,
+      waveform,
+    ]
   );
   const [liveLayout, setLiveLayout] = useState<LayoutId | null>(null);
 

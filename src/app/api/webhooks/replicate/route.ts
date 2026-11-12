@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { advanceVideoJob, VIDEO_JOB_COLUMNS, type VideoJobRow } from "@/lib/server/video-jobs";
+import { advanceClipProjectForPrediction } from "@/lib/server/clips/projects";
 
-export const maxDuration = 120;
+// A clip project's moment-finding LLM pass runs in after() off this request
+// (~70s for an hour of transcript, longer for 3 hours).
+export const maxDuration = 300;
 
 /**
  * Replicate's completion callback for every video job submitted with a
- * `webhook` URL (see submitVideoJob in replicate-video.ts). This is the
- * primary completion path; /api/cron/video-poll is the backstop for
+ * `webhook` URL (see submitVideoJob in replicate-video.ts), and for clip
+ * projects' WhisperX transcriptions (startTranscription in
+ * clips/transcribe.ts). This is the primary completion path;
+ * /api/cron/video-poll and /api/cron/clips-poll are the backstops for
  * missed/failed deliveries. Replaces /api/webhooks/fal.
  *
  * Not behind Supabase auth (same as /api/webhooks/whop) -- Replicate has
@@ -21,9 +26,9 @@ export const maxDuration = 120;
  * UNTRUSTED beyond one field: id (the prediction id -- Replicate's webhook
  * body is the prediction object itself). Nothing from the payload is ever
  * used to decide a job succeeded, to price it, or to determine what got
- * stored -- advanceVideoJob() always re-derives the real status and result
- * from Replicate itself via our own API-token-authenticated call
- * (getVideoJobResult). So the worst a spoofed POST can do is trigger an
+ * stored -- advanceVideoJob() and advanceClipProject() always re-derive the
+ * real status and result from Replicate itself via our own
+ * API-token-authenticated call. So the worst a spoofed POST can do is trigger an
  * early, harmless re-check of a real in-flight job's status -- it can't
  * fabricate a completion, and it can't affect billing for a job that hasn't
  * actually finished on Replicate's side.
@@ -49,8 +54,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .maybeSingle<VideoJobRow>();
 
   if (!row) {
-    // Not a prediction id we recognize (stale/cleaned-up row, or noise) --
-    // 200 so Replicate doesn't keep retrying a delivery we'll never act on.
+    // A clip project's transcript, or not a prediction id we recognize
+    // (stale/cleaned-up row, or noise) -- 200 either way so Replicate doesn't
+    // keep retrying a delivery we'll never act on.
+    await advanceClipProjectForPrediction(predictionId);
     return NextResponse.json({ ok: true });
   }
 

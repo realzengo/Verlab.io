@@ -120,7 +120,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return serverError("clips/create", error, "Could not start clipping");
   }
 
-  after(() => prepareClipProject(data.id));
+  // Replicate calls back when the transcript is done, so the project finishes
+  // with no one on the page. It can't reach a local http dev server.
+  const webhookUrl = request.nextUrl.protocol === "https:" ? `${request.nextUrl.origin}/api/webhooks/replicate` : undefined;
+  after(() => prepareClipProject(data.id, webhookUrl));
 
   return NextResponse.json({ project: toClipProject(data) });
 }

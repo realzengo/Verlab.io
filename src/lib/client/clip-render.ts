@@ -11,7 +11,9 @@
 // pauses and filler words (jump cuts).
 
 import {
+  CLIP_STYLES,
   LAYOUT_PANELS,
+  detectClipStyle,
   layoutPlan,
   sceneAt,
   type LayoutId,
@@ -20,6 +22,8 @@ import {
   type SceneFrame,
 } from "@/lib/client/clip-layouts";
 import { cameraPath, centerAt, type CameraMode, type ReframeTrack } from "@/lib/client/clip-reframe";
+import type { ZoomStyle } from "@/lib/client/clip-fill-camera";
+import { loadWaveform } from "@/lib/client/clip-waveform";
 import {
   CLIP_EXPORT_MAX_BYTES,
   hasArabicScript,
@@ -63,6 +67,8 @@ export interface ClipEditSettings {
   reframe: "auto" | "manual";
   /** How the AI camera moves: operator-style holds and pans, or continuous follow. */
   camera: CameraMode;
+  /** Fill's punch-in zooms; "auto" picks them from the kind of footage. */
+  zoom: ZoomStyle | "auto";
   /** Horizontal position of the crop in manual mode, 0 (left) to 1 (right). */
   focusX: number;
   captions: CaptionTemplate;
@@ -445,14 +451,40 @@ export function usesTracking(settings: Pick<ClipEditSettings, "aspect" | "refram
   );
 }
 
-/** The AI layout plan for a clip, or null when its settings don't use one. */
+/** Auto (every layout allowed): the AI picks the clip's layout from the kind of footage it is. */
+export const isAutoLayout = (layouts: LayoutId[]) => layouts.length > 1;
+
+/**
+ * The AI layout plan for a clip, or null when its settings don't use one.
+ * `words` (the transcript) and `keywords` time Fill's punch-in zooms.
+ */
 export function planFor(
   track: ReframeTrack | null | undefined,
-  settings: Pick<ClipEditSettings, "aspect" | "reframe" | "layouts" | "camera" | "bottomVideo">
+  settings: Pick<
+    ClipEditSettings,
+    "aspect" | "reframe" | "layouts" | "camera" | "bottomVideo" | "zoom" | "start" | "end" | "removePauses"
+  >,
+  words: TranscriptWord[] = [],
+  keywords: string[] = [],
+  audio: AudioLevels | null = null
 ): LayoutPlan | null {
   if (!track || settings.reframe !== "auto" || settings.aspect === "16:9" || usesBottomVideo(settings)) return null;
   const { width, height } = OUTPUT_SIZES[settings.aspect];
-  return layoutPlan(track, { layouts: settings.layouts, outputAspect: width / height, camera: settings.camera });
+  const outputAspect = width / height;
+  const style = detectClipStyle(track, outputAspect);
+  const auto = isAutoLayout(settings.layouts);
+  const zoom = settings.zoom === "auto" ? (style === "vlog" ? "punchy" : "subtle") : settings.zoom;
+  // Every jump cut gets a zoom change, so the jump reads as an edit.
+  const jumps = keepRanges(words, settings.start, settings.end, settings.removePauses, audio)
+    .slice(1)
+    .map(([from]) => from);
+  const plan = layoutPlan(track, {
+    layouts: auto ? CLIP_STYLES[style].layouts : settings.layouts,
+    outputAspect,
+    camera: settings.camera,
+    fill: { zoom, words, keywords: new Set(keywords.map(bare)), jumps },
+  });
+  return auto ? { ...plan, style } : plan;
 }
 
 const bare = (word: string) => word.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
@@ -508,38 +540,161 @@ export function prepareCaptions(
   };
 }
 
-const FILLERS = new Set(["um", "uh", "uhm", "umm", "erm", "er", "ah", "hmm", "mm", "mhm"]);
-const PAUSE_SECONDS = 0.45;
-const PAD_SECONDS = 0.1;
+const FILLERS = new Set(["um", "uh", "uhm", "umm", "erm", "er", "hmm", "mm"]);
+// A pause is a stretch the audio is really quiet for at least this long...
+const PAUSE_SECONDS = 0.4;
+// ...of which this much is kept on each side, so speech ends and starts naturally (a breath).
+const KEEP_AFTER_SPEECH = 0.12;
+const KEEP_BEFORE_SPEECH = 0.1;
+// Quiet: below this share of the way from the room's noise floor up to speech level.
+const QUIET_SHARE = 0.16;
+// Word timings are a little off; a quiet stretch never reaches this far into a word.
+const WORD_GUARD = 0.04;
+// Without the audio, only clear transcript gaps count.
+const TRANSCRIPT_PAUSE = 0.7;
+
+/** Loudness levels of a cut's audio (see clip-waveform): source time of the first, per second. */
+export interface AudioLevels {
+  start: number;
+  rate: number;
+  levels: Float32Array;
+}
 
 /**
- * The parts of [start, end] to keep (source time). With removePauses, gaps
- * longer than PAUSE_SECONDS and filler words are cut, leaving a little air
- * so words aren't clipped.
+ * The parts of [start, end] to keep (source time). With removePauses, the
+ * pauses are cut: stretches where the audio is genuinely quiet for
+ * PAUSE_SECONDS or more, never inside a word, keeping a breath on each side.
+ * Laughter, music, shouts and sound effects aren't quiet, so they stay, and
+ * so does every word however short. A filler ("um", "uh") goes too, but
+ * only when it's surrounded by quiet, so the cut can't clip a real word.
+ * Without the audio (still loading, or undecodable), only clear gaps in the
+ * transcript are cut.
  */
 export function keepRanges(
   words: TranscriptWord[],
   start: number,
   end: number,
-  removePauses: boolean
+  removePauses: boolean,
+  audio?: AudioLevels | null
 ): [number, number][] {
-  if (!removePauses) return [[start, end]];
-  const speech = words.filter((w) => w[1] > start && w[0] < end && !FILLERS.has(bare(w[2])));
-  if (!speech.length) return [[start, end]];
+  if (!removePauses || end - start < 1) return [[start, end]];
+  const inClip = words.filter((w) => w[1] > start && w[0] < end);
+  const spoken = inClip.filter((w) => !FILLERS.has(bare(w[2])));
+  const cuts = audio ? quietCuts(audio, inClip, spoken, start, end) : transcriptCuts(spoken, start, end);
+
   const ranges: [number, number][] = [];
-  let rangeStart = Math.max(start, speech[0][0] - PAD_SECONDS);
-  for (let i = 0; i < speech.length - 1; i++) {
-    const gapStart = speech[i][1];
-    const gapEnd = speech[i + 1][0];
-    const hadFiller = words.some((w) => w[0] >= gapStart - 0.01 && w[1] <= gapEnd + 0.01 && FILLERS.has(bare(w[2])));
-    if (gapEnd - gapStart > PAUSE_SECONDS || hadFiller) {
-      const pad = hadFiller && gapEnd - gapStart <= PAUSE_SECONDS ? 0.03 : PAD_SECONDS;
-      ranges.push([rangeStart, gapStart + pad]);
-      rangeStart = gapEnd - pad;
+  let from = start;
+  for (const [a, b] of cuts) {
+    if (a > from + 0.02) ranges.push([from, a]);
+    from = Math.max(from, b);
+  }
+  if (end > from + 0.02) ranges.push([from, end]);
+  return ranges.length ? ranges : [[start, end]];
+}
+
+/** Cuts from the transcript alone: long gaps between words, with air left around them. */
+function transcriptCuts(spoken: TranscriptWord[], start: number, end: number): [number, number][] {
+  const cuts: [number, number][] = [];
+  const edges = [start - KEEP_AFTER_SPEECH, ...spoken.flatMap((w) => [w[0], w[1]]), end + KEEP_BEFORE_SPEECH];
+  for (let i = 0; i < edges.length; i += 2) {
+    const quietFrom = edges[i];
+    const quietTo = edges[i + 1];
+    if (quietTo - quietFrom < TRANSCRIPT_PAUSE) continue;
+    const a = Math.max(start, quietFrom + KEEP_AFTER_SPEECH + 0.05);
+    const b = Math.min(end, quietTo - KEEP_BEFORE_SPEECH - 0.05);
+    if (b - a > 0.15) cuts.push([a, b]);
+  }
+  return cuts;
+}
+
+/** Cuts where the audio itself is quiet (see keepRanges). */
+function quietCuts(
+  audio: AudioLevels,
+  inClip: TranscriptWord[],
+  spoken: TranscriptWord[],
+  start: number,
+  end: number
+): [number, number][] {
+  const { rate } = audio;
+  const first = Math.max(0, Math.ceil((start - audio.start) * rate));
+  const last = Math.min(audio.levels.length, Math.floor((end - audio.start) * rate));
+  if (last - first < rate) return [];
+  const timeOf = (i: number) => audio.start + i / rate;
+  const indexOf = (t: number) => Math.round((t - audio.start) * rate);
+
+  // A 3-frame median, so a click doesn't break a silence and a stop consonant doesn't make one.
+  const raw = audio.levels;
+  const level = new Float32Array(raw.length);
+  for (let i = first; i < last; i++) {
+    const a = raw[Math.max(first, i - 1)];
+    const b = raw[i];
+    const c = raw[Math.min(last - 1, i + 1)];
+    level[i] = Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+  }
+
+  // The room's noise floor, and how loud the speech is, in this clip.
+  const all = Array.from(level.subarray(first, last)).sort((x, y) => x - y);
+  const floor = all[Math.floor(all.length * 0.1)];
+  const inWords: number[] = [];
+  for (const w of spoken)
+    for (let i = indexOf(w[0]); i < indexOf(w[1]); i++) if (i >= first && i < last) inWords.push(level[i]);
+  inWords.sort((x, y) => x - y);
+  const speech = inWords.length ? inWords[Math.floor(inWords.length / 2)] : all[Math.floor(all.length * 0.6)];
+  if (!(speech > floor * 1.5)) return [];
+  const threshold = floor + (speech - floor) * QUIET_SHARE;
+
+  // Quiet frames, outside every word (fillers aside).
+  const quiet = new Uint8Array(raw.length);
+  for (let i = first; i < last; i++) quiet[i] = level[i] < threshold ? 1 : 0;
+  for (const w of spoken) {
+    for (let i = indexOf(w[0] + WORD_GUARD); i < indexOf(w[1] - WORD_GUARD); i++)
+      if (i >= first && i < last) quiet[i] = 0;
+  }
+  // A filler with quiet on both sides counts as part of the silence around it.
+  for (const w of inClip) {
+    if (!FILLERS.has(bare(w[2]))) continue;
+    const a = indexOf(w[0]);
+    const b = indexOf(w[1]);
+    const near = Math.round(0.2 * rate);
+    const quietBefore = quiet.subarray(Math.max(first, a - near), Math.max(first, a)).some(Boolean);
+    const quietAfter = quiet.subarray(Math.min(last, b), Math.min(last, b + near)).some(Boolean);
+    if (quietBefore && quietAfter) {
+      let from = a;
+      while (from > first && !quiet[from - 1]) from--;
+      let to = b;
+      while (to < last && !quiet[to]) to++;
+      // Only the filler's own sound: never reach across a real word.
+      if (!spoken.some((s) => s[1] > timeOf(from) + WORD_GUARD && s[0] < timeOf(to) - WORD_GUARD)) {
+        for (let i = from; i < to; i++) quiet[i] = 1;
+      }
     }
   }
-  ranges.push([rangeStart, Math.min(end, speech[speech.length - 1][1] + PAD_SECONDS + 0.15)]);
-  return ranges.filter(([a, b]) => b - a > 0.2);
+
+  // The quietest frame near a cut point, so the cut lands in the silence itself.
+  const settle = (i: number) => {
+    let best = i;
+    for (let k = Math.max(first, i - 3); k <= Math.min(last - 1, i + 3); k++) if (level[k] < level[best]) best = k;
+    return timeOf(best);
+  };
+
+  const cuts: [number, number][] = [];
+  const minRun = Math.round(PAUSE_SECONDS * rate);
+  for (let i = first; i < last;) {
+    if (!quiet[i]) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < last && quiet[j]) j++;
+    if (j - i >= minRun) {
+      // The clip's own start and end can go right to the edge.
+      const a = i === first ? start : settle(i + Math.round(KEEP_AFTER_SPEECH * rate));
+      const b = j === last ? end : settle(j - Math.round(KEEP_BEFORE_SPEECH * rate));
+      if (b - a > 0.15) cuts.push([a, b]);
+    }
+    i = j;
+  }
+  return cuts;
 }
 
 export const rangesDuration = (ranges: [number, number][]) => ranges.reduce((sum, [a, b]) => sum + (b - a), 0);
@@ -1251,7 +1406,10 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     // In Fit, room above the video for the hook as a plain headline.
     let headlineY: number | null = null;
 
-    if (layout === "fill") {
+    if (layout === "fill" && scene?.layout === "fill" && scene.crops[0]) {
+      // The AI camera: framed on the face, zoomed and punched in.
+      drawPanel(source, sourceWidth, sourceHeight, scene.crops[0], 0, 0, width, height);
+    } else if (layout === "fill") {
       const r = cropRect(sourceWidth, sourceHeight, width / height, followed, settings.focusX);
       ctx.drawImage(source, r.sx, r.sy, r.sw, r.sh, 0, 0, width, height);
     } else if (layout === "bottom") {
@@ -1575,7 +1733,9 @@ export async function exportClip({
     }
   }
 
-  const ranges = keepRanges(words, settings.start, settings.end, settings.removePauses).map(
+  // The same cuts as the preview: found from the cut's own audio.
+  const audio = settings.removePauses ? await loadWaveform(source) : null;
+  const ranges = keepRanges(words, settings.start, settings.end, settings.removePauses, audio).map(
     ([a, b]) => [Math.max(0, a - source.offset), b - source.offset] as [number, number]
   );
   const total = rangesDuration(ranges);
@@ -1587,7 +1747,7 @@ export async function exportClip({
   const paint = createFramePainter(canvas);
   const captions = prepareCaptions(words, settings, clip);
   const path = track ? cameraPath(track, cropAspectFor(settings), settings.camera) : null;
-  const plan = planFor(track, settings);
+  const plan = planFor(track, settings, words, clip.keywords, audio);
 
   const input = new mb.Input({ source: new mb.BlobSource(source.blob), formats: mb.ALL_FORMATS });
   const loop = background ? await openLoopingFrames(background) : null;

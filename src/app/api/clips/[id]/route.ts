@@ -5,15 +5,19 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import {
   CLIP_PROJECT_COLUMNS,
-  advanceClipProject,
+  advanceClipProjectWithin,
   toClipProject,
   type ClipProjectRow,
 } from "@/lib/server/clips/projects";
 import { isClipProjectWorking } from "@/lib/clips";
 
-// The poll that finds the transcript done runs the moment-finding LLM pass
-// inline: ~70s for an hour of transcript, longer for 3 hours or a fallback.
+// The poll that finds the transcript done starts the moment-finding LLM pass
+// (~70s for an hour of transcript, longer for 3 hours or a fallback), which
+// carries on in after() past the response.
 export const maxDuration = 300;
+
+// How long a poll waits on advancing before answering with the current step.
+const ADVANCE_BUDGET_MS = 4000;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -43,16 +47,9 @@ async function handleGET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let current = row;
-  if (isClipProjectWorking(row.status)) {
-    try {
-      current = await advanceClipProject(row);
-    } catch (error) {
-      // A failed status check (Replicate blip) just means "still working";
-      // the next poll tries again.
-      console.error("[clips] advance failed:", error);
-    }
-  }
+  // The server moves the project on by itself (webhook + cron); polling just
+  // gets there sooner when someone is watching.
+  const current = isClipProjectWorking(row.status) ? await advanceClipProjectWithin(row, ADVANCE_BUDGET_MS) : row;
 
   // Captions need the words; only sent once there's something to caption.
   if (current.status === "ready") {
@@ -61,7 +58,7 @@ async function handleGET(
       .select("transcript")
       .eq("id", id)
       .maybeSingle<{ transcript: ClipProjectRow["transcript"] }>();
-    current = { ...current, transcript: words?.transcript ?? null };
+    return NextResponse.json({ project: toClipProject({ ...current, transcript: words?.transcript ?? null }) });
   }
 
   return NextResponse.json({ project: toClipProject(current) });
