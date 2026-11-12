@@ -12,6 +12,7 @@ import {
   Scan,
   Shirt,
   Sparkles,
+  Play,
   SquarePlay,
   Upload,
   UserRound,
@@ -29,6 +30,7 @@ import { MAX_FRAME_IMAGE_BYTES, processFrameImageFile } from "./FrameImagePicker
 import { FrameImageGenerateModal } from "./FrameImageGenerateModal";
 import { AvatarPickerModal } from "./avatars/AvatarPickerModal";
 import { UploadOrb } from "./UploadOrb";
+import { HoverZoom, MediaLightbox, type PreviewMedia } from "./ClonePreview";
 import {
   ChoicePill,
   COMPOSER_PILL_IDLE,
@@ -249,6 +251,7 @@ export function CloneComposer({
   const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [showAiCreate, setShowAiCreate] = useState(false);
+  const [preview, setPreview] = useState<PreviewMedia | null>(null);
   const { open: plusOpen, setOpen: setPlusOpen, ref: plusRef } = usePopover();
 
   const isCharacter = tool.id === "character";
@@ -340,7 +343,20 @@ export function CloneComposer({
           >
             {source ? (
               <>
-                <video src={source.previewUrl} muted loop autoPlay playsInline className="h-[52px] w-[52px] shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-white/[0.05]" />
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPreview({ kind: "video", src: source.previewUrl, label: "Your video" });
+                  }}
+                  aria-label="Preview your video"
+                  className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/[0.05]"
+                >
+                  <video src={source.previewUrl} muted loop autoPlay playsInline className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <Play className="ml-0.5 h-4 w-4 fill-white text-white" strokeWidth={0} />
+                  </span>
+                </button>
                 <RowText title="Your video" subtitle={formatDuration(source.durationSeconds)} />
                 <RowRemove label="Remove video" onClick={onClearSource} />
               </>
@@ -382,7 +398,15 @@ export function CloneComposer({
             {isCharacter && images[0] ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-                <img src={images[0]} alt="Your character" className="h-[52px] w-[52px] shrink-0 rounded-xl bg-slate-50 object-cover dark:bg-white/[0.03]" />
+                <img
+                  src={images[0]}
+                  alt="Your character"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPreview({ kind: "image", src: images[0], label: "Your character" });
+                  }}
+                  className="h-[52px] w-[52px] shrink-0 cursor-zoom-in rounded-xl bg-slate-50 object-cover dark:bg-white/[0.03]"
+                />
                 <RowText title="Your character" subtitle={tool.imagesSubtitle ?? "Photo added"} />
                 <RowRemove label="Remove character" onClick={() => onImagesChange([])} />
               </>
@@ -393,7 +417,15 @@ export function CloneComposer({
                 {images.map((image, index) => (
                   <div key={index} className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-xl ring-1 ring-slate-200 dark:ring-white/10">
                     {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-                    <img src={image} alt={`Image ${index + 1}`} className="h-full w-full object-cover" />
+                    <img
+                      src={image}
+                      alt={`Image ${index + 1}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreview({ kind: "image", src: image, label: `Image ${index + 1}` });
+                      }}
+                      className="h-full w-full object-cover"
+                    />
                     <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/55 px-1 text-[9px] font-semibold leading-tight text-white">
                       @{index + 1}
                     </span>
@@ -459,6 +491,19 @@ export function CloneComposer({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
+                    setPreview({ kind: "video", src: source.previewUrl, label: "Your video" });
+                  }}
+                  aria-label="Preview your video"
+                  className="group/video absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 outline-none transition-[opacity,background-color] duration-150 hover:bg-black/25 hover:opacity-100 focus-visible:bg-black/25 focus-visible:opacity-100"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/20 backdrop-blur-md transition-transform duration-150 group-hover/video:scale-105">
+                    <Play className="ml-0.5 h-4 w-4 fill-white" strokeWidth={0} />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
                     onClearSource();
                   }}
                   aria-label="Remove video"
@@ -504,7 +549,15 @@ export function CloneComposer({
             {isCharacter && images[0] ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-                <img src={images[0]} alt="Your character" className="absolute inset-0 h-full w-full bg-slate-50 object-contain dark:bg-white/[0.03]" />
+                <img
+                  src={images[0]}
+                  alt="Your character"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPreview({ kind: "image", src: images[0], label: "Your character" });
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-zoom-in bg-slate-50 object-contain dark:bg-white/[0.03]"
+                />
                 <button
                   type="button"
                   onClick={(event) => {
@@ -520,9 +573,23 @@ export function CloneComposer({
             ) : images.length > 0 ? (
               <div className="grid h-full w-full grid-cols-4 content-start gap-1.5 p-2">
                 {images.map((image, index) => (
-                  <div key={index} className="group/ref relative aspect-square overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-white/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
-                    <img src={image} alt={`Image ${index + 1}`} className="h-full w-full object-cover" />
+                  <HoverZoom
+                    key={index}
+                    src={image}
+                    className="group/ref relative aspect-square overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-white/10"
+                  >
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreview({ kind: "image", src: image, label: `Image ${index + 1}` });
+                      }}
+                      aria-label={`Preview image ${index + 1}`}
+                      className="block h-full w-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
+                      <img src={image} alt={`Image ${index + 1}`} className="h-full w-full object-cover" />
+                    </button>
                     <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/55 px-1 text-[9px] font-semibold leading-tight text-white">
                       @{index + 1}
                     </span>
@@ -533,11 +600,11 @@ export function CloneComposer({
                         onImagesChange(images.filter((_, i) => i !== index));
                       }}
                       aria-label={`Remove image ${index + 1}`}
-                      className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover/ref:bg-black/40 group-hover/ref:opacity-100"
+                      className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity duration-150 hover:bg-black/80 focus-visible:opacity-100 group-hover/ref:opacity-100"
                     >
-                      <X className="h-3.5 w-3.5 text-white" />
+                      <X className="h-3 w-3" />
                     </button>
-                  </div>
+                  </HoverZoom>
                 ))}
                 {!isFull && (
                   <button
@@ -740,6 +807,7 @@ export function CloneComposer({
           }}
         />
       )}
+      {preview && <MediaLightbox media={preview} onClose={() => setPreview(null)} />}
       {showAiCreate && (
         <FrameImageGenerateModal
           frameLabel="character"
