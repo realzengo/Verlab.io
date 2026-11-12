@@ -12,6 +12,7 @@ import { ClipEditor } from "@/components/clipping/ClipEditor";
 import { ClipResults, SavedClips } from "@/components/clipping/ClipResults";
 import { useClipWorkspace } from "@/components/clipping/useClipWorkspace";
 import { rendersFor } from "@/components/clipping/renderQueue";
+import { clipThumb, thumbTime } from "@/lib/client/clip-thumbs";
 import {
   formatClipOffset,
   formatClock,
@@ -19,6 +20,7 @@ import {
   type ClipMoment,
   type ClipProject,
   type ClipScoreBreakdown,
+  type ClipStoredSource,
 } from "@/lib/clips";
 import { cn } from "@/lib/utils";
 
@@ -298,6 +300,121 @@ function PanelHeader({ title, children }: { title: string; children?: ReactNode 
   );
 }
 
+/** Each moment's still: a URL, "loading" while its cut or frame is on the way, or null (none to show). */
+type MomentThumb = string | "loading" | null;
+
+/**
+ * Stills of the moments, taken from the cuts the server stores as the
+ * project becomes ready (polled while it's still cutting them).
+ */
+function useMomentThumbs(project: ClipProject, clips: ClipMoment[]): Record<string, MomentThumb> {
+  const { data } = useSWR<{ sources?: Record<string, ClipStoredSource> }>(
+    project.status === "ready" ? `/api/clips/${project.id}/sources` : null,
+    (url: string) => fetchJson(url, { cache: "no-store" }),
+    {
+      refreshInterval: (latest) =>
+        Object.values(latest?.sources ?? {}).some((source) => source.state === "cutting") ? 5000 : 0,
+      revalidateOnFocus: false,
+    }
+  );
+  const [frames, setFrames] = useState<Record<string, string | null>>({});
+  const sources = data?.sources;
+
+  useEffect(() => {
+    if (!sources) return;
+    let live = true;
+    for (const clip of clips) {
+      const source = sources[clip.id];
+      if (source?.state !== "stored") continue;
+      const time = thumbTime(clip.start, clip.end, source.offset);
+      clipThumb(`${project.id}:${clip.id}:${source.from}`, source.urls[0], time).then((frame) => {
+        if (live) setFrames((current) => (current[clip.id] === frame ? current : { ...current, [clip.id]: frame }));
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [sources, clips, project.id]);
+
+  return useMemo(() => {
+    const thumbs: Record<string, MomentThumb> = {};
+    for (const clip of clips) {
+      const state = sources ? (sources[clip.id]?.state ?? "none") : "loading";
+      thumbs[clip.id] =
+        frames[clip.id] !== undefined
+          ? frames[clip.id]
+          : state === "stored" || state === "cutting" || state === "loading"
+            ? "loading"
+            : null;
+    }
+    return thumbs;
+  }, [clips, sources, frames]);
+}
+
+const lengthLabel = (seconds: number) => {
+  const total = Math.round(seconds);
+  return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, "0")}`;
+};
+
+/** A moment's still (or the video's own thumbnail), with its score and length on it. */
+function MomentFrame({
+  clip,
+  thumb,
+  fallback,
+  active,
+}: {
+  clip: ClipMoment;
+  thumb: MomentThumb;
+  fallback: string | null;
+  active: boolean;
+}) {
+  const src = thumb && thumb !== "loading" ? thumb : thumb === null ? fallback : null;
+  const [loaded, setLoaded] = useState<string | null>(null);
+  return (
+    <span
+      className={cn(
+        "relative aspect-video w-[120px] shrink-0 overflow-hidden rounded-[12px] bg-zinc-900 transition-shadow",
+        active
+          ? "ring-2 ring-primary ring-offset-2 ring-offset-surface dark:ring-offset-[#18181b]"
+          : "ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
+      )}
+    >
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element -- a local object URL or a remote YouTube thumbnail
+        <img
+          src={src}
+          alt=""
+          onLoad={() => setLoaded(src)}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-300 ease-out group-hover/row:scale-[1.04]",
+            loaded === src ? "opacity-100" : "opacity-0",
+            // The video's own thumbnail stands in: dim it so the real stills read as the moments.
+            src === fallback && "brightness-[0.8]"
+          )}
+        />
+      )}
+      {(thumb === "loading" || (src && loaded !== src)) && (
+        <span className="absolute inset-0 animate-pulse bg-white/[0.07] motion-reduce:animate-none" />
+      )}
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
+      <ScoreChip score={clip.score} size="xs" className="absolute left-1.5 top-1.5" />
+      <span className="absolute bottom-1.5 right-1.5 rounded-[5px] bg-black/60 px-1 py-[2px] font-mono text-[10.5px] font-medium leading-none tabular-nums text-white backdrop-blur-sm">
+        {lengthLabel(clip.end - clip.start)}
+      </span>
+      <span
+        className={cn(
+          "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
+          active ? "opacity-0" : "opacity-0 group-hover/row:opacity-100"
+        )}
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/30 backdrop-blur-md">
+          <Play className="ml-[1px] h-3.5 w-3.5 fill-current" />
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function ChooseStep({
   project,
   initialPreviewId,
@@ -318,6 +435,7 @@ function ChooseStep({
   const [playing, setPlaying] = useState(false);
   const [hint, setHint] = useState(false);
   const screenRef = useRef<HTMLDivElement>(null);
+  const thumbs = useMomentThumbs(project, clips);
   const preview = clips.find((clip) => clip.id === previewId) ?? best;
   if (!preview) return null;
   const isSelected = selected.includes(preview.id);
@@ -420,7 +538,7 @@ function ChooseStep({
                 <li
                   key={clip.id}
                   className={cn(
-                    "flex items-center gap-1 rounded-[18px] pr-3 transition-colors",
+                    "group/row flex items-center gap-1 rounded-[18px] pr-3 transition-colors",
                     active ? "bg-(--app-fill)" : "hover:bg-(--app-fill)/60"
                   )}
                 >
@@ -436,25 +554,24 @@ function ChooseStep({
                     }}
                     aria-current={active ? "true" : undefined}
                     aria-label={`Preview “${clip.title}”`}
-                    className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    <span
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] text-[15px] font-semibold tabular-nums",
-                        top ? "bg-primary text-white" : "bg-(--app-fill-strong) text-heading"
-                      )}
-                    >
-                      {clip.score}
-                    </span>
-                    <span className="min-w-0">
+                    <MomentFrame clip={clip} thumb={thumbs[clip.id]} fallback={project.thumbnailUrl} active={active} />
+                    <span className="min-w-0 flex-1">
                       <span
                         dir="auto"
-                        className="block truncate text-[14px] font-medium tracking-[-0.005em] text-heading"
+                        className="line-clamp-2 text-[13.5px] font-medium leading-[1.3] tracking-[-0.005em] text-heading"
                       >
                         {clip.title}
                       </span>
-                      <span className="mt-0.5 block text-[12px] tabular-nums text-subtle">
-                        {formatClipOffset(clip.start)} · {Math.round(clip.end - clip.start)}s
+                      <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-subtle">
+                        <span className="font-mono tabular-nums">{formatClipOffset(clip.start)}</span>
+                        {top && (
+                          <>
+                            <span aria-hidden className="h-[3px] w-[3px] rounded-full bg-current opacity-50" />
+                            <span className="font-medium text-primary">Top pick</span>
+                          </>
+                        )}
                       </span>
                     </span>
                   </button>

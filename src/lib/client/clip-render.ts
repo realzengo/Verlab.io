@@ -77,6 +77,11 @@ export interface ClipEditSettings {
   zoom: ZoomStyle | "auto";
   /** Horizontal position of the crop in manual mode, 0 (left) to 1 (right). */
   focusX: number;
+  /**
+   * The user's sideways shift of the AI's Fill camera, as a fraction of the
+   * source width (0 or missing: as the AI framed it).
+   */
+  panX?: number;
   captions: CaptionTemplate;
   /** Top, Middle and Bottom sit where suits the layout; "custom" pins the captions at captionX/captionY. */
   captionPosition: CaptionPosition;
@@ -751,11 +756,29 @@ export interface CaptionBox {
   height: number;
 }
 
+/** The source a Fill frame shows, for dragging it sideways in the editor. */
+export interface FrameCrop {
+  /** The rect shown, in source pixels. */
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  srcW: number;
+  srcH: number;
+  /** Where it's drawn, as fractions of the frame height (the top half in the bottom-video split). */
+  top: number;
+  height: number;
+  /** The crop's center before the user's shift (the AI's, or the middle), as a fraction of the source width. */
+  base: number;
+}
+
 /** Where a frame put its captions and hook, for the editor's drag handles. */
 export interface FramePlacement {
   caption: Placed;
   /** Null without a hook. */
   hook: Placed | null;
+  /** The Fill crop, when there's room to move it sideways; null otherwise. */
+  crop: FrameCrop | null;
 }
 
 type Canvas2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -1387,6 +1410,7 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     const sx = Math.min(srcW - sw, Math.max(0, crop.cx * srcW - sw / 2));
     const sy = Math.min(srcH - sh, Math.max(0, crop.cy * srcH - sh / 2));
     ctx.drawImage(source, sx, sy, sw, sh, x, y, w, h);
+    return { sx, sy, sw, sh };
   };
 
   return ({
@@ -1419,7 +1443,13 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
         : (scene?.layout ?? fallback);
     // Landscape output keeps the whole frame.
     if (settings.aspect === "16:9" && layout !== "fit") layout = "fill";
-    const followed = settings.reframe === "auto" ? center : null;
+    // The AI's center (the middle until it has one), shifted by the user's drag; manual places at focusX.
+    const pan = settings.panX ?? 0;
+    const base = settings.reframe === "auto" ? (center ?? 0.5) : 0.5;
+    const followed = settings.reframe === "auto" ? base + pan : null;
+    let shown: { sx: number; sy: number; sw: number; sh: number } | null = null;
+    let shownBase = base;
+    let shownHalf = false;
     const hook = settings.hookTitle && settings.hookText.trim() ? settings.hookText.trim() : "";
     // The presets' spots move with the layout; a custom spot is fixed (applied below).
     const preset = captionPreset(settings.captionPosition, layout, scene);
@@ -1433,14 +1463,19 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
 
     if (layout === "fill" && scene?.layout === "fill" && scene.crops[0]) {
       // The AI camera: framed on the face, zoomed and punched in.
-      drawPanel(source, sourceWidth, sourceHeight, scene.crops[0], 0, 0, width, height);
+      const crop = scene.crops[0];
+      shown = drawPanel(source, sourceWidth, sourceHeight, { ...crop, cx: crop.cx + pan }, 0, 0, width, height);
+      shownBase = crop.cx;
     } else if (layout === "fill") {
       const r = cropRect(sourceWidth, sourceHeight, width / height, followed, settings.focusX);
       ctx.drawImage(source, r.sx, r.sy, r.sw, r.sh, 0, 0, width, height);
+      shown = r;
     } else if (layout === "bottom") {
       const half = height / 2;
       const r = cropRect(sourceWidth, sourceHeight, width / half, followed, settings.focusX);
       ctx.drawImage(source, r.sx, r.sy, r.sw, r.sh, 0, 0, width, half);
+      shown = r;
+      shownHalf = true;
       if (background) {
         const b = cropRect(background.width, background.height, width / half, null, 0.5);
         ctx.drawImage(background.image, b.sx, b.sy, b.sw, b.sh, 0, half, width, half);
@@ -1548,6 +1583,18 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     return {
       caption: { anchor: { x: captionX / width, y: captionY / height }, box: caption, pivot: CENTER },
       hook: hookPlaced,
+      // Movable only with room to the sides (not a portrait source shown whole).
+      crop:
+        shown && shown.sw < sourceWidth - 1
+          ? {
+              ...shown,
+              srcW: sourceWidth,
+              srcH: sourceHeight,
+              top: 0,
+              height: shownHalf ? 0.5 : 1,
+              base: shownBase,
+            }
+          : null,
     };
   };
 }

@@ -125,6 +125,7 @@ export function defaultSettings(clip: ClipMoment, rtl = false): ClipEditSettings
     camera: "smooth",
     zoom: "auto",
     focusX: 0.5,
+    panX: 0,
     captions: "hormozi",
     // Auto: the middle on gameplay, screen and split clips, low on the rest.
     captionPosition: "auto",

@@ -12,9 +12,11 @@ import {
   Copy,
   Loader2,
   Move,
+  MoveHorizontal,
   Pause,
   Pencil,
   Play,
+  RotateCcw,
   RotateCw,
   ScanFace,
   Scaling,
@@ -51,6 +53,7 @@ import {
   type CaptionTemplate,
   type ClipEditSettings,
   type ClipSource,
+  type FrameCrop,
   type FramePlacement,
   type HookMotion,
   type HookStyle,
@@ -128,6 +131,8 @@ const SAFE_ZONE_FILL =
 type Movable = "caption" | "hook";
 /** How near the center lines a dragged caption or hook snaps onto them. */
 const SNAP = 0.025;
+/** How near the AI's framing (or the middle, in manual) a dragged picture snaps back onto it, as a share of the source width. */
+const PAN_SNAP = 0.015;
 
 const positionOf = (settings: ClipEditSettings, what: Movable) =>
   what === "caption" ? settings.captionPosition : settings.hookPosition;
@@ -1999,6 +2004,15 @@ function ClipPreview({
   const [dragging, setDragging] = useState<Movable | null>(null);
   const [resizing, setResizing] = useState<Movable | null>(null);
   const [snap, setSnap] = useState({ x: false, y: false });
+  // Sliding the picture sideways in Fill: whether this frame can, and while it's dragged,
+  // the crop shown (for the ghost of the whole source around the stage and the navigator).
+  const ghostRef = useRef<HTMLCanvasElement>(null);
+  const panningRef = useRef(false);
+  const [panning, setPanning] = useState(false);
+  const [panCrop, setPanCrop] = useState<FrameCrop | null>(null);
+  const [canPan, setCanPan] = useState(false);
+  /** When a pan ended, so the click that ends it doesn't also play. */
+  const panEnded = useRef(0);
   const [captionCovered, setCaptionCovered] = useState(false);
   const [hookCovered, setHookCovered] = useState(false);
   // No hover on a touch screen: a paused preview shows what can be moved instead.
@@ -2045,6 +2059,12 @@ function ClipPreview({
       placingHook: wants("hook"),
     });
     placement.current = placed;
+    setCanPan(placed.crop !== null);
+    if (panningRef.current && placed.crop) {
+      setPanCrop(placed.crop);
+      const ghost = ghostRef.current;
+      ghost?.getContext("2d")?.drawImage(video, 0, 0, ghost.width, ghost.height);
+    }
     const frame = (box: CaptionBox | null | undefined): Box | null =>
       box
         ? {
@@ -2248,6 +2268,62 @@ function ClipPreview({
     handle.addEventListener("pointercancel", up);
   };
 
+  /**
+   * Dragging the picture slides the Fill crop sideways, under the pointer:
+   * a shift of the AI's framing (snapping back onto it), or manual's position.
+   */
+  const startPan = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const crop = placement.current?.crop;
+    const canvas = event.currentTarget;
+    if (!crop || event.button !== 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const y = (event.clientY - rect.top) / rect.height;
+    if (y < crop.top || y > crop.top + crop.height) return;
+    canvas.setPointerCapture(event.pointerId);
+    const auto = settings.reframe === "auto";
+    // The crop's share of the source width, and where it sits now.
+    const share = crop.sw / crop.srcW;
+    const center = (crop.sx + crop.sw / 2) / crop.srcW;
+    const from = auto ? center - crop.base : crop.sx / (crop.srcW - crop.sw);
+    const { clientX } = event;
+    let moved = false;
+    const move = (e: PointerEvent) => {
+      const dx = e.clientX - clientX;
+      if (!moved && Math.abs(dx) < 4) return;
+      if (!moved) {
+        moved = true;
+        panningRef.current = true;
+        setPanning(true);
+      }
+      // Source width the pointer has dragged across; the crop moves the other way.
+      const shift = (-dx / rect.width) * share;
+      if (auto) {
+        const pan = Math.min(1 - share / 2 - crop.base, Math.max(share / 2 - crop.base, from + shift));
+        onChange({ panX: Math.abs(pan) < PAN_SNAP ? 0 : pan });
+      } else {
+        const focusX = Math.min(1, Math.max(0, from + shift / (1 - share)));
+        onChange({ focusX: Math.abs(focusX - 0.5) < PAN_SNAP / (1 - share) ? 0.5 : focusX });
+      }
+    };
+    const up = () => {
+      canvas.removeEventListener("pointermove", move);
+      canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointercancel", up);
+      if (!moved) return;
+      panEnded.current = performance.now();
+      panningRef.current = false;
+      setPanning(false);
+      paint();
+    };
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointercancel", up);
+  };
+  /** Moved off where the AI (or, in manual, the middle) framed it. */
+  const panned =
+    settings.aspect !== "16:9" && (settings.reframe === "auto" ? (settings.panX ?? 0) !== 0 : settings.focusX !== 0.5);
+  const resetPan = () => onChange(settings.reframe === "auto" ? { panX: 0 } : { focusX: 0.5 });
+
   const moving = dragging ?? resizing ?? placing;
   const showZones = settings.aspect === "9:16" && moving !== null;
   const hasHook = settings.hookTitle && Boolean(settings.hookText.trim());
@@ -2282,206 +2358,272 @@ function ClipPreview({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={cn("relative min-h-0 flex-1", STAGE_BACKDROP)}>
+      <div className={cn("relative min-h-0 flex-1 overflow-hidden", STAGE_BACKDROP)}>
         <div ref={areaRef} className="absolute inset-0 flex items-center justify-center p-3 md:p-8">
-          <div
-            className="group/stage relative overflow-hidden rounded-[20px] bg-black shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_24px_60px_-24px_rgba(16,24,40,0.5)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-24px_rgba(0,0,0,0.8)]"
-            style={box ? { width: box.width, height: box.height } : { visibility: "hidden" }}
-            onPointerEnter={() => {
-              hovering.current = true;
-              paint();
-            }}
-            onPointerLeave={() => {
-              hovering.current = false;
-              paint();
-            }}
-          >
-            {ready ? (
-              <>
-                <video
-                  ref={videoRef}
-                  src={source!.url}
-                  playsInline
-                  preload="auto"
-                  onLoadedData={(event) => {
-                    event.currentTarget.currentTime = Math.max(0, start - offset);
-                  }}
-                  onSeeked={paint}
-                  onPause={() => setPlaying(false)}
-                  className="pointer-events-none absolute h-px w-px opacity-0"
-                />
-                {background && settings.bottomVideo && (
+          <div className="relative" style={box ? { width: box.width, height: box.height } : { visibility: "hidden" }}>
+            {/* the whole source behind the stage while the picture is dragged, so you see what's off-frame */}
+            {panCrop && box && (
+              <canvas
+                ref={ghostRef}
+                aria-hidden
+                width={640}
+                height={Math.round((640 * panCrop.srcH) / panCrop.srcW)}
+                className={cn(
+                  "pointer-events-none absolute rounded-[14px] ring-1 ring-white/10 transition-opacity duration-200",
+                  panning ? "opacity-35" : "opacity-0"
+                )}
+                style={ghostRect(panCrop, box)}
+              />
+            )}
+            <div
+              className="group/stage relative h-full w-full overflow-hidden rounded-[20px] bg-black shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_24px_60px_-24px_rgba(16,24,40,0.5)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_24px_60px_-24px_rgba(0,0,0,0.8)]"
+              onPointerEnter={() => {
+                hovering.current = true;
+                paint();
+              }}
+              onPointerLeave={() => {
+                hovering.current = false;
+                paint();
+              }}
+            >
+              {ready ? (
+                <>
                   <video
-                    ref={backgroundRef}
-                    src={background}
-                    muted
-                    loop
+                    ref={videoRef}
+                    src={source!.url}
                     playsInline
                     preload="auto"
-                    onLoadedData={paint}
+                    onLoadedData={(event) => {
+                      event.currentTarget.currentTime = Math.max(0, start - offset);
+                    }}
+                    onSeeked={paint}
+                    onPause={() => setPlaying(false)}
                     className="pointer-events-none absolute h-px w-px opacity-0"
                   />
-                )}
-                <canvas
-                  ref={canvasRef}
-                  width={size.width}
-                  height={size.height}
-                  onClick={toggle}
-                  className="absolute inset-0 h-full w-full cursor-pointer"
-                />
-                {/* where the apps' own buttons and text will sit, while placing captions or the hook */}
-                <div
-                  aria-hidden
-                  className={cn(
-                    "pointer-events-none absolute inset-0 transition-opacity duration-200",
-                    showZones ? "opacity-100" : "opacity-0"
-                  )}
-                >
-                  {APP_UI_ZONES.map((zone, i) => (
-                    <span
-                      key={i}
-                      className={cn("absolute", SAFE_ZONE_FILL)}
-                      style={{
-                        left: `${zone.x * 100}%`,
-                        top: `${zone.y * 100}%`,
-                        width: `${zone.w * 100}%`,
-                        height: `${zone.h * 100}%`,
-                      }}
+                  {background && settings.bottomVideo && (
+                    <video
+                      ref={backgroundRef}
+                      src={background}
+                      muted
+                      loop
+                      playsInline
+                      preload="auto"
+                      onLoadedData={paint}
+                      className="pointer-events-none absolute h-px w-px opacity-0"
                     />
-                  ))}
-                  {!(moving === "caption" ? captionCovered : moving === "hook" && hookCovered) && (
-                    <span className="absolute inset-x-0 bottom-[7%] text-center text-[11px] font-medium text-white/70">
-                      App buttons
+                  )}
+                  <canvas
+                    ref={canvasRef}
+                    width={size.width}
+                    height={size.height}
+                    onPointerDown={startPan}
+                    onClick={() => {
+                      if (performance.now() - panEnded.current > 250) toggle();
+                    }}
+                    className={cn(
+                      "absolute inset-0 h-full w-full",
+                      panning ? "cursor-grabbing" : canPan ? "cursor-grab touch-none" : "cursor-pointer"
+                    )}
+                  />
+                  {/* while dragged: the crop's outline and thirds */}
+                  {panCrop && (
+                    <div
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-x-0 transition-opacity duration-200",
+                        panCrop.height === 1 && "rounded-[20px]",
+                        panning ? "opacity-100" : "opacity-0"
+                      )}
+                      style={{ top: `${panCrop.top * 100}%`, height: `${panCrop.height * 100}%` }}
+                    >
+                      {[1 / 3, 2 / 3].map((at) => (
+                        <span key={`x${at}`}>
+                          <span className="absolute inset-y-0 w-px bg-white/30" style={{ left: `${at * 100}%` }} />
+                          <span className="absolute inset-x-0 h-px bg-white/30" style={{ top: `${at * 100}%` }} />
+                        </span>
+                      ))}
+                      <span className="absolute inset-0 rounded-[inherit] ring-2 ring-inset ring-primary" />
+                    </div>
+                  )}
+                  {/* where the apps' own buttons and text will sit, while placing captions or the hook */}
+                  <div
+                    aria-hidden
+                    className={cn(
+                      "pointer-events-none absolute inset-0 transition-opacity duration-200",
+                      showZones ? "opacity-100" : "opacity-0"
+                    )}
+                  >
+                    {APP_UI_ZONES.map((zone, i) => (
+                      <span
+                        key={i}
+                        className={cn("absolute", SAFE_ZONE_FILL)}
+                        style={{
+                          left: `${zone.x * 100}%`,
+                          top: `${zone.y * 100}%`,
+                          width: `${zone.w * 100}%`,
+                          height: `${zone.h * 100}%`,
+                        }}
+                      />
+                    ))}
+                    {!(moving === "caption" ? captionCovered : moving === "hook" && hookCovered) && (
+                      <span className="absolute inset-x-0 bottom-[7%] text-center text-[11px] font-medium text-white/70">
+                        App buttons
+                      </span>
+                    )}
+                  </div>
+                  {/* center lines, while what's dragged is snapped to them */}
+                  {dragging && snap.x && (
+                    <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
+                  )}
+                  {dragging && snap.y && (
+                    <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
+                  )}
+                  {settings.captions !== "off" && (
+                    <MoveHandle
+                      ref={captionHandle}
+                      label="Captions"
+                      visibility={handleVisibility("caption")}
+                      active={dragging === "caption" ? "move" : resizing === "caption" ? "resize" : null}
+                      covered={captionCovered}
+                      readout={
+                        resizing === "caption"
+                          ? `${Math.round(settings.captionSize * 100)}%`
+                          : `X ${Math.round(settings.captionX * 100)} · Y ${Math.round(settings.captionY * 100)}`
+                      }
+                      onPointerDown={(event) => startDrag("caption", event)}
+                      onResize={(event) => startResize("caption", event)}
+                      onResetSize={() => onChange(resizeTo("caption", 1))}
+                      onKeyDown={(event) => onHandleKey("caption", event)}
+                    />
+                  )}
+                  {hasHook && (
+                    <MoveHandle
+                      ref={hookHandle}
+                      label="Hook"
+                      visibility={handleVisibility("hook")}
+                      active={dragging === "hook" ? "move" : resizing === "hook" ? "resize" : null}
+                      covered={hookCovered}
+                      readout={
+                        resizing === "hook"
+                          ? `${Math.round(settings.hookSize * 100)}%`
+                          : `X ${Math.round(settings.hookX * 100)} · Y ${Math.round(settings.hookY * 100)}`
+                      }
+                      onPointerDown={(event) => startDrag("hook", event)}
+                      onResize={(event) => startResize("hook", event)}
+                      onResetSize={() => onChange(resizeTo("hook", 1))}
+                      onKeyDown={(event) => onHandleKey("hook", event)}
+                    />
+                  )}
+                  {!playing && !moving && !panning && (
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      aria-label="Play preview"
+                      className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/20 backdrop-blur-md transition-colors hover:bg-black/60"
+                    >
+                      <Play className="ml-0.5 h-6 w-6 fill-white" />
+                    </button>
+                  )}
+                  {panning && panCrop && <PanNavigator crop={panCrop} auto={settings.reframe === "auto"} panned={panned} />}
+                  {canPan && !panned && !playing && !moving && !panning && (
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute bottom-3 left-3 inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white backdrop-blur-md transition-opacity duration-150",
+                        touch ? "opacity-100" : "opacity-0 group-hover/stage:opacity-100"
+                      )}
+                    >
+                      <MoveHorizontal className="h-3.5 w-3.5" /> {narrow ? "Drag" : "Drag to reframe"}
                     </span>
                   )}
-                </div>
-                {/* center lines, while what's dragged is snapped to them */}
-                {dragging && snap.x && (
-                  <span className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
-                )}
-                {dragging && snap.y && (
-                  <span className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-primary shadow-[0_0_0_0.5px_rgba(0,0,0,0.35)]" />
-                )}
-                {settings.captions !== "off" && (
-                  <MoveHandle
-                    ref={captionHandle}
-                    label="Captions"
-                    visibility={handleVisibility("caption")}
-                    active={dragging === "caption" ? "move" : resizing === "caption" ? "resize" : null}
-                    covered={captionCovered}
-                    readout={
-                      resizing === "caption"
-                        ? `${Math.round(settings.captionSize * 100)}%`
-                        : `X ${Math.round(settings.captionX * 100)} · Y ${Math.round(settings.captionY * 100)}`
-                    }
-                    onPointerDown={(event) => startDrag("caption", event)}
-                    onResize={(event) => startResize("caption", event)}
-                    onResetSize={() => onChange(resizeTo("caption", 1))}
-                    onKeyDown={(event) => onHandleKey("caption", event)}
-                  />
-                )}
-                {hasHook && (
-                  <MoveHandle
-                    ref={hookHandle}
-                    label="Hook"
-                    visibility={handleVisibility("hook")}
-                    active={dragging === "hook" ? "move" : resizing === "hook" ? "resize" : null}
-                    covered={hookCovered}
-                    readout={
-                      resizing === "hook"
-                        ? `${Math.round(settings.hookSize * 100)}%`
-                        : `X ${Math.round(settings.hookX * 100)} · Y ${Math.round(settings.hookY * 100)}`
-                    }
-                    onPointerDown={(event) => startDrag("hook", event)}
-                    onResize={(event) => startResize("hook", event)}
-                    onResetSize={() => onChange(resizeTo("hook", 1))}
-                    onKeyDown={(event) => onHandleKey("hook", event)}
-                  />
-                )}
-                {!playing && !moving && (
-                  <button
-                    type="button"
-                    onClick={toggle}
-                    aria-label="Play preview"
-                    className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/20 backdrop-blur-md transition-colors hover:bg-black/60"
-                  >
-                    <Play className="ml-0.5 h-6 w-6 fill-white" />
-                  </button>
-                )}
-                {reframing && track && track.status !== "error" && (
-                  <span className="pointer-events-none absolute bottom-3 right-3 inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white backdrop-blur-md">
-                    {track.status === "ready" ? (
-                      <ScanFace className="h-3.5 w-3.5" />
-                    ) : (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    )}
-                    {track.status === "ready"
-                      ? `AI · ${LAYOUTS.find((l) => l.id === (liveLayout ?? "fill"))?.label}`
-                      : `Tracking ${Math.round(track.progress * 100)}%`}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                {thumbnailUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-                  <img
-                    src={thumbnailUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover opacity-50 blur-[2px]"
-                  />
-                )}
-                <div
-                  className={cn(
-                    "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/60 text-center text-white backdrop-blur-xl",
-                    narrow ? "w-[calc(100%-1.5rem)] p-3" : "w-[min(320px,calc(100%-2.5rem))] p-4"
-                  )}
-                >
-                  {source?.status === "error" ? (
-                    <>
-                      <p className="text-[13px] leading-relaxed">{source.error}</p>
+                  <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5">
+                    {panned && !panning && (
                       <button
                         type="button"
-                        onClick={onRetry}
-                        className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13px] font-medium text-[#0B0D12]"
+                        onClick={resetPan}
+                        aria-label="Reset framing"
+                        title={settings.reframe === "auto" ? "Back to the AI's framing" : "Back to the middle"}
+                        className="pointer-events-auto inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white ring-1 ring-white/10 backdrop-blur-md transition-colors hover:bg-black/75"
                       >
-                        <RotateCw className="h-3.5 w-3.5" /> Try again
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        {!narrow && "Reset framing"}
                       </button>
-                    </>
-                  ) : (
-                    <>
-                      <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                      <p className="mt-2.5 text-[13px] font-medium">
-                        {narrow ? "Cutting this clip" : "Cutting this clip from the video"}
-                      </p>
-                      {/* The server reads the video from the start to reach the clip; show where it is. */}
-                      {source && source.from > 20 ? (
-                        <>
-                          <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/15">
-                            <div
-                              className="h-full rounded-full bg-white transition-[width] duration-500"
-                              style={{
-                                width: `${Math.min(100, ((source.reached ?? 0) / source.from) * 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <p className="mt-2 font-mono text-[12px] text-white/60">
-                            {formatClock(Math.min(source.reached ?? 0, source.from))} of {formatClock(source.from)}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="mt-1 font-mono text-[12px] text-white/60">{formatClock(elapsed)}</p>
-                      )}
-                      {!narrow && (
-                        <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                          Clips later in the video take longer to reach.
-                        </p>
-                      )}
-                    </>
+                    )}
+                    {reframing && track && track.status !== "error" && (
+                      <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white backdrop-blur-md">
+                        {track.status === "ready" ? (
+                          <ScanFace className="h-3.5 w-3.5" />
+                        ) : (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                        {track.status === "ready"
+                          ? `AI · ${LAYOUTS.find((l) => l.id === (liveLayout ?? "fill"))?.label}`
+                          : `Tracking ${Math.round(track.progress * 100)}%`}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {thumbnailUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+                    <img
+                      src={thumbnailUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover opacity-50 blur-[2px]"
+                    />
                   )}
-                </div>
-              </>
-            )}
+                  <div
+                    className={cn(
+                      "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/60 text-center text-white backdrop-blur-xl",
+                      narrow ? "w-[calc(100%-1.5rem)] p-3" : "w-[min(320px,calc(100%-2.5rem))] p-4"
+                    )}
+                  >
+                    {source?.status === "error" ? (
+                      <>
+                        <p className="text-[13px] leading-relaxed">{source.error}</p>
+                        <button
+                          type="button"
+                          onClick={onRetry}
+                          className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13px] font-medium text-[#0B0D12]"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" /> Try again
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                        <p className="mt-2.5 text-[13px] font-medium">
+                          {narrow ? "Cutting this clip" : "Cutting this clip from the video"}
+                        </p>
+                        {/* The server reads the video from the start to reach the clip; show where it is. */}
+                        {source && source.from > 20 ? (
+                          <>
+                            <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/15">
+                              <div
+                                className="h-full rounded-full bg-white transition-[width] duration-500"
+                                style={{
+                                  width: `${Math.min(100, ((source.reached ?? 0) / source.from) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <p className="mt-2 font-mono text-[12px] text-white/60">
+                              {formatClock(Math.min(source.reached ?? 0, source.from))} of {formatClock(source.from)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-1 font-mono text-[12px] text-white/60">{formatClock(elapsed)}</p>
+                        )}
+                        {!narrow && (
+                          <p className="mt-2 text-[12px] leading-relaxed text-white/60">
+                            Clips later in the video take longer to reach.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -2648,6 +2790,52 @@ function MoveHandle({
           </span>
         )}
       </span>
+    </div>
+  );
+}
+
+/** Where the whole source sits around the stage, lined up with the crop the stage shows. */
+function ghostRect(crop: FrameCrop, box: { width: number; height: number }): CSSProperties {
+  const scale = box.width / crop.sw;
+  return {
+    left: -crop.sx * scale,
+    top: crop.top * box.height - crop.sy * scale,
+    width: crop.srcW * scale,
+    height: crop.srcH * scale,
+  };
+}
+
+/**
+ * While the picture is dragged: a map of the source with the crop's window
+ * and the AI's spot (the middle, in manual), and where the window sits.
+ */
+function PanNavigator({ crop, auto, panned }: { crop: FrameCrop; auto: boolean; panned: boolean }) {
+  const mapWidth = 44;
+  const mapHeight = Math.round(Math.min(26, (mapWidth * crop.srcH) / crop.srcW));
+  const pct = (part: number, whole: number) => `${(part / whole) * 100}%`;
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-3 inline-flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-[12px] bg-black/65 py-1.5 pl-1.5 pr-3 text-[11px] font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] ring-1 ring-white/10 backdrop-blur-md">
+      <span className="relative overflow-hidden rounded-[6px] bg-white/15" style={{ width: mapWidth, height: mapHeight }}>
+        <span
+          className="absolute rounded-[3px] border-[1.5px] border-white bg-white/25"
+          style={{
+            left: pct(crop.sx, crop.srcW),
+            width: pct(crop.sw, crop.srcW),
+            top: pct(crop.sy, crop.srcH),
+            height: pct(crop.sh, crop.srcH),
+          }}
+        />
+        <span className="absolute inset-y-0 w-px -translate-x-1/2 bg-primary" style={{ left: `${crop.base * 100}%` }} />
+      </span>
+      {panned ? (
+        <span className="font-mono tabular-nums">{Math.round((crop.sx / (crop.srcW - crop.sw)) * 100)}%</span>
+      ) : auto ? (
+        <span className="inline-flex items-center gap-1">
+          <ScanFace className="h-3.5 w-3.5" /> AI framing
+        </span>
+      ) : (
+        "Centered"
+      )}
     </div>
   );
 }

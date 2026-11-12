@@ -46,19 +46,26 @@ export function ScoreChip({
   className,
 }: {
   score: number;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
   className?: string;
 }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full bg-white/95 font-semibold tabular-nums leading-none text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
-        size === "md" ? "h-8 gap-1 pl-2.5 pr-3 text-[14px]" : "h-6 gap-0.5 pl-1.5 pr-2 text-[12px]",
+        size === "md"
+          ? "h-8 gap-1 pl-2.5 pr-3 text-[14px]"
+          : size === "sm"
+            ? "h-6 gap-0.5 pl-1.5 pr-2 text-[12px]"
+            : "h-[18px] gap-[2px] pl-1 pr-1.5 text-[10.5px]",
         className
       )}
     >
       <Flame
-        className={cn("fill-[#335cff] text-[#335cff]", size === "md" ? "h-3.5 w-3.5" : "h-3 w-3")}
+        className={cn(
+          "fill-[#335cff] text-[#335cff]",
+          size === "md" ? "h-3.5 w-3.5" : size === "sm" ? "h-3 w-3" : "h-2.5 w-2.5"
+        )}
         strokeWidth={2}
       />
       {score}
