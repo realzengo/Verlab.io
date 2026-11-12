@@ -4,70 +4,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
-import { CLIP_EXPORT_MAX_BYTES, type ClipAspect, type ClipExport } from "@/lib/clips";
+import { CLIP_EXPORT_MAX_BYTES, type ClipAspect } from "@/lib/clips";
+import {
+  CLIP_EXPORTS_BUCKET as BUCKET,
+  CLIP_EXPORT_COLUMNS as EXPORT_COLUMNS,
+  withClipExportUrls as withUrls,
+  type ClipExportRow as ExportRow,
+} from "@/lib/server/clips/exports";
 
 // Finished clips, saved to the user's library. The browser renders the MP4,
 // then: POST here for a signed upload URL, uploads straight to Storage (the
 // file never passes through this server), and PATCH here to record it once
 // the upload is really there.
 
-const BUCKET = "clip-exports";
-const SIGNED_URL_SECONDS = 60 * 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ASPECTS: ClipAspect[] = ["9:16", "1:1", "16:9"];
-
-interface ExportRow {
-  id: string;
-  project_id: string;
-  clip_id: string;
-  title: string;
-  storage_path: string;
-  aspect: ClipAspect;
-  duration_seconds: number;
-  size_bytes: number;
-  created_at: string;
-}
-
-const EXPORT_COLUMNS = "id, project_id, clip_id, title, storage_path, aspect, duration_seconds, size_bytes, created_at";
-
-const downloadName = (title: string) =>
-  `${
-    title
-      .replace(/[\\/:*?"<>|]+/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 80) || "clip"
-  }.mp4`;
-
-/** Rows whose file is really in Storage, with a playable URL and a download URL. */
-async function withUrls(rows: ExportRow[]): Promise<ClipExport[]> {
-  if (!rows.length) return [];
-  const storage = createAdminClient().storage.from(BUCKET);
-  const { data } = await storage.createSignedUrls(
-    rows.map((row) => row.storage_path),
-    SIGNED_URL_SECONDS
-  );
-  const urls = new Map((data ?? []).map((entry) => [entry.path, entry.signedUrl]));
-  const present = rows.filter((row) => urls.get(row.storage_path));
-  // Signed with a download name, so the browser saves "<title>.mp4" instead of opening it.
-  const downloads = await Promise.all(
-    present.map((row) =>
-      storage.createSignedUrl(row.storage_path, SIGNED_URL_SECONDS, { download: downloadName(row.title) })
-    )
-  );
-  return present.map((row, index) => ({
-    id: row.id,
-    projectId: row.project_id,
-    clipId: row.clip_id,
-    title: row.title,
-    aspect: row.aspect,
-    durationSeconds: Number(row.duration_seconds),
-    sizeBytes: Number(row.size_bytes),
-    url: urls.get(row.storage_path)!,
-    downloadUrl: downloads[index].data?.signedUrl ?? urls.get(row.storage_path)!,
-    createdAt: row.created_at,
-  }));
-}
 
 async function requireProject(id: string) {
   if (!UUID.test(id)) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };

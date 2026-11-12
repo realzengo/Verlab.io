@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { ArrowRight, Link2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ChevronRight, Link2, X } from "lucide-react";
 import { BEZEL_FIELD, BEZEL_FIELD_ROW, INK_TITLE } from "@/components/brand/BrandKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
 import { CreditCost } from "@/components/ui/CreditCost";
@@ -250,9 +251,18 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
 
       {projects.length > 0 && (
         <section className="mx-auto mt-12 w-full max-w-5xl sm:mt-16">
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-heading sm:text-[13px] sm:font-medium sm:tracking-normal">
-            Your videos
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-heading sm:text-[13px] sm:font-medium sm:tracking-normal">
+              Your videos
+            </h2>
+            <Link
+              href="/clipping?view=all"
+              className="-mr-2 inline-flex h-9 items-center gap-0.5 rounded-full px-2 text-[13px] font-medium text-subtle outline-none transition-colors hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-8"
+            >
+              See all clips
+              <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+            </Link>
+          </div>
           <div className="-mx-4 mt-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:snap-proximity sm:scroll-px-0 sm:gap-4 sm:px-0 sm:[scrollbar-width:thin]">
             {projects.map((project) => (
               <ProjectCard
@@ -260,6 +270,7 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
                 project={project}
                 onOpen={() => onOpenProject(project.id)}
                 onRemove={() => removeProject(project.id)}
+                className="w-[62vw] max-w-56 shrink-0 snap-start sm:w-56"
               />
             ))}
           </div>
@@ -282,14 +293,16 @@ function ProjectCard({
   project,
   onOpen,
   onRemove,
+  className,
 }: {
   project: ClipProject;
   onOpen: () => void;
   onRemove: () => void;
+  className?: string;
 }) {
   const working = isClipProjectWorking(project.status);
   return (
-    <div className="group relative w-[62vw] max-w-56 shrink-0 snap-start sm:w-56">
+    <div className={cn("group relative", className)}>
       <button type="button" onClick={onOpen} className="block w-full text-left outline-none">
         <div className="relative aspect-video overflow-hidden rounded-xl bg-(--app-fill-strong) ring-primary/50 group-focus-visible:ring-2">
           {project.thumbnailUrl && (

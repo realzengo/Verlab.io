@@ -22,8 +22,10 @@ import { normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/li
 export const maxDuration = 300;
 
 const LIST_LIMIT = 24;
+// ?all=1, for the "Your clips" page.
+const LIST_ALL_LIMIT = 100;
 
-async function handleGET(): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -36,7 +38,7 @@ async function handleGET(): Promise<NextResponse> {
     .from("clip_projects")
     .select(CLIP_PROJECT_COLUMNS)
     .order("created_at", { ascending: false })
-    .limit(LIST_LIMIT)
+    .limit(request.nextUrl.searchParams.get("all") === "1" ? LIST_ALL_LIMIT : LIST_LIMIT)
     .returns<ClipProjectRow[]>();
 
   if (error) {

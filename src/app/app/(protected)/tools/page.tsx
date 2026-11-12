@@ -43,6 +43,7 @@ const TOOLS: {
     href: "/clipping",
     icon: Scissors,
     tone: "cat-2",
+    badge: "Beta",
     art: <ClippingArt />,
   },
   {

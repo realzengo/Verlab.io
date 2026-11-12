@@ -374,7 +374,7 @@ export function SavedClips({ project, className }: { project: ClipProject; class
   );
 }
 
-function CopyIconButton({ clip }: { clip: ClipMoment }) {
+export function CopyIconButton({ clip }: { clip: ClipMoment }) {
   const [copied, setCopied] = useState(false);
   return (
     <button

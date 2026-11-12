@@ -249,7 +249,7 @@ function PhoneSteps({ index }: { index: number }) {
   );
 }
 
-function BackButton({ onClick }: { onClick: () => void }) {
+export function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
@@ -528,13 +528,13 @@ function ScoreBreakdown({ scores }: { scores: ClipScoreBreakdown }) {
   );
 }
 
-const STAGES = [
+export const STAGES = [
   { status: "queued", label: "Fetching the audio", detail: "Pulling the soundtrack from YouTube" },
   { status: "transcribing", label: "Transcribing every word", detail: "Word-level timing for the captions" },
   { status: "finding", label: "Finding the viral moments", detail: "Scoring hook, flow, value and trend" },
 ] as const;
 
-function useElapsedSeconds(since: string): number {
+export function useElapsedSeconds(since: string): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);

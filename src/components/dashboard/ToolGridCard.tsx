@@ -152,11 +152,11 @@ export function ToolGridCard({
         </div>
 
         <div className="flex flex-1 flex-col pt-1.5 lg:pt-2.5">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold tracking-tight text-heading lg:text-base">{title}</h3>
             {(badge || comingSoon) && (
               <span
-                className="mt-0.5 flex shrink-0 items-center gap-1 rounded-full bg-[#1E5CFE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-[#1E5CFE] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
               >
                 {comingSoon && <Lock className="h-2.5 w-2.5" />}
                 {comingSoon ? "Soon" : badge}
