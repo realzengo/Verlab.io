@@ -21,6 +21,7 @@ import { ScoreChip, clipFileName, downloadBlob, fetchJson, useMediaQuery } from 
 import { exportsKey, type ClipWorkspace, type RenderState } from "@/components/clipping/useClipWorkspace";
 import Link from "next/link";
 import { rendersAhead, useClipRenders } from "@/components/clipping/renderQueue";
+import { ClipVideo } from "@/components/clipping/ClipVideo";
 import { formatClock, type ClipExport, type ClipMoment, type ClipProject } from "@/lib/clips";
 import { cn } from "@/lib/utils";
 
@@ -321,7 +322,7 @@ function ResultCard({
         )}
       >
         {finished ? (
-          <video src={render.url} controls playsInline preload="metadata" className="h-full w-full object-cover" />
+          <ClipVideo src={render.url!} label={title} className="h-full w-full" />
         ) : (
           <>
             {thumbnailUrl && (
@@ -441,13 +442,7 @@ export function SavedClips({ project, className }: { project: ClipProject; class
           return (
             <div key={item.id} className="group flex flex-col">
               <div className="relative aspect-[9/16] overflow-hidden rounded-[14px] bg-black shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-                <video
-                  src={item.url}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full object-contain"
-                />
+                <ClipVideo src={item.url} label={item.title} fit="contain" compact className="h-full w-full" />
               </div>
               <p dir="auto" className="mt-2.5 line-clamp-2 text-[13px] font-medium leading-snug text-heading">
                 {item.title}

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ScoreChip, downloadBlob, fetchJson } from "@/components/clipping/parts";
 import { BackButton, STAGES, useElapsedSeconds } from "@/components/clipping/ClipProjectView";
 import { CopyIconButton, PendingFrame } from "@/components/clipping/ClipResults";
+import { ClipVideo } from "@/components/clipping/ClipVideo";
 import { rendersAhead, useClipRenders, type RenderEntry } from "@/components/clipping/renderQueue";
 import { exportsKey } from "@/components/clipping/useClipWorkspace";
 import { formatClock, isClipProjectWorking, type ClipExport, type ClipMoment, type ClipProject } from "@/lib/clips";
@@ -906,13 +907,13 @@ function ClipPlayer({
             >
               <X className="h-4 w-4" strokeWidth={2} />
             </button>
-            <video
+            <ClipVideo
               key={item.id}
               src={item.url}
-              controls
+              label={item.title}
               autoPlay
-              playsInline
-              className="mx-auto aspect-[9/16] h-[min(72dvh,640px)] max-w-full bg-black object-contain sm:h-[min(calc(100dvh-3rem),720px)]"
+              fit="contain"
+              className="mx-auto aspect-[9/16] h-[min(72dvh,640px)] max-w-full sm:h-[min(calc(100dvh-3rem),720px)]"
             />
           </div>
 
