@@ -3,15 +3,21 @@ import {
   downloadUrl,
   escapeHtml,
   openLink,
+  pad2,
+  panel,
   sendChatMessage,
-  LOGO_MARK,
+  statusBadge,
+  errorBadge,
   DOWNLOAD_ICON,
+  PEN_ICON,
+  ARROW_RIGHT_ICON,
   pollTool,
   progressBlock,
   renderErrorState,
   stageList,
   startElapsedTicker,
   startedAtFor,
+  enterOnce,
   type ToolError,
 } from "../../shared/host";
 
@@ -50,10 +56,6 @@ let channelName = "Creator";
 let current: CreatorProfileData | null = null;
 let renderToken = 0;
 
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
 // Verlab only ever stores view counts as an already-humanized string (e.g.
 // "126.9K") -- parsed back to a number purely to size bar-chart widths.
 function parseViews(text: string): number {
@@ -64,56 +66,56 @@ function parseViews(text: string): number {
   return value * multiplier;
 }
 
+// A ranked list with thin bars; only the top video carries the accent.
 function renderBars(list: AnalyzedVideo[]): string {
   const maxViews = Math.max(1, ...list.map((video) => parseViews(video.views)));
   return list
     .map((video, index) => {
-      const pct = Math.max(4, Math.round((parseViews(video.views) / maxViews) * 100));
+      const pct = Math.max(2, Math.round((parseViews(video.views) / maxViews) * 100));
       return `
-        <button class="v-bench-row v-bench-row-link" data-index="${index}">
-          <div class="v-bench-label">${escapeHtml(truncate(video.title, 40))}</div>
-          <div class="v-bench-track"><div class="v-bench-fill${index < 3 ? " top" : ""}" style="width:${pct}%"></div></div>
-          <div class="v-bench-value">${escapeHtml(video.views)}</div>
-        </button>
-      `;
+        <button type="button" class="cp-row" data-index="${index}">
+          <span class="v-index">${pad2(index + 1)}</span>
+          <span class="cp-row-title">${escapeHtml(video.title)}</span>
+          <span class="cp-track"><span class="cp-fill${index === 0 ? " is-top" : ""}" style="width:${pct}%"></span></span>
+          <span class="cp-views">${escapeHtml(video.views)}</span>
+        </button>`;
     })
     .join("");
 }
 
 function renderSection(title: string, body: string): string {
   return `
-    <div class="v-report-section">
-      <div class="v-report-heading">${escapeHtml(title)}</div>
-      <p class="v-report-body">${escapeHtml(body)}</p>
-    </div>
-  `;
+    <div class="cp-block">
+      <div class="cp-block-title">${escapeHtml(title)}</div>
+      <p class="cp-block-body">${escapeHtml(body)}</p>
+    </div>`;
 }
 
-function renderFullReport(analysis: CreatorAnalysisDetail, docUrl: string | null | undefined): string {
+function renderFullReport(analysis: CreatorAnalysisDetail): string {
   const steps = analysis.actionSteps
-    .map((step, index) => `<li class="v-step"><span class="v-step-num">${index + 1}</span><span>${escapeHtml(step)}</span></li>`)
+    .map((step, index) => `<li class="cp-step"><span class="v-index">${pad2(index + 1)}</span><span>${escapeHtml(step)}</span></li>`)
     .join("");
 
   return `
-    ${renderSection("The hook formula", analysis.hookFormula)}
-    ${renderSection("Pacing and structure", analysis.pacingAndStructure)}
-    ${renderSection("Voice and delivery", analysis.voiceAndTone)}
-    ${renderSection("Recurring patterns", analysis.recurringPatterns)}
-    <div class="v-report-section">
-      <div class="v-report-heading">How to replicate this</div>
-      <ol class="v-steps">${steps}</ol>
+    <div class="v-section cp-report">
+      ${renderSection("The hook formula", analysis.hookFormula)}
+      ${renderSection("Pacing and structure", analysis.pacingAndStructure)}
+      ${renderSection("Voice and delivery", analysis.voiceAndTone)}
+      ${renderSection("Recurring patterns", analysis.recurringPatterns)}
     </div>
-    ${docUrl ? `<button type="button" class="v-btn v-btn-primary v-doc-btn" id="doc-download">${DOWNLOAD_ICON}Download the branded report (.docx)</button>` : ""}
-  `;
+    ${
+      steps
+        ? `<div class="v-section">
+            <div class="cp-block-title">How to replicate this</div>
+            <ol class="cp-steps">${steps}</ol>
+          </div>`
+        : ""
+    }`;
 }
 
 function renderError(error: ToolError) {
   renderToken++;
-  root.innerHTML = `
-    <div class="v-card v-enter">
-      <div class="v-header">${LOGO_MARK}<span class="v-title">${escapeHtml(channelName)}</span></div>
-      ${renderErrorState(error)}
-    </div>`;
+  root.innerHTML = panel({ tool: "Creator analysis", aside: errorBadge(error), body: renderErrorState(error) });
 }
 
 function render(data: CreatorProfileData | null) {
@@ -122,54 +124,62 @@ function render(data: CreatorProfileData | null) {
   videos = data?.videos ?? [];
   channelName = data?.channelName ?? "Creator";
 
-  let body: string;
   if (data?.status === "complete" && videos.length) {
-    const peakViews = videos[0]?.views ?? "N/A";
-    body = `
-      <div class="v-stat-row">
-        <div class="v-stat-tile"><div class="v-stat-tile-value">${videos.length}</div><div class="v-stat-tile-label">videos analyzed</div></div>
-        <div class="v-stat-tile"><div class="v-stat-tile-value">${escapeHtml(peakViews)}</div><div class="v-stat-tile-label">peak views</div></div>
-      </div>
-      <div class="v-bench">${renderBars(videos)}</div>
-      ${data?.summary ? `<p class="v-summary">${escapeHtml(data.summary)}</p>` : ""}
-      ${data?.analysis ? renderFullReport(data.analysis, data.docUrl) : ""}
-      <div class="v-quick-actions">
-        <button type="button" class="v-quick-pill" id="action-hooks">Extract top hooks</button>
-        <button type="button" class="v-quick-pill" id="action-script">Write a script in this style</button>
-      </div>
-      <div class="v-quick-status" id="quick-status" hidden></div>
-    `;
-  } else {
-    body = `
-      ${progressBlock({ label: "Analyzing the creator", sublabel: "Scraping top videos and reading real transcripts -- about 1-3 minutes", startedAt: startedAtFor(data?.id) })}
-      ${stageList(["Finding their most-viewed videos", "Extracting transcripts", "Breaking down hooks, pacing and delivery"], 1)}`;
-    if (data?.id && data.status === "processing") {
-      void pollTool<CreatorProfileData>(app, {
-        tool: "check_creator_analysis_status",
-        args: { id: data.id },
-        isCurrent: () => token === renderToken,
-        isDone: (next) => next.status === "complete",
-        onUpdate: (next) => {
-          if (next.status === "complete") render(next);
-        },
-        onError: renderError,
-        intervalMs: 4000,
-        maxMs: 10 * 60_000,
-      });
-    }
+    const peakViews = videos[0]?.views;
+    root.innerHTML = panel({
+      tool: "Creator analysis",
+      aside: statusBadge("ready", "Complete"),
+      enter: enterOnce(`${data.id}:complete`),
+      flush: true,
+      body: `
+        <div class="v-section cp-head">
+          <h1 class="v-title-lg">${escapeHtml(channelName)}</h1>
+          <div class="v-meta">${videos.length} videos analyzed${peakViews ? ` <span class="v-meta-dot">·</span> peak ${escapeHtml(peakViews)} views` : ""}</div>
+          ${data.summary ? `<p class="cp-summary">${escapeHtml(data.summary)}</p>` : ""}
+        </div>
+        <div class="v-section">
+          <div class="v-section-label">Top videos by views</div>
+          <div class="cp-bench">${renderBars(videos)}</div>
+        </div>
+        ${data.analysis ? renderFullReport(data.analysis) : ""}
+        <div class="v-section cp-next">
+          <div class="v-next">
+            <button type="button" class="v-chip" id="action-hooks">${ARROW_RIGHT_ICON}Extract top hooks</button>
+            <button type="button" class="v-chip" id="action-script">${PEN_ICON}Write a script in this style</button>
+          </div>
+          <div class="v-quick-status" id="quick-status" hidden></div>
+        </div>`,
+      footer: data.docUrl
+        ? `<span class="v-footer-note">The full breakdown as a Word document</span>
+           <button type="button" class="v-btn v-btn-primary" id="doc-download">${DOWNLOAD_ICON}Download report</button>`
+        : "",
+    });
+    return;
   }
 
-  root.innerHTML = `
-    <div class="v-card v-enter">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">${escapeHtml(channelName)}</span>
-        <span class="v-spacer"></span>
-        ${data?.status === "complete" ? `<span class="v-pill v-pill-success">Complete</span>` : ""}
-      </div>
-      ${body}
-    </div>
-  `;
+  root.innerHTML = panel({
+    tool: "Creator analysis",
+    aside: statusBadge("live", "Analyzing"),
+    enter: enterOnce(`${data?.id}:working`),
+    body: `
+      ${data?.channelName ? `<h1 class="v-title-lg cp-working-title">${escapeHtml(data.channelName)}</h1>` : ""}
+      ${progressBlock({ label: "Analyzing the creator", sublabel: "Reading their top videos and real transcripts, about 1–3 minutes", startedAt: startedAtFor(data?.id) })}
+      ${stageList(["Finding their most-viewed videos", "Extracting transcripts", "Breaking down hooks, pacing and delivery"], 1)}`,
+  });
+  if (data?.id && data.status === "processing") {
+    void pollTool<CreatorProfileData>(app, {
+      tool: "check_creator_analysis_status",
+      args: { id: data.id },
+      isCurrent: () => token === renderToken,
+      isDone: (next) => next.status === "complete",
+      onUpdate: (next) => {
+        if (next.status === "complete") render(next);
+      },
+      onError: renderError,
+      intervalMs: 4000,
+      maxMs: 10 * 60_000,
+    });
+  }
 }
 
 function showQuickStatus(message: string) {
@@ -193,7 +203,7 @@ const app = connectApp({
 root.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
 
-  const bench = target.closest<HTMLButtonElement>(".v-bench-row-link");
+  const bench = target.closest<HTMLButtonElement>(".cp-row");
   if (bench) {
     const video = videos[Number(bench.dataset.index)];
     openLink(app, video?.url);

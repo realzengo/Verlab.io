@@ -3,8 +3,10 @@ import {
   downloadUrl,
   escapeHtml,
   openLink,
+  panel,
   sendChatMessage,
-  LOGO_MARK,
+  statusBadge,
+  errorBadge,
   DOWNLOAD_ICON,
   EXTERNAL_ICON,
   FILM_ICON,
@@ -13,6 +15,7 @@ import {
   renderErrorState,
   startElapsedTicker,
   startedAtFor,
+  enterOnce,
   type ToolError,
 } from "../../shared/host";
 
@@ -37,24 +40,22 @@ function ratioStyle(aspectRatio: string | null | undefined): string {
   return w > 0 && h > 0 ? `aspect-ratio:${w}/${h}` : "aspect-ratio:1/1";
 }
 
-function shell(body: string, pill = "") {
-  const meta = [current?.model, current?.aspectRatio].filter(Boolean).map((part) => escapeHtml(String(part))).join(" · ");
+function details(data: ImageData | null, count: number, extra = ""): string {
+  const meta = [data?.model, data?.aspectRatio, `${count} image${count === 1 ? "" : "s"}`]
+    .filter(Boolean)
+    .map((part) => escapeHtml(String(part)))
+    .join(' <span class="v-meta-dot">·</span> ');
   return `
-    <div class="v-card v-enter">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">Verlab Image</span>
-        ${meta ? `<span class="v-sub">${meta}</span>` : ""}
-        <span class="v-spacer"></span>
-        ${pill}
-      </div>
-      ${body}
+    <div class="v-section">
+      ${data?.prompt ? `<p class="ig-prompt">${escapeHtml(data.prompt)}</p>` : ""}
+      <div class="v-meta">${meta}</div>
+      ${extra}
     </div>`;
 }
 
 function renderError(error: ToolError) {
   renderToken++;
-  root.innerHTML = shell(renderErrorState(error));
+  root.innerHTML = panel({ tool: "Image", aside: errorBadge(error), body: renderErrorState(error) });
 }
 
 function render(data: ImageData | null) {
@@ -64,36 +65,51 @@ function render(data: ImageData | null) {
 
   if (data?.status === "completed" && images.length) {
     const grid = images.length > 1 ? "is-grid" : "";
-    root.innerHTML = shell(
-      `
-      <div class="ig-list ${grid}">
-        ${images
-          .map(
-            (src, index) => `
-          <figure class="ig-tile" style="${ratioStyle(data.aspectRatio)}">
-            <img src="${escapeHtml(src)}" alt="${escapeHtml(data.prompt ?? "Generated image")}" loading="lazy">
-            <figcaption class="ig-actions">
-              <button class="ig-act" data-action="view" data-index="${index}" type="button" title="Open full size">${EXTERNAL_ICON}</button>
-              <button class="ig-act" data-action="download" data-index="${index}" type="button" title="Download">${DOWNLOAD_ICON}</button>
-              <button class="ig-act ig-act-wide" data-action="animate" data-index="${index}" type="button">${FILM_ICON}Animate</button>
-            </figcaption>
-          </figure>`
-          )
-          .join("")}
-      </div>
-      ${data.prompt ? `<p class="ig-prompt">${escapeHtml(data.prompt)}</p>` : ""}
-      <div class="v-quick-status" id="quick-status" hidden></div>`,
-      `<span class="v-pill v-pill-success">${images.length} image${images.length === 1 ? "" : "s"}</span>`
-    );
+    root.innerHTML = panel({
+      tool: "Image",
+      aside: statusBadge("ready", "Ready"),
+      enter: enterOnce(`${data.id}:ready`),
+      flush: true,
+      body: `
+        <div class="v-canvas">
+          <div class="ig-list ${grid}">
+            ${images
+              .map(
+                (src, index) => `
+              <figure class="ig-tile" style="${ratioStyle(data.aspectRatio)}">
+                <img src="${escapeHtml(src)}" alt="${escapeHtml(data.prompt ?? "Generated image")}" loading="lazy">
+                <figcaption class="ig-actions">
+                  <button class="ig-act" data-action="animate" data-index="${index}" type="button">${FILM_ICON}Animate</button>
+                  <span class="ig-actions-gap"></span>
+                  <button class="ig-act ig-act-icon" data-action="download" data-index="${index}" type="button" title="Download" aria-label="Download">${DOWNLOAD_ICON}</button>
+                  <button class="ig-act ig-act-icon" data-action="view" data-index="${index}" type="button" title="Open full size" aria-label="Open full size">${EXTERNAL_ICON}</button>
+                </figcaption>
+              </figure>`
+              )
+              .join("")}
+          </div>
+        </div>
+        ${details(data, images.length, `<div class="v-quick-status" id="quick-status" hidden></div>`)}`,
+    });
     return;
   }
 
   const count = Math.max(1, Number(data?.outputs) || 1);
-  root.innerHTML = shell(`
-    ${progressBlock({ label: `Generating ${count > 1 ? `${count} images` : "image"}`, sublabel: "Usually 10-40 seconds", startedAt: startedAtFor(data?.id) })}
-    <div class="ig-list ${count > 1 ? "is-grid" : ""} ig-skeletons">
-      ${Array.from({ length: count }, () => `<div class="ig-tile ig-skeleton" style="${ratioStyle(data?.aspectRatio)}"></div>`).join("")}
-    </div>`);
+  root.innerHTML = panel({
+    tool: "Image",
+    aside: statusBadge("live", "Generating"),
+    enter: enterOnce(`${data?.id}:working`),
+    flush: true,
+    body: `
+      <div class="v-canvas">
+        <div class="ig-list ${count > 1 ? "is-grid" : ""}">
+          ${Array.from({ length: count }, () => `<div class="ig-tile ig-skeleton" style="${ratioStyle(data?.aspectRatio)}"></div>`).join("")}
+        </div>
+      </div>
+      <div class="v-section">
+        ${progressBlock({ label: `Generating ${count > 1 ? `${count} images` : "image"}`, sublabel: "Usually 10–40 seconds", startedAt: startedAtFor(data?.id) })}
+      </div>`,
+  });
 
   if (data?.id && data.status === "generating") {
     void pollTool<ImageData>(app, {

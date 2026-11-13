@@ -78,15 +78,20 @@ export function MonoChip({ children, className }: { children: ReactNode; classNa
   );
 }
 
-/** The double-bezel panel: a soft gray rim holding a white sheet. */
+/**
+ * The double-bezel panel: a soft gray rim holding a white sheet. `foot` sits
+ * on the rim under the sheet (quiet fine print), padded by the caller.
+ */
 export function BezelPanel({
   children,
   className,
   innerClassName,
+  foot,
 }: {
   children: ReactNode;
   className?: string;
   innerClassName?: string;
+  foot?: ReactNode;
 }) {
   return (
     <div
@@ -103,6 +108,7 @@ export function BezelPanel({
       >
         {children}
       </div>
+      {foot}
     </div>
   );
 }

@@ -1,20 +1,16 @@
-.v-stat {
-  background: var(--surface-1);
-  border-radius: var(--radius);
-  padding: 1rem;
-  text-align: center;
-}
-
-.v-stat-label {
-  color: var(--text-muted);
+/* One number gets to be big. */
+.sc-label {
   font-size: 13px;
+  line-height: 20px;
+  color: var(--text-muted);
 }
 
-.v-stat-value {
-  margin-top: 4px;
-  font-family: var(--v-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 24px;
+.sc-value {
+  margin-top: 8px;
+  font-size: 40px;
   font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
 }

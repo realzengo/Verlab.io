@@ -1,89 +1,95 @@
-.v-script {
-  white-space: pre-wrap;
+.sc-head {
+  display: grid;
+  gap: 4px;
+}
+
+.sc-tags {
+  margin-top: 8px;
+}
+
+.sc-tag-key {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.sc-script {
+  padding-top: 8px;
+}
+
+.sc-plain {
+  margin: 12px 0 0;
   font-family: var(--v-font);
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-  margin: 0;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
 }
 
-.v-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+.sc-block + .sc-block {
+  margin-top: 12px;
 }
 
-.v-seg-block {
-  margin-top: 1rem;
-}
-
-.v-seg-block:first-of-type {
-  margin-top: 0.75rem;
-}
-
-.v-seg-label {
+.sc-block-label {
+  padding: 12px 0 4px;
   font-size: 12px;
   font-weight: 500;
-  margin-bottom: 6px;
+  line-height: 16px;
   color: var(--text-muted);
 }
 
-.v-seg-hook .v-seg-label {
-  color: var(--text-accent);
-}
-
-.v-seg-cta .v-seg-label {
-  color: var(--text-success);
-}
-
-.v-seg-lines {
-  display: flex;
-  flex-direction: column;
+.sc-lines {
+  display: grid;
   gap: 2px;
-  border-radius: var(--radius);
-  overflow: hidden;
+  margin: 0 -8px;
 }
 
-.v-seg-hook .v-seg-lines {
-  background: var(--bg-accent);
-}
-
-.v-seg-cta .v-seg-lines {
-  background: var(--bg-success);
-}
-
-.v-line {
+.sc-line {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 12px;
+  padding: 6px 4px 6px 8px;
   border-radius: var(--radius);
+  transition: background-color var(--v-ease);
 }
 
-.v-seg-body .v-line:hover {
+.sc-line:hover {
   background: var(--surface-1);
 }
 
-.v-line-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-secondary);
+.sc-line .v-index {
+  width: 20px;
+  padding-top: 4px;
 }
 
-.v-seg-hook .v-line-text {
+.sc-line-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+  font-size: 15px;
+  line-height: 24px;
   color: var(--text-primary);
+}
+
+/* The hook is the line that matters most: same size, more weight. */
+.sc-hook .sc-line-text {
   font-weight: 500;
 }
 
-.v-copy-line {
-  opacity: 0;
-  transition: opacity var(--v-ease), background var(--v-ease), color var(--v-ease);
+.sc-hook .v-index {
+  color: var(--text-accent);
 }
 
-.v-line:hover .v-copy-line,
-.v-copy-line:focus-visible {
+.sc-copy-line {
+  opacity: 0;
+}
+
+.sc-line:hover .sc-copy-line,
+.sc-copy-line:focus-visible {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .sc-copy-line {
+    opacity: 1;
+  }
 }

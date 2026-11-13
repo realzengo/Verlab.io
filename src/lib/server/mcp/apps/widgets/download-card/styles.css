@@ -1,32 +1,40 @@
-.dl-ready {
+.dl-file {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--surface-1);
 }
 
-.dl-check {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--bg-success);
-  color: var(--text-success);
+.dl-icon {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
 }
 
-.dl-check svg {
-  width: 18px;
-  height: 18px;
+.dl-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
-.dl-ready-title {
+.dl-text {
+  min-width: 0;
+}
+
+.dl-title {
+  overflow: hidden;
   font-size: 14px;
   font-weight: 500;
+  line-height: 20px;
   color: var(--text-primary);
-  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dl-gap {
+  height: 20px;
 }

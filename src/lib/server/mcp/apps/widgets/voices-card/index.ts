@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, sendChatMessage, LOGO_MARK, PLAY_ICON, PAUSE_ICON, MIC_ICON } from "../../shared/host";
+import { connectApp, escapeHtml, panel, sendChatMessage, PLAY_ICON, PAUSE_ICON, MIC_ICON, SEARCH_ICON } from "../../shared/host";
 
 interface Voice {
   voiceId: string;
@@ -20,6 +20,10 @@ const SECTIONS: { source: Voice["source"]; label: string }[] = [
   { source: "default", label: "Default voices" },
 ];
 
+// ElevenLabs voice ids are 20 alphanumeric characters. Voices saved by
+// pasting a bare id carry it as their meta line -- set it as an id, not prose.
+const VOICE_ID = /^[A-Za-z0-9]{20}$/;
+
 const root = document.getElementById("root")!;
 const player = new Audio();
 let voices: Voice[] = [];
@@ -37,56 +41,64 @@ function setPlaying(id: string | null) {
     const active = button.dataset.play === id;
     button.innerHTML = active ? PAUSE_ICON : PLAY_ICON;
     button.classList.toggle("is-playing", active);
+    button.setAttribute("aria-label", `${active ? "Pause" : "Preview"} ${button.dataset.name ?? "voice"}`);
   });
 }
 
 function voiceRow(voice: Voice): string {
+  const isId = Boolean(voice.meta && VOICE_ID.test(voice.meta));
+  const meta = isId ? "" : [voice.meta, voice.description].filter(Boolean).join(" · ");
   return `
-    <div class="vv-row" data-row="${escapeHtml(voice.voiceId)}">
+    <div class="vv-row">
       ${
         voice.previewUrl
-          ? `<button type="button" class="vv-play" data-play="${escapeHtml(voice.voiceId)}" aria-label="Preview ${escapeHtml(voice.name)}">${PLAY_ICON}</button>`
-          : `<span class="vv-play is-static">${MIC_ICON}</span>`
+          ? `<button type="button" class="vv-play" data-play="${escapeHtml(voice.voiceId)}" data-name="${escapeHtml(voice.name)}" aria-label="Preview ${escapeHtml(voice.name)}">${PLAY_ICON}</button>`
+          : `<span class="vv-play is-static" title="No preview">${MIC_ICON}</span>`
       }
       <div class="vv-text">
-        <div class="vv-name">${escapeHtml(voice.name)}${voice.source === "clone" ? ' <span class="v-tag v-tag-ai">Clone</span>' : ""}</div>
-        <div class="vv-meta">${escapeHtml([voice.meta, voice.description].filter(Boolean).join(" · "))}</div>
+        <div class="vv-name"><span class="vv-name-text">${escapeHtml(voice.name)}</span>${voice.source === "clone" ? '<span class="v-tag vv-tag">Clone</span>' : ""}</div>
+        ${isId ? `<div class="vv-meta vv-id">${escapeHtml(voice.meta!)}</div>` : meta ? `<div class="vv-meta">${escapeHtml(meta)}</div>` : ""}
       </div>
-      <button type="button" class="v-btn vv-use" data-use="${escapeHtml(voice.voiceId)}">Use</button>
+      <button type="button" class="v-btn v-btn-sm vv-use" data-use="${escapeHtml(voice.voiceId)}">Use</button>
     </div>`;
 }
 
 function renderList(): string {
   const wanted = query.trim().toLowerCase();
   const matches = voices.filter((voice) => !wanted || `${voice.name} ${voice.meta ?? ""} ${voice.description ?? ""}`.toLowerCase().includes(wanted));
-  if (!matches.length) return `<div class="v-empty">No voices match "${escapeHtml(query)}".</div>`;
+  if (!matches.length) return `<div class="v-empty">No voices match “${escapeHtml(query.trim())}”</div>`;
   return SECTIONS.map(({ source, label }) => {
     const rows = matches.filter((voice) => voice.source === source);
-    return rows.length ? `<div class="v-section-label">${label}</div><div class="vv-list">${rows.map(voiceRow).join("")}</div>` : "";
+    return rows.length
+      ? `<div class="vv-group"><div class="vv-group-label">${label}</div>${rows.map(voiceRow).join("")}</div>`
+      : "";
   }).join("");
 }
 
 function render(data: VoicesData | null) {
   if (!data) {
-    root.innerHTML = `<div class="v-card"><div class="v-empty">Loading voices…</div></div>`;
+    root.innerHTML = panel({ tool: "Voices", enter: "", body: `<div class="v-empty">Loading voices…</div>`, flush: true });
     return;
   }
   voices = data.voices ?? [];
   appUrl = data.appUrl ?? null;
   const clones = voices.filter((voice) => voice.source === "clone").length;
-  root.innerHTML = `
-    <div class="v-card v-enter">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">Verlab Voices</span>
-        <span class="v-spacer"></span>
-        <span class="v-pill">${voices.length} voices</span>
-      </div>
-      <input class="vv-search" id="vv-search" type="search" placeholder="Search by name, accent or style" value="${escapeHtml(query)}">
-      <div id="vv-results">${renderList()}</div>
-      ${!clones && appUrl ? `<button type="button" class="v-link-btn vv-clone" data-open-url="${escapeHtml(appUrl)}">${MIC_ICON}Clone your own voice in Verlab</button>` : ""}
-      <div class="v-quick-status" id="quick-status" hidden></div>
-    </div>`;
+  root.innerHTML = panel({
+    tool: "Voices",
+    aside: `<span class="v-aside v-aside-mono">${voices.length} voices</span>`,
+    flush: true,
+    body: `
+      <label class="vv-search">
+        ${SEARCH_ICON}
+        <input id="vv-search" type="search" placeholder="Search voices" value="${escapeHtml(query)}" aria-label="Search voices by name, accent or style" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="vv-results v-scroll" id="vv-results">${renderList()}</div>
+      <div class="v-quick-status vv-status" id="quick-status" hidden></div>`,
+    footer:
+      !clones && appUrl
+        ? `<span class="v-footer-note">Narrate in your own voice</span><button type="button" class="v-btn" data-open-url="${escapeHtml(appUrl)}">${MIC_ICON}Clone a voice</button>`
+        : "",
+  });
 }
 
 render(null);
@@ -100,7 +112,10 @@ root.addEventListener("input", (event) => {
   if (input.id !== "vv-search") return;
   query = input.value;
   const results = document.getElementById("vv-results");
-  if (results) results.innerHTML = renderList();
+  if (results) {
+    results.innerHTML = renderList();
+    results.scrollTop = 0;
+  }
   setPlaying(playingId);
 });
 
@@ -124,10 +139,9 @@ root.addEventListener("click", (event) => {
     if (!voice) return;
     sendChatMessage(app, `Use the voice "${voice.name}" (voiceId ${voice.voiceId}) for my voiceover.`, (message) => {
       const status = document.getElementById("quick-status");
-      if (status) {
-        status.hidden = false;
-        status.textContent = message;
-      }
+      if (!status) return;
+      status.hidden = false;
+      status.textContent = message;
     });
   }
 });

@@ -57,7 +57,9 @@ async function buildWidget(name) {
     "<head>",
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<meta name="color-scheme" content="light dark">',
+    // Light only (see shared/base.css): with "light dark", a dark host turned
+    // native controls and scrollbars dark inside the white panel.
+    '<meta name="color-scheme" content="light">',
     `<style>${sharedCss}\n${widgetCss}</style>`,
     "</head>",
     '<body><div id="root"></div>',

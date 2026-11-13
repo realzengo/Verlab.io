@@ -5,9 +5,11 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 // actual logo instead of a generic dot/icon or plain wordmark.
 export const LOGO_MARK = `<svg viewBox="0 0 2363 2363" fill="currentColor" aria-hidden="true"><path d="M192,236 34,532 1019,2234 1343,2238 2331,519 2187,246 1442,239 1332,999 1690,1135 1334,1279 1203,1638 1058,1281 700,1149 1054,1002 915,239Z"/></svg>`;
 
-// Small stroke-style icon set (Lucide-equivalent paths, hand-inlined so the
-// vanilla widget bundles don't pull in the lucide-react runtime).
-const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+// Small stroke-style icon set (Lucide paths, hand-inlined so the vanilla
+// widget bundles don't pull in the lucide-react runtime). One stroke weight
+// everywhere; no sparkles or wands for AI actions -- each icon says what the
+// action does.
+const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 export const COPY_ICON = `<svg ${ICON_ATTRS}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 export const CHECK_ICON = `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`;
 export const DOWNLOAD_ICON = `<svg ${ICON_ATTRS}><path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M20 21H4"/></svg>`;
@@ -15,10 +17,15 @@ export const MIC_ICON = `<svg ${ICON_ATTRS}><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0
 export const LANGUAGES_ICON = `<svg ${ICON_ATTRS}><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>`;
 export const MINIMIZE_ICON = `<svg ${ICON_ATTRS}><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>`;
 export const CHEVRON_DOWN_ICON = `<svg ${ICON_ATTRS}><path d="m6 9 6 6 6-6"/></svg>`;
-export const EXTERNAL_ICON = `<svg ${ICON_ATTRS}><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
+export const CHEVRON_RIGHT_ICON = `<svg ${ICON_ATTRS}><path d="m9 18 6-6-6-6"/></svg>`;
+export const EXTERNAL_ICON = `<svg ${ICON_ATTRS}><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>`;
+export const ARROW_RIGHT_ICON = `<svg ${ICON_ATTRS}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+export const SEARCH_ICON = `<svg ${ICON_ATTRS}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`;
+export const PEN_ICON = `<svg ${ICON_ATTRS}><path d="M12 20h9"/><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.86z"/></svg>`;
+export const REFRESH_ICON = `<svg ${ICON_ATTRS}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`;
+export const FILE_VIDEO_ICON = `<svg ${ICON_ATTRS}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 11 5 3-5 3Z"/></svg>`;
 export const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg>`;
 export const PAUSE_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
-export const SPARK_ICON = `<svg ${ICON_ATTRS}><path d="M9.94 14.06 4 20"/><path d="m14 4 1.5 3.5L19 9l-3.5 1.5L14 14l-1.5-3.5L9 9l3.5-1.5Z"/><path d="M5 3v4"/><path d="M3 5h4"/></svg>`;
 export const ALERT_ICON = `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`;
 export const FILM_ICON = `<svg ${ICON_ATTRS}><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="M7 2v20"/><path d="M17 2v20"/><path d="M2 12h20"/><path d="M2 7h5"/><path d="M2 17h5"/><path d="M17 17h5"/><path d="M17 7h5"/></svg>`;
 export const SCISSORS_ICON = `<svg ${ICON_ATTRS}><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg>`;
@@ -27,6 +34,48 @@ const ESCAPE_MAP: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&g
 
 export function escapeHtml(value: string): string {
   return String(value).replace(/[&<>"']/g, (char) => ESCAPE_MAP[char]);
+}
+
+// ----------------------------------------------------------------- panel
+
+export interface PanelOptions {
+  /** The tool's name in the brand bar: "Verlab / Voices". Plain text. */
+  tool: string;
+  /** Right side of the brand bar (status, a count, a link). HTML. */
+  aside?: string;
+  body: string;
+  /** Actions for the grey tray along the foot. HTML. */
+  footer?: string;
+  /** Body built from full-bleed .v-section blocks instead of one padded box. */
+  flush?: boolean;
+  /** Entrance class -- "v-enter", or "" so progress ticks don't replay it. */
+  enter?: string;
+}
+
+/**
+ * Every widget is one full-bleed panel: the brand bar, the content, then an
+ * optional action tray. It fills the host's frame, so there's no card edge.
+ */
+export function panel({ tool, aside = "", body, footer = "", flush = false, enter = "v-enter" }: PanelOptions): string {
+  return `
+    <div class="v-card ${enter}">
+      <header class="v-header">
+        <span class="v-brand">${LOGO_MARK}<span class="v-brand-name">Verlab</span><span class="v-brand-sep" aria-hidden="true">/</span><span class="v-brand-tool">${escapeHtml(tool)}</span></span>
+        ${aside ? `<span class="v-spacer"></span>${aside}` : ""}
+      </header>
+      <div class="v-body${flush ? " is-flush" : ""}">${body}</div>
+      ${footer ? `<footer class="v-footer">${footer}</footer>` : ""}
+    </div>`;
+}
+
+/** Brand-bar status: a 6px dot and a word. `live` breathes while a job runs. */
+export function statusBadge(kind: "ready" | "live" | "idle" | "error", label: string): string {
+  return `<span class="v-status is-${kind}">${escapeHtml(label)}</span>`;
+}
+
+/** "01", "02" -- the mono index used for ranks, steps and lines. */
+export function pad2(value: number): string {
+  return String(value).padStart(2, "0");
 }
 
 // ---------------------------------------------------------------- errors
@@ -47,16 +96,16 @@ export function toolError(result: CallToolResult): ToolError | null {
   return { message: text && "text" in text ? text.text : "Something went wrong. Please try again." };
 }
 
-/** Branded error state, with a top-up/upgrade button when that's the fix. */
+/** Error state, with a top-up/upgrade button when that's the fix. */
 export function renderErrorState(error: ToolError): string {
   const cta =
     error.code === "insufficient_credits" && error.actionUrl
-      ? `<button type="button" class="v-btn v-btn-primary" data-open-url="${escapeHtml(error.actionUrl)}">Top up credits</button>`
+      ? `<button type="button" class="v-btn v-btn-primary" data-open-url="${escapeHtml(error.actionUrl)}">Top up credits${EXTERNAL_ICON}</button>`
       : error.code === "plan_required" && error.actionUrl
-        ? `<button type="button" class="v-btn v-btn-primary" data-open-url="${escapeHtml(error.actionUrl)}">See plans</button>`
+        ? `<button type="button" class="v-btn v-btn-primary" data-open-url="${escapeHtml(error.actionUrl)}">See plans${EXTERNAL_ICON}</button>`
         : "";
   return `
-    <div class="v-error-state">
+    <div class="v-error-state" role="alert">
       <span class="v-error-icon">${ALERT_ICON}</span>
       <div class="v-error-body">
         <div class="v-error-title">${error.code === "insufficient_credits" ? "Not enough credits" : error.code === "plan_required" ? "Upgrade needed" : "Couldn't finish that"}</div>
@@ -66,13 +115,24 @@ export function renderErrorState(error: ToolError): string {
     </div>`;
 }
 
-/** A complete card wrapping an error state -- the default when a widget doesn't render errors itself. */
+/** "Verlab Niche Finder" -> "Niche finder": sentence case for the brand bar. */
+export function toolLabel(name: string): string {
+  const label = name.replace(/^Verlab\s+/, "") || name;
+  return label.charAt(0) + label.slice(1).toLowerCase();
+}
+
+/**
+ * Brand-bar status for an error: "Failed" when a job broke, nothing for a
+ * credit or plan gate -- the job never ran, and the panel's own title
+ * ("Not enough credits", "Upgrade needed") already says so once.
+ */
+export function errorBadge(error: ToolError): string {
+  return error.code === "insufficient_credits" || error.code === "plan_required" ? "" : statusBadge("error", "Failed");
+}
+
+/** A complete panel wrapping an error state -- the default when a widget doesn't render errors itself. */
 export function errorCard(title: string, error: ToolError): string {
-  return `
-    <div class="v-card v-enter">
-      <div class="v-header">${LOGO_MARK}<span class="v-title">${escapeHtml(title)}</span></div>
-      ${renderErrorState(error)}
-    </div>`;
+  return panel({ tool: toolLabel(title), aside: errorBadge(error), body: renderErrorState(error) });
 }
 
 // ------------------------------------------------------------ connection
@@ -112,6 +172,7 @@ export function connectApp({ name, onResult, onError, onLoading, onConnected }: 
     event.preventDefault();
     openLink(app, target.dataset.openUrl);
   });
+  startScrollFades();
 
   app.connect(new PostMessageTransport(window.parent, window.parent)).then(() => {
     onConnected?.(app);
@@ -251,7 +312,7 @@ export function progressBlock(options: { label: string; sublabel?: string; perce
   return `
     <div class="v-progress" role="status" aria-live="polite">
       <div class="v-progress-head">
-        <span class="v-progress-label"><span class="v-pulse-dot"></span>${escapeHtml(options.label)}</span>
+        <span class="v-progress-label">${escapeHtml(options.label)}</span>
         <span class="v-progress-time" data-elapsed-since="${startedAt}">${formatDuration((Date.now() - startedAt) / 1000)}</span>
       </div>
       <div class="v-progress-track${percent === null ? " is-indeterminate" : ""}">
@@ -269,6 +330,35 @@ export function stageList(stages: string[], activeIndex: number): string {
       return `<li class="v-stage ${state}"><span class="v-stage-dot">${index < activeIndex ? CHECK_ICON : ""}</span>${escapeHtml(stage)}</li>`;
     })
     .join("")}</ol>`;
+}
+
+// ---------------------------------------------------------- scroll fades
+
+function updateScrollFade(el: HTMLElement) {
+  el.toggleAttribute("data-more", el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+}
+
+let fadesStarted = false;
+/**
+ * Keeps every .v-scroll list's data-more flag current (see shared/base.css):
+ * set while there's more to scroll, cleared at the end. Started by connectApp.
+ */
+export function startScrollFades() {
+  if (fadesStarted) return;
+  fadesStarted = true;
+  const refresh = () => document.querySelectorAll<HTMLElement>(".v-scroll").forEach(updateScrollFade);
+  document.addEventListener(
+    "scroll",
+    (event) => {
+      if (event.target instanceof HTMLElement && event.target.classList.contains("v-scroll")) updateScrollFade(event.target);
+    },
+    true
+  );
+  // Renders swap the DOM; images and video metadata can change heights later.
+  new MutationObserver(() => requestAnimationFrame(refresh)).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("load", refresh, true);
+  window.addEventListener("resize", refresh);
+  refresh();
 }
 
 let tickerStarted = false;

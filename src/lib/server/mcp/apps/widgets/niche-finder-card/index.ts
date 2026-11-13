@@ -1,4 +1,4 @@
-import { connectApp, escapeHtml, openLink, LOGO_MARK } from "../../shared/host";
+import { connectApp, escapeHtml, openLink, pad2, panel, statusBadge } from "../../shared/host";
 
 type Platform = "youtube" | "tiktok" | "both";
 type Format = "long-form" | "shorts" | "not-sure";
@@ -35,6 +35,7 @@ interface FindNicheData {
 }
 
 const root = document.getElementById("root")!;
+const TOOL = "Niche finder";
 
 const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: "youtube", label: "YouTube" },
@@ -81,101 +82,76 @@ function stopLoadingRotation() {
   loadingTimer = undefined;
 }
 
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
-
-function pillsHtml(options: { value: string; label: string }[], selected: string | null, group: "platform" | "format" | "style"): string {
+function optionsHtml(options: { value: string; label: string }[], selected: string | null, group: "platform" | "format" | "style"): string {
   return options
     .map(
-      (opt) => `
-      <button type="button" class="vf-pill${selected === opt.value ? " active" : ""}" data-group="${group}" data-value="${opt.value}">
-        ${escapeHtml(opt.label)}
-      </button>`
+      (opt) =>
+        `<button type="button" class="nf-option${selected === opt.value ? " active" : ""}" data-group="${group}" data-value="${opt.value}" aria-pressed="${selected === opt.value}">${escapeHtml(opt.label)}</button>`
     )
     .join("");
 }
 
-function eyebrow(): string {
-  return `<div class="v-eyebrow">${LOGO_MARK}Verlab &middot; Find a niche</div>`;
+function question(index: number, title: string, help: string, control: string): string {
+  return `
+    <div class="v-section nf-q">
+      <span class="v-index">${pad2(index)}</span>
+      <div class="nf-q-body">
+        <div class="nf-q-title">${title}</div>
+        <div class="nf-q-help">${help}</div>
+        ${control}
+      </div>
+    </div>`;
 }
 
 function renderForm() {
   stopLoadingRotation();
-  root.innerHTML = `
-    <div class="v-card">
-      ${eyebrow()}
-      <h1 class="vf-title">Who are you, really?</h1>
-      <p class="vf-sub">The sharper I get you, the sharper the niche. Seven quick ones.</p>
-
-      <div class="vf-q">
-        <div class="vf-q-num">1</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">What could you talk about for hours?</div>
-          <div class="vf-q-help">Obsessions, rabbit holes, the stuff you already know too much about.</div>
-          <textarea class="vf-input" id="nf-interests" rows="3" placeholder="e.g. history, fitness, sci-fi lore, personal finance, cars, psychology...">${escapeHtml(lastAnswers.interests)}</textarea>
-        </div>
+  root.innerHTML = panel({
+    tool: TOOL,
+    aside: `<span class="v-aside">7 questions</span>`,
+    flush: true,
+    body: `
+      <div class="v-section nf-intro">
+        <h1 class="v-title-lg">Who are you, really?</h1>
+        <p class="nf-sub">The sharper I get you, the sharper the niche. Seven quick ones.</p>
       </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">2</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">Channels you already love or watch?</div>
-          <div class="vf-q-help">Names or @handles, even ones outside the niche you're chasing.</div>
-          <textarea class="vf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel...">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
-          <div class="vf-error" id="nf-error" hidden></div>
-        </div>
-      </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">3</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">YouTube or TikTok?</div>
-          <div class="vf-q-help">Where you actually want to build.</div>
-          <div class="vf-pills" id="nf-platform">${pillsHtml(PLATFORM_OPTIONS, lastAnswers.platform, "platform")}</div>
-        </div>
-      </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">4</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">Long-form or Shorts?</div>
-          <div class="vf-q-help">Where you want to live. No wrong answer.</div>
-          <div class="vf-pills" id="nf-format">${pillsHtml(FORMAT_OPTIONS, lastAnswers.format, "format")}</div>
-        </div>
-      </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">5</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">How do you want the videos made?</div>
-          <div class="vf-q-help">This sets your cost floor, so be honest about your appetite.</div>
-          <div class="vf-pills" id="nf-style">${pillsHtml(STYLE_OPTIONS, lastAnswers.productionStyle, "style")}</div>
-        </div>
-      </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">6</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">Any job, background, or skill to pull from?</div>
-          <div class="vf-q-help">Unfair advantages hide here, a trade, a degree, a hobby you're good at.</div>
-          <textarea class="vf-input" id="nf-background" rows="2" placeholder="e.g. ex-teacher, gym coach, coder, editor, sales, gamer since forever...">${escapeHtml(lastAnswers.background)}</textarea>
-        </div>
-      </div>
-
-      <div class="vf-q">
-        <div class="vf-q-num">7</div>
-        <div class="vf-q-body">
-          <div class="vf-q-title">Monthly budget</div>
-          <div class="vf-q-help">Roughly what you'd spend to produce videos each month.</div>
-          <input class="vf-input" id="nf-budget" type="number" min="0" step="50" placeholder="1500" value="${escapeHtml(lastAnswers.budget)}">
-          <div class="vf-error" id="nf-budget-error" hidden></div>
-        </div>
-      </div>
-
-      <button type="button" class="vf-submit" id="nf-submit">Find my niche</button>
-    </div>
-  `;
+      ${question(
+        1,
+        "What could you talk about for hours?",
+        "Obsessions, rabbit holes, the stuff you already know too much about",
+        `<textarea class="v-input nf-input" id="nf-interests" rows="3" placeholder="e.g. history, fitness, sci-fi lore, personal finance, cars, psychology">${escapeHtml(lastAnswers.interests)}</textarea>`
+      )}
+      ${question(
+        2,
+        "Channels you already love or watch?",
+        "Names or @handles, even ones outside the niche you're chasing",
+        `<textarea class="v-input nf-input" id="nf-channels" rows="2" placeholder="e.g. Kurzgesagt, @somechannel">${escapeHtml(lastAnswers.channelsTheyLike)}</textarea>
+         <div class="nf-error" id="nf-error" role="alert" hidden></div>`
+      )}
+      ${question(3, "YouTube or TikTok?", "Where you actually want to build", `<div class="nf-options" id="nf-platform">${optionsHtml(PLATFORM_OPTIONS, lastAnswers.platform, "platform")}</div>`)}
+      ${question(4, "Long-form or Shorts?", "Where you want to live. No wrong answer", `<div class="nf-options" id="nf-format">${optionsHtml(FORMAT_OPTIONS, lastAnswers.format, "format")}</div>`)}
+      ${question(
+        5,
+        "How do you want the videos made?",
+        "This sets your cost floor, so be honest about your appetite",
+        `<div class="nf-options" id="nf-style">${optionsHtml(STYLE_OPTIONS, lastAnswers.productionStyle, "style")}</div>`
+      )}
+      ${question(
+        6,
+        "Any job, background or skill to pull from?",
+        "Unfair advantages hide here: a trade, a degree, a hobby you're good at",
+        `<textarea class="v-input nf-input" id="nf-background" rows="2" placeholder="e.g. ex-teacher, gym coach, coder, editor, sales, gamer since forever">${escapeHtml(lastAnswers.background)}</textarea>`
+      )}
+      ${question(
+        7,
+        "Monthly budget",
+        "Roughly what you'd spend to produce videos each month",
+        `<div class="nf-budget"><span class="nf-currency">$</span><input class="v-input nf-input" id="nf-budget" type="number" min="0" step="50" placeholder="1500" value="${escapeHtml(lastAnswers.budget)}"></div>
+         <div class="nf-error" id="nf-budget-error" role="alert" hidden></div>`
+      )}`,
+    footer: `
+      <span class="v-footer-note">The first two answers matter most</span>
+      <button type="button" class="v-btn v-btn-primary nf-submit" id="nf-submit">Find my niche</button>`,
+  });
 }
 
 const LOADING_MESSAGES = [
@@ -187,13 +163,15 @@ const LOADING_MESSAGES = [
 
 function renderLoading() {
   stopLoadingRotation();
-  root.innerHTML = `
-    <div class="v-card vf-loading">
-      ${eyebrow()}
-      <div class="vf-spinner"></div>
-      <p class="vf-loading-text" id="nf-loading-text">${LOADING_MESSAGES[0]}</p>
-    </div>
-  `;
+  root.innerHTML = panel({
+    tool: TOOL,
+    aside: statusBadge("live", "Researching"),
+    body: `
+      <div class="nf-loading" role="status" aria-live="polite">
+        <span class="nf-spinner"></span>
+        <p class="nf-loading-text" id="nf-loading-text">${LOADING_MESSAGES[0]}</p>
+      </div>`,
+  });
   let i = 0;
   loadingTimer = setInterval(() => {
     i = (i + 1) % LOADING_MESSAGES.length;
@@ -210,31 +188,26 @@ function renderVideoList(videos: NicheReportVideo[]): string {
   allVideos = allVideos.concat(videos);
 
   return `
-    <div class="vf-videos-label">Popping off in this niche right now</div>
-    <div class="vf-videos">
+    <div class="v-section-label nf-videos-label">Trending in this niche</div>
+    <div class="nf-videos">
       ${videos
         .map((video, i) => {
           const clickable = Boolean(video.videoUrl);
-          const cover = video.coverUrl
-            ? `<img class="vf-video-cover" src="${escapeHtml(video.coverUrl)}" alt="">`
-            : `<div class="vf-video-cover-empty"></div>`;
-          const avatar = video.avatarUrl
-            ? `<img class="vf-video-avatar" src="${escapeHtml(video.avatarUrl)}" alt="">`
-            : "";
-          const author = video.author ? `<span class="vf-video-author">@${escapeHtml(video.author)}</span>` : "";
+          const cover = video.coverUrl ? `<img class="nf-video-cover" src="${escapeHtml(video.coverUrl)}" alt="">` : `<span class="nf-video-cover"></span>`;
+          const avatar = video.avatarUrl ? `<img class="nf-video-avatar" src="${escapeHtml(video.avatarUrl)}" alt="">` : "";
+          const author = video.author ? `<span class="nf-video-author">@${escapeHtml(video.author)}</span>` : "";
           return `
-          <button type="button" class="vf-video${clickable ? " vf-video-link" : ""}" data-video-index="${startIndex + i}" ${clickable ? "" : "tabindex=\"-1\""}>
+          <button type="button" class="nf-video${clickable ? " nf-video-link" : ""}" data-video-index="${startIndex + i}" ${clickable ? "" : 'tabindex="-1"'}>
             ${cover}
-            <div class="vf-video-meta">
-              <div class="vf-video-title">${escapeHtml(truncate(video.title, 55))}</div>
-              <div class="vf-video-sub">${avatar}${author}</div>
-            </div>
-            <span class="vf-video-views vf-num">${escapeHtml(video.views)}</span>
+            <span class="nf-video-meta">
+              <span class="nf-video-title">${escapeHtml(video.title)}</span>
+              <span class="nf-video-sub">${avatar}${author}</span>
+            </span>
+            <span class="nf-video-views">${escapeHtml(video.views)}</span>
           </button>`;
         })
         .join("")}
-    </div>
-  `;
+    </div>`;
 }
 
 function renderReport(platform: Platform, niches: NicheReportEntry[], live: boolean) {
@@ -244,45 +217,45 @@ function renderReport(platform: Platform, niches: NicheReportEntry[], live: bool
   const blocks = niches
     .map(
       (entry, index) => `
-      <div class="vf-block">
-        <div class="vf-block-head">
-          <span class="vf-block-rank">${index + 1}</span>
-          <h2 class="vf-block-title">${escapeHtml(entry.name)}</h2>
+      <div class="v-section nf-block">
+        <div class="nf-block-head">
+          <span class="v-index">${pad2(index + 1)}</span>
+          <h2 class="nf-block-title">${escapeHtml(entry.name)}</h2>
         </div>
-        <div class="vf-tags">
-          <span class="vf-tag">${escapeHtml(PLATFORM_LABEL[entry.platform])}</span>
-          <span class="vf-tag vf-tag-neutral">${escapeHtml(entry.category)}</span>
-          <span class="vf-tag ${entry.momentumTrend === "up" ? "vf-tag-up" : entry.momentumTrend === "down" ? "vf-tag-down" : "vf-tag-neutral"}">${TREND_LABEL[entry.momentumTrend]} &middot; <span class="vf-num">${Math.round(entry.momentumScore)}/100</span></span>
+        <div class="v-tags nf-tags">
+          <span class="v-tag">${escapeHtml(PLATFORM_LABEL[entry.platform])}</span>
+          <span class="v-tag">${escapeHtml(entry.category)}</span>
+          <span class="v-tag nf-trend is-${entry.momentumTrend}">${TREND_LABEL[entry.momentumTrend]}<span class="nf-score">${Math.round(entry.momentumScore)}/100</span></span>
         </div>
-        <p class="vf-text">${escapeHtml(entry.description)}</p>
-        <div class="vf-callout">
-          <div class="vf-callout-label">Why this fits you</div>
-          <p>${escapeHtml(entry.whyForYou)}</p>
-        </div>
-        <div class="vf-callout">
-          <div class="vf-callout-label">Starter angle</div>
-          <p>${escapeHtml(entry.angle)}</p>
+        <p class="nf-text">${escapeHtml(entry.description)}</p>
+        <div class="nf-callouts">
+          <div class="nf-callout">
+            <div class="nf-callout-label">Why this fits you</div>
+            <p>${escapeHtml(entry.whyForYou)}</p>
+          </div>
+          <div class="nf-callout">
+            <div class="nf-callout-label">Starter angle</div>
+            <p>${escapeHtml(entry.angle)}</p>
+          </div>
         </div>
         ${renderVideoList(entry.sampleVideos)}
       </div>`
     )
-    .join(`<hr class="vf-divider">`);
+    .join("");
 
-  root.innerHTML = `
-    <div class="v-card">
-      ${eyebrow()}
-      <h1 class="vf-title">Your niche report</h1>
-      <p class="vf-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>
-      <div class="vf-meta">
-        <span class="vf-meta-pill">${niches.length} niches</span>
-        <span class="vf-meta-pill">${escapeHtml(PLATFORM_LABEL[platform])}</span>
+  root.innerHTML = panel({
+    tool: TOOL,
+    aside: `<span class="v-aside v-aside-mono">${niches.length} niches <span class="v-meta-dot">·</span> ${escapeHtml(PLATFORM_LABEL[platform])}</span>`,
+    flush: true,
+    body: `
+      <div class="v-section nf-intro">
+        <h1 class="v-title-lg">Your niche report</h1>
+        <p class="nf-sub">${live ? "Live research on what's going viral right now, matched to what you told me." : "Matched to what you told me, from general trend knowledge."}</p>
+        ${live ? "" : `<div class="nf-notice">Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results. Momentum and view counts here are approximate.</div>`}
       </div>
-      ${live ? "" : `<div class="vf-notice">Live web search was temporarily unavailable, so this report is based on general trend knowledge instead of real-time results. Momentum and view counts here are approximate.</div>`}
-      <hr class="vf-divider">
-      ${blocks}
-      <button type="button" class="vf-restart" id="nf-restart">Start over</button>
-    </div>
-  `;
+      ${blocks}`,
+    footer: `<button type="button" class="v-btn" id="nf-restart">Start over</button>`,
+  });
 }
 
 function showFormError(message: string) {
@@ -376,25 +349,29 @@ const app = connectApp({
 root.addEventListener("click", async (event) => {
   const target = event.target as HTMLElement;
 
-  const video = target.closest<HTMLButtonElement>(".vf-video-link");
+  const video = target.closest<HTMLButtonElement>(".nf-video-link");
   if (video) {
     const clicked = allVideos[Number(video.dataset.videoIndex)];
     openLink(app, clicked?.videoUrl);
     return;
   }
 
-  const pill = target.closest<HTMLButtonElement>(".vf-pill");
-  if (pill) {
-    const group = pill.dataset.group as "platform" | "format" | "style";
-    const value = pill.dataset.value as Platform | Format | ProductionStyle;
+  const option = target.closest<HTMLButtonElement>(".nf-option");
+  if (option) {
+    const group = option.dataset.group as "platform" | "format" | "style";
+    const value = option.dataset.value as Platform | Format | ProductionStyle;
     if (group === "platform") lastAnswers.platform = value as Platform;
     else if (group === "format") lastAnswers.format = value as Format;
     else lastAnswers.productionStyle = value as ProductionStyle;
 
     const containerId = group === "platform" ? "nf-platform" : group === "format" ? "nf-format" : "nf-style";
     const container = document.getElementById(containerId);
-    container?.querySelectorAll(".vf-pill").forEach((el) => el.classList.remove("active"));
-    pill.classList.add("active");
+    container?.querySelectorAll(".nf-option").forEach((el) => {
+      el.classList.remove("active");
+      el.setAttribute("aria-pressed", "false");
+    });
+    option.classList.add("active");
+    option.setAttribute("aria-pressed", "true");
     return;
   }
 
@@ -414,6 +391,7 @@ root.addEventListener("click", async (event) => {
 
   if (!lastAnswers.interests && !lastAnswers.channelsTheyLike) {
     showFormError("Answer at least the first two questions, that's what actually drives the report.");
+    document.getElementById("nf-interests")?.focus();
     return;
   }
 

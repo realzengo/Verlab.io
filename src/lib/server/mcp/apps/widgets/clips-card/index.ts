@@ -5,7 +5,10 @@ import {
   flashButton,
   formatDuration,
   openLink,
-  LOGO_MARK,
+  panel,
+  statusBadge,
+  errorBadge,
+  CHECK_ICON,
   COPY_ICON,
   PLAY_ICON,
   SCISSORS_ICON,
@@ -16,6 +19,7 @@ import {
   stageList,
   startElapsedTicker,
   startedAtFor,
+  enterOnce,
   type ToolError,
 } from "../../shared/host";
 
@@ -61,9 +65,12 @@ function captionFor(clip: ClipRow): string {
 
 function sourceRow(data: ClipsData | null): string {
   if (!data?.title) return "";
-  const meta = [data.channel, data.durationSeconds ? formatDuration(data.durationSeconds) : null].filter(Boolean).map((p) => escapeHtml(String(p))).join(" · ");
+  const meta = [data.channel, data.durationSeconds ? formatDuration(data.durationSeconds) : null]
+    .filter(Boolean)
+    .map((p) => escapeHtml(String(p)))
+    .join(' <span class="v-meta-dot">·</span> ');
   return `
-    <div class="cl-source">
+    <div class="v-section cl-source">
       ${data.thumbnailUrl ? `<img class="cl-thumb" src="${escapeHtml(data.thumbnailUrl)}" alt="">` : `<div class="cl-thumb"></div>`}
       <div class="cl-source-text">
         <div class="cl-source-title">${escapeHtml(data.title)}</div>
@@ -72,23 +79,14 @@ function sourceRow(data: ClipsData | null): string {
     </div>`;
 }
 
-function shell(body: string, pill = "") {
-  return `
-    <div class="v-card v-enter">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">Verlab Clips</span>
-        <span class="v-spacer"></span>
-        ${pill}
-      </div>
-      ${sourceRow(current)}
-      ${body}
-    </div>`;
-}
-
 function renderError(error: ToolError) {
   renderToken++;
-  root.innerHTML = shell(renderErrorState(error));
+  root.innerHTML = panel({
+    tool: "Clips",
+    aside: errorBadge(error),
+    flush: true,
+    body: `${sourceRow(current)}<div class="v-section">${renderErrorState(error)}</div>`,
+  });
 }
 
 function scoreBars(scores: ClipRow["scores"]): string {
@@ -98,8 +96,9 @@ function scoreBars(scores: ClipRow["scores"]): string {
     ["Value", scores?.value],
     ["Trend", scores?.trend],
   ];
-  return `<div class="cl-bars">${entries
-    .filter(([, value]) => typeof value === "number")
+  const rows = entries.filter(([, value]) => typeof value === "number");
+  if (!rows.length) return "";
+  return `<div class="cl-bars">${rows
     .map(
       ([label, value]) =>
         `<div class="cl-bar"><span>${label}</span><div class="cl-bar-track"><div class="cl-bar-fill" style="width:${Math.max(4, Math.min(100, value!))}%"></div></div><b>${value}</b></div>`
@@ -112,12 +111,13 @@ function clipRow(clip: ClipRow, index: number): string {
   return `
     <div class="cl-clip${open ? " is-open" : ""}">
       <div class="cl-clip-main">
-        <span class="v-score${index === 0 ? " is-top" : ""}">${clip.score}</span>
-        <div class="cl-clip-text">
+        <span class="cl-score${index === 0 ? " is-top" : ""}" title="Viral score">${clip.score}</span>
+        <div class="cl-clip-text" data-toggle="${escapeHtml(clip.id)}">
           <div class="cl-clip-title">${escapeHtml(clip.title)}</div>
-          <div class="v-meta">${formatDuration(clip.start)} – ${formatDuration(clip.end)} <span class="v-meta-dot">·</span> ${clip.durationSeconds}s</div>
+          <div class="v-meta">${formatDuration(clip.start)}–${formatDuration(clip.end)} <span class="v-meta-dot">·</span> ${clip.durationSeconds}s</div>
         </div>
-        <button type="button" class="v-icon-btn cl-toggle" data-toggle="${escapeHtml(clip.id)}" aria-label="Details" aria-expanded="${open}">${CHEVRON_DOWN_ICON}</button>
+        <button type="button" class="v-btn v-btn-ghost v-btn-sm cl-watch" data-watch="${index}" aria-label="Watch this moment">${PLAY_ICON}<span class="cl-watch-label">Watch</span></button>
+        <button type="button" class="v-icon-btn cl-toggle" data-toggle="${escapeHtml(clip.id)}" aria-label="${open ? "Hide" : "Show"} details" aria-expanded="${open}">${CHEVRON_DOWN_ICON}</button>
       </div>
       ${
         open
@@ -125,14 +125,17 @@ function clipRow(clip: ClipRow, index: number): string {
               ${clip.hookTitle ? `<div class="cl-hook">“${escapeHtml(clip.hookTitle)}”</div>` : ""}
               ${clip.reason ? `<p class="cl-reason">${escapeHtml(clip.reason)}</p>` : ""}
               ${scoreBars(clip.scores)}
-              ${clip.caption ? `<div class="cl-caption">${escapeHtml(captionFor(clip))}</div>` : ""}
+              ${
+                clip.caption
+                  ? `<div class="cl-caption">
+                      <div class="cl-caption-head"><span>Caption</span><button type="button" class="v-btn v-btn-ghost v-btn-sm" data-copy="${index}">${COPY_ICON}Copy</button></div>
+                      <div class="cl-caption-text">${escapeHtml(captionFor(clip))}</div>
+                    </div>`
+                  : `<div class="cl-copy-row"><button type="button" class="v-btn v-btn-ghost v-btn-sm" data-copy="${index}">${COPY_ICON}Copy caption</button></div>`
+              }
             </div>`
           : ""
       }
-      <div class="cl-clip-actions">
-        <button type="button" class="v-link-btn" data-watch="${index}">${PLAY_ICON}Watch moment</button>
-        <button type="button" class="v-link-btn" data-copy="${index}">${COPY_ICON}Copy caption</button>
-      </div>
     </div>`;
 }
 
@@ -143,26 +146,43 @@ function render(data: ClipsData | null) {
   if (data?.status === "ready") {
     const clips = data.clips ?? [];
     const avg = clips.length ? Math.round(clips.reduce((sum, c) => sum + c.durationSeconds, 0) / clips.length) : 0;
-    root.innerHTML = shell(
-      clips.length
+    root.innerHTML = panel({
+      tool: "Clips",
+      aside: statusBadge("ready", "Ready"),
+      enter: enterOnce(`${data.id}:ready`),
+      flush: true,
+      body: clips.length
         ? `
-      <div class="cl-stats">
-        <div class="v-stat-tile"><div class="v-stat-tile-value">${clips.length}</div><div class="v-stat-tile-label">clips found</div></div>
-        <div class="v-stat-tile"><div class="v-stat-tile-value">${clips[0]?.score ?? 0}</div><div class="v-stat-tile-label">top score</div></div>
-        <div class="v-stat-tile"><div class="v-stat-tile-value">${avg}s</div><div class="v-stat-tile-label">avg length</div></div>
-      </div>
-      <div class="cl-list">${clips.map(clipRow).join("")}</div>
-      ${data.editorUrl ? `<button type="button" class="v-btn v-btn-primary cl-editor" data-open-url="${escapeHtml(data.editorUrl)}">${SCISSORS_ICON}Open in editor to export 9:16</button><div class="cl-editor-note">AI reframe, animated captions and hook titles, then download.</div>` : ""}`
-        : `<div class="v-empty">No strong standalone moments were found in this video.</div>`,
-      `<span class="v-pill v-pill-success">Ready</span>`
-    );
+        ${sourceRow(data)}
+        <div class="cl-stats">
+          <div class="cl-stat"><div class="cl-stat-value">${clips.length}</div><div class="cl-stat-label">Clips found</div></div>
+          <div class="cl-stat"><div class="cl-stat-value is-accent">${clips[0]?.score ?? 0}</div><div class="cl-stat-label">Top score</div></div>
+          <div class="cl-stat"><div class="cl-stat-value">${avg}s</div><div class="cl-stat-label">Average length</div></div>
+        </div>
+        <div class="cl-list v-scroll">${clips.map(clipRow).join("")}</div>`
+        : `${sourceRow(data)}<div class="v-empty">No strong standalone moments were found in this video.</div>`,
+      footer:
+        clips.length && data.editorUrl
+          ? `<span class="v-footer-note">Reframe to 9:16 and add captions in the editor, then export</span>
+             <button type="button" class="v-btn v-btn-primary" data-open-url="${escapeHtml(data.editorUrl)}">${SCISSORS_ICON}Open in editor</button>`
+          : "",
+    });
     return;
   }
 
   const stageIndex = STAGE_INDEX[data?.status ?? "queued"] ?? 0;
-  root.innerHTML = shell(`
-    ${progressBlock({ label: data?.stage ?? "Starting", sublabel: "Usually 1-3 minutes. You can keep chatting meanwhile.", startedAt: startedAtFor(data?.id) })}
-    ${stageList(STAGES, stageIndex)}`);
+  root.innerHTML = panel({
+    tool: "Clips",
+    aside: statusBadge("live", "Working"),
+    enter: enterOnce(`${data?.id}:working`),
+    flush: true,
+    body: `
+      ${sourceRow(data)}
+      <div class="v-section">
+        ${progressBlock({ label: data?.stage ?? "Starting", sublabel: "Usually 1–3 minutes. You can keep chatting meanwhile.", startedAt: startedAtFor(data?.id) })}
+        ${stageList(STAGES, stageIndex)}
+      </div>`,
+  });
 
   if (data?.id && data.status !== "failed") {
     void pollTool<ClipsData>(app, {
@@ -192,17 +212,6 @@ root.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   const clips = current?.clips ?? [];
 
-  const toggle = target.closest<HTMLElement>("[data-toggle]");
-  if (toggle?.dataset.toggle) {
-    const id = toggle.dataset.toggle;
-    if (expanded.has(id)) expanded.delete(id);
-    else expanded.add(id);
-    // Swap just this row so the card doesn't replay its entrance.
-    const index = clips.findIndex((clip) => clip.id === id);
-    const rowEl = toggle.closest(".cl-clip");
-    if (rowEl && index >= 0) rowEl.outerHTML = clipRow(clips[index], index);
-    return;
-  }
   const watch = target.closest<HTMLElement>("[data-watch]");
   if (watch) {
     openLink(app, clips[Number(watch.dataset.watch)]?.watchUrl);
@@ -211,6 +220,17 @@ root.addEventListener("click", (event) => {
   const copy = target.closest<HTMLElement>("[data-copy]");
   if (copy) {
     const clip = clips[Number(copy.dataset.copy)];
-    if (clip) void copyText(captionFor(clip)).then((ok) => flashButton(copy, ok ? `${COPY_ICON}Copied` : "Copy failed"));
+    if (clip) void copyText(captionFor(clip)).then((ok) => flashButton(copy, ok ? `${CHECK_ICON}Copied` : "Copy failed"));
+    return;
+  }
+  const toggle = target.closest<HTMLElement>("[data-toggle]");
+  if (toggle?.dataset.toggle) {
+    const id = toggle.dataset.toggle;
+    if (expanded.has(id)) expanded.delete(id);
+    else expanded.add(id);
+    // Swap just this row so the panel doesn't replay its entrance.
+    const index = clips.findIndex((clip) => clip.id === id);
+    const rowEl = toggle.closest(".cl-clip");
+    if (rowEl && index >= 0) rowEl.outerHTML = clipRow(clips[index], index);
   }
 });

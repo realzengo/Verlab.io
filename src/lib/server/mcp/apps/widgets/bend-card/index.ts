@@ -4,12 +4,17 @@ import {
   copyText,
   escapeHtml,
   flashButton,
+  pad2,
+  panel,
   sendChatMessage,
+  statusBadge,
+  errorBadge,
   toolError,
-  LOGO_MARK,
+  CHECK_ICON,
   COPY_ICON,
   EXTERNAL_ICON,
-  SPARK_ICON,
+  PEN_ICON,
+  ARROW_RIGHT_ICON,
   CHEVRON_DOWN_ICON,
   pollTool,
   progressBlock,
@@ -17,6 +22,7 @@ import {
   stageList,
   startElapsedTicker,
   startedAtFor,
+  enterOnce,
   type ToolError,
 } from "../../shared/host";
 
@@ -59,6 +65,7 @@ interface BendData {
 
 const WORKING_STAGES = ["opening_channel", "reading_videos", "identifying_format", "generating_bends"];
 const STAGE_LABELS = ["Opening the channel", "Reading the top videos", "Identifying the format", "Generating niche bends"];
+const TOOL = "Niche bend";
 
 const root = document.getElementById("root")!;
 let current: BendData | null = null;
@@ -67,35 +74,26 @@ let inlineError: ToolError | null = null;
 let building: number | null = null;
 const openSections = new Set<string>(["quick", "hooks"]);
 
-function shell(body: string, pill = "") {
+function channelRow(): string {
   const analysis = current?.analysis;
+  if (!analysis?.channelName) return "";
   return `
-    <div class="v-card v-enter">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">Verlab Bend</span>
-        <span class="v-spacer"></span>
-        ${pill}
+    <div class="v-section bd-channel">
+      ${analysis.avatarUrl ? `<img class="bd-avatar" src="${escapeHtml(analysis.avatarUrl)}" alt="">` : `<span class="bd-avatar">${escapeHtml(analysis.channelName.slice(0, 1))}</span>`}
+      <div class="bd-channel-text">
+        <div class="bd-channel-name">${escapeHtml(analysis.channelName)}${analysis.detectedNiche ? `<span class="bd-niche">${escapeHtml(analysis.detectedNiche)}</span>` : ""}</div>
+        ${analysis.format ? `<div class="bd-format" title="${escapeHtml(analysis.format)}">${escapeHtml(analysis.format)}</div>` : ""}
       </div>
-      ${
-        analysis?.channelName
-          ? `<div class="bd-channel">
-              ${analysis.avatarUrl ? `<img class="bd-avatar" src="${escapeHtml(analysis.avatarUrl)}" alt="">` : `<span class="bd-avatar">${escapeHtml(analysis.channelName.slice(0, 1))}</span>`}
-              <div class="bd-channel-text">
-                <div class="bd-channel-name">${escapeHtml(analysis.channelName)}</div>
-                ${analysis.detectedNiche ? `<div class="bd-niche">${escapeHtml(analysis.detectedNiche)}</div>` : ""}
-                ${analysis.format ? `<div class="bd-format" title="${escapeHtml(analysis.format)}">${escapeHtml(analysis.format)}</div>` : ""}
-              </div>
-            </div>`
-          : ""
-      }
-      ${body}
     </div>`;
+}
+
+function shell(options: { aside: string; body: string; footer?: string; enter: string }) {
+  return panel({ tool: TOOL, aside: options.aside, flush: true, enter: options.enter, body: `${channelRow()}${options.body}`, footer: options.footer });
 }
 
 function renderError(error: ToolError) {
   renderToken++;
-  root.innerHTML = shell(renderErrorState(error));
+  root.innerHTML = shell({ aside: errorBadge(error), enter: "v-enter", body: `<div class="v-section">${renderErrorState(error)}</div>` });
 }
 
 function poll(jobId: string, token: number, done: (data: BendData) => boolean) {
@@ -112,18 +110,23 @@ function poll(jobId: string, token: number, done: (data: BendData) => boolean) {
   });
 }
 
-function candidateCard(candidate: Candidate): string {
+function candidateRow(candidate: Candidate): string {
   const busy = building === candidate.id;
   return `
     <div class="bd-candidate">
-      <div class="bd-candidate-head">
-        <span class="bd-num">${candidate.id}</span>
-        <div class="bd-candidate-title">${escapeHtml(candidate.nicheName)}</div>
-        <span class="v-tag v-tag-ai">${escapeHtml(candidate.angle)}</span>
+      <span class="v-index">${pad2(candidate.id)}</span>
+      <div class="bd-cand-body">
+        <div class="bd-cand-head">
+          <span class="bd-cand-title">${escapeHtml(candidate.nicheName)}</span>
+          <span class="v-tag">${escapeHtml(candidate.angle)}</span>
+        </div>
+        <ul class="bd-titles">${candidate.exampleTitles
+          .slice(0, 3)
+          .map((title) => `<li>${escapeHtml(title)}</li>`)
+          .join("")}</ul>
       </div>
-      <ul class="bd-titles">${candidate.exampleTitles.slice(0, 3).map((title) => `<li>${escapeHtml(title)}</li>`).join("")}</ul>
-      <button type="button" class="v-btn bd-build" data-build="${candidate.id}" ${building !== null ? "disabled" : ""}>
-        ${busy ? "Starting…" : `${SPARK_ICON}Build SOP`}
+      <button type="button" class="v-btn v-btn-sm bd-build" data-build="${candidate.id}" ${building !== null ? "disabled" : ""}>
+        ${busy ? `<span class="bd-btn-spinner"></span>Starting` : `Build SOP${ARROW_RIGHT_ICON}`}
       </button>
     </div>`;
 }
@@ -142,32 +145,29 @@ function section(key: string, title: string, body: string): string {
 
 const list = (items: string[] | undefined) => (items?.length ? `<ul class="bd-ul">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "");
 
-function sopView(content: SopContent): string {
+function sopSections(content: SopContent): string {
   const quick = content.quickReferenceCard;
   const retention = content.retentionMechanics;
   const opening = content.openingClosingPatterns;
+  const hooks = content.hookPlaybook ?? [];
   return `
-    <div class="bd-sop-head">
-      <div class="bd-sop-title">${escapeHtml(content.title)}</div>
-      ${content.onelinePromise ? `<p class="bd-sop-promise">${escapeHtml(content.onelinePromise)}</p>` : ""}
-    </div>
     ${section(
       "quick",
       "Quick reference",
-      `${quick?.beatStructureOneLine ? `<p class="bd-p"><b>Structure:</b> ${escapeHtml(quick.beatStructureOneLine)}</p>` : ""}
+      `${quick?.beatStructureOneLine ? `<div class="bd-kv"><span class="bd-k">Structure</span><span class="bd-mono">${escapeHtml(quick.beatStructureOneLine)}</span></div>` : ""}
        <div class="bd-dodont">
-         <div><div class="bd-mini do">Do</div>${list(quick?.dos)}</div>
-         <div><div class="bd-mini dont">Don't</div>${list(quick?.donts)}</div>
+         <div><div class="bd-mini is-do">Do</div>${list(quick?.dos)}</div>
+         <div><div class="bd-mini is-dont">Don't</div>${list(quick?.donts)}</div>
        </div>`
     )}
     ${section(
       "hooks",
-      `Hook playbook (${content.hookPlaybook?.length ?? 0})`,
-      (content.hookPlaybook ?? [])
+      `Hook playbook`,
+      hooks
         .map(
-          (hook) => `<div class="bd-hook"><div class="bd-hook-t">${escapeHtml(hook.template)}</div>
+          (hook, index) => `<div class="bd-hook"><span class="v-index">${pad2(index + 1)}</span><div class="bd-hook-body"><div class="bd-hook-t">${escapeHtml(hook.template)}</div>
             ${hook.psychology ? `<div class="bd-hook-s">${escapeHtml(hook.psychology)}</div>` : ""}
-            ${hook.forYourChannelExamples?.length ? `<div class="bd-hook-e">e.g. “${escapeHtml(hook.forYourChannelExamples[0])}”</div>` : ""}</div>`
+            ${hook.forYourChannelExamples?.length ? `<div class="bd-hook-e">“${escapeHtml(hook.forYourChannelExamples[0])}”</div>` : ""}</div></div>`
         )
         .join("")
     )}
@@ -175,29 +175,32 @@ function sopView(content: SopContent): string {
       "beats",
       "Script structure",
       `<ol class="bd-beats">${(content.scriptStructureBeats ?? [])
-        .map((beat) => `<li><span class="bd-timing">${escapeHtml(beat.timing)}</span><div><b>${escapeHtml(beat.beat)}</b><div class="bd-hook-s">${escapeHtml(beat.function)}</div></div></li>`)
+        .map((beat) => `<li><span class="bd-timing">${escapeHtml(beat.timing)}</span><div><div class="bd-beat">${escapeHtml(beat.beat)}</div><div class="bd-hook-s">${escapeHtml(beat.function)}</div></div></li>`)
         .join("")}</ol>`
     )}
     ${section(
       "story",
       "Storytelling frameworks",
       (content.storytellingFrameworks ?? [])
-        .map((f) => `<div class="bd-hook"><div class="bd-hook-t">${escapeHtml(f.name)}</div><div class="bd-hook-s">${escapeHtml(f.howItWorks)}</div>${f.steps?.length ? `<div class="bd-hook-e">${f.steps.map(escapeHtml).join(" → ")}</div>` : ""}</div>`)
+        .map(
+          (f) =>
+            `<div class="bd-framework"><div class="bd-hook-t">${escapeHtml(f.name)}</div><div class="bd-hook-s">${escapeHtml(f.howItWorks)}</div>${f.steps?.length ? `<div class="bd-mono bd-steps">${f.steps.map(escapeHtml).join(" → ")}</div>` : ""}</div>`
+        )
         .join("")
     )}
     ${section(
       "retention",
-      "Retention & rehooks",
-      `${retention?.rehookCatalog?.length ? `<div class="bd-chips">${retention.rehookCatalog.map((r) => `<span class="v-tag">“${escapeHtml(r.phrase)}”</span>`).join("")}</div>` : ""}
+      "Retention and rehooks",
+      `${retention?.rehookCatalog?.length ? `<div class="v-tags bd-chips">${retention.rehookCatalog.map((r) => `<span class="v-tag">“${escapeHtml(r.phrase)}”</span>`).join("")}</div>` : ""}
        ${list(retention?.patternInterrupts)}
-       ${retention?.openLoopsRule ? `<p class="bd-p"><b>Open loops:</b> ${escapeHtml(retention.openLoopsRule)}</p>` : ""}`
+       ${retention?.openLoopsRule ? `<div class="bd-kv"><span class="bd-k">Open loops</span><span>${escapeHtml(retention.openLoopsRule)}</span></div>` : ""}`
     )}
     ${section(
       "opening",
-      "Openings & endings",
-      `${opening?.first30SecondsTemplate?.length ? `<p class="bd-p"><b>First 30 seconds:</b> ${opening.first30SecondsTemplate.map(escapeHtml).join(" → ")}</p>` : ""}
+      "Openings and endings",
+      `${opening?.first30SecondsTemplate?.length ? `<div class="bd-kv"><span class="bd-k">First 30 seconds</span><span class="bd-mono">${opening.first30SecondsTemplate.map(escapeHtml).join(" → ")}</span></div>` : ""}
        ${list(opening?.hardRules)}
-       ${opening?.howVideosEnd ? `<p class="bd-p"><b>Endings:</b> ${escapeHtml(opening.howVideosEnd)}</p>` : ""}`
+       ${opening?.howVideosEnd ? `<div class="bd-kv"><span class="bd-k">Endings</span><span>${escapeHtml(opening.howVideosEnd)}</span></div>` : ""}`
     )}`;
 }
 
@@ -229,50 +232,71 @@ function render(data: BendData | null) {
   }
 
   if (status === "sop_ready" && data?.sop) {
-    root.innerHTML = shell(
-      `
-      <div class="bd-chosen">Bend: <b>${escapeHtml(data.sop.chosenBend.nicheName)}</b> <span class="v-tag v-tag-ai">${escapeHtml(data.sop.chosenBend.angle)}</span></div>
-      ${sopView(data.sop.content)}
-      <div class="v-btn-row">
-        <button type="button" class="v-btn v-btn-primary" id="bd-script">${SPARK_ICON}Write a script with this SOP</button>
+    const content = data.sop.content;
+    root.innerHTML = shell({
+      aside: statusBadge("ready", "SOP ready"),
+      enter: enterOnce(`${data.jobId}:sop`),
+      body: `
+        <div class="v-section bd-sop-head">
+          <div class="bd-chosen"><span class="bd-k">Bend</span>${escapeHtml(data.sop.chosenBend.nicheName)}<span class="v-tag">${escapeHtml(data.sop.chosenBend.angle)}</span></div>
+          <h1 class="v-title-lg">${escapeHtml(content.title)}</h1>
+          ${content.onelinePromise ? `<p class="bd-promise">${escapeHtml(content.onelinePromise)}</p>` : ""}
+        </div>
+        <div class="bd-sections" id="bd-sections">${sopSections(content)}</div>`,
+      footer: `
+        <button type="button" class="v-btn v-btn-primary" id="bd-script">${PEN_ICON}Write a script with this SOP</button>
         <button type="button" class="v-btn" id="bd-copy">${COPY_ICON}Copy SOP</button>
-        ${data.appUrl ? `<button type="button" class="v-btn" data-open-url="${escapeHtml(data.appUrl)}">${EXTERNAL_ICON}Open in Verlab</button>` : ""}
-      </div>
-      <div class="v-quick-status" id="quick-status" hidden></div>`,
-      '<span class="v-pill v-pill-success">SOP ready</span>'
-    );
+        <span class="v-spacer"></span>
+        ${data.appUrl ? `<button type="button" class="v-btn v-btn-ghost v-trail" data-open-url="${escapeHtml(data.appUrl)}">Open in Verlab${EXTERNAL_ICON}</button>` : ""}
+        <div class="v-quick-status" id="quick-status" hidden></div>`,
+    });
     return;
   }
 
   if (status === "generating_sop") {
-    root.innerHTML = shell(
-      progressBlock({ label: "Writing your SOP", sublabel: "Hook playbook, beat structure and retention rules -- about 1-2 minutes", startedAt: startedAtFor(`${data?.jobId}:sop`) })
-    );
+    root.innerHTML = shell({
+      aside: statusBadge("live", "Writing SOP"),
+      enter: enterOnce(`${data?.jobId}:generating_sop`),
+      body: `<div class="v-section">${progressBlock({
+        label: "Writing your SOP",
+        sublabel: "Hook playbook, beat structure and retention rules, about 1–2 minutes",
+        startedAt: startedAtFor(`${data?.jobId}:sop`),
+      })}</div>`,
+    });
     if (data?.jobId) poll(data.jobId, token, (next) => next.status === "sop_ready" || next.status === "ready");
     return;
   }
 
   if (status === "ready" && data?.candidates?.length) {
     const lastError = inlineError ?? (data.error ? { message: data.error.message } : null);
-    root.innerHTML = shell(
-      `
-      <div class="v-section-label">Pick a niche bend to build its script SOP</div>
-      <div class="bd-candidates">${data.candidates.map(candidateCard).join("")}</div>
-      ${lastError ? `<div class="bd-inline-error">${renderErrorState(lastError)}</div>` : ""}`,
-      '<span class="v-pill">3 bends</span>'
-    );
+    root.innerHTML = shell({
+      aside: statusBadge("ready", `${data.candidates.length} bends`),
+      enter: enterOnce(`${data.jobId}:ready`),
+      body: `
+        <div class="v-section">
+          <div class="v-section-label">Pick a bend to build its script SOP</div>
+          <div class="bd-candidates">${data.candidates.map(candidateRow).join("")}</div>
+          ${lastError ? `<div class="bd-inline-error">${renderErrorState(lastError)}</div>` : ""}
+        </div>`,
+    });
     return;
   }
 
   const index = Math.max(0, WORKING_STAGES.indexOf(status));
-  root.innerHTML = shell(`
-    ${progressBlock({
-      label: data?.statusText ?? "Opening the channel…",
-      sublabel: "Reading real transcripts takes 1-3 minutes",
-      percent: typeof data?.progress === "number" ? data.progress : null,
-      startedAt: startedAtFor(data?.jobId),
-    })}
-    ${stageList(STAGE_LABELS, index)}`);
+  root.innerHTML = shell({
+    aside: statusBadge("live", "Analyzing"),
+    enter: enterOnce(`${data?.jobId}:working`),
+    body: `
+      <div class="v-section">
+        ${progressBlock({
+          label: data?.statusText ?? "Opening the channel…",
+          sublabel: "Reading real transcripts takes 1–3 minutes",
+          percent: typeof data?.progress === "number" ? data.progress : null,
+          startedAt: startedAtFor(data?.jobId),
+        })}
+        ${stageList(STAGE_LABELS, index)}
+      </div>`,
+  });
   if (data?.jobId) poll(data.jobId, token, (next) => next.status === "ready" || next.status === "sop_ready");
 }
 
@@ -328,7 +352,7 @@ root.addEventListener("click", (event) => {
     else openSections.add(key);
     const holder = sectionHead.closest(".bd-section");
     const fresh = document.createElement("div");
-    fresh.innerHTML = sopView(current.sop.content);
+    fresh.innerHTML = sopSections(current.sop.content);
     const replacement = fresh.querySelector(`[data-section="${key}"]`)?.closest(".bd-section");
     if (holder && replacement) holder.replaceWith(replacement);
     return;
@@ -339,6 +363,6 @@ root.addEventListener("click", (event) => {
   }
   const copy = target.closest<HTMLElement>("#bd-copy");
   if (copy && current?.sop) {
-    void copyText(sopMarkdown(current.sop.content, current.sop.chosenBend)).then((ok) => flashButton(copy, ok ? `${COPY_ICON}Copied` : "Copy failed"));
+    void copyText(sopMarkdown(current.sop.content, current.sop.chosenBend)).then((ok) => flashButton(copy, ok ? `${CHECK_ICON}Copied` : "Copy failed"));
   }
 });

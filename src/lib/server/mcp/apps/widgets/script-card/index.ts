@@ -1,4 +1,19 @@
-import { connectApp, escapeHtml, sendChatMessage, LOGO_MARK, COPY_ICON, CHECK_ICON, MIC_ICON, LANGUAGES_ICON, MINIMIZE_ICON } from "../../shared/host";
+import {
+  connectApp,
+  escapeHtml,
+  pad2,
+  panel,
+  renderErrorState,
+  sendChatMessage,
+  statusBadge,
+  errorBadge,
+  COPY_ICON,
+  CHECK_ICON,
+  MIC_ICON,
+  LANGUAGES_ICON,
+  MINIMIZE_ICON,
+  type ToolError,
+} from "../../shared/host";
 import { parseScriptOutput, splitIntoSegments, countWords, estimateDurationLabel } from "../../../../../script-format";
 
 interface ScriptData {
@@ -32,11 +47,13 @@ function buildSegments(script: string): Segment[] {
   ];
 }
 
+// Numbered like a teleprompter: one mono index per line, continuous across blocks.
 function lineRow(segment: Segment, index: number): string {
   return `
-    <div class="v-line">
-      <span class="v-line-text">${escapeHtml(segment.text)}</span>
-      <button type="button" class="v-icon-btn v-copy-line" data-index="${index}" aria-label="Copy line" title="Copy line">${COPY_ICON}</button>
+    <div class="sc-line">
+      <span class="v-index">${pad2(index + 1)}</span>
+      <span class="sc-line-text">${escapeHtml(segment.text)}</span>
+      <button type="button" class="v-icon-btn sc-copy-line" data-index="${index}" aria-label="Copy line" title="Copy line">${COPY_ICON}</button>
     </div>`;
 }
 
@@ -57,9 +74,9 @@ function segmentedBody(): string {
         .map((segment, i) => lineRow(segment, start + i))
         .join("");
       return `
-        <div class="v-seg-block v-seg-${role}">
-          <div class="v-seg-label">${escapeHtml(SEGMENT_LABEL[role])}</div>
-          <div class="v-seg-lines">${rows}</div>
+        <div class="sc-block sc-${role}">
+          <div class="sc-block-label">${escapeHtml(SEGMENT_LABEL[role])}</div>
+          <div class="sc-lines">${rows}</div>
         </div>`;
     })
     .join("");
@@ -71,12 +88,7 @@ function render(data: ScriptData | null) {
   segments = [];
 
   if (!raw) {
-    root.innerHTML = `
-      <div class="v-card">
-        <div class="v-header">${LOGO_MARK}<span class="v-title">Verlab Script</span></div>
-        <div class="v-empty">Generating…</div>
-      </div>
-    `;
+    root.innerHTML = panel({ tool: "Script", aside: statusBadge("live", "Writing"), enter: "", body: `<div class="v-empty">Writing your script…</div>`, flush: true });
     return;
   }
 
@@ -95,40 +107,37 @@ function render(data: ScriptData | null) {
     segments = buildSegments(scriptBody);
     body = segmentedBody();
   } else {
-    body = `<pre class="v-script">${escapeHtml(raw)}</pre>`;
+    body = `<pre class="sc-plain">${escapeHtml(raw)}</pre>`;
   }
 
-  root.innerHTML = `
-    <div class="v-card">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">${escapeHtml(parsed.title ?? "Verlab Script")}</span>
-        <span class="v-spacer"></span>
-        ${typeof data?.cost === "number" ? `<span class="v-pill">${data.cost} credit${data.cost === 1 ? "" : "s"}</span>` : ""}
+  root.innerHTML = panel({
+    tool: "Script",
+    aside: typeof data?.cost === "number" ? `<span class="v-aside v-aside-mono">${data.cost} credit${data.cost === 1 ? "" : "s"}</span>` : "",
+    flush: true,
+    body: `
+      <div class="v-section sc-head">
+        ${parsed.title ? `<h1 class="v-title-lg">${escapeHtml(parsed.title)}</h1>` : ""}
+        <div class="v-meta">
+          <span>${words} words</span><span class="v-meta-dot">·</span><span>${duration} read</span>
+        </div>
+        ${
+          hookType || revealDevice
+            ? `<div class="v-tags sc-tags">
+                ${hookType ? `<span class="v-tag"><span class="sc-tag-key">Hook</span>${escapeHtml(hookType)}</span>` : ""}
+                ${revealDevice ? `<span class="v-tag"><span class="sc-tag-key">Reveal</span>${escapeHtml(revealDevice)}</span>` : ""}
+              </div>`
+            : ""
+        }
       </div>
-      <div class="v-meta">
-        <span>${words} words</span>
-        <span class="v-meta-dot">&middot;</span>
-        <span>${duration} read</span>
-      </div>
-      ${
-        hookType || revealDevice
-          ? `<div class="v-tags">
-              ${hookType ? `<span class="v-tag v-tag-ai">${escapeHtml(hookType)}</span>` : ""}
-              ${revealDevice ? `<span class="v-tag v-tag-ai">${escapeHtml(revealDevice)}</span>` : ""}
-            </div>`
-          : ""
-      }
-      ${body}
-      <div class="v-quick-actions">
-        <button type="button" class="v-quick-pill" id="copy-all">${COPY_ICON}Copy script</button>
-        <button type="button" class="v-quick-pill" id="action-shorten">${MINIMIZE_ICON}Shorten</button>
-        <button type="button" class="v-quick-pill" id="action-translate">${LANGUAGES_ICON}Translate to Arabic</button>
-        <button type="button" class="v-quick-pill" id="action-voiceover">${MIC_ICON}Send to voiceover</button>
-      </div>
-      <div class="v-quick-status" id="quick-status" hidden></div>
-    </div>
-  `;
+      <div class="v-section sc-script">${body}</div>`,
+    footer: `
+      <button type="button" class="v-btn" id="copy-all">${COPY_ICON}Copy script</button>
+      <button type="button" class="v-btn v-btn-ghost" id="action-shorten">${MINIMIZE_ICON}Shorten</button>
+      <button type="button" class="v-btn v-btn-ghost" id="action-translate">${LANGUAGES_ICON}Translate to Arabic</button>
+      <span class="v-spacer"></span>
+      <button type="button" class="v-btn v-btn-primary" id="action-voiceover">${MIC_ICON}Send to voiceover</button>
+      <div class="v-quick-status" id="quick-status" hidden></div>`,
+  });
 }
 
 function showQuickStatus(message: string) {
@@ -141,31 +150,20 @@ function showQuickStatus(message: string) {
   }, 3000);
 }
 
-function renderError(message: string) {
-  root.innerHTML = `
-    <div class="v-card">
-      <div class="v-header">${LOGO_MARK}<span class="v-title">Verlab Script</span></div>
-      <div class="v-error">${escapeHtml(message)}</div>
-    </div>
-  `;
+function renderError(error: ToolError) {
+  root.innerHTML = panel({ tool: "Script", aside: errorBadge(error), body: renderErrorState(error) });
 }
 
 render(null);
 const app = connectApp({
   name: "Verlab Script",
-  onResult: (result) => {
-    if (result.isError) {
-      const message = result.content?.find((block) => block.type === "text")?.text ?? "Script generation failed.";
-      renderError(message);
-      return;
-    }
-    render((result.structuredContent as ScriptData | undefined) ?? null);
-  },
+  onResult: (result) => render((result.structuredContent as ScriptData | undefined) ?? null),
+  onError: renderError,
 });
 
-function flashCopied(button: HTMLButtonElement) {
+function flashCopied(button: HTMLButtonElement, label?: string) {
   const original = button.innerHTML;
-  button.innerHTML = CHECK_ICON;
+  button.innerHTML = label ? `${CHECK_ICON}${label}` : CHECK_ICON;
   button.classList.add("is-done");
   setTimeout(() => {
     button.innerHTML = original;
@@ -176,7 +174,7 @@ function flashCopied(button: HTMLButtonElement) {
 root.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
 
-  const copyLine = target.closest<HTMLButtonElement>(".v-copy-line");
+  const copyLine = target.closest<HTMLButtonElement>(".sc-copy-line");
   if (copyLine) {
     const segment = segments[Number(copyLine.dataset.index)];
     if (segment) void navigator.clipboard.writeText(segment.text).then(() => flashCopied(copyLine));
@@ -185,7 +183,7 @@ root.addEventListener("click", (event) => {
 
   const copyAll = target.closest<HTMLButtonElement>("#copy-all");
   if (copyAll) {
-    void navigator.clipboard.writeText(fullScript).then(() => flashCopied(copyAll));
+    void navigator.clipboard.writeText(fullScript).then(() => flashCopied(copyAll, "Copied"));
     return;
   }
 

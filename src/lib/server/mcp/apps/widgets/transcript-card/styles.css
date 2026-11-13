@@ -1,96 +1,151 @@
-.v-transcript {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 8px;
+.tr-watch {
+  margin-right: -10px;
 }
 
-.v-line {
+.tr-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tr-cover {
+  flex: none;
+  width: 32px;
+  height: 56px;
+  border-radius: 6px;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--border);
+  object-fit: cover;
+}
+
+.tr-head-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Timecoded lines in a mono gutter. Long transcripts scroll inside the
+   panel instead of stretching the chat. */
+.tr-lines {
+  display: grid;
+  gap: 2px;
+  max-height: 440px;
+  padding: 8px 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.tr-line {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding: 4px 6px;
+  gap: 16px;
+  padding: 6px 8px;
   border-radius: var(--radius);
-  font-size: 13px;
-  transition: background var(--v-ease);
+  transition: background-color var(--v-ease);
 }
 
-.v-line:hover {
+.tr-line:hover {
   background: var(--surface-1);
 }
 
-.v-line-ts {
+.tr-ts {
   flex: none;
+  width: 40px;
   font-family: var(--v-mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-accent);
-  background: var(--bg-accent);
-  border-radius: 5px;
-  padding: 2px 6px;
-  font-variant-numeric: tabular-nums;
-}
-
-.v-line-text {
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.v-export {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 0.5px solid var(--border);
-  position: relative;
-}
-
-.v-export-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 0.5px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background var(--v-ease), color var(--v-ease), transform var(--v-ease);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
-.v-export-toggle:hover,
-.v-export-toggle.is-open {
-  background: var(--surface-1);
+.tr-text {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 22px;
   color: var(--text-primary);
 }
 
-.v-export-toggle:active {
-  transform: scale(0.97);
+.tr-export {
+  position: relative;
 }
 
-.v-export-toggle svg {
-  width: 13px;
-  height: 13px;
-}
-
-.v-export-chevron {
+.tr-chevron {
   display: inline-flex;
-  transition: transform var(--v-ease);
+  margin-left: -2px;
+  transition: transform 180ms var(--ease);
 }
 
-.v-export-toggle.is-open .v-export-chevron {
+.tr-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+#export-toggle.is-open {
+  background: var(--surface-1);
+}
+
+#export-toggle.is-open .tr-chevron {
   transform: rotate(180deg);
 }
 
-.v-export-panel {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
+/* Opens upward from the tray, over the transcript. */
+.tr-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  min-width: 200px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 8px 24px rgba(24, 24, 27, 0.12);
+  animation: tr-menu-in 160ms var(--ease);
 }
 
-.v-export-status {
-  margin-top: 8px;
+.tr-menu[hidden] {
+  display: none;
+}
+
+@keyframes tr-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.tr-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tr-menu-item:hover,
+.tr-menu-item:focus-visible {
+  background: var(--surface-1);
+  outline: none;
+}
+
+.tr-ext {
+  font-family: var(--v-mono);
   font-size: 12px;
-  line-height: 1.5;
+  font-weight: 400;
   color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-menu {
+    animation: none;
+  }
 }

@@ -1,22 +1,25 @@
 .ig-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 12px;
   justify-items: center;
+  width: 100%;
 }
 
 .ig-list.is-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 560px;
 }
 
 .ig-tile {
   position: relative;
-  margin: 0;
   width: 100%;
   max-height: 420px;
-  border-radius: 10px;
+  margin: 0;
   overflow: hidden;
-  background: var(--surface-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .ig-list:not(.is-grid) .ig-tile {
@@ -32,15 +35,18 @@
   object-fit: cover;
 }
 
+/* Actions ride along the tile's foot on hover (always shown on touch). */
 .ig-actions {
   position: absolute;
   inset: auto 8px 8px 8px;
   display: flex;
+  align-items: center;
   gap: 6px;
-  justify-content: flex-end;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    opacity 180ms var(--ease),
+    transform 180ms var(--ease);
 }
 
 .ig-tile:hover .ig-actions,
@@ -56,68 +62,64 @@
   }
 }
 
+.ig-actions-gap {
+  flex: 1;
+}
+
 .ig-act {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0 8px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
   border: none;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(6px);
-}
-
-.ig-act svg {
-  width: 14px;
-  height: 14px;
+  transition: background-color var(--v-ease);
 }
 
 .ig-act:hover {
   background: #fff;
 }
 
-.ig-act-wide {
-  background: var(--border-accent);
-  color: var(--text-on-accent);
+.ig-act svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
-.ig-act-wide:hover {
-  background: var(--text-accent);
+.ig-act-icon {
+  width: 28px;
+  padding: 0;
 }
 
 .ig-prompt {
-  margin: 10px 0 0;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-muted);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  margin: 0 0 8px;
   overflow: hidden;
-}
-
-.ig-skeletons {
-  margin-top: 12px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--text-primary);
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .ig-skeleton {
-  max-height: 260px;
-  background: linear-gradient(100deg, var(--surface-1) 30%, #ebedf3 50%, var(--surface-1) 70%);
+  max-height: 300px;
+  background: linear-gradient(100deg, var(--surface-3) 30%, #f1f1f3 50%, var(--surface-3) 70%);
   background-size: 300% 100%;
-  animation: ig-shimmer 1.4s ease-in-out infinite;
+  animation: ig-shimmer 1.6s ease-in-out infinite;
 }
 
 .ig-list:not(.is-grid) .ig-skeleton {
-  height: 240px;
   width: auto;
+  height: 300px;
 }
 
 @keyframes ig-shimmer {

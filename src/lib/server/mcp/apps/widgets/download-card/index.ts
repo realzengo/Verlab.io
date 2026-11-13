@@ -4,9 +4,13 @@ import {
   escapeHtml,
   flashButton,
   openLink,
-  LOGO_MARK,
-  DOWNLOAD_ICON,
+  panel,
+  statusBadge,
+  errorBadge,
   COPY_ICON,
+  CHECK_ICON,
+  DOWNLOAD_ICON,
+  FILE_VIDEO_ICON,
   pollTool,
   progressBlock,
   renderErrorState,
@@ -29,56 +33,54 @@ const root = document.getElementById("root")!;
 let current: DownloadData | null = null;
 let renderToken = 0;
 
-function shell(body: string, pill = "") {
+function fileRow(meta: string): string {
   return `
-    <div class="v-card ${enterOnce(`${current?.id}:${current?.status}`)}">
-      <div class="v-header">
-        ${LOGO_MARK}
-        <span class="v-title">${escapeHtml(current?.title ?? "Verlab Download")}</span>
-        <span class="v-spacer"></span>
-        ${pill}
+    <div class="dl-file">
+      <span class="dl-icon">${FILE_VIDEO_ICON}</span>
+      <div class="dl-text">
+        <div class="dl-title">${escapeHtml(current?.title ?? "Your video")}</div>
+        <div class="v-meta">${meta}</div>
       </div>
-      ${body}
     </div>`;
 }
 
 function renderError(error: ToolError) {
   renderToken++;
-  root.innerHTML = shell(renderErrorState(error));
+  root.innerHTML = panel({ tool: "Download", aside: errorBadge(error), body: renderErrorState(error) });
 }
 
 function render(data: DownloadData | null) {
   const token = ++renderToken;
   current = data;
+  const format = escapeHtml(data?.format ?? "MP4");
 
   if (data?.status === "complete" && data.url) {
-    root.innerHTML = shell(
-      `
-      <div class="dl-ready">
-        <span class="dl-check">${DOWNLOAD_ICON}</span>
-        <div>
-          <div class="dl-ready-title">Ready to save</div>
-          <div class="v-meta">${escapeHtml(data.format ?? "MP4")} · no watermark</div>
-        </div>
-      </div>
-      <div class="v-btn-row">
+    root.innerHTML = panel({
+      tool: "Download",
+      aside: statusBadge("ready", "Ready"),
+      enter: enterOnce(`${data.id}:complete`),
+      body: fileRow(`${format} <span class="v-meta-dot">·</span> No watermark`),
+      footer: `
         <button type="button" class="v-btn v-btn-primary" id="dl-open">${DOWNLOAD_ICON}Download file</button>
-        <button type="button" class="v-btn" id="dl-copy">${COPY_ICON}Copy link</button>
-      </div>`,
-      '<span class="v-pill v-pill-success">Ready</span>'
-    );
+        <button type="button" class="v-btn" id="dl-copy">${COPY_ICON}Copy link</button>`,
+    });
     return;
   }
 
   const percent = typeof data?.progress === "number" && data.progress > 0 ? data.progress : null;
-  root.innerHTML = shell(
-    progressBlock({
-      label: percent ? `Downloading · ${percent}%` : "Preparing download",
-      sublabel: data?.format ? `${data.format} · fetching the original file` : "Fetching the original file",
-      percent,
-      startedAt: startedAtFor(data?.id),
-    })
-  );
+  root.innerHTML = panel({
+    tool: "Download",
+    aside: statusBadge("live", percent ? `${percent}%` : "Preparing"),
+    enter: enterOnce(`${data?.id}:working`),
+    body: `
+      ${data?.title ? `${fileRow(`${format} <span class="v-meta-dot">·</span> Fetching the original file`)}<div class="dl-gap"></div>` : ""}
+      ${progressBlock({
+        label: percent ? "Downloading" : "Preparing download",
+        sublabel: data?.title ? undefined : "Fetching the original file",
+        percent,
+        startedAt: startedAtFor(data?.id),
+      })}`,
+  });
 
   if (data?.id && data.status === "processing") {
     void pollTool<DownloadData>(app, {
@@ -108,5 +110,5 @@ root.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   if (target.closest("#dl-open")) openLink(app, current?.url);
   const copy = target.closest<HTMLElement>("#dl-copy");
-  if (copy && current?.url) void copyText(current.url).then((ok) => flashButton(copy, ok ? "Copied" : "Copy failed"));
+  if (copy && current?.url) void copyText(current.url).then((ok) => flashButton(copy, ok ? `${CHECK_ICON}Copied` : "Copy failed"));
 });

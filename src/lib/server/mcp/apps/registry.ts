@@ -46,20 +46,20 @@ const CLIPBOARD = { clipboardWrite: {} } as const;
 // content change under the same URI can keep showing a stale cached copy.
 // Bump a widget's suffix whenever its HTML changes meaningfully.
 const WIDGETS = {
-  statCard: { resourceUri: "ui://verlab/stat-card-v7.html", html: statCardHtml, outputSchema: StatCardSchema },
-  listCard: { resourceUri: "ui://verlab/list-card-v7.html", html: listCardHtml, outputSchema: ListCardSchema, permissions: CLIPBOARD },
-  videoGridCard: { resourceUri: "ui://verlab/video-grid-card-v7.html", html: videoGridCardHtml, outputSchema: VideoGridCardSchema, permissions: CLIPBOARD },
-  scriptCard: { resourceUri: "ui://verlab/script-card-v8.html", html: scriptCardHtml, outputSchema: ScriptCardSchema, permissions: CLIPBOARD },
-  imageGalleryCard: { resourceUri: "ui://verlab/image-gallery-card-v9.html", html: imageGalleryCardHtml, outputSchema: ImageGalleryCardSchema, permissions: CLIPBOARD },
-  transcriptCard: { resourceUri: "ui://verlab/transcript-card-v8.html", html: transcriptCardHtml, outputSchema: TranscriptCardSchema, permissions: CLIPBOARD },
-  downloadCard: { resourceUri: "ui://verlab/download-card-v7.html", html: downloadCardHtml, outputSchema: DownloadCardSchema, permissions: CLIPBOARD },
-  creatorProfileCard: { resourceUri: "ui://verlab/creator-profile-card-v9.html", html: creatorProfileCardHtml, outputSchema: CreatorProfileCardSchema, permissions: CLIPBOARD },
-  nicheFinderCard: { resourceUri: "ui://verlab/niche-finder-card-v8.html", html: nicheFinderCardHtml, outputSchema: FindNicheCardSchema },
-  voiceoverCard: { resourceUri: "ui://verlab/voiceover-card-v3.html", html: voiceoverCardHtml, outputSchema: VoiceoverCardSchema, permissions: CLIPBOARD },
-  voicesCard: { resourceUri: "ui://verlab/voices-card-v1.html", html: voicesCardHtml, outputSchema: VoicesCardSchema, permissions: CLIPBOARD },
-  videoCard: { resourceUri: "ui://verlab/video-card-v1.html", html: videoCardHtml, outputSchema: VideoCardSchema, permissions: CLIPBOARD },
-  clipsCard: { resourceUri: "ui://verlab/clips-card-v1.html", html: clipsCardHtml, outputSchema: ClipsCardSchema, permissions: CLIPBOARD },
-  bendCard: { resourceUri: "ui://verlab/bend-card-v1.html", html: bendCardHtml, outputSchema: BendCardSchema, permissions: CLIPBOARD },
+  statCard: { resourceUri: "ui://verlab/stat-card-v8.html", html: statCardHtml, outputSchema: StatCardSchema },
+  listCard: { resourceUri: "ui://verlab/list-card-v8.html", html: listCardHtml, outputSchema: ListCardSchema, permissions: CLIPBOARD },
+  videoGridCard: { resourceUri: "ui://verlab/video-grid-card-v8.html", html: videoGridCardHtml, outputSchema: VideoGridCardSchema, permissions: CLIPBOARD },
+  scriptCard: { resourceUri: "ui://verlab/script-card-v9.html", html: scriptCardHtml, outputSchema: ScriptCardSchema, permissions: CLIPBOARD },
+  imageGalleryCard: { resourceUri: "ui://verlab/image-gallery-card-v10.html", html: imageGalleryCardHtml, outputSchema: ImageGalleryCardSchema, permissions: CLIPBOARD },
+  transcriptCard: { resourceUri: "ui://verlab/transcript-card-v9.html", html: transcriptCardHtml, outputSchema: TranscriptCardSchema, permissions: CLIPBOARD },
+  downloadCard: { resourceUri: "ui://verlab/download-card-v8.html", html: downloadCardHtml, outputSchema: DownloadCardSchema, permissions: CLIPBOARD },
+  creatorProfileCard: { resourceUri: "ui://verlab/creator-profile-card-v10.html", html: creatorProfileCardHtml, outputSchema: CreatorProfileCardSchema, permissions: CLIPBOARD },
+  nicheFinderCard: { resourceUri: "ui://verlab/niche-finder-card-v9.html", html: nicheFinderCardHtml, outputSchema: FindNicheCardSchema },
+  voiceoverCard: { resourceUri: "ui://verlab/voiceover-card-v4.html", html: voiceoverCardHtml, outputSchema: VoiceoverCardSchema, permissions: CLIPBOARD },
+  voicesCard: { resourceUri: "ui://verlab/voices-card-v2.html", html: voicesCardHtml, outputSchema: VoicesCardSchema, permissions: CLIPBOARD },
+  videoCard: { resourceUri: "ui://verlab/video-card-v2.html", html: videoCardHtml, outputSchema: VideoCardSchema, permissions: CLIPBOARD },
+  clipsCard: { resourceUri: "ui://verlab/clips-card-v2.html", html: clipsCardHtml, outputSchema: ClipsCardSchema, permissions: CLIPBOARD },
+  bendCard: { resourceUri: "ui://verlab/bend-card-v2.html", html: bendCardHtml, outputSchema: BendCardSchema, permissions: CLIPBOARD },
 } as const satisfies Record<string, WidgetDefinition>;
 
 // Maps every MCP tool to its widget. An async tool and its check_*_status

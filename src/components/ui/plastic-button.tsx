@@ -11,6 +11,9 @@ interface PlasticButtonProps {
   onClick?(): void;
   className?: string;
   type?: "button" | "submit";
+  /** Submitted with the form, for forms with more than one submit button. */
+  name?: string;
+  value?: string;
 }
 
 // Same chunky, extruded CTA recipe as the landing page's "Try Verlab Now"
@@ -18,11 +21,13 @@ interface PlasticButtonProps {
 // shadow reads as a pressed 3D lip, and active: drops the button onto it.
 // Hover is the nav CTA's light sweep + face wash (`.cta-shine`, globals.css).
 export const PlasticButton = forwardRef<HTMLButtonElement, PlasticButtonProps>(
-  ({ text, loading = false, loadingText = "Generating…", disabled = false, trailing, onClick, className, type = "button" }, ref) => {
+  ({ text, loading = false, loadingText = "Generating…", disabled = false, trailing, onClick, className, type = "button", name, value }, ref) => {
     return (
       <button
         ref={ref}
         type={type}
+        name={name}
+        value={value}
         onClick={onClick}
         disabled={disabled || loading}
         className={cn(
