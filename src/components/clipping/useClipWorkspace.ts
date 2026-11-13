@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mutate } from "swr";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
+  ClipAudioError,
   ClipRenderError,
   exportClip,
   fetchClipSources,
@@ -514,6 +515,18 @@ export function useClipWorkspace(project: ClipProject) {
 
   const retrySource = useCallback((clip: ClipMoment) => void requestSource(clip), [requestSource]);
 
+  /** Drops the clip's cut and cuts it again from the source itself, skipping any stored cut. */
+  const recutSource = useCallback(
+    (clip: ClipMoment): Promise<ClipSource> => {
+      const job = deferred<ClipSource>();
+      sourceJobs.current.set(clip.id, job);
+      const { from, to } = clipSourceRange(clip, project.durationSeconds);
+      cutSources([{ clip, from, to }]);
+      return job.promise;
+    },
+    [project.durationSeconds, cutSources]
+  );
+
   /**
    * Queues each clip's render (one encoder at a time, across projects), then
    * saves it to the library. Keeps running if the page is left.
@@ -548,16 +561,30 @@ export function useClipWorkspace(project: ClipProject) {
                 ? await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null)
                 : null;
               update({ status: "rendering", progress: 0, preparing: false });
-              const result = await exportClip({
-                source,
-                settings: clipSettings,
-                words: project.transcript ?? [],
-                clip,
-                track,
-                background: clipSettings.bottomVideo ? (backgroundRef.current?.file ?? null) : null,
-                signal,
-                onProgress: (progress) => update({ progress }),
-              });
+              const render = (from: ClipSource) =>
+                exportClip({
+                  source: from,
+                  settings: clipSettings,
+                  words: project.transcript ?? [],
+                  clip,
+                  track,
+                  background: clipSettings.bottomVideo ? (backgroundRef.current?.file ?? null) : null,
+                  signal,
+                  onProgress: (progress) => update({ progress }),
+                });
+              let result: Awaited<ReturnType<typeof exportClip>>;
+              try {
+                result = await render(source);
+              } catch (error) {
+                if (!(error instanceof ClipAudioError) || signal.aborted) throw error;
+                // The cut came without sound (a bad stored cut, or a provider
+                // stream missing its audio): cut it fresh and render again.
+                console.warn("[clips] render came out without sound; cutting the source again");
+                update({ preparing: true, progress: 0 });
+                const fresh = await recutSource(clip);
+                update({ preparing: false });
+                result = await render(fresh);
+              }
               // The queue owns this URL (the Download step and Your clips both use it).
               const url = URL.createObjectURL(result.blob);
               const tooLarge = result.blob.size > CLIP_EXPORT_MAX_BYTES;
@@ -594,7 +621,7 @@ export function useClipWorkspace(project: ClipProject) {
         }
       }
     },
-    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, defaultsFor]
+    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, recutSource, defaultsFor]
   );
 
   return {

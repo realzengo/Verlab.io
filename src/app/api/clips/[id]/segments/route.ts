@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { humanizeVideoProviderError } from "@/lib/server/video-provider";
-import { Fmp4CutError, cutFragmentedMp4Ranges } from "@/lib/server/clips/fmp4-cut";
+import { Fmp4CutError } from "@/lib/server/clips/fmp4-cut";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
-import { openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
+import { cutClipSource, openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
 import { CLIP_MAX_SECONDS } from "@/lib/clips";
 import { SEGMENT_ALL, SEGMENT_FRAME, SEGMENT_MAX_RANGES, encodeSegmentFrame, float64 } from "@/lib/clip-segments";
 
@@ -89,7 +89,8 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
 
   void (async () => {
     try {
-      await cutFragmentedMp4Ranges(
+      await cutClipSource(
+        row,
         source,
         ranges.map(paddedCutRange),
         async (event) => {
@@ -103,7 +104,8 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
           } else {
             await writer.write(encodeSegmentFrame(SEGMENT_FRAME.progress, 0, float64(event.time)));
           }
-        }
+        },
+        upstream.signal
       );
     } catch (error) {
       console.error("[clips/segments] cut failed:", error);

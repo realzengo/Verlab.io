@@ -149,6 +149,17 @@ export class ClipRenderError extends Error {
   }
 }
 
+/**
+ * The clip has speech but its cut came through without (enough) sound. The
+ * workspace answers this with a fresh cut of the source and one more try.
+ */
+export class ClipAudioError extends ClipRenderError {
+  constructor() {
+    super("This clip's sound didn't come through. Try again.");
+    this.name = "ClipAudioError";
+  }
+}
+
 export const OUTPUT_SIZES: Record<ClipAspect, { width: number; height: number }> = {
   "9:16": { width: 1080, height: 1920 },
   "1:1": { width: 1080, height: 1080 },
@@ -1823,14 +1834,16 @@ export async function exportClip({
 
   const input = new mb.Input({ source: new mb.BlobSource(source.blob), formats: mb.ALL_FORMATS });
   const loop = background ? await openLoopingFrames(background) : null;
-  try {
+  // Someone talks in this clip, so its source has sound: a render without it is broken, never "a silent clip".
+  const speaks = words.some(([from, to]) => to > settings.start && from < settings.end);
+
+  const renderPass = async (copyAudio: boolean): Promise<ExportResult> => {
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack || !(await videoTrack.canDecode())) {
       throw new ClipRenderError("This clip can't be decoded in your browser.");
     }
     const audioTrack = await input.getPrimaryAudioTrack().catch(() => null);
-    const withAudio = Boolean(audioTrack && (await audioTrack.canDecode()));
-    const audioCodec = (await mb.canEncodeAudio("aac")) ? "aac" : "opus";
+    const audioPlan = await planAudio(mb, audioTrack, copyAudio);
 
     const output = new mb.Output({
       format: new mb.Mp4OutputFormat({ fastStart: "in-memory" }),
@@ -1838,7 +1851,12 @@ export async function exportClip({
     });
     const videoOut = new mb.VideoSampleSource({ codec: "avc", bitrate, keyFrameInterval: 2 });
     output.addVideoTrack(videoOut, { frameRate: OUTPUT_FPS });
-    const audioOut = withAudio ? new mb.AudioSampleSource({ codec: audioCodec, bitrate: 160e3 }) : null;
+    const audioOut =
+      audioPlan?.kind === "encode"
+        ? new mb.AudioSampleSource({ codec: audioPlan.codec, bitrate: AUDIO_BITRATE })
+        : audioPlan?.kind === "copy"
+          ? new mb.EncodedAudioPacketSource(audioPlan.codec)
+          : null;
     if (audioOut) output.addAudioTrack(audioOut);
     await output.start();
 
@@ -1889,10 +1907,11 @@ export async function exportClip({
       return frameIndex;
     };
 
-    const pumpAudio = async () => {
-      if (!audioOut || !audioTrack) return;
-      const sink = new mb.AudioSampleSink(audioTrack);
+    /** Decodes, trims and re-encodes the audio; returns the seconds written. */
+    const encodeAudio = async (track: InputAudioTrackType, out: InstanceType<typeof mb.AudioSampleSource>) => {
+      const sink = new mb.AudioSampleSink(track);
       let base = 0;
+      let written = 0;
       const fade = 0.008;
       for (const [a, b] of ranges) {
         for await (const sample of sink.samples(a, b)) {
@@ -1924,34 +1943,107 @@ export async function exportClip({
                 if (gain < 1) for (let c = 0; c < channels; c++) data[c * count + i] *= gain;
               }
             }
-            const out = new mb.AudioSample({
+            const chunk = new mb.AudioSample({
               data,
               format: "f32-planar",
               numberOfChannels: channels,
               sampleRate: rate,
               timestamp: base + intoRange,
             });
-            await audioOut.add(out);
-            out.close();
+            try {
+              await out.add(chunk);
+            } catch (error) {
+              throw new AudioEncodeError(error);
+            } finally {
+              chunk.close();
+            }
+            written += count / rate;
           } finally {
             sample.close();
           }
         }
         base += b - a;
       }
-      audioOut.close();
+      out.close();
+      return written;
     };
 
-    let frames = 0;
-    await Promise.all([pumpVideo().then((count) => (frames = count)), pumpAudio()]);
+    /**
+     * Copies the source's own encoded audio, packet by packet (~21ms each),
+     * for browsers that can't decode or encode it. Jump cuts land on packet
+     * edges; each range takes as many packets as keep the running total on
+     * the video's timeline. Returns the seconds written.
+     */
+    const copyAudioPackets = async (
+      track: InputAudioTrackType,
+      out: InstanceType<typeof mb.EncodedAudioPacketSource>,
+      decoderConfig: AudioDecoderConfig
+    ) => {
+      const sink = new mb.EncodedPacketSink(track);
+      let base = 0;
+      let written = 0;
+      let first = true;
+      for (const [a, b] of ranges) {
+        base += b - a;
+        const start = (await sink.getPacket(a)) ?? (await sink.getFirstPacket());
+        if (!start) continue;
+        for await (const packet of sink.packets(start)) {
+          checkAbort();
+          if (packet.timestamp >= b || written + packet.duration / 2 > base) break;
+          if (packet.timestamp + packet.duration / 2 < a) continue;
+          await out.add(packet.clone({ timestamp: written }), first ? { decoderConfig } : undefined);
+          first = false;
+          written += packet.duration;
+        }
+      }
+      out.close();
+      return written;
+    };
+
+    const pumpAudio = async () => {
+      if (!audioTrack || !audioOut || !audioPlan) return 0;
+      if (audioPlan.kind === "copy") {
+        return copyAudioPackets(
+          audioTrack,
+          audioOut as InstanceType<typeof mb.EncodedAudioPacketSource>,
+          audioPlan.decoderConfig
+        );
+      }
+      return encodeAudio(audioTrack, audioOut as InstanceType<typeof mb.AudioSampleSource>);
+    };
+
+    const [frames, audioSeconds] = await Promise.all([pumpVideo(), pumpAudio()]);
     // A cut that doesn't cover the clip "renders" into an empty file; say so instead.
     if (frames < total * OUTPUT_FPS * 0.5) throw new ClipRenderError("This clip came out empty. Try again.");
+    // Never hand back a silent (or half-silent) clip of someone talking.
+    if (speaks && audioSeconds < total * MIN_AUDIO_COVERAGE) {
+      console.error("[clip-render] audio missing", {
+        hasTrack: Boolean(audioTrack),
+        codec: audioTrack?.codec ?? null,
+        plan: audioPlan?.kind ?? null,
+        audioSeconds,
+        total,
+      });
+      throw new ClipAudioError();
+    }
     await output.finalize();
     onProgress?.(1);
 
     const buffer = (output.target as InstanceType<typeof mb.BufferTarget>).buffer;
     if (!buffer || buffer.byteLength < 1024) throw new ClipRenderError("Rendering produced no video. Try again.");
     return { blob: new Blob([buffer], { type: "video/mp4" }), duration: total };
+  };
+
+  try {
+    try {
+      return await renderPass(false);
+    } catch (error) {
+      // The audio encoder broke partway: render again, copying the source's audio as it is.
+      if (signal?.aborted || !(error instanceof AudioEncodeError)) throw error;
+      console.warn("[clip-render] audio encoding failed; copying the source audio instead:", error.cause);
+      onProgress?.(0);
+      return await renderPass(true);
+    }
   } catch (error) {
     if (error instanceof ClipRenderError || signal?.aborted) throw error;
     console.error("[clip-render]", error);
@@ -1959,5 +2051,65 @@ export async function exportClip({
   } finally {
     loop?.dispose();
     input.dispose();
+  }
+}
+
+const AUDIO_BITRATE = 160e3;
+// Jump cuts and AAC packet edges shave a little; a real loss is far more.
+const MIN_AUDIO_COVERAGE = 0.8;
+
+type Mediabunny = typeof import("mediabunny");
+type InputAudioTrackType = import("mediabunny").InputAudioTrack;
+type AudioCodecName = import("mediabunny").AudioCodec;
+
+type AudioPlan =
+  | { kind: "encode"; codec: "aac" | "opus" }
+  | { kind: "copy"; codec: AudioCodecName; decoderConfig: AudioDecoderConfig }
+  | null;
+
+/**
+ * How the clip's audio gets into the export. Re-encoding to AAC is the
+ * norm (clean fades on jump cuts). Where the browser can't decode the
+ * source or encode AAC (Safari before 26 has no AudioDecoder/AudioEncoder,
+ * Firefox has no AAC encoder) the source's own packets are copied instead:
+ * that needs no codec at all. Opus is the last resort only, since QuickTime
+ * and iPhone Photos play Opus-in-MP4 without sound.
+ */
+async function planAudio(
+  mb: Mediabunny,
+  track: InputAudioTrackType | null,
+  copyOnly: boolean
+): Promise<AudioPlan> {
+  if (!track) return null;
+  const canDecode = await track.canDecode().catch(() => false);
+  if (
+    !copyOnly &&
+    canDecode &&
+    (await mb
+      .canEncodeAudio("aac", {
+        numberOfChannels: track.numberOfChannels,
+        sampleRate: track.sampleRate,
+        bitrate: AUDIO_BITRATE,
+      })
+      .catch(() => false))
+  ) {
+    return { kind: "encode", codec: "aac" };
+  }
+  const codec = track.codec;
+  const decoderConfig = await track.getDecoderConfig().catch(() => null);
+  if (codec && decoderConfig && new mb.Mp4OutputFormat().getSupportedAudioCodecs().includes(codec)) {
+    return { kind: "copy", codec, decoderConfig };
+  }
+  if (!copyOnly && canDecode && (await mb.canEncodeAudio("opus").catch(() => false))) {
+    return { kind: "encode", codec: "opus" };
+  }
+  return null;
+}
+
+/** The audio encoder failed (not the video, not the read): worth a pass that copies the audio instead. */
+class AudioEncodeError extends Error {
+  constructor(cause: unknown) {
+    super("Audio encoding failed", { cause });
+    this.name = "AudioEncodeError";
   }
 }

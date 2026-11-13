@@ -1,7 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cutFragmentedMp4Ranges } from "@/lib/server/clips/fmp4-cut";
-import { openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
+import { cutClipSource, openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
 import { clipSourceRange, type ClipMoment } from "@/lib/clips";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
 
@@ -118,7 +117,8 @@ export async function precutClipSources(
   let lastProgress = Date.now();
   try {
     const source = await openClipSource(row, upstream.signal);
-    await cutFragmentedMp4Ranges(
+    await cutClipSource(
+      row,
       source,
       ranges.map((range) => paddedCutRange({ start: range.from, end: range.to })),
       (event) => {
@@ -133,7 +133,8 @@ export async function precutClipSources(
           for (const clip of clips) if (clip.cut?.state === "cutting") clip.cut.reached = event.time;
           void save();
         }
-      }
+      },
+      upstream.signal
     );
   } catch (error) {
     console.error("[clips/precut] read failed:", upstream.signal.aborted ? "out of time" : error);

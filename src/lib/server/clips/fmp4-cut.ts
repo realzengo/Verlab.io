@@ -13,7 +13,11 @@
 // reaching any point means reading everything before it.
 
 export class Fmp4CutError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /** "no_audio": the source has no audio track, so every cut would be silent. */
+    readonly code?: "no_audio"
+  ) {
     super(message);
     this.name = "Fmp4CutError";
   }
@@ -371,7 +375,12 @@ class RangeCutter {
       // start a few ms earlier than the keyframe it travels with.
       if ((fragment.videoStart ?? fragment.start) <= this.range.start) {
         if (fragment.isVideo && fragment.startsWithSync) {
-          this.pending = this.pending.filter((f) => !f.isVideo && f.start >= fragment.start - AUDIO_LEAD_SECONDS);
+          const audio = this.pending.filter((f) => !f.isVideo);
+          const lead = audio.filter((f) => f.start >= fragment.start - AUDIO_LEAD_SECONDS);
+          // A long audio fragment that began before the lead can still be
+          // playing at the keyframe; dropping it leaves the clip's start silent.
+          const before = audio.filter((f) => f.start < fragment.start - AUDIO_LEAD_SECONDS).at(-1);
+          this.pending = before ? [before, ...lead] : lead;
         }
         this.pending.push(fragment);
         return out;
@@ -426,7 +435,14 @@ export async function cutFragmentedMp4Ranges(
   stream: ReadableStream<Uint8Array>,
   ranges: CutRange[],
   onEvent: (event: CutEvent) => void | Promise<void>,
-  { maxBytes = 400 * 1024 * 1024 }: { maxBytes?: number } = {}
+  {
+    maxBytes = 400 * 1024 * 1024,
+    requireAudio = false,
+  }: {
+    maxBytes?: number;
+    /** Throw Fmp4CutError("no_audio") before cutting anything if the source has no audio track. */
+    requireAudio?: boolean;
+  } = {}
 ): Promise<void> {
   let ftyp: Uint8Array | null = null;
   let tracks: Map<number, TrackInfo> | null = null;
@@ -464,6 +480,9 @@ export async function cutFragmentedMp4Ranges(
       ftyp = box;
     } else if (type === "moov") {
       tracks = parseMoov(box);
+      if (requireAudio && ![...tracks.values()].some((track) => track.kind === "audio")) {
+        throw new Fmp4CutError("Source has no audio track", "no_audio");
+      }
       const head = ftyp ? [ftyp, box] : [box];
       cutters = ranges.map((range) => new RangeCutter(range, tracks!, head, maxBytes));
     } else if (type === "moof") {

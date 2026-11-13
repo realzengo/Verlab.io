@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchDownloadLink } from "@/lib/server/video-provider";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
-import type { CutRange } from "@/lib/server/clips/fmp4-cut";
+import { Fmp4CutError, cutFragmentedMp4Ranges, type CutEvent, type CutRange } from "@/lib/server/clips/fmp4-cut";
 
 // Opening the source video for cutting, shared by the editor's on-demand
 // cuts (POST /api/clips/[id]/segments) and the server's pre-cut (precut.ts).
@@ -41,6 +41,43 @@ export const paddedCutRange = (range: CutRange): CutRange => ({
   end: range.end + TAIL_SECONDS,
 });
 
+/** A fresh provider link's stream, skipping the saved one. */
+async function openFreshClipSource(
+  row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds">,
+  signal: AbortSignal
+): Promise<ReadableStream<Uint8Array>> {
+  const fresh = await refreshClipMediaUrl(row);
+  const response = await fetch(fresh, { headers: UPSTREAM_HEADERS, signal });
+  if (!response.ok || !response.body) {
+    throw new Error(`Source stream returned ${response.status}`);
+  }
+  return response.body;
+}
+
+/**
+ * Cuts `ranges` out of an opened source (see openClipSource). Now and then
+ * the provider serves a stream with no audio track (its merge of YouTube's
+ * separate audio and video failed), which would cut into silent clips; that
+ * stream is dropped before anything is cut and a fresh link is read instead.
+ * Should that one come silent too, the cut goes ahead and the editor, which
+ * knows whether the clip has speech, refuses the silent render.
+ */
+export async function cutClipSource(
+  row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds">,
+  source: ReadableStream<Uint8Array>,
+  ranges: CutRange[],
+  onEvent: (event: CutEvent) => void | Promise<void>,
+  signal: AbortSignal
+): Promise<void> {
+  try {
+    await cutFragmentedMp4Ranges(source, ranges, onEvent, { requireAudio: true });
+  } catch (error) {
+    if (!(error instanceof Fmp4CutError && error.code === "no_audio") || signal.aborted) throw error;
+    console.warn(`[clips] source of ${row.id} came without audio; reading a fresh link`);
+    await cutFragmentedMp4Ranges(await openFreshClipSource(row, signal), ranges, onEvent);
+  }
+}
+
 /** The source video's stream, minting a fresh provider link if the saved one has expired. */
 export async function openClipSource(
   row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds" | "media_url">,
@@ -52,10 +89,5 @@ export async function openClipSource(
     await response?.body?.cancel().catch(() => {});
   }
   // Provider links are short-lived; mint a new one and try once more.
-  const fresh = await refreshClipMediaUrl(row);
-  const response = await fetch(fresh, { headers: UPSTREAM_HEADERS, signal });
-  if (!response.ok || !response.body) {
-    throw new Error(`Source stream returned ${response.status}`);
-  }
-  return response.body;
+  return openFreshClipSource(row, signal);
 }
