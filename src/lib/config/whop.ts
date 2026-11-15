@@ -45,6 +45,13 @@ interface SubscriptionProductConfig {
   whopYearlyPlanId: string | null;
   /** plan_definitions.credits_per_period for this plan (the monthly figure; yearly grants 12x). */
   monthlyCreditsPerPeriod: number;
+  /**
+   * Retired Whop plans for this tier. New checkouts never use them, but
+   * members who bought them still renew/cancel on them, so the webhook's
+   * reverse lookup must keep recognising them. Whop refuses to reprice a plan
+   * that has ever sold, so a price change always means a new plan id here.
+   */
+  legacyPlanIds?: { monthly: string[]; yearly: string[] };
 }
 
 // Each billing interval is its own Whop plan, attached to its own hidden
@@ -52,9 +59,18 @@ interface SubscriptionProductConfig {
 export function getSubscriptionProducts(): Record<SubscriptionPlanId, SubscriptionProductConfig> {
   return {
     core: {
-      whopMonthlyPlanId: requiredEnv("WHOP_PLAN_CORE_MONTHLY"),
-      whopYearlyPlanId: requiredEnv("WHOP_PLAN_CORE_YEARLY"),
+      // Pinned in code, not read from WHOP_PLAN_CORE_*: production's env kept
+      // pointing at the retired $19/$204 plans, so checkout undercharged
+      // against the $25/$228 the pricing page shows. Plan ids aren't secret.
+      whopMonthlyPlanId: "plan_OaFOlspjbyFPD", // $25 / month
+      whopYearlyPlanId: "plan_AXb5d4QsVacag", // $228 / year
       monthlyCreditsPerPeriod: 1250,
+      legacyPlanIds: {
+        // $19 and $17 monthly, before Core moved to $25.
+        monthly: ["plan_G66hfOV3PuQwF", "plan_IFbGdPWeGYqeg"],
+        // $204 and $153 yearly, before Core moved to $228.
+        yearly: ["plan_1vxYRB4J3TfjE", "plan_FDHiLVEg2BtsU"],
+      },
     },
     pro: {
       whopMonthlyPlanId: requiredEnv("WHOP_PLAN_PRO_MONTHLY"),
@@ -95,10 +111,10 @@ export function findSubscriptionPlanByPlanId(
   whopPlanId: string
 ): { planId: SubscriptionPlanId; period: BillingPeriod; creditsPerPeriod: number } | null {
   for (const [planId, plan] of Object.entries(getSubscriptionProducts()) as [SubscriptionPlanId, SubscriptionProductConfig][]) {
-    if (plan.whopMonthlyPlanId === whopPlanId) {
+    if (plan.whopMonthlyPlanId === whopPlanId || plan.legacyPlanIds?.monthly.includes(whopPlanId)) {
       return { planId, period: "monthly", creditsPerPeriod: plan.monthlyCreditsPerPeriod };
     }
-    if (plan.whopYearlyPlanId === whopPlanId) {
+    if (plan.whopYearlyPlanId === whopPlanId || plan.legacyPlanIds?.yearly.includes(whopPlanId)) {
       return { planId, period: "yearly", creditsPerPeriod: plan.monthlyCreditsPerPeriod * 12 };
     }
   }
