@@ -612,7 +612,7 @@ export interface AdminTeamMember {
 }
 
 export interface PlanDistribution {
-  plan: "core" | "pro" | "scale";
+  plan: "free" | "core" | "pro" | "scale";
   label: string;
   count: number;
   tone: ToolTone;

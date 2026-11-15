@@ -31,7 +31,9 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
 };
 
 // Plan tiers are ordered, so they take the ordinal ramp (lightest = entry tier).
+// Free isn't a tier on the ramp, so it stays neutral gray.
 const TIER_COLOR: Record<string, string> = {
+  free: "var(--viz-neutral)",
   core: "var(--viz-tier-1)",
   pro: "var(--viz-tier-2)",
   scale: "var(--viz-tier-3)",
@@ -89,7 +91,7 @@ export default async function AdminOverviewPage() {
 
   const TOOL_BADGES: Record<string, Pick<AdminToolCardData, "badge" | "badgeTone">> = {
     "/admin/users": { badge: `${formatNumber(totalUsers)} accounts` },
-    "/admin/plans": { badge: `${planDistribution.length} tiers` },
+    "/admin/plans": { badge: `${planDistribution.filter((p) => p.plan !== "free").length} tiers` },
     "/admin/credits": { badge: `${formatNumber(creditsOutstanding)} outstanding` },
     "/admin/promo-codes": { badge: `${activePromoCodes} active`, badgeTone: activePromoCodes > 0 ? "success" : "default" },
     "/admin/revenue":

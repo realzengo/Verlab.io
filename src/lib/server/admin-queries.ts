@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
@@ -56,8 +56,8 @@ const TOOL_TONES: Record<AdminToolKey, ToolTone> = {
   voiceover: "green",
 };
 
-const PLAN_LABEL: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale" };
-const PLAN_TONE: Record<string, ToolTone> = { core: "sky", pro: "blue", scale: "violet" };
+const PLAN_LABEL: Record<string, string> = { free: "Free", core: "Core", pro: "Pro", scale: "Scale" };
+const PLAN_TONE: Record<string, ToolTone> = { free: "sky", core: "sky", pro: "blue", scale: "violet" };
 
 const CANCELLATION_REASON_TONE: Record<string, ToolTone> = {
   switching: "sky",
@@ -85,8 +85,29 @@ function last30Days(): string[] {
 
 async function listAllUsers() {
   const admin = createAdminClient();
-  const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  return data?.users ?? [];
+  const users: User[] = [];
+  for (let page = 1; ; page++) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    const batch = data?.users ?? [];
+    users.push(...batch);
+    if (batch.length < 1000) return users;
+  }
+}
+
+// PostgREST caps every select at 1000 rows, which silently truncated the
+// admin counts once profiles passed 1000 -- page through until a short page.
+// The query must be ordered on a unique column so pages don't overlap.
+const PAGE_SIZE = 1000;
+async function selectAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[] }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE_SIZE) return { data: rows };
+  }
 }
 
 export async function getSignupSeries(): Promise<SignupPoint[]> {
@@ -94,7 +115,9 @@ export async function getSignupSeries(): Promise<SignupPoint[]> {
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 29);
 
-  const { data } = await admin.from("profiles").select("created_at").gte("created_at", since.toISOString());
+  const { data } = await selectAllRows((from, to) =>
+    admin.from("profiles").select("created_at").gte("created_at", since.toISOString()).order("id").range(from, to),
+  );
 
   const days = last30Days();
   const counts = new Map(days.map((d) => [d, 0]));
@@ -111,7 +134,9 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 29);
 
-  const { data } = await admin.from("usage_events").select("tool, created_at").gte("created_at", since.toISOString());
+  const { data } = await selectAllRows((from, to) =>
+    admin.from("usage_events").select("tool, created_at").gte("created_at", since.toISOString()).order("id").range(from, to),
+  );
 
   const days = last30Days();
   const byDay = new Map(
@@ -147,14 +172,25 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
   return { series, share };
 }
 
+// Subscription states where the account is actually on its plan tier right
+// now. profiles.plan defaults to "core" at signup and keeps its last paid
+// value after a lapse (see displayPlan() below), so the tier only counts
+// while one of these holds -- every other account is on the free tier.
+const LIVE_PLAN_STATUSES = new Set(["active", "trialing", "past_due"]);
+
 export async function getPlanDistribution(): Promise<PlanDistribution[]> {
   const admin = createAdminClient();
-  const { data } = await admin.from("profiles").select("plan");
+  const { data } = await selectAllRows((from, to) =>
+    admin.from("profiles").select("plan, subscription_status").order("id").range(from, to),
+  );
 
-  const counts: Record<string, number> = { core: 0, pro: 0, scale: 0 };
-  for (const row of data ?? []) counts[row.plan] = (counts[row.plan] ?? 0) + 1;
+  const counts: Record<string, number> = { free: 0, core: 0, pro: 0, scale: 0 };
+  for (const row of data ?? []) {
+    const tier = LIVE_PLAN_STATUSES.has(row.subscription_status ?? "") ? (row.plan ?? "core") : "free";
+    counts[tier] = (counts[tier] ?? 0) + 1;
+  }
 
-  return (["core", "pro", "scale"] as const).map((plan) => ({
+  return (["free", "core", "pro", "scale"] as const).map((plan) => ({
     plan,
     label: PLAN_LABEL[plan],
     count: counts[plan] ?? 0,
@@ -215,8 +251,10 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
   const admin = createAdminClient();
   const [authUsers, { data: profiles }, { data: usageRows }, planDefs] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period"),
-    admin.from("usage_events").select("user_id, tool, created_at"),
+    selectAllRows((from, to) =>
+      admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period").order("id").range(from, to),
+    ),
+    selectAllRows((from, to) => admin.from("usage_events").select("user_id, tool, created_at").order("id").range(from, to)),
     getPlanDefinitions(admin),
   ]);
 
@@ -665,7 +703,9 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 
   const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan, subscription_status, credits"),
+    selectAllRows((from, to) =>
+      admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
+    ),
     admin
       .from("credit_transactions")
       .select("id, user_id, amount, feature, action_key, granted_by, created_at")
@@ -775,7 +815,9 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
   const admin = createAdminClient();
   const [authUsers, { data: profiles }] = await Promise.all([
     listAllUsers(),
-    admin.from("profiles").select("id, full_name, plan, subscription_status, credits"),
+    selectAllRows((from, to) =>
+      admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
+    ),
   ]);
 
   const profileById = new Map(
@@ -864,7 +906,9 @@ export async function getRevenueData(): Promise<RevenueData> {
   since30.setUTCDate(since30.getUTCDate() - 29);
 
   const [{ data: profiles }, planDefs, { data: cancellationRows }, { data: eventRows }] = await Promise.all([
-    admin.from("profiles").select("plan, subscription_status, subscription_period"),
+    selectAllRows((from, to) =>
+      admin.from("profiles").select("plan, subscription_status, subscription_period").order("id").range(from, to),
+    ),
     getPlanDefinitions(admin),
     admin
       .from("cancellation_feedback")
