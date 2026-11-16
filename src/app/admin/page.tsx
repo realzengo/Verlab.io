@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, Clock3, LoaderCircle } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, LoaderCircle, TimerOff } from "lucide-react";
 import { getApiProviders, getOverviewData } from "@/lib/server/admin-queries";
 import { ADMIN_NAV } from "@/lib/mock/nav";
 import type { UsagePoint } from "@/lib/types";
@@ -84,6 +84,7 @@ export default async function AdminOverviewPage() {
   const jobCounts = {
     success: systemJobs.filter((j) => j.status === "success").length,
     failed: systemJobs.filter((j) => j.status === "failed").length,
+    stuck: systemJobs.filter((j) => j.status === "stuck").length,
     running: systemJobs.filter((j) => j.status === "running").length,
     queued: systemJobs.filter((j) => j.status === "queued").length,
   };
@@ -152,8 +153,8 @@ export default async function AdminOverviewPage() {
           label="Job success rate"
           value={`${jobSuccessRatePct}%`}
           delta={{
-            value: `${jobCounts.failed} failed`,
-            sentiment: jobCounts.failed > 0 ? "negative" : "positive",
+            value: jobCounts.stuck > 0 ? `${jobCounts.failed} failed · ${jobCounts.stuck} stuck` : `${jobCounts.failed} failed`,
+            sentiment: jobCounts.failed + jobCounts.stuck > 0 ? "negative" : "positive",
             label: `of last ${systemJobs.length} jobs`,
           }}
         />
@@ -238,6 +239,7 @@ export default async function AdminOverviewPage() {
             segments={[
               { label: "Succeeded", value: jobCounts.success, color: "var(--viz-good)", icon: <CircleCheck className="h-4 w-4" /> },
               { label: "Failed", value: jobCounts.failed, color: "var(--viz-critical)", icon: <CircleX className="h-4 w-4" /> },
+              { label: "Stuck", value: jobCounts.stuck, color: "var(--viz-serious)", icon: <TimerOff className="h-4 w-4" /> },
               { label: "Running", value: jobCounts.running, color: "var(--viz-1)", icon: <LoaderCircle className="h-4 w-4" /> },
               { label: "Queued", value: jobCounts.queued, color: "var(--viz-neutral)", icon: <Clock3 className="h-4 w-4" /> },
             ]}

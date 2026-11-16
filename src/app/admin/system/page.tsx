@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, Clock3, LoaderCircle } from "lucide-react";
+import { CircleCheck, CircleX, Clock3, LoaderCircle, TimerOff } from "lucide-react";
 import {
   computeJobSuccessRate,
   getApiErrorRate,
@@ -33,6 +33,8 @@ export default async function AdminSystemPage() {
   const running = count("running");
   const queued = count("queued");
   const failed = count("failed");
+  const stuck = count("stuck");
+  const nowIso = new Date().toISOString();
   const succeeded = count("success");
 
   const byType = new Map<SystemJob["type"], number>();
@@ -61,7 +63,11 @@ export default async function AdminSystemPage() {
         <Kpi
           label="Job success rate"
           value={`${successRate}%`}
-          delta={{ value: `${failed} failed`, sentiment: failed > 0 ? "negative" : "positive", label: `of last ${jobs.length}` }}
+          delta={{
+            value: stuck > 0 ? `${failed} failed · ${stuck} stuck` : `${failed} failed`,
+            sentiment: failed + stuck > 0 ? "negative" : "positive",
+            label: `of last ${jobs.length}`,
+          }}
         />
         <Kpi label="Jobs in flight" value={formatStat(running + queued)} footnote={`${running} running · ${queued} queued`} />
         <Kpi
@@ -85,6 +91,7 @@ export default async function AdminSystemPage() {
             segments={[
               { label: "Succeeded", value: succeeded, color: "var(--viz-good)", icon: <CircleCheck className="h-4 w-4" /> },
               { label: "Failed", value: failed, color: "var(--viz-critical)", icon: <CircleX className="h-4 w-4" /> },
+              { label: "Stuck", value: stuck, color: "var(--viz-serious)", icon: <TimerOff className="h-4 w-4" /> },
               { label: "Running", value: running, color: "var(--viz-1)", icon: <LoaderCircle className="h-4 w-4" /> },
               { label: "Queued", value: queued, color: "var(--viz-neutral)", icon: <Clock3 className="h-4 w-4" /> },
             ]}
@@ -102,7 +109,7 @@ export default async function AdminSystemPage() {
 
       <EndpointHealthTable rows={endpointHealth} />
 
-      <SystemJobsTable jobs={jobs} />
+      <SystemJobsTable jobs={jobs} nowIso={nowIso} />
     </div>
   );
 }

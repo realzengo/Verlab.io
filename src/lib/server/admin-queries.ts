@@ -391,115 +391,82 @@ function mapJobStatus(status: string): SystemJobStatus {
   return "running";
 }
 
+/** A job still queued or running this long after it started has silently
+ * died (a webhook never came, a worker crashed): the user is left looking at
+ * a spinner, which is a failure even though nothing marked it as one. Long
+ * clipping runs finish well inside this. */
+const STUCK_AFTER_MS = 60 * 60 * 1000;
+
+/** One row per tool table the queue reads. `error` lists the columns to try,
+ * the raw provider detail first since the user-facing message is generic. */
+const JOB_SOURCES: {
+  table: string;
+  type: SystemJobType;
+  columns: string;
+  error: string[];
+  source?: string;
+}[] = [
+  { table: "niche_bend_jobs", type: "niche-bend", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  { table: "transcripts", type: "transcript", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  { table: "downloads", type: "download", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  { table: "clip_projects", type: "clipping", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  { table: "creator_analyses", type: "creator-analysis", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  { table: "niche_reports", type: "niche-report", columns: "platform, error_message, updated_at", error: ["error_message"] },
+  { table: "video_generations", type: "video-generation", columns: "prompt, error_message, raw_error_message, updated_at", error: ["raw_error_message", "error_message"], source: "prompt" },
+  { table: "image_generations", type: "image-generation", columns: "prompt, error_message, raw_error_message", error: ["raw_error_message", "error_message"], source: "prompt" },
+  { table: "voiceover_generations", type: "voiceover-generation", columns: "title, error_message, raw_error_message, updated_at", error: ["raw_error_message", "error_message"], source: "title" },
+];
+
+/** The latest jobs from every tool, newest first. Each table is read with the
+ * same `limit` so a quiet tool still shows up before the overall cut. */
 export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
   const admin = createAdminClient();
-  const [
-    { data: bendJobs },
-    { data: transcriptJobs },
-    { data: downloadJobs },
-    { data: videoJobs },
-    { data: imageJobs },
-    { data: voiceoverJobs },
-    authUsers,
-  ] = await Promise.all([
-    admin
-      .from("niche_bend_jobs")
-      .select("id, status, user_id, created_at, updated_at")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("transcripts")
-      .select("id, status, user_id, created_at, updated_at")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("downloads")
-      .select("id, status, user_id, created_at, updated_at")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("video_generations")
-      .select("id, status, user_id, created_at, updated_at, raw_error_message")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("image_generations")
-      .select("id, status, user_id, created_at, raw_error_message")
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("voiceover_generations")
-      .select("id, status, user_id, created_at, updated_at, raw_error_message")
-      .order("created_at", { ascending: false })
-      .limit(limit),
+  const [results, authUsers] = await Promise.all([
+    Promise.all(
+      JOB_SOURCES.map((src) =>
+        admin
+          .from(src.table)
+          .select(`id, status, user_id, created_at, ${src.columns}`)
+          .order("created_at", { ascending: false })
+          .limit(limit)
+          .then(({ data, error }) => {
+            if (error) console.error(`[admin] job queue: ${src.table}`, error.message);
+            return (data ?? []) as unknown as Record<string, string | null>[];
+          })
+      )
+    ),
     listAllUsers(),
   ]);
 
   const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
+  const now = Date.now();
 
-  function toDuration(status: string, createdAt: string, updatedAt: string): number | undefined {
-    const settled = status === "failed" || status === "success" || status === "ready" || status === "sop_ready" || status === "complete" || status === "completed";
-    return settled ? new Date(updatedAt).getTime() - new Date(createdAt).getTime() : undefined;
-  }
-
-  const jobs: SystemJob[] = [
-    ...(bendJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "niche-bend" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      durationMs: toDuration(j.status, j.created_at, j.updated_at),
-    })),
-    ...(transcriptJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "transcript" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      durationMs: toDuration(j.status, j.created_at, j.updated_at),
-    })),
-    ...(downloadJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "download" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      durationMs: toDuration(j.status, j.created_at, j.updated_at),
-    })),
-    ...(videoJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "video-generation" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      durationMs: toDuration(j.status, j.created_at, j.updated_at),
-      errorMessage: j.raw_error_message,
-    })),
-    ...(imageJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "image-generation" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      errorMessage: j.raw_error_message,
-    })),
-    ...(voiceoverJobs ?? []).map((j) => ({
-      id: j.id,
-      type: "voiceover-generation" as SystemJobType,
-      status: mapJobStatus(j.status),
-      userEmail: emailById.get(j.user_id) ?? "N/A",
-      startedAt: j.created_at,
-      durationMs: toDuration(j.status, j.created_at, j.updated_at),
-      errorMessage: j.raw_error_message,
-    })),
-  ];
+  const jobs: SystemJob[] = JOB_SOURCES.flatMap((src, i) =>
+    results[i].map((row) => {
+      const createdAt = row.created_at as string;
+      let status = mapJobStatus(row.status ?? "");
+      if ((status === "running" || status === "queued") && now - new Date(createdAt).getTime() > STUCK_AFTER_MS) status = "stuck";
+      const settled = status === "success" || status === "failed";
+      const errorMessage = src.error.map((col) => row[col]).find((v) => v && v.trim()) ?? null;
+      return {
+        id: row.id as string,
+        type: src.type,
+        status,
+        userEmail: emailById.get(row.user_id as string) ?? "N/A",
+        startedAt: createdAt,
+        durationMs: settled && row.updated_at ? new Date(row.updated_at).getTime() - new Date(createdAt).getTime() : undefined,
+        errorMessage,
+        source: src.source ? row[src.source] : null,
+      };
+    })
+  );
 
   return jobs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, limit);
 }
 
+/** Stuck jobs count against the rate: the user never got a result. */
 export function computeJobSuccessRate(jobs: SystemJob[]): number {
-  const settled = jobs.filter((j) => j.status === "success" || j.status === "failed");
+  const settled = jobs.filter((j) => j.status !== "running" && j.status !== "queued");
   if (settled.length === 0) return 100;
   return Number(((settled.filter((j) => j.status === "success").length / settled.length) * 100).toFixed(1));
 }

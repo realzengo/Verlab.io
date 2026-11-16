@@ -8,6 +8,9 @@ export const JOB_TYPE_LABEL: Record<SystemJob["type"], string> = {
   "sop-generation": "SOP generation",
   transcript: "Transcript",
   download: "Download",
+  clipping: "Clipping",
+  "creator-analysis": "Creator analysis",
+  "niche-report": "Niche report",
   "video-generation": "Video generation",
   "image-generation": "Image generation",
   "voiceover-generation": "Voiceover generation",
@@ -16,6 +19,7 @@ export const JOB_TYPE_LABEL: Record<SystemJob["type"], string> = {
 export const JOB_STATUS_LABEL: Record<SystemJobStatus, string> = {
   success: "Succeeded",
   failed: "Failed",
+  stuck: "Stuck",
   running: "Running",
   queued: "Queued",
 };

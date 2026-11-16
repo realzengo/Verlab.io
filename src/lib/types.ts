@@ -549,12 +549,16 @@ export interface ActivityLogEntry {
   timestamp: string;
 }
 
-export type SystemJobStatus = "queued" | "running" | "success" | "failed";
+/** `stuck` = still queued/running an hour after it started (see getSystemJobs). */
+export type SystemJobStatus = "queued" | "running" | "success" | "failed" | "stuck";
 export type SystemJobType =
   | "niche-bend"
   | "sop-generation"
   | "transcript"
   | "download"
+  | "clipping"
+  | "creator-analysis"
+  | "niche-report"
   | "video-generation"
   | "image-generation"
   | "voiceover-generation";
@@ -568,6 +572,8 @@ export interface SystemJob {
   durationMs?: number;
   /** Raw provider/error detail for failed jobs -- admin-only, never shown to the end user who saw a generic message instead. */
   errorMessage?: string | null;
+  /** What the user fed the tool (video link, prompt, title), to retry or report it. */
+  source?: string | null;
 }
 
 export interface ApiEndpointHealth {

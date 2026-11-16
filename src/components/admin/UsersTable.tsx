@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Mail, Search, ShieldAlert, ShieldCheck, ShieldOff } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@/lib/types";
 import { Avatar } from "@/components/ui/Avatar";
@@ -46,6 +46,46 @@ const STATUS_FILTERS: { value: "all" | AdminUserStatus; label: string }[] = [
   ...(["free", "active", "trialing", "past_due", "canceled", "suspended"] as const).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
 ];
 
+type JoinedFilter = "all" | "today" | "yesterday" | "7d" | "30d" | "90d" | "older";
+
+const JOINED_FILTERS: { value: JoinedFilter; label: string }[] = [
+  { value: "all", label: "Any time" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "older", label: "Over 90 days ago" },
+];
+
+/** The UTC day `days` before `nowIso`, as YYYY-MM-DD (signupDate's format). */
+function dayOffset(nowIso: string, days: number): string {
+  const d = new Date(nowIso);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Inclusive [from, to] day range for a joined filter; "Last 7 days" is today plus the 6 before. */
+function joinedRange(filter: JoinedFilter, nowIso: string): [string, string] | null {
+  const today = dayOffset(nowIso, 0);
+  switch (filter) {
+    case "all":
+      return null;
+    case "today":
+      return [today, today];
+    case "yesterday":
+      return [dayOffset(nowIso, 1), dayOffset(nowIso, 1)];
+    case "7d":
+      return [dayOffset(nowIso, 6), today];
+    case "30d":
+      return [dayOffset(nowIso, 29), today];
+    case "90d":
+      return [dayOffset(nowIso, 89), today];
+    case "older":
+      return ["0000-00-00", dayOffset(nowIso, 90)];
+  }
+}
+
 type SortKey = "name" | "mrr" | "signupDate" | "lastActiveAt";
 
 function timeAgoFromNow(iso: string, nowIso: string): string {
@@ -59,15 +99,35 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | AdminUser["plan"]>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | AdminUserStatus>("all");
+  const [joinedFilter, setJoinedFilter] = useState<JoinedFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("signupDate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [overrides, setOverrides] = useState<Record<string, AdminUserStatus>>({});
+
+  // Searching shrinks the table from a full page to a row or two, and the
+  // page shrinking under the viewport made the browser yank the scroll up.
+  // Hold the list at the height it had before narrowing so the search box
+  // stays put; clearing the search and filters lets it size freely again.
+  const shellRef = useRef<HTMLDivElement>(null);
+  const [heldHeight, setHeldHeight] = useState<number | null>(null);
+  const narrowed = query.trim() !== "" || planFilter !== "all" || statusFilter !== "all" || joinedFilter !== "all";
+  function narrow<T>(set: (value: T) => void) {
+    return (value: T) => {
+      if (!narrowed) setHeldHeight(shellRef.current?.offsetHeight ?? null);
+      set(value);
+    };
+  }
 
   const rows = useMemo(() => users.map((u) => ({ ...u, status: overrides[u.id] ?? u.status })), [users, overrides]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const joined = joinedRange(joinedFilter, nowIso);
     let list = rows.filter((u) => {
+      if (joined) {
+        const day = u.signupDate.slice(0, 10);
+        if (day < joined[0] || day > joined[1]) return false;
+      }
       if (planFilter !== "all" && u.plan !== planFilter) return false;
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
       if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
@@ -81,12 +141,12 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [rows, query, planFilter, statusFilter, sortKey, sortDir]);
+  }, [rows, query, planFilter, statusFilter, joinedFilter, nowIso, sortKey, sortDir]);
 
   const { pageItems, pagerProps } = usePagination(
     filtered,
     PAGE_SIZE,
-    [query.trim().toLowerCase(), planFilter, statusFilter, sortKey, sortDir].join("|")
+    [query.trim().toLowerCase(), planFilter, statusFilter, joinedFilter, sortKey, sortDir].join("|")
   );
 
   function toggleSort(key: SortKey) {
@@ -123,6 +183,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
   };
 
   return (
+    <div ref={shellRef} style={narrowed && heldHeight ? { minHeight: heldHeight } : undefined}>
     <Panel
       title="All users"
       description={
@@ -146,7 +207,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => narrow(setQuery)(e.target.value)}
             placeholder="Search name or email"
             aria-label="Search users"
             className={cn(fieldClass, "w-full pl-8 pr-3")}
@@ -156,10 +217,18 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
         <div className="flex flex-wrap items-center gap-2">
           <AdminSelect
             size="sm"
+            label="Filter by date joined"
+            prefix="Joined"
+            value={joinedFilter}
+            onChange={narrow(setJoinedFilter)}
+            options={JOINED_FILTERS}
+          />
+          <AdminSelect
+            size="sm"
             label="Filter by plan"
             prefix="Plan"
             value={planFilter}
-            onChange={setPlanFilter}
+            onChange={narrow(setPlanFilter)}
             options={PLAN_FILTERS}
           />
           <AdminSelect
@@ -168,7 +237,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             label="Filter by status"
             prefix="Status"
             value={statusFilter}
-            onChange={setStatusFilter}
+            onChange={narrow(setStatusFilter)}
             options={STATUS_FILTERS}
           />
         </div>
@@ -257,5 +326,6 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
         </>
       )}
     </Panel>
+    </div>
   );
 }
