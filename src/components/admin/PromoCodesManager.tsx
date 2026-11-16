@@ -12,6 +12,7 @@ import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/compon
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
+import { AdminSelect } from "@/components/admin/AdminSelect";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
 import { formatStat } from "@/components/admin/charts/format";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
@@ -20,6 +21,11 @@ import { CODE_MAX, isValidCode } from "@/lib/validation";
 const inputClass =
   "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
 const labelClass = "mb-1.5 block text-xs font-medium text-body";
+
+const REWARD_TYPES: { value: PromoRewardType; label: string }[] = [
+  { value: "credits", label: "Free credits" },
+  { value: "discount_percent", label: "Percent discount" },
+];
 
 interface FormState {
   code: string;
@@ -245,14 +251,12 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
                 </div>
                 <div>
                   <label className={labelClass}>Reward type</label>
-                  <select
+                  <AdminSelect
+                    label="Reward type"
                     value={form.rewardType}
-                    onChange={(event) => setForm((prev) => ({ ...prev, rewardType: event.target.value as PromoRewardType }))}
-                    className={inputClass}
-                  >
-                    <option value="credits">Free Credits</option>
-                    <option value="discount_percent">% Discount</option>
-                  </select>
+                    onChange={(rewardType) => setForm((prev) => ({ ...prev, rewardType }))}
+                    options={REWARD_TYPES}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Reward value</label>

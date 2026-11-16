@@ -11,6 +11,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
 import { EMAIL_MAX, NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
+import { AdminSelect } from "@/components/admin/AdminSelect";
 
 const ROLE_VARIANT: Record<AdminRole, "success" | "default" | "warning"> = {
   owner: "success",
@@ -161,13 +162,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
                 </div>
                 <div>
                   <label className={labelClass}>Role</label>
-                  <select value={role} onChange={(event) => setRole(event.target.value as AdminRole)} className={inputClass}>
-                    {ROLE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <AdminSelect label="Role" value={role} onChange={setRole} options={ROLE_OPTIONS} />
                 </div>
                 <p className="text-xs text-subtle">
                   This adds them to the list below. They still need their email added to the{" "}

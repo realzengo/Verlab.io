@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Panel } from "@/components/admin/Panel";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
+import { AdminSelect } from "@/components/admin/AdminSelect";
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils";
 
 // Plain account states stay gray, so the blue tint is left for trials and
@@ -31,6 +32,19 @@ const STATUS_LABEL: Record<AdminUserStatus, string> = {
 };
 
 const PAGE_SIZE = 25;
+
+const PLAN_FILTERS: { value: "all" | AdminUser["plan"]; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "free", label: "Free" },
+  { value: "core", label: "Core" },
+  { value: "pro", label: "Pro" },
+  { value: "scale", label: "Scale" },
+];
+
+const STATUS_FILTERS: { value: "all" | AdminUserStatus; label: string }[] = [
+  { value: "all", label: "All" },
+  ...(["free", "active", "trialing", "past_due", "canceled", "suspended"] as const).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+];
 
 type SortKey = "name" | "mrr" | "signupDate" | "lastActiveAt";
 
@@ -140,32 +154,23 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <AdminSelect
+            size="sm"
+            label="Filter by plan"
+            prefix="Plan"
             value={planFilter}
-            onChange={(e) => setPlanFilter(e.target.value as typeof planFilter)}
-            aria-label="Filter by plan"
-            className={cn(fieldClass, "px-2.5")}
-          >
-            <option value="all">All plans</option>
-            <option value="free">Free</option>
-            <option value="core">Core</option>
-            <option value="pro">Pro</option>
-            <option value="scale">Scale</option>
-          </select>
-          <select
+            onChange={setPlanFilter}
+            options={PLAN_FILTERS}
+          />
+          <AdminSelect
+            size="sm"
+            align="right"
+            label="Filter by status"
+            prefix="Status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            aria-label="Filter by status"
-            className={cn(fieldClass, "px-2.5")}
-          >
-            <option value="all">All statuses</option>
-            <option value="free">Free</option>
-            <option value="active">Active</option>
-            <option value="trialing">Trialing</option>
-            <option value="past_due">Past due</option>
-            <option value="canceled">Canceled</option>
-            <option value="suspended">Suspended</option>
-          </select>
+            onChange={setStatusFilter}
+            options={STATUS_FILTERS}
+          />
         </div>
       </div>
 

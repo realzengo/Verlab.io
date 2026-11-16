@@ -1933,6 +1933,24 @@ html[data-scrolling="true"] *::after {
   border-radius: calc(var(--radius-card) - 1px);
 }
 
+/* AdminSelect's menu: a short fade and rise from the trigger it opens under. */
+@keyframes admin-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.admin-select-menu {
+  animation: admin-select-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-select-menu {
+    animation: none;
+  }
+}
+
 .admin-theme button,
 .admin-theme input,
 .admin-theme select,
