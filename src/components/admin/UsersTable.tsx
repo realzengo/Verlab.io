@@ -7,15 +7,18 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Panel } from "@/components/admin/Panel";
+import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils";
 
-const STATUS_VARIANT: Record<AdminUserStatus, "success" | "warning" | "danger" | "default"> = {
+// Plain account states stay gray, so the blue tint is left for trials and
+// color for states that need attention.
+const STATUS_VARIANT: Record<AdminUserStatus, "success" | "warning" | "danger" | "default" | "neutral"> = {
   active: "success",
   trialing: "default",
   past_due: "warning",
-  canceled: "default",
+  canceled: "neutral",
   suspended: "danger",
-  free: "default",
+  free: "neutral",
 };
 
 const STATUS_LABEL: Record<AdminUserStatus, string> = {
@@ -26,6 +29,8 @@ const STATUS_LABEL: Record<AdminUserStatus, string> = {
   suspended: "Suspended",
   free: "Free",
 };
+
+const PAGE_SIZE = 25;
 
 type SortKey = "name" | "mrr" | "signupDate" | "lastActiveAt";
 
@@ -64,6 +69,12 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
     return list;
   }, [rows, query, planFilter, statusFilter, sortKey, sortDir]);
 
+  const { pageItems, pagerProps } = usePagination(
+    filtered,
+    PAGE_SIZE,
+    [query.trim().toLowerCase(), planFilter, statusFilter, sortKey, sortDir].join("|")
+  );
+
   function toggleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -100,7 +111,11 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
   return (
     <Panel
       title="All users"
-      description={`Showing ${filtered.length} of ${users.length} accounts`}
+      description={
+        filtered.length === users.length
+          ? `${users.length.toLocaleString("en-US")} accounts`
+          : `${filtered.length.toLocaleString("en-US")} of ${users.length.toLocaleString("en-US")} accounts match`
+      }
       action={
         suspendedCount > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-tint px-2.5 py-1 text-xs font-medium text-danger">
@@ -159,6 +174,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
           No users match. Try a different search or clear the filters.
         </p>
       ) : (
+        <>
         <Table>
           <TableHead>
             <TableRow>
@@ -183,7 +199,7 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             </TableRow>
           </TableHead>
           <tbody>
-            {filtered.map((user) => (
+            {pageItems.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="pl-5">
                   <div className="flex items-center gap-2.5">
@@ -232,6 +248,8 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             ))}
           </tbody>
         </Table>
+        <Pagination {...pagerProps} noun="accounts" />
+        </>
       )}
     </Panel>
   );

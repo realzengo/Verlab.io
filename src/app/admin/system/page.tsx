@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSystemPage() {
   const [jobs, uptime, apiErrorRate, endpointHealth] = await Promise.all([
-    getSystemJobs(50),
+    getSystemJobs(150),
     getUptimeStats(),
     getApiErrorRate(),
     getEndpointHealthToday(),

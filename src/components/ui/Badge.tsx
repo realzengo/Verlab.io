@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "success" | "warning" | "danger" | "new";
+type Variant = "default" | "neutral" | "success" | "warning" | "danger" | "new";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   default: "bg-accent text-primary",
+  neutral: "bg-black/[0.05] text-body dark:bg-white/[0.08]",
   success: "bg-success-tint text-success border border-success/20",
   warning: "bg-warning-tint text-warning border border-warning/20",
   danger: "bg-danger-tint text-danger border border-danger/20",

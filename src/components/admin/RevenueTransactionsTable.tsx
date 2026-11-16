@@ -7,6 +7,7 @@ import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/compon
 import { Avatar } from "@/components/ui/Avatar";
 import { Panel } from "@/components/admin/Panel";
 import { SegmentedControl } from "@/components/admin/SegmentedControl";
+import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 export function RevenueTransactionsTable({ transactions }: { transactions: RevenueTransaction[] }) {
@@ -16,6 +17,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
     () => (filter === "all" ? transactions : transactions.filter((t) => t.type === filter)),
     [transactions, filter]
   );
+  const { pageItems, pagerProps } = usePagination(filtered, 10, filter);
 
   const filters = [
     { id: "all", label: "All", count: transactions.length },
@@ -37,6 +39,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
             : "Nothing matches this filter."}
         </p>
       ) : (
+        <>
         <Table>
           <TableHead>
             <TableRow>
@@ -48,7 +51,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
             </TableRow>
           </TableHead>
           <tbody>
-            {filtered.map((txn) => (
+            {pageItems.map((txn) => (
               <TableRow key={txn.id}>
                 <TableCell className="pl-5">
                   <div className="flex items-center gap-2.5">
@@ -75,6 +78,8 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
             ))}
           </tbody>
         </Table>
+        <Pagination {...pagerProps} noun="transactions" />
+        </>
       )}
     </Panel>
   );

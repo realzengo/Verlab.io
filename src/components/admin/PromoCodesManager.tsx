@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
+import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
 import { formatStat } from "@/components/admin/charts/format";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
@@ -57,6 +58,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
   const redemptions = codes.reduce((sum, c) => sum + c.usedCount, 0);
   const topCode = [...codes].sort((a, b) => b.usedCount - a.usedCount)[0];
   const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
+  const { pageItems, pagerProps, setPage } = usePagination(codes, 10);
 
   async function handleCopy(code: PromoCode) {
     await navigator.clipboard.writeText(code.code);
@@ -133,6 +135,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
     }
 
     setCodes((prev) => [data.code as PromoCode, ...prev]);
+    setPage(1);
     closeModal();
   }
 
@@ -158,6 +161,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
         {codes.length === 0 ? (
           <p className="px-5 py-12 text-center text-[13px] text-subtle">No promo codes yet. Create one to grant credits or a discount.</p>
         ) : (
+          <>
           <Table>
             <TableHead>
               <TableRow>
@@ -170,7 +174,7 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
               </TableRow>
             </TableHead>
             <tbody>
-              {codes.map((code) => {
+              {pageItems.map((code) => {
                 const status = statusOf(code);
                 return (
                   <TableRow key={code.id}>
@@ -210,6 +214,8 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
               })}
             </tbody>
           </Table>
+          <Pagination {...pagerProps} noun="codes" />
+          </>
         )}
       </Panel>
 

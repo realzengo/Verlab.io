@@ -1,15 +1,15 @@
 import { getCreditsOverview, getUsersForCreditsAdmin } from "@/lib/server/admin-queries";
-import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Avatar } from "@/components/ui/Avatar";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { HeroFigure, Panel } from "@/components/admin/Panel";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
 import { ManageUserCreditsCard } from "@/components/admin/ManageUserCreditsCard";
+import { CreditLedgerTable } from "@/components/admin/CreditLedgerTable";
 import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
 import { BarList } from "@/components/admin/charts/BarList";
 import { formatStat, sumOf } from "@/components/admin/charts/format";
-import { formatDate, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -86,47 +86,7 @@ export default async function AdminCreditsPage() {
 
       <ManageUserCreditsCard initialUsers={users} />
 
-      <Panel title="Ledger" description="Latest 50 entries across all users" flush>
-        {recentTransactions.length === 0 ? (
-          <p className="border-t border-hairline px-5 py-12 text-center text-[13px] text-subtle">
-            Credit charges, refunds and manual adjustments will show up here.
-          </p>
-        ) : (
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell className="pl-5">User</TableHeaderCell>
-                <TableHeaderCell>Action</TableHeaderCell>
-                <TableHeaderCell className="text-right">Amount</TableHeaderCell>
-                <TableHeaderCell className="pr-5 text-right">When</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <tbody>
-              {recentTransactions.map((tx) => (
-                <TableRow key={tx.id}>
-                  <TableCell className="pl-5">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={tx.userName} size="sm" />
-                      <span className="truncate font-medium text-heading">{tx.userName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-body">
-                    {tx.feature}
-                    {tx.grantedBy && <span className="ml-1.5 text-xs text-subtle">by {tx.grantedBy}</span>}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={tx.amount < 0 ? "danger" : "success"}>
-                      {tx.amount < 0 ? "−" : "+"}
-                      {formatNumber(Math.abs(tx.amount))}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap pr-5 text-right text-body">{formatDate(tx.createdAt)}</TableCell>
-                </TableRow>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Panel>
+      <CreditLedgerTable entries={recentTransactions} />
     </div>
   );
 }

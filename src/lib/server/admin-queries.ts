@@ -710,7 +710,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
       .from("credit_transactions")
       .select("id, user_id, amount, feature, action_key, granted_by, created_at")
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(200),
     admin
       .from("credit_transactions")
       .select("user_id, amount, action_key, created_at")
@@ -972,7 +972,7 @@ export async function getRevenueData(): Promise<RevenueData> {
 
   const recentTransactions = events
     .filter((e) => e.type === "payment.succeeded" || e.type === "refund.created")
-    .slice(0, 20)
+    .slice(0, 100)
     .map(parseRevenueTransaction)
     .filter((t): t is RevenueTransaction => t !== null);
 

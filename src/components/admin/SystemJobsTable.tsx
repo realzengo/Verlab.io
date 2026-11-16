@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Panel } from "@/components/admin/Panel";
 import { SegmentedControl } from "@/components/admin/SegmentedControl";
+import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { JOB_STATUS_LABEL as STATUS_LABEL, JOB_TYPE_LABEL } from "@/components/admin/job-labels";
 
 const STATUS_VARIANT: Record<SystemJobStatus, "success" | "danger" | "warning" | "default"> = {
@@ -20,6 +21,7 @@ const FILTER_ORDER: ("all" | SystemJobStatus)[] = ["all", "running", "queued", "
 export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
   const [filter, setFilter] = useState<string>("all");
   const filtered = useMemo(() => (filter === "all" ? jobs : jobs.filter((j) => j.status === filter)), [jobs, filter]);
+  const { pageItems, pagerProps } = usePagination(filtered, 10, filter);
 
   const filters = FILTER_ORDER.map((id) => ({
     id,
@@ -39,6 +41,7 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
           {jobs.length === 0 ? "Jobs will show up here as people run tools." : "No jobs with this status."}
         </p>
       ) : (
+        <>
         <Table>
           <TableHead>
             <TableRow>
@@ -51,7 +54,7 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
             </TableRow>
           </TableHead>
           <tbody>
-            {filtered.map((job) => (
+            {pageItems.map((job) => (
               <TableRow key={job.id}>
                 <TableCell className="pl-5 font-mono text-xs text-subtle">
                   <span title={job.id}>{job.id.slice(0, 8)}</span>
@@ -77,6 +80,8 @@ export function SystemJobsTable({ jobs }: { jobs: SystemJob[] }) {
             ))}
           </tbody>
         </Table>
+        <Pagination {...pagerProps} noun="jobs" />
+        </>
       )}
     </Panel>
   );
