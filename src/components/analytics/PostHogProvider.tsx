@@ -19,6 +19,11 @@ if (typeof window !== "undefined" && key) {
     // (post-signup) -- anonymous marketing-site traffic still shows up in
     // event/session data, just without per-person profile cost.
     person_profiles: "identified_only",
+    // Error tracking: uncaught errors and unhandled promise rejections in the
+    // browser land in PostHog -> Error tracking. Production only, so local
+    // dev noise doesn't fill it. Crashes React catches are reported from
+    // app/global-error.tsx; server errors from src/instrumentation.ts.
+    capture_exceptions: process.env.NODE_ENV === "production",
   });
 }
 
