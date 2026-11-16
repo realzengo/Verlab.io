@@ -11,6 +11,10 @@ import { BarList } from "@/components/admin/charts/BarList";
 import { Meter } from "@/components/admin/charts/Meter";
 import { formatCurrency } from "@/lib/utils";
 
+/** Cents shown, like the Whop dashboard: $23.62, not $24. */
+const formatMoney = (value: number) =>
+  value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export const dynamic = "force-dynamic";
 
 const TIER_COLOR: Record<string, string> = {
@@ -35,6 +39,9 @@ export default async function AdminRevenuePage() {
     dailySeries,
     recentTransactions,
     webhookConfigured,
+    webhookEnabled,
+    whopBalance,
+    moneySource,
     cancellationBreakdown,
     retentionOffersShown,
     retentionOfferAcceptRatePct,
@@ -54,6 +61,14 @@ export default async function AdminRevenuePage() {
           <code className="rounded bg-(--admin-fill-strong) px-1 py-0.5 font-mono text-[12px]">WHOP_WEBHOOK_SECRET</code> is set
           and <code className="rounded bg-(--admin-fill-strong) px-1 py-0.5 font-mono text-[12px]">/api/webhooks/whop</code> is
           registered against a public URL.
+        </Callout>
+      )}
+
+      {webhookConfigured && webhookEnabled === false && (
+        <Callout icon={<TriangleAlert className="h-4 w-4" />} title="Whop has switched the webhook off">
+          Whop disables an endpoint after repeated failed deliveries. The sync job turns it back on and catches up
+          payments every 10 minutes, so this should clear by itself; if it stays, check the webhook in Whop&apos;s
+          developer settings.
         </Callout>
       )}
 
@@ -81,8 +96,26 @@ export default async function AdminRevenuePage() {
         />
       </KpiStrip>
 
-      <Panel title="Revenue collected" description="Payments net of refunds, per day">
-        <HeroFigure value={formatCurrency(netCollectedLast30d)} caption="Collected in the last 30 days" />
+      <Panel
+        title="Revenue collected"
+        description={
+          moneySource === "whop"
+            ? "From Whop, after Whop's fees and refunds, per day"
+            : "Whop couldn't be reached; showing payments recorded by the webhook"
+        }
+        action={
+          whopBalance && (
+            <div className="text-right">
+              <p className="text-[12px] text-subtle">Whop balance</p>
+              <p className="text-lg font-semibold tabular-nums tracking-[-0.01em] text-heading">{formatMoney(whopBalance.total)}</p>
+              <p className="text-[12px] tabular-nums text-subtle">
+                {formatMoney(whopBalance.available)} available · {formatMoney(whopBalance.pending)} pending
+              </p>
+            </div>
+          )
+        }
+      >
+        <HeroFigure value={formatMoney(netCollectedLast30d)} caption="Collected in the last 30 days" />
         <TimeSeriesChart
           dates={dailySeries.map((p) => p.date)}
           series={[{ label: "Collected", values: dailySeries.map((p) => p.collected) }]}

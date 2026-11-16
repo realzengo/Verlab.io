@@ -127,7 +127,7 @@ export default async function AdminOverviewPage() {
           value={formatCurrency(currentMrr)}
           footnote={
             currentMrr > 0
-              ? `${formatNumber(payingUsers)} paying · ${formatNumber(activeTrials)} trialing`
+              ? `${formatNumber(payingUsers)} paying${activeTrials > 0 ? ` · ${formatNumber(activeTrials)} trialing` : ""}`
               : "Awaiting first payment"
           }
         />

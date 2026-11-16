@@ -461,9 +461,19 @@ export interface RevenueTransaction {
   userEmail: string;
   itemLabel: string;
   billingReason: string | null;
+  /** What the customer paid (negative for a refund). */
   amount: number;
+  /** What reached the Whop balance after Whop's fees, when known. */
+  net?: number;
   currency: string;
   createdAt: string;
+}
+
+/** The Whop account balance, as the Whop dashboard shows it. */
+export interface WhopBalance {
+  available: number;
+  pending: number;
+  total: number;
 }
 
 export interface PlanMrrBreakdown {
@@ -497,10 +507,16 @@ export interface RevenueData {
   newSubscribersLast30d: number;
   churnRatePct: number;
   netCollectedLast30d: number;
+  /** null when Whop couldn't be asked; the money figures then come from webhook rows. */
+  whopBalance: WhopBalance | null;
+  /** Where the collected figures, chart and transactions came from. */
+  moneySource: "whop" | "webhooks";
   planBreakdown: PlanMrrBreakdown[];
   dailySeries: RevenueDailyPoint[];
   recentTransactions: RevenueTransaction[];
   webhookConfigured: boolean;
+  /** Whether Whop is delivering to our endpoint right now; null if Whop couldn't be asked. */
+  webhookEnabled: boolean | null;
   cancellationBreakdown: CancellationReasonBreakdown[];
   retentionOffersShown: number;
   retentionOfferAcceptRatePct: number;

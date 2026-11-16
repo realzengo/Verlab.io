@@ -1,6 +1,9 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getWhopWebhookEnabled } from "@/lib/server/whop-sync";
+import { findSubscriptionPlanByPlanId } from "@/lib/config/whop";
+import { getWhopMoney } from "@/lib/server/whop-revenue";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import { CANCELLATION_REASONS } from "@/lib/cancellation";
 import type {
@@ -71,6 +74,45 @@ const CANCELLATION_REASON_TONE: Record<string, ToolTone> = {
 // Subscriptions still collecting revenue (or in the past_due grace window) --
 // see src/proxy.ts's PAST_DUE_GRACE_MS for why past_due keeps counting.
 const PAYING_STATUSES = new Set(["active", "past_due"]);
+
+/**
+ * Users whose current subscription has actually been charged. A status alone
+ * isn't money: a 100%-off promo leaves a membership "active" or "trialing"
+ * with nothing ever billed, and a past payment on an older, canceled
+ * membership (the owner's August test) doesn't make today's free one paid.
+ * So a user counts only when the membership on their profile has at least
+ * one payment above zero. Every Whop payment is logged with its membership
+ * in whop_webhook_events, by the webhook or the 10-minute whop-sync cron.
+ */
+async function getPaidUserIds(admin: ReturnType<typeof createAdminClient>): Promise<Set<string>> {
+  const [{ data: payments }, { data: profiles }] = await Promise.all([
+    selectAllRows((from, to) =>
+      admin
+        .from("whop_webhook_events")
+        .select(
+          "id, membership_id:payload->data->membership->>id, usd_total:payload->data->>usd_total, total:payload->data->>total, settlement_amount:payload->data->>settlement_amount",
+        )
+        .eq("type", "payment.succeeded")
+        .order("id")
+        .range(from, to),
+    ),
+    selectAllRows((from, to) =>
+      admin.from("profiles").select("id, subscription_id").not("subscription_id", "is", null).order("id").range(from, to),
+    ),
+  ]);
+
+  const chargedMemberships = new Set<string>();
+  for (const row of payments as { membership_id: string | null; usd_total: string | null; total: string | null; settlement_amount: string | null }[]) {
+    const amount = Number(row.usd_total ?? row.total ?? row.settlement_amount ?? 0);
+    if (row.membership_id && amount > 0) chargedMemberships.add(row.membership_id);
+  }
+
+  return new Set(
+    (profiles as { id: string; subscription_id: string }[])
+      .filter((p) => chargedMemberships.has(p.subscription_id))
+      .map((p) => p.id),
+  );
+}
 
 function last30Days(): string[] {
   const days: string[] = [];
@@ -180,13 +222,15 @@ const LIVE_PLAN_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export async function getPlanDistribution(): Promise<PlanDistribution[]> {
   const admin = createAdminClient();
-  const { data } = await selectAllRows((from, to) =>
-    admin.from("profiles").select("plan, subscription_status").order("id").range(from, to),
-  );
+  const [{ data }, paidUserIds] = await Promise.all([
+    selectAllRows((from, to) => admin.from("profiles").select("id, plan, subscription_status").order("id").range(from, to)),
+    getPaidUserIds(admin),
+  ]);
 
   const counts: Record<string, number> = { free: 0, core: 0, pro: 0, scale: 0 };
   for (const row of data ?? []) {
-    const tier = LIVE_PLAN_STATUSES.has(row.subscription_status ?? "") ? (row.plan ?? "core") : "free";
+    const live = LIVE_PLAN_STATUSES.has(row.subscription_status ?? "") && paidUserIds.has(row.id);
+    const tier = live ? (row.plan ?? "core") : "free";
     counts[tier] = (counts[tier] ?? 0) + 1;
   }
 
@@ -219,7 +263,10 @@ export async function getActivityLog(limit = 10): Promise<ActivityLogEntry[]> {
 // constraint) -> the admin dashboard's coarser status. "suspended" is never
 // written here -- it's an admin-applied moderation flag the UsersTable
 // toggles client-side only, unrelated to billing state.
-function mapSubscriptionStatus(status: string | null): AdminUserStatus {
+function mapSubscriptionStatus(status: string | null, paid: boolean): AdminUserStatus {
+  // Never charged (a 100%-off promo, the owner's own test membership): the
+  // admin treats it as a free account, whatever state Whop holds it in.
+  if (!paid) return "free";
   if (status === "active") return "active";
   if (status === "trialing") return "trialing";
   if (status === "past_due") return "past_due";
@@ -237,8 +284,12 @@ function mapSubscriptionStatus(status: string | null): AdminUserStatus {
 // all has never subscribed, including one that only ever received an admin
 // credit grant (adjustCreditsAsAdmin only touches profiles.credits), so it
 // must display as having no plan rather than the default "core" id.
-function displayPlan(profile: { plan: string | null; subscription_status: string | null } | null | undefined): AdminUser["plan"] {
-  if (!profile?.subscription_status) return "free";
+function displayPlan(
+  profile: { plan: string | null; subscription_status: string | null } | null | undefined,
+  paid: boolean,
+): AdminUser["plan"] {
+  // Only a charged subscription makes a paid tier; see getPaidUserIds().
+  if (!paid || !profile?.subscription_status) return "free";
   return (profile.plan as AdminUser["plan"] | null) ?? "core";
 }
 
@@ -249,13 +300,14 @@ const ACTIVE_NOW_WINDOW_MS = 5 * 60 * 1000;
 
 export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: string; activeNowCount: number }> {
   const admin = createAdminClient();
-  const [authUsers, { data: profiles }, { data: usageRows }, planDefs] = await Promise.all([
+  const [authUsers, { data: profiles }, { data: usageRows }, planDefs, paidUserIds] = await Promise.all([
     listAllUsers(),
     selectAllRows((from, to) =>
       admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period").order("id").range(from, to),
     ),
     selectAllRows((from, to) => admin.from("usage_events").select("user_id, tool, created_at").order("id").range(from, to)),
     getPlanDefinitions(admin),
+    getPaidUserIds(admin),
   ]);
 
   const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
@@ -295,12 +347,14 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       downloads: usageEntry?.downloads ?? 0,
       apiCalls: usageEntry?.apiCalls ?? 0,
     };
-    const status = mapSubscriptionStatus(profile?.subscription_status ?? null);
+    const paid = paidUserIds.has(u.id);
+    const status = mapSubscriptionStatus(profile?.subscription_status ?? null, paid);
     const price = priceByPlan.get((profile?.plan as "core" | "pro" | "scale" | null) ?? "core");
     // Gate on the raw subscription status, not the display status above -- a
     // profile with no subscription at all also *displays* as "active" (free
     // access, nothing billed) and must not be counted as paying revenue.
-    const mrr = PAYING_STATUSES.has(profile?.subscription_status ?? "") && price
+    // Nor must a promo membership that has never been charged.
+    const mrr = PAYING_STATUSES.has(profile?.subscription_status ?? "") && paid && price
       ? profile?.subscription_period === "yearly"
         ? Math.round(price.yearly / 12)
         : price.monthly
@@ -317,7 +371,7 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
       email: u.email ?? "",
-      plan: displayPlan(profile),
+      plan: displayPlan(profile, paid),
       status,
       mrr,
       signupDate: (u.created_at ?? new Date().toISOString()).slice(0, 10),
@@ -701,7 +755,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
   const since30 = new Date();
   since30.setUTCDate(since30.getUTCDate() - 29);
 
-  const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }] = await Promise.all([
+  const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }, paidUserIds] = await Promise.all([
     listAllUsers(),
     selectAllRows((from, to) =>
       admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
@@ -715,6 +769,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
       .from("credit_transactions")
       .select("user_id, amount, action_key, created_at")
       .gte("created_at", since30.toISOString()),
+    getPaidUserIds(admin),
   ]);
 
   const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
@@ -781,7 +836,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
         id: userId,
         name: nameFor(userId),
         email: emailById.get(userId) ?? "N/A",
-        plan: displayPlan(profile),
+        plan: displayPlan(profile, paidUserIds.has(userId)),
         spent30d,
         balance: profile?.credits ?? 0,
       };
@@ -813,11 +868,12 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 
 export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
   const admin = createAdminClient();
-  const [authUsers, { data: profiles }] = await Promise.all([
+  const [authUsers, { data: profiles }, paidUserIds] = await Promise.all([
     listAllUsers(),
     selectAllRows((from, to) =>
       admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
     ),
+    getPaidUserIds(admin),
   ]);
 
   const profileById = new Map(
@@ -833,7 +889,7 @@ export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
       id: u.id,
       name: profile?.full_name || u.email?.split("@")[0] || "Unnamed",
       email: u.email ?? "",
-      plan: displayPlan(profile),
+      plan: displayPlan(profile, paidUserIds.has(u.id)),
       credits: profile?.credits ?? 0,
     };
   });
@@ -885,14 +941,26 @@ function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction |
   const user = data.user as { name?: string | null; email?: string | null } | null | undefined;
   const product = data.product as { title?: string | null } | null | undefined;
   const billingReason = data.billing_reason as string | null | undefined;
-  const settlementAmount = (data.settlement_amount as number | undefined) ?? 0;
+  // Webhook payloads carry settlement_amount; a payment read back from
+  // Whop's API by a reconcile sweep doesn't, but has the same figure as its
+  // USD total.
+  const settlementAmount =
+    (data.settlement_amount as number | undefined) ??
+    (data.usd_total as number | undefined) ??
+    (data.total as number | undefined) ??
+    0;
+  // Name the plan from our own config: Whop product titles go stale (Core's
+  // still reads "legacy $19" after the move to $25).
+  const planId = (data.plan as { id?: string } | null | undefined)?.id;
+  const plan = planId ? findSubscriptionPlanByPlanId(planId) : null;
+  const planLabel = plan ? `${PLAN_LABEL[plan.planId]}, ${plan.period}` : null;
 
   return {
     id: row.id,
     type: "order.paid",
     userName: user?.name || user?.email || "Unknown",
     userEmail: user?.email ?? "N/A",
-    itemLabel: product?.title ?? (data.membership ? "Subscription" : "Credits"),
+    itemLabel: planLabel ?? product?.title ?? (data.membership ? "Subscription" : "Credits"),
     billingReason: billingReason ? (BILLING_REASON_LABEL[billingReason] ?? billingReason) : null,
     amount: settlementAmount,
     currency: ((data.currency as string | undefined) ?? "usd").toUpperCase(),
@@ -905,9 +973,9 @@ export async function getRevenueData(): Promise<RevenueData> {
   const since30 = new Date();
   since30.setUTCDate(since30.getUTCDate() - 29);
 
-  const [{ data: profiles }, planDefs, { data: cancellationRows }, { data: eventRows }] = await Promise.all([
+  const [{ data: profiles }, planDefs, { data: cancellationRows }, { data: eventRows }, webhookEnabled, paidUserIds] = await Promise.all([
     selectAllRows((from, to) =>
-      admin.from("profiles").select("plan, subscription_status, subscription_period").order("id").range(from, to),
+      admin.from("profiles").select("id, plan, subscription_status, subscription_period").order("id").range(from, to),
     ),
     getPlanDefinitions(admin),
     admin
@@ -921,7 +989,17 @@ export async function getRevenueData(): Promise<RevenueData> {
       .in("type", ["payment.succeeded", "refund.created", "membership.activated", "membership.deactivated"])
       .order("created_at", { ascending: false })
       .limit(300),
+    getWhopWebhookEnabled(),
+    getPaidUserIds(admin),
   ]);
+
+  // Money comes from Whop itself whenever Whop answers; the webhook rows
+  // below are only the fallback.
+  const days = last30Days();
+  const whopMoney = await getWhopMoney(days).catch((error) => {
+    console.error("[admin/revenue] Whop API unavailable, falling back to webhook rows:", error);
+    return null;
+  });
 
   const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
 
@@ -936,6 +1014,9 @@ export async function getRevenueData(): Promise<RevenueData> {
   };
 
   for (const row of profiles ?? []) {
+    // Accounts that never paid (promo memberships, the owner's own test
+    // trial) aren't subscribers in any of these figures.
+    if (!paidUserIds.has(row.id)) continue;
     const status = row.subscription_status;
     if (status === "trialing") {
       trialingCount++;
@@ -954,11 +1035,26 @@ export async function getRevenueData(): Promise<RevenueData> {
     bucket.mrr += monthly;
   }
 
-  const events = eventRows ?? [];
-  const churnedLast30d = events.filter((e) => e.type === "membership.deactivated" && e.created_at >= since30.toISOString()).length;
-  const newSubscribersLast30d = events.filter((e) => e.type === "membership.activated" && e.created_at >= since30.toISOString()).length;
+  // A payment can be logged twice: once by a reconcile sweep (while the
+  // webhook was down) and again if Whop's delivery lands later. Keep one row
+  // per Whop object, by type and the object's own id.
+  const seenObjects = new Set<string>();
+  const events = (eventRows ?? []).filter((row) => {
+    const objectId = (row.payload as { data?: { id?: unknown } } | null)?.data?.id;
+    if (typeof objectId !== "string") return true;
+    const key = `${row.type}:${objectId}`;
+    if (seenObjects.has(key)) return false;
+    seenObjects.add(key);
+    return true;
+  });
+  const byPayer = (e: (typeof events)[number]) => {
+    const userId = (e.payload as { data?: { metadata?: { user_id?: unknown } } } | null)?.data?.metadata?.user_id;
+    return typeof userId === "string" && paidUserIds.has(userId);
+  };
+  const recent = (e: (typeof events)[number]) => e.created_at >= since30.toISOString();
+  const churnedLast30d = events.filter((e) => e.type === "membership.deactivated" && recent(e) && byPayer(e)).length;
+  const newSubscribersLast30d = events.filter((e) => e.type === "membership.activated" && recent(e) && byPayer(e)).length;
 
-  const days = last30Days();
   const byDay = new Map(days.map((d) => [d, 0]));
   for (const row of events) {
     if (row.type !== "payment.succeeded" && row.type !== "refund.created") continue;
@@ -967,10 +1063,11 @@ export async function getRevenueData(): Promise<RevenueData> {
     const txn = parseRevenueTransaction(row);
     if (txn) byDay.set(day, (byDay.get(day) ?? 0) + txn.amount);
   }
-  const dailySeries = days.map((date) => ({ date, collected: Math.round((byDay.get(date) ?? 0) * 100) / 100 }));
-  const netCollectedLast30d = dailySeries.reduce((s, p) => s + p.collected, 0);
+  const webhookSeries = days.map((date) => ({ date, collected: Math.round((byDay.get(date) ?? 0) * 100) / 100 }));
+  const dailySeries = whopMoney?.dailySeries ?? webhookSeries;
+  const netCollectedLast30d = whopMoney?.netLast30d ?? webhookSeries.reduce((s, p) => s + p.collected, 0);
 
-  const recentTransactions = events
+  const recentTransactions = whopMoney?.transactions ?? events
     .filter((e) => e.type === "payment.succeeded" || e.type === "refund.created")
     .slice(0, 100)
     .map(parseRevenueTransaction)
@@ -1003,6 +1100,8 @@ export async function getRevenueData(): Promise<RevenueData> {
     newSubscribersLast30d,
     churnRatePct: Number(((churnedLast30d / (activeSubscribers + churnedLast30d || 1)) * 100).toFixed(1)),
     netCollectedLast30d: Math.round(netCollectedLast30d * 100) / 100,
+    whopBalance: whopMoney?.balance ?? null,
+    moneySource: whopMoney ? "whop" : "webhooks",
     planBreakdown: (["core", "pro", "scale"] as const).map((plan) => ({
       plan,
       label: PLAN_LABEL[plan],
@@ -1013,6 +1112,7 @@ export async function getRevenueData(): Promise<RevenueData> {
     dailySeries,
     recentTransactions,
     webhookConfigured: !!process.env.WHOP_WEBHOOK_SECRET,
+    webhookEnabled,
     cancellationBreakdown,
     retentionOffersShown,
     retentionOfferAcceptRatePct: retentionOffersShown ? Number(((retentionOffersAccepted / retentionOffersShown) * 100).toFixed(1)) : 0,

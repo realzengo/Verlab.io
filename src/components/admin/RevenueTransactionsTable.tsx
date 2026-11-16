@@ -8,7 +8,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Panel } from "@/components/admin/Panel";
 import { SegmentedControl } from "@/components/admin/SegmentedControl";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+
+const formatMoney = (value: number) =>
+  value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function RevenueTransactionsTable({ transactions }: { transactions: RevenueTransaction[] }) {
   const [filter, setFilter] = useState("all");
@@ -28,7 +31,7 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
   return (
     <Panel
       title="Recent transactions"
-      description="Payments and refunds from Whop, newest first"
+      description="Every payment and refund on Whop, newest first"
       action={<SegmentedControl label="Filter transactions" items={filters} active={filter} onChange={setFilter} />}
       flush
     >
@@ -46,7 +49,8 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
               <TableHeaderCell className="pl-5">Customer</TableHeaderCell>
               <TableHeaderCell>Item</TableHeaderCell>
               <TableHeaderCell>Type</TableHeaderCell>
-              <TableHeaderCell className="text-right">Amount</TableHeaderCell>
+              <TableHeaderCell className="text-right">Paid</TableHeaderCell>
+              <TableHeaderCell className="text-right">After fees</TableHeaderCell>
               <TableHeaderCell className="pr-5 text-right">Date</TableHeaderCell>
             </TableRow>
           </TableHead>
@@ -71,7 +75,10 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
                 <TableCell
                   className={cn("text-right font-medium tabular-nums", txn.amount < 0 ? "text-danger" : "text-heading")}
                 >
-                  {formatCurrency(txn.amount)}
+                  {formatMoney(txn.amount)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-body">
+                  {txn.net === undefined ? <span className="text-subtle">—</span> : formatMoney(txn.net)}
                 </TableCell>
                 <TableCell className="whitespace-nowrap pr-5 text-right text-body">{formatDate(txn.createdAt)}</TableCell>
               </TableRow>

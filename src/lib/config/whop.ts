@@ -20,6 +20,16 @@ interface CreditPackConfig {
   whopPlanId: string;
 }
 
+/**
+ * An env var's plan id, kept only as an extra id the webhook recognises when
+ * it differs from the pinned one -- so a member who bought through a stale
+ * production value still gets credited, but new checkouts never sell it.
+ */
+function legacyFromEnv(name: string, pinned: string): string[] {
+  const value = process.env[name];
+  return value && value !== pinned ? [value] : [];
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -31,13 +41,29 @@ function requiredEnv(name: string): string {
 // Mirrors src/components/TopUpModal.tsx's PACKS array. The client sends only
 // a packId, never raw credit/price numbers -- this table is what the server
 // actually trusts when granting credits.
+//
+// Every Whop plan id below is pinned in code, not read from env: production's
+// env went stale once (Core sold at $19 for weeks) and nothing noticed. Plan
+// ids aren't secret. Checked against Whop's plan list on 2026-11-16.
+const CREDIT_PACK_PLAN_IDS: Record<CreditPackId, string> = {
+  "500": "plan_AIlDuDh9gwDZY", // $8
+  "1000": "plan_9hvnT8WQbBGVq", // $15
+  "3000": "plan_xt3zCMTs1jPx9", // $39
+  "10000": "plan_CrM6jYEF5hKIA", // $119
+};
+
 export function getCreditPacks(): Record<CreditPackId, CreditPackConfig> {
   return {
-    "500": { credits: 500, priceUsd: 8, whopPlanId: requiredEnv("WHOP_PLAN_CREDITS_500") },
-    "1000": { credits: 1000, priceUsd: 15, whopPlanId: requiredEnv("WHOP_PLAN_CREDITS_1000") },
-    "3000": { credits: 3000, priceUsd: 39, whopPlanId: requiredEnv("WHOP_PLAN_CREDITS_3000") },
-    "10000": { credits: 10000, priceUsd: 119, whopPlanId: requiredEnv("WHOP_PLAN_CREDITS_10000") },
+    "500": { credits: 500, priceUsd: 8, whopPlanId: CREDIT_PACK_PLAN_IDS["500"] },
+    "1000": { credits: 1000, priceUsd: 15, whopPlanId: CREDIT_PACK_PLAN_IDS["1000"] },
+    "3000": { credits: 3000, priceUsd: 39, whopPlanId: CREDIT_PACK_PLAN_IDS["3000"] },
+    "10000": { credits: 10000, priceUsd: 119, whopPlanId: CREDIT_PACK_PLAN_IDS["10000"] },
   };
+}
+
+/** Pack plan ids the webhook still credits: the pinned one plus a differing env value. */
+function packPlanIds(packId: CreditPackId): string[] {
+  return [CREDIT_PACK_PLAN_IDS[packId], ...legacyFromEnv(`WHOP_PLAN_CREDITS_${packId}`, CREDIT_PACK_PLAN_IDS[packId])];
 }
 
 interface SubscriptionProductConfig {
@@ -73,14 +99,22 @@ export function getSubscriptionProducts(): Record<SubscriptionPlanId, Subscripti
       },
     },
     pro: {
-      whopMonthlyPlanId: requiredEnv("WHOP_PLAN_PRO_MONTHLY"),
-      whopYearlyPlanId: requiredEnv("WHOP_PLAN_PRO_YEARLY"),
+      whopMonthlyPlanId: "plan_rZLm1VGnjAD6P", // $39 / month
+      whopYearlyPlanId: "plan_wJXyS715t0The", // $360 / year
       monthlyCreditsPerPeriod: 2600,
+      legacyPlanIds: {
+        monthly: legacyFromEnv("WHOP_PLAN_PRO_MONTHLY", "plan_rZLm1VGnjAD6P"),
+        yearly: legacyFromEnv("WHOP_PLAN_PRO_YEARLY", "plan_wJXyS715t0The"),
+      },
     },
     scale: {
-      whopMonthlyPlanId: requiredEnv("WHOP_PLAN_SCALE_MONTHLY"),
-      whopYearlyPlanId: requiredEnv("WHOP_PLAN_SCALE_YEARLY"),
+      whopMonthlyPlanId: "plan_TAc6zIzAOVINJ", // $89 / month
+      whopYearlyPlanId: "plan_thkuopUXif7ND", // $792 / year
       monthlyCreditsPerPeriod: 5900,
+      legacyPlanIds: {
+        monthly: legacyFromEnv("WHOP_PLAN_SCALE_MONTHLY", "plan_TAc6zIzAOVINJ"),
+        yearly: legacyFromEnv("WHOP_PLAN_SCALE_YEARLY", "plan_thkuopUXif7ND"),
+      },
     },
   };
 }
@@ -99,7 +133,7 @@ export function getSubscriptionPlanId(planId: SubscriptionPlanId, period: Billin
 /** Reverse lookup used by the webhook handler: Whop plan id (payment.plan.id) -> credit pack. */
 export function findCreditPackByPlanId(whopPlanId: string): { packId: CreditPackId; credits: number } | null {
   for (const [packId, pack] of Object.entries(getCreditPacks()) as [CreditPackId, CreditPackConfig][]) {
-    if (pack.whopPlanId === whopPlanId) {
+    if (packPlanIds(packId).includes(whopPlanId)) {
       return { packId, credits: pack.credits };
     }
   }

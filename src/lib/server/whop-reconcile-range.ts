@@ -21,6 +21,7 @@ import {
   handleRefundCreated,
   syncMembershipState,
   handleMembershipDeactivated,
+  recordReconciledEvent,
 } from "@/lib/server/whop-sync";
 import type { MembershipStatus } from "@whop/sdk/resources/shared";
 import type { MembershipListResponse } from "@whop/sdk/resources/memberships";
@@ -123,6 +124,7 @@ async function reconcilePayments(
         .eq("payment_id", payment.id)
         .maybeSingle();
       await handlePaymentSucceeded(admin, payment, "reconcile");
+      await recordReconciledEvent(admin, "payment.succeeded", payment, payment.paid_at ?? payment.created_at);
       if (!before.data) result.payments.granted++;
     } catch (error) {
       result.errors.push(`payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`);
@@ -172,6 +174,7 @@ async function reconcileRefunds(
         .eq("refund_id", refund.id)
         .maybeSingle();
       await handleRefundCreated(admin, refund);
+      await recordReconciledEvent(admin, "refund.created", refund, refund.created_at);
       if (!before.data) result.refunds.clawedBack++;
     } catch (error) {
       result.errors.push(`refund ${refund.id}: ${error instanceof Error ? error.message : String(error)}`);
@@ -262,6 +265,7 @@ async function reconcileMemberships(
       }
       try {
         await syncMembershipState(admin, active);
+        await recordReconciledEvent(admin, "membership.activated", active, active.created_at);
         result.memberships.synced++;
       } catch (error) {
         result.errors.push(`membership ${active.id}: ${error instanceof Error ? error.message : String(error)}`);

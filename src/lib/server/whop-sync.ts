@@ -6,7 +6,7 @@
 // for the same payment/membership without double-granting credits.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { grantCredits, deductCredits, getUserCredits } from "@/lib/server/credits";
-import { getWhopClient, findCreditPackByPlanId, findSubscriptionPlanByPlanId } from "@/lib/config/whop";
+import { getWhopClient, getWhopCompanyId, findCreditPackByPlanId, findSubscriptionPlanByPlanId } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
 import type { MembershipStatus } from "@whop/sdk/resources/shared";
 
@@ -66,20 +66,36 @@ export async function handlePaymentSucceeded(
   payment: PaymentLike,
   source: "webhook" | "reconcile"
 ): Promise<void> {
-  const userId = payment.metadata?.user_id as string | undefined;
   const planId = payment.plan?.id;
-  if (!userId || !planId) return;
+  if (!planId) {
+    console.error(`[whop] payment ${payment.id} has no plan; no credits granted`);
+    return;
+  }
+
+  const userId = await resolvePaymentUserId(admin, payment);
+  if (!userId) {
+    // Not ours to credit (no Verlab account behind it). Loud, so a real
+    // customer missing here shows up in the logs instead of vanishing.
+    console.error(`[whop] payment ${payment.id} (${planId}) has no Verlab user; no credits granted`);
+    return;
+  }
 
   let credits: number;
   let feature: string;
   if (payment.membership) {
     const plan = findSubscriptionPlanByPlanId(planId);
-    if (!plan) return;
+    if (!plan) {
+      console.error(`[whop] payment ${payment.id}: subscription plan ${planId} isn't in src/lib/config/whop.ts; no credits granted`);
+      return;
+    }
     credits = plan.creditsPerPeriod;
     feature = "Subscription credits";
   } else {
     const pack = findCreditPackByPlanId(planId);
-    if (!pack) return;
+    if (!pack) {
+      console.error(`[whop] payment ${payment.id}: credit pack plan ${planId} isn't in src/lib/config/whop.ts; no credits granted`);
+      return;
+    }
     credits = pack.credits;
     feature = "Credit top-up";
   }
@@ -94,12 +110,44 @@ export async function handlePaymentSucceeded(
     throw new Error(dedupeError.message);
   }
 
-  await grantCredits(userId, credits, feature, `whop.payment.${payment.id}`);
+  try {
+    await grantCredits(userId, credits, feature, `whop.payment.${payment.id}`);
+  } catch (error) {
+    // Release the claim, or this payment would read as processed forever and
+    // no retry (the next webhook delivery, checkout sync or the 10-minute
+    // whop-sync cron) would ever grant it.
+    await admin.from("whop_processed_payments").delete().eq("payment_id", payment.id);
+    throw error;
+  }
+
   await capturePostHogEvent({
     distinctId: userId,
     event: "purchase_completed",
     properties: { kind: payment.membership ? "subscription" : "credits", planId, credits, source },
   });
+}
+
+/**
+ * Who a payment belongs to. Checkout stamps our user id into the payment's
+ * metadata, but a renewal is a new payment Whop creates on its own, so don't
+ * rely on that alone: fall back to the membership's metadata (stamped by the
+ * same checkout), then to the profile that holds this membership.
+ */
+async function resolvePaymentUserId(admin: AdminClient, payment: PaymentLike): Promise<string | null> {
+  const fromPayment = payment.metadata?.user_id;
+  if (typeof fromPayment === "string" && fromPayment) return fromPayment;
+  if (!payment.membership) return null;
+
+  try {
+    const membership = await getWhopClient().memberships.retrieve(payment.membership.id);
+    const fromMembership = membership.metadata?.user_id;
+    if (typeof fromMembership === "string" && fromMembership) return fromMembership;
+  } catch (error) {
+    console.error(`[whop] couldn't load membership ${payment.membership.id} for payment ${payment.id}:`, error);
+  }
+
+  const { data } = await admin.from("profiles").select("id").eq("subscription_id", payment.membership.id).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
 }
 
 /**
@@ -198,4 +246,70 @@ export async function handleMembershipDeactivated(admin: AdminClient, membership
     .from("profiles")
     .update({ subscription_status: "canceled", plan: "core", plan_set_by: "system" })
     .eq("id", userId);
+}
+
+/**
+ * Logs an object a reconciliation path found (a payment, refund or
+ * membership read from Whop's API) into whop_webhook_events, the same table
+ * the webhook writes, so the admin's revenue view sees money that arrived
+ * while the webhook was down. The id is derived from the object's own id,
+ * so repeated sweeps write it once; getRevenueData dedupes on the object id
+ * too, so a webhook delivery landing later for the same payment isn't
+ * counted twice. Dated at when it happened on Whop, not when it was found.
+ */
+export async function recordReconciledEvent(
+  admin: AdminClient,
+  type: "payment.succeeded" | "refund.created" | "membership.activated",
+  object: { id: string },
+  occurredAt: string | null | undefined
+): Promise<void> {
+  const { error } = await admin.from("whop_webhook_events").insert({
+    id: `reconcile:${type}:${object.id}`,
+    type,
+    payload: { type, source: "reconcile", data: object },
+    created_at: occurredAt ?? new Date().toISOString(),
+    processed_at: new Date().toISOString(),
+  });
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
+
+/** Where Whop should deliver events; matches the endpoint registered in Whop. */
+const WEBHOOK_PATH = "/api/webhooks/whop";
+
+/**
+ * Whop disables a webhook endpoint by itself after a stretch of failed
+ * deliveries (it happened after the August outage, and nothing arrived for
+ * three months). Turns any of ours that are off back on, and reports what it
+ * found. A no-op when everything is already enabled.
+ */
+export async function ensureWhopWebhookEnabled(): Promise<{ found: number; reenabled: string[] }> {
+  const client = getWhopClient();
+  const companyId = getWhopCompanyId();
+  const reenabled: string[] = [];
+  let found = 0;
+  for await (const hook of client.webhooks.list({ company_id: companyId })) {
+    if (!hook.url?.endsWith(WEBHOOK_PATH)) continue;
+    found++;
+    if (hook.enabled) continue;
+    await client.webhooks.update(hook.id, { enabled: true });
+    reenabled.push(hook.id);
+  }
+  return { found, reenabled };
+}
+
+/** Whether Whop currently delivers to our endpoint; null when Whop can't be asked. */
+export async function getWhopWebhookEnabled(): Promise<boolean | null> {
+  try {
+    const client = getWhopClient();
+    const companyId = getWhopCompanyId();
+    let any = false;
+    for await (const hook of client.webhooks.list({ company_id: companyId })) {
+      if (!hook.url?.endsWith(WEBHOOK_PATH)) continue;
+      if (hook.enabled) return true;
+      any = true;
+    }
+    return any ? false : null;
+  } catch {
+    return null;
+  }
 }

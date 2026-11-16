@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/tiktok-covers",
       "schedule": "40 * * * *"
+    },
+    {
+      "path": "/api/cron/whop-sync",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
