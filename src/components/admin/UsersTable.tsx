@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Mail, Search, ShieldAlert, ShieldCheck, ShieldOff } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@/lib/types";
 import { Avatar } from "@/components/ui/Avatar";
@@ -88,6 +88,10 @@ function joinedRange(filter: JoinedFilter, nowIso: string): [string, string] | n
 
 type SortKey = "name" | "mrr" | "signupDate" | "lastActiveAt";
 
+// One collator for every name comparison: String#localeCompare builds a new
+// one per call, which is most of the cost of sorting thousands of rows.
+const nameCollator = new Intl.Collator(undefined, { sensitivity: "base" });
+
 function timeAgoFromNow(iso: string, nowIso: string): string {
   const hours = Math.round((new Date(nowIso).getTime() - new Date(iso).getTime()) / 3_600_000);
   if (hours < 1) return "just now";
@@ -118,35 +122,51 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
     };
   }
 
-  const rows = useMemo(() => users.map((u) => ({ ...u, status: overrides[u.id] ?? u.status })), [users, overrides]);
+  // Search text and sort timestamps worked out once per user list, not on
+  // every keystroke and every comparison -- the list runs to thousands.
+  const indexed = useMemo(
+    () =>
+      users.map((u) => ({
+        user: u,
+        search: `${u.name}\n${u.email}`.toLowerCase(),
+        signupTs: Date.parse(u.signupDate),
+        lastActiveTs: Date.parse(u.lastActiveAt),
+      })),
+    [users]
+  );
+
+  // The input updates on every key; the filtering trails it at lower priority
+  // so typing never waits on the table.
+  const deferredQuery = useDeferredValue(query);
+  const searchTerm = deferredQuery.trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const joined = joinedRange(joinedFilter, nowIso);
-    let list = rows.filter((u) => {
+    const list = indexed.filter(({ user: u, search }) => {
       if (joined) {
         const day = u.signupDate.slice(0, 10);
         if (day < joined[0] || day > joined[1]) return false;
       }
       if (planFilter !== "all" && u.plan !== planFilter) return false;
-      if (statusFilter !== "all" && u.status !== statusFilter) return false;
-      if (q && !u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+      if (statusFilter !== "all" && (overrides[u.id] ?? u.status) !== statusFilter) return false;
+      if (searchTerm && !search.includes(searchTerm)) return false;
       return true;
     });
-    list = [...list].sort((a, b) => {
+    list.sort((a, b) => {
       let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "mrr") cmp = a.mrr - b.mrr;
-      else cmp = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime();
+      if (sortKey === "name") cmp = nameCollator.compare(a.user.name, b.user.name);
+      else if (sortKey === "mrr") cmp = a.user.mrr - b.user.mrr;
+      else if (sortKey === "signupDate") cmp = a.signupTs - b.signupTs;
+      else cmp = a.lastActiveTs - b.lastActiveTs;
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return list;
-  }, [rows, query, planFilter, statusFilter, joinedFilter, nowIso, sortKey, sortDir]);
+    return list.map(({ user }) => (overrides[user.id] ? { ...user, status: overrides[user.id] } : user));
+  }, [indexed, overrides, searchTerm, planFilter, statusFilter, joinedFilter, nowIso, sortKey, sortDir]);
 
   const { pageItems, pagerProps } = usePagination(
     filtered,
     PAGE_SIZE,
-    [query.trim().toLowerCase(), planFilter, statusFilter, joinedFilter, sortKey, sortDir].join("|")
+    [searchTerm, planFilter, statusFilter, joinedFilter, sortKey, sortDir].join("|")
   );
 
   function toggleSort(key: SortKey) {
@@ -164,7 +184,10 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
     }));
   }
 
-  const suspendedCount = rows.filter((u) => u.status === "suspended").length;
+  const suspendedCount = useMemo(
+    () => users.filter((u) => (overrides[u.id] ?? u.status) === "suspended").length,
+    [users, overrides]
+  );
   const fieldClass =
     "h-8 border border-hairline bg-surface text-[13px] text-heading outline-none placeholder:text-subtle focus:border-primary";
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWhopWebhookEnabled } from "@/lib/server/whop-sync";
@@ -84,20 +85,24 @@ const PAYING_STATUSES = new Set(["active", "past_due"]);
  * one payment above zero. Every Whop payment is logged with its membership
  * in whop_webhook_events, by the webhook or the 10-minute whop-sync cron.
  */
-async function getPaidUserIds(admin: ReturnType<typeof createAdminClient>): Promise<Set<string>> {
+// Wrapped in React's cache(): one admin render often reaches this from
+// several queries (the overview did four times), and it should cost one read.
+const getPaidUserIds = cache(async (): Promise<Set<string>> => {
+  const admin = createAdminClient();
   const [{ data: payments }, { data: profiles }] = await Promise.all([
-    selectAllRows((from, to) =>
+    selectAllRows((from, to, opts) =>
       admin
         .from("whop_webhook_events")
         .select(
           "id, membership_id:payload->data->membership->>id, usd_total:payload->data->>usd_total, total:payload->data->>total, settlement_amount:payload->data->>settlement_amount",
+          opts,
         )
         .eq("type", "payment.succeeded")
         .order("id")
         .range(from, to),
     ),
-    selectAllRows((from, to) =>
-      admin.from("profiles").select("id, subscription_id").not("subscription_id", "is", null).order("id").range(from, to),
+    selectAllRows((from, to, opts) =>
+      admin.from("profiles").select("id, subscription_id", opts).not("subscription_id", "is", null).order("id").range(from, to),
     ),
   ]);
 
@@ -112,7 +117,7 @@ async function getPaidUserIds(admin: ReturnType<typeof createAdminClient>): Prom
       .filter((p) => chargedMemberships.has(p.subscription_id))
       .map((p) => p.id),
   );
-}
+});
 
 function last30Days(): string[] {
   const days: string[] = [];
@@ -125,31 +130,141 @@ function last30Days(): string[] {
   return days;
 }
 
-async function listAllUsers() {
+// Every auth account, read once per render (cache()) however many admin
+// queries ask for it. GoTrue serves at most 1000 per page; the first page
+// reports the total, so the rest are fetched side by side instead of one
+// after another -- six sequential ~450ms pages at 5k accounts became two
+// round trips.
+const AUTH_PAGE_SIZE = 1000;
+const listAllUsers = cache(async (): Promise<User[]> => {
   const admin = createAdminClient();
-  const users: User[] = [];
-  for (let page = 1; ; page++) {
-    const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    const batch = data?.users ?? [];
+  const fetchPage = async (page: number) =>
+    (await admin.auth.admin.listUsers({ page, perPage: AUTH_PAGE_SIZE })).data;
+
+  const first = await fetchPage(1);
+  const users: User[] = [...(first?.users ?? [])];
+  if (users.length < AUTH_PAGE_SIZE) return users;
+
+  const knownPages = first && "total" in first && first.total ? Math.ceil(first.total / AUTH_PAGE_SIZE) : 1;
+  const rest = await Promise.all(Array.from({ length: Math.max(knownPages - 1, 0) }, (_, i) => fetchPage(i + 2)));
+  for (const page of rest) users.push(...(page?.users ?? []));
+
+  // Accounts created while the pages were in flight can push a full last
+  // page; keep going one page at a time until a short one.
+  let lastBatch = rest.length ? (rest[rest.length - 1]?.users.length ?? 0) : AUTH_PAGE_SIZE;
+  for (let page = knownPages + 1; lastBatch === AUTH_PAGE_SIZE; page++) {
+    const batch = (await fetchPage(page))?.users ?? [];
     users.push(...batch);
-    if (batch.length < 1000) return users;
+    lastBatch = batch.length;
   }
+  return users;
+});
+
+/** Total auth accounts, without reading them: listUsers reports the total. */
+async function countAuthUsers(): Promise<number> {
+  const { data } = await createAdminClient().auth.admin.listUsers({ page: 1, perPage: 1 });
+  if (data && "total" in data && typeof data.total === "number") return data.total;
+  return (await listAllUsers()).length;
+}
+
+/** Emails for a handful of accounts. A short list is looked up by id, which
+ * beats paging through every account just to label a few rows. */
+async function getEmailsById(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length > 25) return new Map((await listAllUsers()).map((u) => [u.id, u.email ?? "N/A"]));
+  const admin = createAdminClient();
+  const found = await Promise.all(
+    unique.map(async (id) => [id, (await admin.auth.admin.getUserById(id)).data.user?.email ?? "N/A"] as const),
+  );
+  return new Map(found);
 }
 
 // PostgREST caps every select at 1000 rows, which silently truncated the
-// admin counts once profiles passed 1000 -- page through until a short page.
-// The query must be ordered on a unique column so pages don't overlap.
+// admin counts once profiles passed 1000 -- page through to the end. The
+// first page also asks for the exact row count, so every remaining page is
+// fetched in parallel rather than one round trip after another. The query
+// must be ordered on a unique column so pages don't overlap, and must pass
+// `opts` through to its .select() so the count can be requested.
 const PAGE_SIZE = 1000;
+type PageOpts = { count?: "exact" };
 async function selectAllRows<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  page: (from: number, to: number, opts: PageOpts) => PromiseLike<{ data: T[] | null; error: unknown; count?: number | null }>,
 ): Promise<{ data: T[] }> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+  const first = await page(0, PAGE_SIZE - 1, { count: "exact" });
+  if (first.error) throw first.error;
+  const rows: T[] = [...(first.data ?? [])];
+  if (rows.length < PAGE_SIZE) return { data: rows };
+
+  const total = first.count ?? 0;
+  const offsets: number[] = [];
+  for (let from = PAGE_SIZE; from < total; from += PAGE_SIZE) offsets.push(from);
+  const rest = await Promise.all(offsets.map((from) => page(from, from + PAGE_SIZE - 1, {})));
+  let lastLength = rest.length ? PAGE_SIZE : rows.length;
+  for (const result of rest) {
+    if (result.error) throw result.error;
+    rows.push(...(result.data ?? []));
+    lastLength = result.data?.length ?? 0;
+  }
+
+  // Rows inserted after the count can leave a full last page; read on.
+  for (let from = PAGE_SIZE * (offsets.length + 1); lastLength === PAGE_SIZE; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1, {});
     if (error) throw error;
     rows.push(...(data ?? []));
-    if ((data?.length ?? 0) < PAGE_SIZE) return { data: rows };
+    lastLength = data?.length ?? 0;
   }
+  return { data: rows };
+}
+
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+  plan: string | null;
+  subscription_status: string | null;
+  subscription_period: string | null;
+  credits: number;
+}
+
+/** Every profile, read once per render however many queries need it. */
+const getAllProfiles = cache(async (): Promise<ProfileRow[]> => {
+  const admin = createAdminClient();
+  const { data } = await selectAllRows<ProfileRow>((from, to, opts) =>
+    admin
+      .from("profiles")
+      .select("id, full_name, plan, subscription_status, subscription_period, credits", opts)
+      .order("id")
+      .range(from, to),
+  );
+  return data;
+});
+
+/** Only the profiles that have ever subscribed -- a handful, where the full
+ * table is thousands. Every revenue and plan-mix figure lives in this set:
+ * an account without a subscription status is on the free tier by definition. */
+const getSubscriberProfiles = cache(async () => {
+  const admin = createAdminClient();
+  const { data } = await selectAllRows<Pick<ProfileRow, "id" | "plan" | "subscription_status" | "subscription_period">>(
+    (from, to, opts) =>
+      admin
+        .from("profiles")
+        .select("id, plan, subscription_status, subscription_period", opts)
+        .not("subscription_status", "is", null)
+        .order("id")
+        .range(from, to),
+  );
+  return data;
+});
+
+const getAdminPlanDefinitions = cache(() => getPlanDefinitions(createAdminClient()));
+
+/** A row count without the rows (HEAD + count=exact). */
+function countQuery(table: string) {
+  return createAdminClient().from(table).select("*", { count: "exact", head: true });
+}
+async function countRows(table: string, filter: (q: ReturnType<typeof countQuery>) => ReturnType<typeof countQuery> = (q) => q) {
+  const { count, error } = await filter(countQuery(table));
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function getSignupSeries(): Promise<SignupPoint[]> {
@@ -157,8 +272,8 @@ export async function getSignupSeries(): Promise<SignupPoint[]> {
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 29);
 
-  const { data } = await selectAllRows((from, to) =>
-    admin.from("profiles").select("created_at").gte("created_at", since.toISOString()).order("id").range(from, to),
+  const { data } = await selectAllRows((from, to, opts) =>
+    admin.from("profiles").select("created_at", opts).gte("created_at", since.toISOString()).order("id").range(from, to),
   );
 
   const days = last30Days();
@@ -176,8 +291,8 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 29);
 
-  const { data } = await selectAllRows((from, to) =>
-    admin.from("usage_events").select("tool, created_at").gte("created_at", since.toISOString()).order("id").range(from, to),
+  const { data } = await selectAllRows((from, to, opts) =>
+    admin.from("usage_events").select("tool, created_at", opts).gte("created_at", since.toISOString()).order("id").range(from, to),
   );
 
   const days = last30Days();
@@ -221,18 +336,23 @@ export async function getUsageData(): Promise<{ series: UsagePoint[]; share: Too
 const LIVE_PLAN_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export async function getPlanDistribution(): Promise<PlanDistribution[]> {
-  const admin = createAdminClient();
-  const [{ data }, paidUserIds] = await Promise.all([
-    selectAllRows((from, to) => admin.from("profiles").select("id, plan, subscription_status").order("id").range(from, to)),
-    getPaidUserIds(admin),
+  // Only subscribers can be on a paid tier, so read those few and count the
+  // rest as free rather than pulling every profile row.
+  const [subscribers, totalProfiles, paidUserIds] = await Promise.all([
+    getSubscriberProfiles(),
+    countRows("profiles"),
+    getPaidUserIds(),
   ]);
 
   const counts: Record<string, number> = { free: 0, core: 0, pro: 0, scale: 0 };
-  for (const row of data ?? []) {
-    const live = LIVE_PLAN_STATUSES.has(row.subscription_status ?? "") && paidUserIds.has(row.id);
-    const tier = live ? (row.plan ?? "core") : "free";
+  let onPaidTier = 0;
+  for (const row of subscribers) {
+    if (!LIVE_PLAN_STATUSES.has(row.subscription_status ?? "") || !paidUserIds.has(row.id)) continue;
+    const tier = row.plan ?? "core";
     counts[tier] = (counts[tier] ?? 0) + 1;
+    onPaidTier++;
   }
+  counts.free = Math.max(totalProfiles - onPaidTier, 0);
 
   return (["free", "core", "pro", "scale"] as const).map((plan) => ({
     plan,
@@ -300,18 +420,18 @@ const ACTIVE_NOW_WINDOW_MS = 5 * 60 * 1000;
 
 export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: string; activeNowCount: number }> {
   const admin = createAdminClient();
-  const [authUsers, { data: profiles }, { data: usageRows }, planDefs, paidUserIds] = await Promise.all([
+  const [authUsers, profiles, { data: usageRows }, planDefs, paidUserIds] = await Promise.all([
     listAllUsers(),
-    selectAllRows((from, to) =>
-      admin.from("profiles").select("id, full_name, plan, subscription_status, subscription_period").order("id").range(from, to),
+    getAllProfiles(),
+    selectAllRows((from, to, opts) =>
+      admin.from("usage_events").select("user_id, tool, created_at", opts).order("id").range(from, to),
     ),
-    selectAllRows((from, to) => admin.from("usage_events").select("user_id, tool, created_at").order("id").range(from, to)),
-    getPlanDefinitions(admin),
-    getPaidUserIds(admin),
+    getAdminPlanDefinitions(),
+    getPaidUserIds(),
   ]);
 
   const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
-  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
   const usageByUser = new Map<
     string,
     { bends: number; transcripts: number; downloads: number; apiCalls: number; lastEventAt: string }
@@ -421,47 +541,44 @@ const JOB_SOURCES: {
  * same `limit` so a quiet tool still shows up before the overall cut. */
 export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
   const admin = createAdminClient();
-  const [results, authUsers] = await Promise.all([
-    Promise.all(
-      JOB_SOURCES.map((src) =>
-        admin
-          .from(src.table)
-          .select(`id, status, user_id, created_at, ${src.columns}`)
-          .order("created_at", { ascending: false })
-          .limit(limit)
-          .then(({ data, error }) => {
-            if (error) console.error(`[admin] job queue: ${src.table}`, error.message);
-            return (data ?? []) as unknown as Record<string, string | null>[];
-          })
-      )
-    ),
-    listAllUsers(),
-  ]);
-
-  const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
-  const now = Date.now();
-
-  const jobs: SystemJob[] = JOB_SOURCES.flatMap((src, i) =>
-    results[i].map((row) => {
-      const createdAt = row.created_at as string;
-      let status = mapJobStatus(row.status ?? "");
-      if ((status === "running" || status === "queued") && now - new Date(createdAt).getTime() > STUCK_AFTER_MS) status = "stuck";
-      const settled = status === "success" || status === "failed";
-      const errorMessage = src.error.map((col) => row[col]).find((v) => v && v.trim()) ?? null;
-      return {
-        id: row.id as string,
-        type: src.type,
-        status,
-        userEmail: emailById.get(row.user_id as string) ?? "N/A",
-        startedAt: createdAt,
-        durationMs: settled && row.updated_at ? new Date(row.updated_at).getTime() - new Date(createdAt).getTime() : undefined,
-        errorMessage,
-        source: src.source ? row[src.source] : null,
-      };
-    })
+  const results = await Promise.all(
+    JOB_SOURCES.map((src) =>
+      admin
+        .from(src.table)
+        .select(`id, status, user_id, created_at, ${src.columns}`)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+        .then(({ data, error }) => {
+          if (error) console.error(`[admin] job queue: ${src.table}`, error.message);
+          return (data ?? []) as unknown as Record<string, string | null>[];
+        })
+    )
   );
 
-  return jobs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, limit);
+  // Cut to the newest `limit` first, then label only those rows' owners.
+  const newest = JOB_SOURCES.flatMap((src, i) => results[i].map((row) => ({ src, row })))
+    .sort((a, b) => new Date(b.row.created_at as string).getTime() - new Date(a.row.created_at as string).getTime())
+    .slice(0, limit);
+  const emailById = await getEmailsById(newest.map(({ row }) => row.user_id as string));
+  const now = Date.now();
+
+  return newest.map(({ src, row }): SystemJob => {
+    const createdAt = row.created_at as string;
+    let status = mapJobStatus(row.status ?? "");
+    if ((status === "running" || status === "queued") && now - new Date(createdAt).getTime() > STUCK_AFTER_MS) status = "stuck";
+    const settled = status === "success" || status === "failed";
+    const errorMessage = src.error.map((col) => row[col]).find((v) => v && v.trim()) ?? null;
+    return {
+      id: row.id as string,
+      type: src.type,
+      status,
+      userEmail: emailById.get(row.user_id as string) ?? "N/A",
+      startedAt: createdAt,
+      durationMs: settled && row.updated_at ? new Date(row.updated_at).getTime() - new Date(createdAt).getTime() : undefined,
+      errorMessage,
+      source: src.source ? row[src.source] : null,
+    };
+  });
 }
 
 /** Stuck jobs count against the rate: the user never got a result. */
@@ -475,30 +592,31 @@ export function computeJobSuccessRate(jobs: SystemJob[]): number {
 // (see supabase/migrations/20260731120000_endpoint_health_tracking.sql).
 // null (not 0) means no checks have landed yet -- distinct from "0% uptime".
 export async function getUptimeStats(): Promise<{ uptimePct: number | null; totalChecks: number }> {
-  const admin = createAdminClient();
   const since30 = new Date();
   since30.setUTCDate(since30.getUTCDate() - 29);
+  const since = since30.toISOString();
 
-  const { data } = await admin.from("health_checks").select("ok").gte("created_at", since30.toISOString());
-  const rows = data ?? [];
-  if (rows.length === 0) return { uptimePct: null, totalChecks: 0 };
-
-  const okCount = rows.filter((row) => row.ok).length;
-  return { uptimePct: Number(((okCount / rows.length) * 100).toFixed(2)), totalChecks: rows.length };
+  // Counted in the database: 30 days of 5-minute checks is ~8,600 rows, and
+  // reading them used to stop at PostgREST's 1000-row cap.
+  const [totalChecks, okCount] = await Promise.all([
+    countRows("health_checks", (q) => q.gte("created_at", since)),
+    countRows("health_checks", (q) => q.gte("created_at", since).eq("ok", true)),
+  ]);
+  if (totalChecks === 0) return { uptimePct: null, totalChecks: 0 };
+  return { uptimePct: Number(((okCount / totalChecks) * 100).toFixed(2)), totalChecks };
 }
 
 // Backed by api_request_log, written by withApiLogging (src/lib/server/
 // api-logging.ts) across the instrumented product/tool + MCP routes.
 export async function getApiErrorRate(): Promise<{ errorRatePct: number | null; totalRequests: number }> {
-  const admin = createAdminClient();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const { data } = await admin.from("api_request_log").select("is_error").gte("created_at", since24h);
-  const rows = data ?? [];
-  if (rows.length === 0) return { errorRatePct: null, totalRequests: 0 };
-
-  const errorCount = rows.filter((row) => row.is_error).length;
-  return { errorRatePct: Number(((errorCount / rows.length) * 100).toFixed(2)), totalRequests: rows.length };
+  const [totalRequests, errorCount] = await Promise.all([
+    countRows("api_request_log", (q) => q.gte("created_at", since24h)),
+    countRows("api_request_log", (q) => q.gte("created_at", since24h).eq("is_error", true)),
+  ]);
+  if (totalRequests === 0) return { errorRatePct: null, totalRequests: 0 };
+  return { errorRatePct: Number(((errorCount / totalRequests) * 100).toFixed(2)), totalRequests };
 }
 
 function percentile(sortedValues: number[], p: number): number {
@@ -512,10 +630,14 @@ export async function getEndpointHealthToday(): Promise<ApiEndpointHealth[]> {
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
-  const { data } = await admin
-    .from("api_request_log")
-    .select("endpoint, method, status, duration_ms")
-    .gte("created_at", startOfDay.toISOString());
+  const { data } = await selectAllRows((from, to, opts) =>
+    admin
+      .from("api_request_log")
+      .select("endpoint, method, status, duration_ms", opts)
+      .gte("created_at", startOfDay.toISOString())
+      .order("id")
+      .range(from, to),
+  );
 
   const byEndpoint = new Map<string, { endpoint: string; method: string; durations: number[]; errors: number }>();
 
@@ -722,21 +844,24 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
   const since30 = new Date();
   since30.setUTCDate(since30.getUTCDate() - 29);
 
-  const [authUsers, { data: profiles }, { data: recentTxRows }, { data: ledger30Rows }, paidUserIds] = await Promise.all([
+  const [authUsers, profiles, { data: recentTxRows }, { data: ledger30Rows }, paidUserIds] = await Promise.all([
     listAllUsers(),
-    selectAllRows((from, to) =>
-      admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
-    ),
+    getAllProfiles(),
     admin
       .from("credit_transactions")
       .select("id, user_id, amount, feature, action_key, granted_by, created_at")
       .order("created_at", { ascending: false })
       .limit(200),
-    admin
-      .from("credit_transactions")
-      .select("user_id, amount, action_key, created_at")
-      .gte("created_at", since30.toISOString()),
-    getPaidUserIds(admin),
+    // Paged: a busy month passes PostgREST's 1000-row cap.
+    selectAllRows((from, to, opts) =>
+      admin
+        .from("credit_transactions")
+        .select("user_id, amount, action_key, created_at", opts)
+        .gte("created_at", since30.toISOString())
+        .order("id")
+        .range(from, to),
+    ),
+    getPaidUserIds(),
   ]);
 
   const emailById = new Map(authUsers.map((u) => [u.id, u.email ?? "N/A"]));
@@ -834,14 +959,8 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 }
 
 export async function getUsersForCreditsAdmin(): Promise<CreditsAdminUser[]> {
-  const admin = createAdminClient();
-  const [authUsers, { data: profiles }, paidUserIds] = await Promise.all([
-    listAllUsers(),
-    selectAllRows((from, to) =>
-      admin.from("profiles").select("id, full_name, plan, subscription_status, credits").order("id").range(from, to),
-    ),
-    getPaidUserIds(admin),
-  ]);
+  // Same reads as getCreditsOverview -- cache() makes the page pay once.
+  const [authUsers, profiles, paidUserIds] = await Promise.all([listAllUsers(), getAllProfiles(), getPaidUserIds()]);
 
   const profileById = new Map(
     (profiles ?? []).map((p) => [
@@ -935,39 +1054,18 @@ function parseRevenueTransaction(row: WhopWebhookEventRow): RevenueTransaction |
   };
 }
 
-export async function getRevenueData(): Promise<RevenueData> {
-  const admin = createAdminClient();
-  const since30 = new Date();
-  since30.setUTCDate(since30.getUTCDate() - 29);
-
-  const [{ data: profiles }, planDefs, { data: cancellationRows }, { data: eventRows }, webhookEnabled, paidUserIds] = await Promise.all([
-    selectAllRows((from, to) =>
-      admin.from("profiles").select("id, plan, subscription_status, subscription_period").order("id").range(from, to),
-    ),
-    getPlanDefinitions(admin),
-    admin
-      .from("cancellation_feedback")
-      .select("reason, outcome, offer_shown, offer_accepted")
-      .order("created_at", { ascending: false })
-      .limit(500),
-    admin
-      .from("whop_webhook_events")
-      .select("id, type, payload, created_at")
-      .in("type", ["payment.succeeded", "refund.created", "membership.activated", "membership.deactivated"])
-      .order("created_at", { ascending: false })
-      .limit(300),
-    getWhopWebhookEnabled(),
-    getPaidUserIds(admin),
+/**
+ * Subscribers, MRR and the per-plan split, from our own profiles. Only the
+ * handful of profiles that ever subscribed are read: an account without a
+ * subscription status can't be paying. Shared by the overview (which needs
+ * just these figures, not Whop's) and the revenue page.
+ */
+const getSubscriptionSummary = cache(async () => {
+  const [subscribers, planDefs, paidUserIds] = await Promise.all([
+    getSubscriberProfiles(),
+    getAdminPlanDefinitions(),
+    getPaidUserIds(),
   ]);
-
-  // Money comes from Whop itself whenever Whop answers; the webhook rows
-  // below are only the fallback.
-  const days = last30Days();
-  const whopMoney = await getWhopMoney(days).catch((error) => {
-    console.error("[admin/revenue] Whop API unavailable, falling back to webhook rows:", error);
-    return null;
-  });
-
   const priceByPlan = new Map(planDefs.map((p) => [p.id, p.price]));
 
   let mrr = 0;
@@ -980,7 +1078,7 @@ export async function getRevenueData(): Promise<RevenueData> {
     scale: { count: 0, mrr: 0 },
   };
 
-  for (const row of profiles ?? []) {
+  for (const row of subscribers) {
     // Accounts that never paid (promo memberships, the owner's own test
     // trial) aren't subscribers in any of these figures.
     if (!paidUserIds.has(row.id)) continue;
@@ -994,13 +1092,47 @@ export async function getRevenueData(): Promise<RevenueData> {
     activeSubscribers++;
     if (status === "past_due") pastDueCount++;
 
-    const price = priceByPlan.get(row.plan);
+    const plan = row.plan ?? "core";
+    const price = priceByPlan.get(plan as PricingPlan["id"]);
     const monthly = price ? (row.subscription_period === "yearly" ? price.yearly / 12 : price.monthly) : 0;
     mrr += monthly;
-    const bucket = planBuckets[row.plan] ?? (planBuckets[row.plan] = { count: 0, mrr: 0 });
+    const bucket = planBuckets[plan] ?? (planBuckets[plan] = { count: 0, mrr: 0 });
     bucket.count++;
     bucket.mrr += monthly;
   }
+
+  return { mrr, activeSubscribers, trialingCount, pastDueCount, planBuckets, paidUserIds };
+});
+
+export async function getRevenueData(): Promise<RevenueData> {
+  const admin = createAdminClient();
+  const since30 = new Date();
+  since30.setUTCDate(since30.getUTCDate() - 29);
+  const days = last30Days();
+
+  // Whop's API runs alongside the database reads rather than after them.
+  // Money comes from Whop itself whenever Whop answers; the webhook rows
+  // below are only the fallback.
+  const [summary, { data: cancellationRows }, { data: eventRows }, webhookEnabled, whopMoney] = await Promise.all([
+    getSubscriptionSummary(),
+    admin
+      .from("cancellation_feedback")
+      .select("reason, outcome, offer_shown, offer_accepted")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    admin
+      .from("whop_webhook_events")
+      .select("id, type, payload, created_at")
+      .in("type", ["payment.succeeded", "refund.created", "membership.activated", "membership.deactivated"])
+      .order("created_at", { ascending: false })
+      .limit(300),
+    getWhopWebhookEnabled(),
+    getWhopMoney(days).catch((error) => {
+      console.error("[admin/revenue] Whop API unavailable, falling back to webhook rows:", error);
+      return null;
+    }),
+  ]);
+  const { mrr, activeSubscribers, trialingCount, pastDueCount, planBuckets, paidUserIds } = summary;
 
   // A payment can be logged twice: once by a reconcile sweep (while the
   // webhook was down) and again if Whop's delivery lands later. Keep one row
@@ -1086,28 +1218,72 @@ export async function getRevenueData(): Promise<RevenueData> {
   };
 }
 
+/** Credits held across every balance. Nearly every account sits at zero, so
+ * only the non-zero balances are read. */
+async function getCreditsOutstanding(): Promise<number> {
+  const admin = createAdminClient();
+  const { data } = await selectAllRows<{ credits: number }>((from, to, opts) =>
+    admin.from("profiles").select("id, credits", opts).neq("credits", 0).order("id").range(from, to),
+  );
+  return data.reduce((sum, row) => sum + (row.credits ?? 0), 0);
+}
+
+/** Credits charged since UTC midnight. */
+async function getCreditsSpentToday(): Promise<number> {
+  const admin = createAdminClient();
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { data } = await selectAllRows<{ amount: number }>((from, to, opts) =>
+    admin
+      .from("credit_transactions")
+      .select("id, amount", opts)
+      .lt("amount", 0)
+      .gte("created_at", startOfDay.toISOString())
+      .order("id")
+      .range(from, to),
+  );
+  return data.reduce((sum, row) => sum - row.amount, 0);
+}
+
+/**
+ * Exactly what the overview shows, each figure from its cheapest source:
+ * counts instead of row reads, the few subscriber profiles instead of every
+ * profile, and no Whop API call (MRR and subscriber counts come from our own
+ * tables, as they always did). It used to assemble the users, credits and
+ * revenue pages' full datasets just to read a handful of numbers off them.
+ */
 export async function getOverviewData() {
-  const [signupSeries, usage, planDistribution, activityLog, systemJobs, { users }, creditsOverview, promoCodes, featureFlags, revenue] =
-    await Promise.all([
-      getSignupSeries(),
-      getUsageData(),
-      getPlanDistribution(),
-      getActivityLog(7),
-      getSystemJobs(20),
-      getAdminUsers(),
-      getCreditsOverview(),
-      getPromoCodes(),
-      getFeatureFlags(),
-      getRevenueData(),
-    ]);
+  const [
+    totalUsers,
+    signupSeries,
+    usage,
+    planDistribution,
+    activityLog,
+    systemJobs,
+    subscriptions,
+    creditsOutstanding,
+    creditsSpentToday,
+    activePromoCodes,
+    enabledFeatureFlags,
+  ] = await Promise.all([
+    countAuthUsers(),
+    getSignupSeries(),
+    getUsageData(),
+    getPlanDistribution(),
+    getActivityLog(7),
+    getSystemJobs(20),
+    getSubscriptionSummary(),
+    getCreditsOutstanding(),
+    getCreditsSpentToday(),
+    countRows("promo_codes", (q) => q.eq("is_active", true)),
+    countRows("feature_flags", (q) => q.eq("enabled", true)),
+  ]);
 
   return {
-    totalUsers: users.length,
-    payingUsers: revenue.activeSubscribers,
-    activeTrials: revenue.trialingCount,
-    currentMrr: revenue.mrr,
-    churnRatePct: revenue.churnRatePct,
-    revenueDailySeries: revenue.dailySeries,
+    totalUsers,
+    payingUsers: subscriptions.activeSubscribers,
+    activeTrials: subscriptions.trialingCount,
+    currentMrr: Math.round(subscriptions.mrr),
     signupSeries,
     usageSeries: usage.series,
     toolUsageShare: usage.share,
@@ -1115,11 +1291,9 @@ export async function getOverviewData() {
     activityLog,
     systemJobs,
     jobSuccessRatePct: computeJobSuccessRate(systemJobs),
-    creditsOutstanding: creditsOverview.totalOutstanding,
-    creditsSpentToday: creditsOverview.spentToday,
-    creditsSpentLast7Days: creditsOverview.spentLast7Days,
-    activePromoCodes: promoCodes.filter((c) => c.isActive).length,
-    enabledFeatureFlags: featureFlags.filter((f) => f.enabled).length,
-    totalFeatureFlags: featureFlags.length,
+    creditsOutstanding,
+    creditsSpentToday,
+    activePromoCodes,
+    enabledFeatureFlags,
   };
 }
