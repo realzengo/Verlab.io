@@ -41,6 +41,7 @@ export function Stage({
   fit = "width",
   className,
   background,
+  entrance = true,
   children,
 }: {
   width: number;
@@ -49,6 +50,8 @@ export function Stage({
   className?: string;
   /** Painted edge to edge behind the scaled canvas. */
   background?: ReactNode;
+  /** false renders everything in its final state, with no entrance. */
+  entrance?: boolean;
   children: ReactNode;
 }) {
   const { ref, inView } = useAnimationGate<HTMLDivElement>();
@@ -78,7 +81,12 @@ export function Stage({
         }}
       >
         <StageInView.Provider value={inView}>
-          <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.45 }} className="absolute inset-0">
+          <motion.div
+            initial={entrance ? "hidden" : "show"}
+            whileInView="show"
+            viewport={{ once: true, amount: 0.45 }}
+            className="absolute inset-0"
+          >
             {children}
           </motion.div>
         </StageInView.Provider>

@@ -27,7 +27,7 @@ const PILL_SHADOW =
 
 function Stage({ children }: { children: ReactNode }) {
   return (
-    <BaseStage width={STAGE_W} height={STAGE_H} className="font-ui">
+    <BaseStage width={STAGE_W} height={STAGE_H} entrance={false} className="font-ui">
       {children}
     </BaseStage>
   );
