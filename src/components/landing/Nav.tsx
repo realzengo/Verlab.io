@@ -72,9 +72,11 @@ export function Nav() {
 
   return (
     <header className="fixed top-0 inset-x-0 z-[100] flex justify-center pt-4 sm:pt-5">
+      {/* Sits above the mobile menu overlay (z-110) so the logo and the
+          hamburger→X stay exactly where they are when the menu opens. */}
       <div
         className={cn(
-          "contain-layout transition-[width,max-width] duration-500 ease-in-out",
+          "contain-layout relative z-[120] transition-[width,max-width] duration-500 ease-in-out",
           isScrolled ? "w-[92%] max-w-5xl sm:w-[80%]" : "w-full max-w-7xl",
         )}
       >
@@ -82,13 +84,16 @@ export function Nav() {
           className={cn(
             "flex items-center justify-between transition-all duration-500 ease-in-out",
             isScrolled
-              ? "rounded-[20px] border border-white/70 bg-white px-6 py-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.9)]"
+              ? "rounded-[16px] border border-white/70 bg-white px-6 py-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.9)]"
               : "rounded-none border-transparent bg-transparent px-4 py-2.5 shadow-none sm:px-8 sm:py-2",
+            // The card sits on the white menu overlay -- no floating shadow there.
+            mobileOpen && "shadow-none!",
           )}
         >
           <div className="flex w-full items-center justify-between">
             <Link
               href="/"
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex shrink-0 items-center transition-all duration-500 ease-in-out",
                 isScrolled ? "-ml-3.5" : "ml-0.5",
@@ -123,11 +128,13 @@ export function Nav() {
 
             {/* Same 3D blue as the Verlab Studio card's button, kept rectangular:
                 face glows lighter at the bottom centre, a thin bright rim along the
-                top, and a solid darker lip underneath. */}
+                top, and a solid darker lip underneath. The lip is a 3px shadow
+                below the box, so the button sits 1.5px high to centre face + lip
+                in the bar. */}
             <GlassCtaButton
               href={APP_URL}
               radius={14}
-              className="-mr-2 hidden! shrink-0 whitespace-nowrap font-semibold! text-white! sm:flex!"
+              className="-top-[1.5px] -mr-2 hidden! shrink-0 whitespace-nowrap font-semibold! text-white! sm:flex!"
               style={{ ...button3d(3), backgroundBlendMode: "normal" }}
             >
               <span className="sm:hidden">Get Started</span>
@@ -171,28 +178,8 @@ export function Nav() {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="fixed inset-0 z-[110] flex flex-col bg-white sm:hidden"
           >
-            <div className="relative flex shrink-0 items-center justify-between border-b border-slate-100 px-4 pt-[26px] pb-2.5">
-              <Link href="/" onClick={() => setMobileOpen(false)} className="ml-0.5 flex shrink-0 items-center">
-                <Image
-                  src="/verlab-studio-logo.png"
-                  alt="Verlab Studio"
-                  width={1200}
-                  height={356}
-                  sizes="160px"
-                  className="h-9 w-auto"
-                />
-              </Link>
-              <motion.button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                aria-label="Close menu"
-                whileTap={{ scale: 0.88 }}
-                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                className="-mr-1 flex shrink-0 items-center justify-center rounded-full p-2 text-slate-700 outline-none focus:outline-none focus-visible:outline-none"
-              >
-                <X size={22} />
-              </motion.button>
-            </div>
+            {/* Room for the real nav bar, which stays on top of the overlay. */}
+            <div aria-hidden className="h-[78px] shrink-0" />
 
             <div className="relative flex flex-1 flex-col justify-center px-6">
               {NAV_LINKS.map((link, index) => (

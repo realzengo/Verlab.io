@@ -1189,15 +1189,6 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* The landing studio card's light angle, set from the pointer's position so
-   its chrome rim and spun-metal disc turn their reflections as you move.
-   Registered so it can ease instead of jump. */
-@property --studio-spin {
-  syntax: "<angle>";
-  inherits: true;
-  initial-value: 0deg;
-}
-
 .btn-bevel {
   position: relative;
   isolation: isolate;
