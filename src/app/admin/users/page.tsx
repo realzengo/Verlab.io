@@ -1,3 +1,4 @@
+import { BroadcastIcon, CreditCardIcon, HourglassIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr";
 import { getAdminUsers } from "@/lib/server/admin-queries";
 import type { AdminUser, AdminUserStatus } from "@/lib/types";
 import { PageHeader } from "@/components/admin/PageHeader";
@@ -60,11 +61,14 @@ export default async function AdminUsersPage() {
         <Kpi
           label="Total accounts"
           value={formatStat(total)}
+          icon={UsersIcon}
+          accent
           delta={{ value: signed(signups30d), direction: signups30d > 0 ? "up" : "flat", sentiment: signups30d > 0 ? "positive" : "neutral", label: "last 30 days" }}
         />
         <Kpi
           label="Active now"
           value={formatStat(activeNowCount)}
+          icon={BroadcastIcon}
           footnote="in the last 5 minutes"
           indicator={
             <span className="relative flex h-1.5 w-1.5" title="Signed in or ran a tool in the last 5 minutes">
@@ -76,14 +80,20 @@ export default async function AdminUsersPage() {
         <Kpi
           label="Paying accounts"
           value={formatStat(paying)}
+          icon={CreditCardIcon}
           footnote={total > 0 ? `${Math.round((paying / total) * 100)}% of all accounts` : undefined}
         />
-        <Kpi label="Active trials" value={formatStat(trialing)} />
+        <Kpi label="Active trials" value={formatStat(trialing)} icon={HourglassIcon} footnote="not billed yet" />
       </KpiStrip>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Panel className="xl:col-span-2" title="Signups" description={`${formatNumber(signups30d)} new accounts, last 30 days`}>
-          <ColumnChart dates={days} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" />
+        <Panel
+          className="xl:col-span-2"
+          title="Signups"
+          description={`${formatNumber(signups30d)} new accounts, last 30 days`}
+          bodyClassName="flex flex-col"
+        >
+          <ColumnChart dates={days} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" fill />
         </Panel>
 
         <div className="flex flex-col gap-6">

@@ -11,7 +11,7 @@ const FILL: Record<MeterTone, string> = {
 
 /**
  * A 0-100 reading. The fill carries severity; the unfilled track stays a
- * quiet step so the bar reads as one object across its whole length.
+ * quiet inset step so the bar reads as one object across its whole length.
  */
 export function Meter({
   value,
@@ -33,9 +33,20 @@ export function Meter({
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={100}
-      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-(--admin-fill)", className)}
+      className={cn(
+        "h-2 w-full rounded-full bg-(--admin-fill-strong) shadow-[inset_0_1px_1px_rgba(10,10,30,0.06)]",
+        className
+      )}
     >
-      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: FILL[tone] }} />
+      {pct > 0 && (
+        <div
+          className="admin-grow-x h-full rounded-full"
+          style={{
+            width: `max(${pct}%, 8px)`,
+            background: FILL[tone],
+          }}
+        />
+      )}
     </div>
   );
 }

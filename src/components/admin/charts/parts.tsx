@@ -21,12 +21,15 @@ export function GridY({
   yFor,
   format,
   labels = true,
+  clearY,
 }: {
   ticks: number[];
   box: PlotBox;
   yFor: (value: number) => number;
   format: ValueFormat;
   labels?: boolean;
+  /** The hovered value's axis pill sits here; tick labels under it step aside. */
+  clearY?: number | null;
 }) {
   return (
     <g aria-hidden="true">
@@ -42,7 +45,7 @@ export function GridY({
               style={{ stroke: tick === 0 ? "var(--viz-baseline)" : "var(--viz-grid)" }}
               strokeWidth={1}
             />
-            {labels && (
+            {labels && (clearY == null || Math.abs(clearY - y) > 12) && (
               <text
                 x={box.left - 10}
                 y={y}
@@ -79,17 +82,28 @@ export function XLabels({
   const indexes = axisLabelIndexes(dates.length, count);
   return (
     <g aria-hidden="true">
-      {indexes.map((i, n) => (
-        <text
-          key={dates[i]}
-          x={xFor(i)}
-          y={y}
-          textAnchor={n === 0 && indexes.length > 1 ? "start" : n === indexes.length - 1 && indexes.length > 1 ? "end" : "middle"}
-          style={{ fill: "var(--viz-axis)", fontSize: 11 }}
-        >
-          {formatDay(dates[i])}
-        </text>
-      ))}
+      {indexes.map((i, n) => {
+        const last = n === indexes.length - 1 && indexes.length > 1;
+        const anchor = n === 0 && indexes.length > 1 ? "start" : last ? "end" : "middle";
+        if (!last) {
+          return (
+            <text key={dates[i]} x={xFor(i)} y={y} textAnchor={anchor} style={{ fill: "var(--viz-axis)", fontSize: 11 }}>
+              {formatDay(dates[i])}
+            </text>
+          );
+        }
+        // The most recent day sits in a small pill: where "now" is on the axis.
+        const label = formatDay(dates[i]);
+        const w = label.length * 6.2 + 14;
+        return (
+          <g key={dates[i]}>
+            <rect x={xFor(i) - w + 4} y={y - 12} width={w} height={18} rx={9} style={{ fill: "var(--admin-fill-strong)" }} />
+            <text x={xFor(i) - 3} y={y} textAnchor="end" style={{ fill: "var(--color-heading)", fontSize: 11, fontWeight: 500 }}>
+              {label}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -114,35 +128,73 @@ export function ChartTooltip({
   containerWidth,
   title,
   rows,
+  note,
+  centered = false,
 }: {
   x: number;
   top: number;
   containerWidth: number;
   title: string;
   rows: TooltipRow[];
+  /** A line of context under the values, e.g. "2.4× the daily average". */
+  note?: string;
+  /** Sit on the plot's middle instead of its top: small charts inside a
+      clipped frame, where a top-hung tooltip would run off the bottom. */
+  centered?: boolean;
 }) {
   const flip = x > containerWidth * 0.6;
+  const tx = flip ? `calc(${x}px - 100% - 12px)` : `${x + 12}px`;
   return (
+    // Placed by transform rather than `left`, so moving between days glides.
     <div
       role="presentation"
-      className="admin-chart-tooltip pointer-events-none absolute z-20 min-w-[132px] whitespace-nowrap rounded-lg border border-hairline bg-surface px-3 py-2 shadow-card-hover"
-      style={{ left: x, top, transform: flip ? "translateX(calc(-100% - 14px))" : "translateX(14px)" }}
+      className="admin-chart-tooltip admin-glide pointer-events-none absolute left-0 z-20 min-w-[148px] whitespace-nowrap rounded-[12px] bg-(--admin-tooltip-bg) px-3 py-2.5 text-(--admin-tooltip-fg) shadow-[0_0_0_1px_var(--admin-tooltip-ring),0_12px_32px_-8px_rgba(10,10,30,0.45)]"
+      style={
+        centered
+          ? { top: "50%", minWidth: 0, transform: `translate(${tx}, -50%)` }
+          : { top, transform: `translateX(${flip ? `calc(${x}px - 100% - 16px)` : `${x + 16}px`})` }
+      }
     >
-      <p className="text-[11px] font-medium text-subtle">{title}</p>
+      <p className="text-[11px] font-medium text-(--admin-tooltip-muted)">{title}</p>
       <div className="mt-1.5 flex flex-col gap-1">
         {rows.map((row, i) => (
           <div key={row.label ?? i} className="flex items-center gap-2 text-[13px]">
             <span
               aria-hidden="true"
-              className={cn("shrink-0", row.key === "square" ? "h-2 w-2 rounded-[2px]" : "h-[2px] w-3 rounded-full")}
+              className={cn("shrink-0", row.key === "square" ? "h-2 w-2 rounded-[2px]" : "h-2 w-2 rounded-full")}
               style={{ background: row.color }}
             />
-            <span className="font-semibold tabular-nums text-heading">{row.value}</span>
-            {row.label && <span className="ml-auto pl-3 text-subtle">{row.label}</span>}
+            <span className="font-semibold tabular-nums">{row.value}</span>
+            {row.label && <span className="ml-auto pl-3 text-(--admin-tooltip-muted)">{row.label}</span>}
           </div>
         ))}
       </div>
+      {note && <p className="mt-2 border-t border-white/10 pt-2 text-[11.5px] text-(--admin-tooltip-muted)">{note}</p>}
     </div>
+  );
+}
+
+/**
+ * The hovered value pinned to the y axis: a small ink pill in the gutter and
+ * a dashed guide running across to the mark.
+ */
+export function AxisValuePill({ y, box, toX, label }: { y: number; box: PlotBox; toX: number; label: string }) {
+  const w = Math.max(28, label.length * 6.4 + 12);
+  return (
+    <g className="admin-glide pointer-events-none" style={{ transform: `translateY(${y}px)` }} aria-hidden="true">
+      <line x1={box.left} x2={toX} y1={0.5} y2={0.5} style={{ stroke: "var(--viz-crosshair)" }} strokeWidth={1} strokeDasharray="3 3" />
+      <rect x={box.left - w - 6} y={-9} width={w} height={18} rx={9} style={{ fill: "var(--admin-tooltip-bg)" }} />
+      <text
+        x={box.left - 6 - w / 2}
+        y={0}
+        dy="0.34em"
+        textAnchor="middle"
+        className="tabular-nums"
+        style={{ fill: "var(--admin-tooltip-fg)", fontSize: 10.5, fontWeight: 600 }}
+      >
+        {label}
+      </text>
+    </g>
   );
 }
 
@@ -158,30 +210,34 @@ export function SrTable({
   series: { label: string; values: number[] }[];
   format: ValueFormat;
 }) {
+  // The wrapper does the hiding: a table ignores its own overflow clip, so an
+  // sr-only <table> still adds its rows' height to the page's scroll.
   return (
-    <table className="sr-only">
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          <th scope="col">Date</th>
-          {series.map((s) => (
-            <th key={s.label} scope="col">
-              {s.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {dates.map((date, i) => (
-          <tr key={date}>
-            <th scope="row">{formatDay(date)}</th>
+    <div className="sr-only">
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
             {series.map((s) => (
-              <td key={s.label}>{formatValue(s.values[i] ?? 0, format)}</td>
+              <th key={s.label} scope="col">
+                {s.label}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {dates.map((date, i) => (
+            <tr key={date}>
+              <th scope="row">{formatDay(date)}</th>
+              {series.map((s) => (
+                <td key={s.label}>{formatValue(s.values[i] ?? 0, format)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

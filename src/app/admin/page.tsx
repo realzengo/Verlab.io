@@ -1,11 +1,12 @@
 import { CircleCheck, CircleX, Clock3, LoaderCircle, TimerOff } from "lucide-react";
+import { CurrencyCircleDollarIcon, LightningIcon, ShieldCheckIcon, UsersIcon } from "@phosphor-icons/react/dist/ssr";
 import { getApiProviders, getOverviewData } from "@/lib/server/admin-queries";
 import { ADMIN_NAV } from "@/lib/mock/nav";
 import type { UsagePoint } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { PageHeader, LiveIndicator } from "@/components/admin/PageHeader";
 import { HeroFigure, MiniStat, Panel } from "@/components/admin/Panel";
-import { Kpi, KpiStrip, signed } from "@/components/admin/KpiStrip";
+import { Kpi, KpiStrip, rateTone, signed } from "@/components/admin/KpiStrip";
 import { ActivityFeed } from "@/components/admin/ActivityFeed";
 import { AdminToolsGrid, type AdminToolCardData } from "@/components/admin/AdminToolsGrid";
 import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
@@ -15,6 +16,7 @@ import { ShareBar } from "@/components/admin/charts/ShareBar";
 import { Meter } from "@/components/admin/charts/Meter";
 import { formatStat, sumOf } from "@/components/admin/charts/format";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { seriesDetail } from "@/components/admin/details";
 
 export const dynamic = "force-dynamic";
 
@@ -74,10 +76,6 @@ export default async function AdminOverviewPage() {
   const runsYesterday = dailyRuns[dailyRuns.length - 2] ?? 0;
   const runsChange = runsToday - runsYesterday;
 
-  // Cumulative accounts over the window, anchored so the curve ends exactly at
-  // today's real total -- no fabricated pre-window history.
-  const baseUsers = totalUsers - signups30d;
-  const growth = signups.reduce<number[]>((acc, n) => [...acc, (acc[acc.length - 1] ?? baseUsers) + n], []);
 
   const paidConversionPct = totalUsers > 0 ? Number(((payingUsers / totalUsers) * 100).toFixed(1)) : 0;
 
@@ -124,8 +122,10 @@ export default async function AdminOverviewPage() {
 
       <KpiStrip>
         <Kpi
-          label="Monthly recurring revenue"
+          label="MRR"
           value={formatCurrency(currentMrr)}
+          icon={CurrencyCircleDollarIcon}
+          accent
           footnote={
             currentMrr > 0
               ? `${formatNumber(payingUsers)} paying${activeTrials > 0 ? ` · ${formatNumber(activeTrials)} trialing` : ""}`
@@ -135,23 +135,25 @@ export default async function AdminOverviewPage() {
         <Kpi
           label="Total accounts"
           value={formatStat(totalUsers)}
+          icon={UsersIcon}
           delta={{ value: signed(signups30d), direction: signups30d > 0 ? "up" : "flat", sentiment: signups30d > 0 ? "positive" : "neutral", label: "last 30 days" }}
-          trend={growth.slice(-14)}
         />
         <Kpi
           label="Tool runs today"
           value={formatStat(runsToday)}
+          icon={LightningIcon}
           delta={{
             value: signed(runsChange),
             direction: runsChange > 0 ? "up" : runsChange < 0 ? "down" : "flat",
             sentiment: runsChange > 0 ? "positive" : runsChange < 0 ? "negative" : "neutral",
             label: "vs yesterday",
           }}
-          trend={dailyRuns.slice(-14)}
         />
         <Kpi
           label="Job success rate"
           value={`${jobSuccessRatePct}%`}
+          tone={rateTone(jobSuccessRatePct, 90, 70)}
+          icon={ShieldCheckIcon}
           delta={{
             value: jobCounts.stuck > 0 ? `${jobCounts.failed} failed · ${jobCounts.stuck} stuck` : `${jobCounts.failed} failed`,
             sentiment: jobCounts.failed + jobCounts.stuck > 0 ? "negative" : "positive",
@@ -161,12 +163,14 @@ export default async function AdminOverviewPage() {
       </KpiStrip>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Panel className="xl:col-span-2" title="Tool runs" description="Runs across every tool per day, last 30 days">
+        {/* The figure is the card's header: "107 runs", the way it's read. */}
+        <Panel className="xl:col-span-2" bodyClassName="flex flex-col">
           <HeroFigure
             value={formatStat(runs30d)}
-            caption={`${formatNumber(Math.round(runs30d / Math.max(dailyRuns.length, 1)))} runs a day on average`}
+            unit={runs30d === 1 ? "run" : "runs"}
+            caption={`Every tool, last 30 days · ${formatNumber(Math.round(runs30d / Math.max(dailyRuns.length, 1)))} a day on average`}
           />
-          <TimeSeriesChart dates={dates} series={[{ label: "Tool runs", values: dailyRuns }]} ariaLabel="Tool runs per day, last 30 days" />
+          <TimeSeriesChart dates={dates} series={[{ label: "Tool runs", values: dailyRuns }]} ariaLabel="Tool runs per day, last 30 days" fill />
         </Panel>
 
         <Panel
@@ -200,8 +204,9 @@ export default async function AdminOverviewPage() {
               View users
             </Button>
           }
+          bodyClassName="flex flex-col"
         >
-          <ColumnChart dates={dates} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" />
+          <ColumnChart dates={dates} values={signups} label="Signups" ariaLabel="New accounts per day, last 30 days" fill />
         </Panel>
 
         <Panel
@@ -214,7 +219,19 @@ export default async function AdminOverviewPage() {
           }
         >
           <BarList
-            items={[...toolUsageShare].sort((a, b) => b.count - a.count).map((t) => ({ label: t.label, value: t.count }))}
+            items={[...toolUsageShare]
+              .sort((a, b) => b.count - a.count)
+              .map((t) => ({
+                label: t.label,
+                value: t.count,
+                detail: seriesDetail({
+                  title: t.label,
+                  dates: usageSeries.map((p) => p.date),
+                  values: usageSeries.map((p) => p[t.tool]),
+                  total: runs30d,
+                  unit: "runs",
+                }),
+              }))}
             emptyLabel="No tool runs in the last 30 days"
           />
         </Panel>
@@ -224,6 +241,7 @@ export default async function AdminOverviewPage() {
         <Panel
           className="xl:col-span-2"
           title="Recent activity"
+          description="Signups, payments and failed jobs, newest first"
           action={
             <Button href="/admin/system" variant="secondary" size="sm">
               System log

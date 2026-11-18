@@ -8,6 +8,8 @@ import { getWhopMoney } from "@/lib/server/whop-revenue";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import { CANCELLATION_REASONS } from "@/lib/cancellation";
 import { PAYMENT_FAILED_NOTICE_TYPE } from "@/lib/server/payment-failed";
+import { JOB_TYPE_LABEL } from "@/components/admin/job-labels";
+import { formatCurrency } from "@/lib/utils";
 import type {
   ActivityLogEntry,
   AdminTeamMember,
@@ -1138,7 +1140,7 @@ interface FailedPaymentData {
  * the sync cron) -- a declined checkout retried successfully often lands on a
  * fresh membership.
  */
-async function getFailedPayments(): Promise<FailedPayment[]> {
+export async function getFailedPayments(): Promise<FailedPayment[]> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -1400,7 +1402,7 @@ export async function getOverviewData() {
     getSignupSeries(),
     getUsageData(),
     getPlanDistribution(),
-    getActivityLog(7),
+    getActivitySources(),
     getSystemJobs(20),
     getSubscriptionSummary(),
     getCreditsOutstanding(),
@@ -1418,7 +1420,7 @@ export async function getOverviewData() {
     usageSeries: usage.series,
     toolUsageShare: usage.share,
     planDistribution,
-    activityLog,
+    activityLog: mergeActivity(activityLog, systemJobs),
     systemJobs,
     jobSuccessRatePct: computeJobSuccessRate(systemJobs),
     creditsOutstanding,
@@ -1426,4 +1428,191 @@ export async function getOverviewData() {
     activePromoCodes,
     enabledFeatureFlags,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The sidebar status card (src/lib/server/admin-pulse.ts). It refreshes every
+// few minutes while an admin tab is open, so these read counts and a handful
+// of columns -- never the rows a page would.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface JobHealth {
+  /** Jobs that reached an end state (stuck counts as one: the user got nothing). */
+  settled: number;
+  failed: number;
+  stuck: number;
+  /** The tool with the most failed + stuck jobs, if any. */
+  worstType: SystemJobType | null;
+}
+
+/** Every tool's jobs from the last 24 hours. Older stuck rows are left out:
+ * one stuck since last week has already been seen on the System page. */
+export async function getJobHealth24h(): Promise<JobHealth> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - DAY_MS).toISOString();
+  const results = await Promise.all(
+    JOB_SOURCES.map((src) =>
+      admin
+        .from(src.table)
+        .select("status, created_at")
+        .gte("created_at", since)
+        .limit(1000)
+        .then(({ data, error }) => {
+          if (error) console.error(`[admin] pulse: ${src.table}`, error.message);
+          return (data ?? []) as { status: string | null; created_at: string }[];
+        })
+    )
+  );
+
+  const now = Date.now();
+  let settled = 0;
+  let failed = 0;
+  let stuck = 0;
+  const problems = new Map<SystemJobType, number>();
+  JOB_SOURCES.forEach((src, i) => {
+    for (const row of results[i]) {
+      const status = mapJobStatus(row.status ?? "");
+      if (status === "success") {
+        settled++;
+        continue;
+      }
+      const isStuck = status !== "failed" && now - new Date(row.created_at).getTime() > STUCK_AFTER_MS;
+      if (status !== "failed" && !isStuck) continue; // still in flight
+      settled++;
+      if (isStuck) stuck++;
+      else failed++;
+      problems.set(src.type, (problems.get(src.type) ?? 0) + 1);
+    }
+  });
+
+  const worstType = [...problems.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  return { settled, failed, stuck, worstType };
+}
+
+/** [last 7 days, the 7 before] for signups, tool runs and first payments. */
+export async function getWeekOverWeekCounts(): Promise<{
+  signups: [number, number];
+  runs: [number, number];
+  newPaying: [number, number];
+}> {
+  const now = Date.now();
+  const weekAgo = new Date(now - 7 * DAY_MS).toISOString();
+  const twoWeeksAgo = new Date(now - 14 * DAY_MS).toISOString();
+
+  const [signupsNow, signupsBefore, runsNow, runsBefore, { data: paidRows }] = await Promise.all([
+    countRows("profiles", (q) => q.gte("created_at", weekAgo)),
+    countRows("profiles", (q) => q.gte("created_at", twoWeeksAgo).lt("created_at", weekAgo)),
+    countRows("usage_events", (q) => q.gte("created_at", weekAgo)),
+    countRows("usage_events", (q) => q.gte("created_at", twoWeeksAgo).lt("created_at", weekAgo)),
+    // A subscription's first charge. One row per payment id: the webhook and
+    // the sync cron can both log the same payment.
+    createAdminClient()
+      .from("whop_webhook_events")
+      .select("payment_id:payload->data->>id, created_at")
+      .eq("type", "payment.succeeded")
+      .eq("payload->data->>billing_reason", "subscription_create")
+      .gte("created_at", twoWeeksAgo)
+      .limit(1000),
+  ]);
+
+  const paidNow = new Set<string>();
+  const paidBefore = new Set<string>();
+  for (const row of (paidRows ?? []) as { payment_id: string | null; created_at: string }[]) {
+    if (!row.payment_id) continue;
+    (row.created_at >= weekAgo ? paidNow : paidBefore).add(row.payment_id);
+  }
+
+  return {
+    signups: [signupsNow, signupsBefore],
+    runs: [runsNow, runsBefore],
+    newPaying: [paidNow.size, paidBefore.size],
+  };
+}
+
+/** The newest uptime probe (/api/cron/health-check, every 5 minutes). */
+export async function getLatestHealthCheck(): Promise<{ ok: boolean; createdAt: string } | null> {
+  const { data } = await createAdminClient()
+    .from("health_checks")
+    .select("ok, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? { ok: data.ok, createdAt: data.created_at } : null;
+}
+
+// ---------------------------------------------------------------------------
+// The overview's activity feed. activity_log alone only ever holds affiliate
+// waitlist joins, so the feed is assembled from what actually happens: new
+// accounts, payments, jobs that failed, plus whatever activity_log has. A few
+// of each, so no single kind (7K signups in a day) crowds out the rest.
+// ---------------------------------------------------------------------------
+
+const FEED_PER_SOURCE = 3;
+
+/** Signups, payments and activity_log rows. Failed jobs are folded in by
+ * mergeActivity from the job list the overview already reads. */
+async function getActivitySources(): Promise<ActivityLogEntry[]> {
+  const admin = createAdminClient();
+  const [logged, { data: profiles }, { data: payments }] = await Promise.all([
+    getActivityLog(FEED_PER_SOURCE),
+    admin.from("profiles").select("id, full_name, created_at").order("created_at", { ascending: false }).limit(FEED_PER_SOURCE),
+    admin
+      .from("whop_webhook_events")
+      .select(
+        "id, type, created_at, amount:payload->data->>usd_total, email:payload->data->user->>email, name:payload->data->user->>name, plan:payload->data->plan->>id"
+      )
+      .in("type", ["payment.succeeded", "payment.failed"])
+      .order("created_at", { ascending: false })
+      .limit(FEED_PER_SOURCE),
+  ]);
+
+  const emails = await getEmailsById((profiles ?? []).map((p) => p.id as string));
+  const signups = (profiles ?? []).map((p): ActivityLogEntry => {
+    const email = emails.get(p.id as string) ?? "N/A";
+    return {
+      id: `signup-${p.id}`,
+      type: "user",
+      message: `${(p.full_name as string | null)?.trim() || email} signed up`,
+      actor: email,
+      timestamp: p.created_at as string,
+    };
+  });
+
+  type PaymentRow = { id: string; type: string; created_at: string; amount: string | null; email: string | null; name: string | null; plan: string | null };
+  const billing = ((payments ?? []) as PaymentRow[]).map((row): ActivityLogEntry => {
+    const who = row.name?.trim() || row.email || "A customer";
+    const amount = row.amount ? formatCurrency(Number(row.amount)) : null;
+    const plan = row.plan ? findSubscriptionPlanByPlanId(row.plan) : null;
+    const paid = row.type === "payment.succeeded";
+    return {
+      id: `payment-${row.id}`,
+      type: "billing",
+      message: paid ? `${who} paid${amount ? ` ${amount}` : ""}` : `${who}'s payment was declined${amount ? ` (${amount})` : ""}`,
+      actor: plan ? `${PLAN_LABEL[plan.planId] ?? plan.planId}, ${plan.period}` : (row.email ?? "Whop"),
+      timestamp: row.created_at,
+    };
+  });
+
+  return [...logged, ...signups, ...billing];
+}
+
+/** The sources plus the latest failed or stuck jobs, newest first. */
+function mergeActivity(sources: ActivityLogEntry[], jobs: SystemJob[], limit = 7): ActivityLogEntry[] {
+  const broken = jobs
+    .filter((j) => j.status === "failed" || j.status === "stuck")
+    .slice(0, FEED_PER_SOURCE)
+    .map(
+      (j): ActivityLogEntry => ({
+        id: `job-${j.id}`,
+        type: "system",
+        message: `${JOB_TYPE_LABEL[j.type]} ${j.status === "stuck" ? "stuck" : "failed"}`,
+        actor: j.userEmail,
+        timestamp: j.startedAt,
+      })
+    );
+  return [...sources, ...broken]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, limit);
 }

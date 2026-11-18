@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Coins, Minus, Plus, Search, X } from "lucide-react";
+import { ChevronRight, Coins, Minus, Plus, Search } from "lucide-react";
 import type { CreditsAdminUser } from "@/lib/types";
 import { Panel } from "@/components/admin/Panel";
-import { Badge } from "@/components/ui/Badge";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
+import { ADMIN_BUTTON, ADMIN_FIELD, ADMIN_HINT, ADMIN_LABEL, AdminDialog, AdminDialogBody, AdminDialogFooter } from "@/components/admin/AdminDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { REASON_MAX, isPlainTextSafe } from "@/lib/validation";
 
-const inputClass =
-  "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
-const labelClass = "mb-1.5 block text-xs font-medium text-body";
+const inputClass = ADMIN_FIELD;
+const labelClass = ADMIN_LABEL;
 
 type Direction = "grant" | "remove";
 
@@ -26,15 +25,6 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selected) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selected]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -116,120 +106,128 @@ export function ManageUserCreditsCard({ initialUsers }: { initialUsers: CreditsA
               key={user.id}
               type="button"
               onClick={() => openModal(user)}
-              className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors hover:bg-(--admin-fill)"
+              className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-(--admin-fill)"
             >
-              <Avatar name={user.name} size="sm" />
+              <UserAvatar name={user.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-heading">{user.name}</p>
                 <p className="truncate text-xs text-subtle">{user.email}</p>
               </div>
-              <Badge variant="default">
-                <Coins className="h-3 w-3" />
-                {formatNumber(user.credits)}
-              </Badge>
+              <span className="shrink-0 text-[13px] tabular-nums">
+                <span className="font-medium text-heading">{exact(user.credits)}</span>
+                <span className="text-subtle"> credits</span>
+              </span>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 -translate-x-1 text-subtle opacity-0 transition-[opacity,translate] duration-150 group-hover:translate-x-0 group-hover:opacity-100"
+                aria-hidden="true"
+              />
             </button>
           ))}
         </div>
       )}
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
-          <div
-            className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-hairline p-5">
+      <AdminDialog
+        open={selected !== null}
+        onClose={closeModal}
+        title="Adjust credits"
+        description={selected ? `${selected.name} · ${exact(selected.credits)} credits` : undefined}
+        media={selected ? <UserAvatar name={selected.name} size="md" className="h-10 w-10" /> : undefined}
+      >
+        {selected && (
+          <form onSubmit={handleSubmit}>
+            <AdminDialogBody>
               <div>
-                <h2 className="text-[22px]">Adjust credits</h2>
-                <p className="text-sm text-subtle">
-                  {selected.name} · {formatNumber(selected.credits)} credits
-                </p>
+                <span className={labelClass}>Action</span>
+                <div role="group" aria-label="Action" className="grid grid-cols-2 gap-1 rounded-[10px] bg-(--admin-fill-strong) p-1">
+                  {(["grant", "remove"] as const).map((d) => {
+                    const on = direction === d;
+                    const Icon = d === "grant" ? Plus : Minus;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setDirection(d)}
+                        className={cn(
+                          "flex h-8 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium transition-colors",
+                          on
+                            ? cn(
+                                "bg-surface shadow-[0_0_0_1px_var(--color-hairline),0_1px_2px_rgba(10,10,30,0.06)] dark:bg-white/[0.08]",
+                                d === "grant" ? "text-success" : "text-danger"
+                              )
+                            : "text-subtle hover:text-heading"
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                        {d === "grant" ? "Grant" : "Remove"}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <button type="button" onClick={closeModal} aria-label="Close" className="text-body hover:text-heading">
-                <X className="h-5 w-5" />
+              <div>
+                <label htmlFor="adjust-credits-amount" className={labelClass}>
+                  Credits
+                </label>
+                <input
+                  id="adjust-credits-amount"
+                  type="number"
+                  min={1}
+                  step={1}
+                  required
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  className={cn(inputClass, "tabular-nums")}
+                  placeholder="e.g. 100"
+                />
+              </div>
+              <div>
+                <label htmlFor="adjust-credits-reason" className={labelClass}>
+                  Reason
+                </label>
+                <input
+                  id="adjust-credits-reason"
+                  type="text"
+                  required
+                  maxLength={REASON_MAX}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. Support goodwill credit"
+                />
+                <p className={ADMIN_HINT}>Logged to the credit ledger for audit, tagged with your admin email.</p>
+              </div>
+              {error && <p className="text-[13px] text-danger">{error}</p>}
+            </AdminDialogBody>
+
+            <AdminDialogFooter note={<BalancePreview current={selected.credits} amount={amount} direction={direction} />}>
+              <button type="button" onClick={closeModal} className={ADMIN_BUTTON.secondary}>
+                Cancel
               </button>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-4 p-5">
-                <div>
-                  <label className={labelClass}>Action</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDirection("grant")}
-                      className={cn(
-                        "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                        direction === "grant"
-                          ? "border-success/40 bg-success-tint text-success"
-                          : "border-hairline text-body hover:bg-app"
-                      )}
-                    >
-                      <Plus className="h-4 w-4" /> Grant
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDirection("remove")}
-                      className={cn(
-                        "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                        direction === "remove"
-                          ? "border-danger/40 bg-danger-tint text-danger"
-                          : "border-hairline text-body hover:bg-app"
-                      )}
-                    >
-                      <Minus className="h-4 w-4" /> Remove
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelClass}>Credits</label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    required
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. 100"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Reason</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={REASON_MAX}
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. Support goodwill credit"
-                  />
-                  <p className="mt-1 text-[11px] text-subtle">Logged to the credit ledger for audit, tagged with your admin email.</p>
-                </div>
-                {error && <p className="text-xs text-danger">{error}</p>}
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-hairline p-5">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-medium text-body hover:bg-app"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-md bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:bg-btn-primary-hover disabled:opacity-50"
-                >
-                  {submitting ? "Saving…" : direction === "grant" ? "Grant credits" : "Remove credits"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <button type="submit" disabled={submitting} className={direction === "grant" ? ADMIN_BUTTON.primary : ADMIN_BUTTON.danger}>
+                {submitting ? "Saving…" : direction === "grant" ? "Grant credits" : "Remove credits"}
+              </button>
+            </AdminDialogFooter>
+          </form>
+        )}
+      </AdminDialog>
     </Panel>
+  );
+}
+
+/** Every credit counts when adjusting a balance, so no "1.2K" rounding here. */
+const exact = (n: number) => n.toLocaleString("en-US");
+
+/** Where the balance lands if the form is submitted as it stands. */
+function BalancePreview({ current, amount, direction }: { current: number; amount: string; direction: Direction }) {
+  const n = Number(amount);
+  if (!amount || !Number.isInteger(n) || n <= 0) return null;
+  const next = direction === "grant" ? current + n : current - n;
+  // The server refuses to take a balance below zero, so say so up front.
+  if (next < 0) return <span className="text-danger">More than their balance</span>;
+  return (
+    <span className="tabular-nums">
+      {exact(current)} → <span className="font-medium text-heading">{exact(next)}</span>
+    </span>
   );
 }

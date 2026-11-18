@@ -25,7 +25,7 @@ export function SegmentedControl({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-(--admin-fill) p-0.5">
+    <div role="tablist" aria-label={label} className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[14px] bg-(--admin-fill) p-1 dark:bg-white/[0.045]">
       {items.map((item) => {
         const isActive = item.id === active;
         return (
@@ -36,9 +36,9 @@ export function SegmentedControl({
             aria-selected={isActive}
             onClick={() => onChange(item.id)}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium transition-colors",
+              "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] px-3.5 text-[13.5px] font-medium transition-colors",
               isActive
-                ? "bg-surface text-heading shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_1px_var(--color-hairline)]"
+                ? "bg-surface text-heading shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_1px_var(--color-hairline)] dark:bg-white/[0.09] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),inset_0_1px_0_rgba(255,255,255,0.05)]"
                 : "text-subtle hover:text-heading"
             )}
           >

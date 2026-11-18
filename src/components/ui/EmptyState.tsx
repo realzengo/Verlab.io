@@ -1,16 +1,19 @@
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
   action?: { label: string; href: string };
+  /** Extra classes, e.g. `flex-1 justify-center` to fill a stretched panel. */
+  className?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-hairline bg-surface px-6 py-16 text-center">
+    <div className={cn("flex flex-col items-center gap-3 rounded-card border border-dashed border-hairline bg-surface px-6 py-16 text-center", className)}>
       <div className="flex h-12 w-12 items-center justify-center rounded-chip bg-accent">
         <Icon className="h-5 w-5 text-primary" />
       </div>

@@ -733,3 +733,28 @@ export interface LibraryAsset {
   createdAt: string;
 }
 
+
+/** One line in the admin sidebar's status card. */
+export type PulseTone = "good" | "warning" | "critical" | "neutral";
+
+export interface PulseItem {
+  id: string;
+  tone: PulseTone;
+  /** Week-over-week direction, for growth updates; problems have none. */
+  trend?: "up" | "down" | "flat";
+  /** A card glyph instead of the alert/trend one, for payment lines. */
+  icon?: "card";
+  title: string;
+  detail?: string;
+  /** The admin page that explains it. */
+  href: string;
+}
+
+/** The admin sidebar's status card: problems first, then how growth is going. */
+export interface AdminPulse {
+  status: "good" | "warning" | "critical";
+  headline: string;
+  issueCount: number;
+  items: PulseItem[];
+  checkedAt: string;
+}

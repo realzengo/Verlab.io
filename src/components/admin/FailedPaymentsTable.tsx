@@ -4,11 +4,14 @@ import { useMemo, useState } from "react";
 import type { FailedPayment, FailedPaymentEmailStatus, FailedPaymentKind } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 import { Panel } from "@/components/admin/Panel";
 import { SegmentedControl } from "@/components/admin/SegmentedControl";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { formatDate } from "@/lib/utils";
+import { DetailDialog } from "@/components/admin/DetailDialog";
+import { ADMIN_BUTTON } from "@/components/admin/AdminDialog";
+import type { DetailSpec } from "@/components/admin/details";
 
 const formatMoney = (value: number) =>
   value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -27,11 +30,32 @@ const EMAIL_LABEL: Record<FailedPaymentEmailStatus, { label: string; variant: "s
   not_sent: { label: "—", variant: "neutral" },
 };
 
+/** Local date and time, for the dialog (rendered on the client only). */
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
 const isOpenRenewal = (p: FailedPayment) => p.kind === "renewal" && !p.recovered;
+
+function failedPaymentDetail(p: FailedPayment): DetailSpec {
+  return {
+    title: `${KIND_LABEL[p.kind]}${p.planLabel ? ` · ${p.planLabel}` : ""}`,
+    subtitle: `${p.userName} · ${p.userEmail}`,
+    rows: [
+      { label: "Amount", value: formatMoney(p.amount) },
+      { label: "Status", value: p.recovered ? "Recovered, paid later" : "Unpaid", tone: p.recovered ? "good" : "bad" },
+      { label: "Attempts", value: String(p.attempts) },
+      { label: "Customer email", value: EMAIL_LABEL[p.emailStatus].label === "—" ? "Not sent" : EMAIL_LABEL[p.emailStatus].label, tone: p.emailStatus === "failed" ? "bad" : p.emailStatus === "sent" ? "good" : "muted" },
+      { label: "Last attempt", value: when(p.failedAt) },
+      { label: "Payment ID", value: p.paymentId, mono: true },
+    ],
+    note: p.reason ? { label: "Decline reason", text: p.reason, tone: "bad" } : undefined,
+  };
+}
 
 export function FailedPaymentsTable({ payments }: { payments: FailedPayment[] }) {
   const openRenewals = payments.filter(isOpenRenewal).length;
   const [filter, setFilter] = useState(openRenewals > 0 ? "open" : "all");
+  const [selected, setSelected] = useState<FailedPayment | null>(null);
 
   const filtered = useMemo(() => {
     if (filter === "open") return payments.filter(isOpenRenewal);
@@ -79,12 +103,14 @@ export function FailedPaymentsTable({ payments }: { payments: FailedPayment[] })
             </TableHead>
             <tbody>
               {pageItems.map((p) => (
-                <TableRow key={p.paymentId}>
+                <TableRow key={p.paymentId} onClick={() => setSelected(p)} className="cursor-pointer">
                   <TableCell className="pl-5">
                     <div className="flex items-center gap-2.5">
-                      <Avatar name={p.userName} size="sm" />
+                      <UserAvatar name={p.userName} size="sm" />
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-heading">{p.userName}</p>
+                        <button type="button" className="block max-w-full truncate rounded font-medium text-heading outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary/40">
+                          {p.userName}
+                        </button>
                         <p className="truncate text-xs text-subtle">{p.userEmail}</p>
                       </div>
                     </div>
@@ -122,6 +148,18 @@ export function FailedPaymentsTable({ payments }: { payments: FailedPayment[] })
           <Pagination {...pagerProps} noun="failed payments" />
         </>
       )}
+      <DetailDialog
+        spec={selected && failedPaymentDetail(selected)}
+        onClose={() => setSelected(null)}
+        media={selected ? <UserAvatar name={selected.userName} size="md" className="h-10 w-10" /> : undefined}
+        actions={
+          selected && (
+            <a href={`mailto:${selected.userEmail}`} className={ADMIN_BUTTON.secondary}>
+              Email customer
+            </a>
+          )
+        }
+      />
     </Panel>
   );
 }

@@ -24,18 +24,20 @@ export interface AdminToolCardData {
 
 export function AdminToolsGrid({ items }: { items: AdminToolCardData[] }) {
   return (
-    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
-          className="group flex min-w-0 flex-col gap-3 bg-surface p-4 transition-colors hover:bg-[color-mix(in_srgb,var(--color-surface),var(--color-heading)_2%)]"
+          className="admin-card group flex min-w-0 flex-col gap-3 rounded-card border border-hairline p-4 shadow-card transition-[box-shadow,border-color] duration-200 hover:border-[color-mix(in_srgb,var(--color-hairline),var(--color-heading)_10%)] hover:shadow-card-hover"
         >
-          <div className="flex items-center gap-2">
-            <item.icon className="h-4 w-4 shrink-0 text-subtle transition-colors group-hover:text-primary" aria-hidden="true" />
+          <div className="flex items-center gap-2.5">
+            <span className="admin-tile flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-subtle transition-colors group-hover:text-primary">
+              <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
             <p className="truncate text-[13px] font-semibold text-heading">{item.label}</p>
             <ArrowUpRight
-              className="ml-auto h-3.5 w-3.5 shrink-0 text-subtle opacity-0 transition-opacity group-hover:opacity-100"
+              className="ml-auto h-3.5 w-3.5 shrink-0 -translate-x-1 text-subtle opacity-0 transition-[opacity,translate] duration-200 group-hover:translate-x-0 group-hover:opacity-100"
               aria-hidden="true"
             />
           </div>

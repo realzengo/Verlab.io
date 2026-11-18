@@ -3,7 +3,7 @@
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Mail, Search, ShieldAlert, ShieldCheck, ShieldOff } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@/lib/types";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserIdentity } from "@/components/admin/UserProfileCard";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Panel } from "@/components/admin/Panel";
@@ -299,13 +299,11 @@ export function UsersTable({ users, nowIso }: { users: AdminUser[]; nowIso: stri
             {pageItems.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="pl-5">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={user.name} size="sm" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-heading">{user.name}</p>
-                      <p className="truncate text-xs text-subtle">{user.email}</p>
-                    </div>
-                  </div>
+                  <UserIdentity
+                    user={user}
+                    lastActive={timeAgoFromNow(user.lastActiveAt, nowIso)}
+                    status={<Badge variant={STATUS_VARIANT[user.status]}>{STATUS_LABEL[user.status]}</Badge>}
+                  />
                 </TableCell>
                 <TableCell className="capitalize text-body">{user.plan}</TableCell>
                 <TableCell>

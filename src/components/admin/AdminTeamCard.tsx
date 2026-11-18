@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
-import { ShieldCheck, UserPlus, Users as UsersIcon, X } from "lucide-react";
+import { ShieldCheck, UserPlus, Users as UsersIcon } from "lucide-react";
 import type { AdminRole, AdminTeamMember } from "@/lib/types";
 import { Panel } from "@/components/admin/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
+import { ADMIN_BUTTON, ADMIN_FIELD, ADMIN_HINT, ADMIN_LABEL, AdminDialog, AdminDialogBody, AdminDialogFooter } from "@/components/admin/AdminDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
 import { EMAIL_MAX, NAME_MAX, isValidEmail, isValidName } from "@/lib/validation";
@@ -25,9 +26,8 @@ const ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
   { value: "owner", label: "Owner" },
 ];
 
-const inputClass =
-  "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
-const labelClass = "mb-1.5 block text-xs font-medium text-body";
+const inputClass = ADMIN_FIELD;
+const labelClass = ADMIN_LABEL;
 
 export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] }) {
   const [team, setTeam] = useState(initialTeam);
@@ -37,15 +37,6 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
   const [role, setRole] = useState<AdminRole>("admin");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
 
   function closeModal() {
     setIsOpen(false);
@@ -90,6 +81,8 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
 
   return (
     <Panel
+      className="h-full"
+      bodyClassName="flex flex-col"
       title="Admin team"
       description="People with access to this dashboard"
       action={
@@ -101,6 +94,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
 
       {team.length === 0 ? (
         <EmptyState
+          className="flex-1 justify-center"
           icon={UsersIcon}
           title="No admin team members yet"
           description="Access is controlled by the ADMIN_EMAILS environment variable. Add a row here for each admin to show their name, role, and last login."
@@ -109,7 +103,7 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
         <div className="flex flex-col divide-y divide-hairline">
           {team.map((member) => (
             <div key={member.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
-              <Avatar name={member.name} size="sm" />
+              <UserAvatar name={member.name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-heading">{member.name}</p>
                 <p className="truncate text-xs text-subtle">{member.email}</p>
@@ -124,73 +118,67 @@ export function AdminTeamCard({ initialTeam }: { initialTeam: AdminTeamMember[] 
         </div>
       )}
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="text-[22px]">Invite admin</h2>
-              <button type="button" onClick={closeModal} aria-label="Close" className="text-body hover:text-heading">
-                <X className="h-5 w-5" />
-              </button>
+      <AdminDialog
+        open={isOpen}
+        onClose={closeModal}
+        title="Invite admin"
+        description="Give a teammate access to this dashboard"
+        icon={UserPlus}
+      >
+        <form onSubmit={handleInvite}>
+          <AdminDialogBody>
+            <div>
+              <label htmlFor="invite-admin-name" className={labelClass}>
+                Name
+              </label>
+              <input
+                id="invite-admin-name"
+                type="text"
+                required
+                maxLength={NAME_MAX}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className={inputClass}
+                placeholder="Jane Doe"
+              />
             </div>
+            <div>
+              <label htmlFor="invite-admin-email" className={labelClass}>
+                Email
+              </label>
+              <input
+                id="invite-admin-email"
+                type="email"
+                required
+                maxLength={EMAIL_MAX}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className={inputClass}
+                placeholder="jane@company.com"
+              />
+            </div>
+            <div>
+              <span className={labelClass}>Role</span>
+              <AdminSelect label="Role" value={role} onChange={setRole} options={ROLE_OPTIONS} />
+              <p className={ADMIN_HINT}>
+                This adds them to the list below. They still need their email added to the{" "}
+                <code className="rounded bg-(--admin-fill-strong) px-1 py-0.5 font-mono text-[11.5px]">ADMIN_EMAILS</code>{" "}
+                environment variable to sign in.
+              </p>
+            </div>
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </AdminDialogBody>
 
-            <form onSubmit={handleInvite}>
-              <div className="flex flex-col gap-4 p-5">
-                <div>
-                  <label className={labelClass}>Name</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={NAME_MAX}
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className={inputClass}
-                    placeholder="Jane Doe"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Email</label>
-                  <input
-                    type="email"
-                    required
-                    maxLength={EMAIL_MAX}
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className={inputClass}
-                    placeholder="jane@company.com"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Role</label>
-                  <AdminSelect label="Role" value={role} onChange={setRole} options={ROLE_OPTIONS} />
-                </div>
-                <p className="text-xs text-subtle">
-                  This adds them to the list below. They still need their email added to the{" "}
-                  <code className="rounded bg-app px-1 py-0.5">ADMIN_EMAILS</code> environment variable to sign in.
-                </p>
-                {error && <p className="text-xs text-danger">{error}</p>}
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-hairline p-5">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-medium text-body hover:bg-app"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-md bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:bg-btn-primary-hover disabled:opacity-50"
-                >
-                  {submitting ? "Inviting…" : "Invite"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <AdminDialogFooter>
+            <button type="button" onClick={closeModal} className={ADMIN_BUTTON.secondary}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className={ADMIN_BUTTON.primary}>
+              {submitting ? "Inviting…" : "Send invite"}
+            </button>
+          </AdminDialogFooter>
+        </form>
+      </AdminDialog>
     </Panel>
   );
 }

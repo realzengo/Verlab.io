@@ -9,6 +9,9 @@ import { SegmentedControl } from "@/components/admin/SegmentedControl";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { AdminSelect } from "@/components/admin/AdminSelect";
 import { JOB_STATUS_LABEL as STATUS_LABEL, JOB_TYPE_LABEL } from "@/components/admin/job-labels";
+import { DetailDialog } from "@/components/admin/DetailDialog";
+import { ADMIN_BUTTON } from "@/components/admin/AdminDialog";
+import { formatDuration, timeAgo, type DetailRow, type DetailSpec } from "@/components/admin/details";
 
 const STATUS_VARIANT: Record<SystemJobStatus, "success" | "danger" | "warning" | "default"> = {
   success: "success",
@@ -29,18 +32,46 @@ function matchesStatus(job: SystemJob, filter: string) {
   return job.status === filter;
 }
 
-function timeAgo(iso: string, nowIso: string): string {
-  const minutes = Math.round((new Date(nowIso).getTime() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+/** Local date and time, for the dialog (rendered on the client only). */
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+function jobDetail(job: SystemJob, nowIso: string): DetailSpec {
+  const isUrl = job.source ? /^https?:\/\//.test(job.source) : false;
+  const rows: DetailRow[] = [
+    { label: "User", value: job.userEmail },
+    { label: "Started", value: `${when(job.startedAt)} · ${timeAgo(job.startedAt, nowIso)}` },
+    {
+      label: "Duration",
+      value: job.durationMs ? formatDuration(job.durationMs) : job.status === "running" || job.status === "queued" ? "Still going" : "—",
+      tone: job.durationMs ? "default" : "muted",
+    },
+    { label: "Job ID", value: job.id, mono: true },
+  ];
+  if (job.source) {
+    rows.push(
+      isUrl
+        ? { label: "Source", value: job.source.replace(/^https?:\/\/(www\.)?/, ""), href: job.source }
+        : { label: "Input", value: job.source }
+    );
+  }
+  return {
+    title: JOB_TYPE_LABEL[job.type],
+    subtitle: `Job ${job.id.slice(0, 8)}`,
+    rows,
+    note:
+      job.status === "failed"
+        ? { label: "Error", text: job.errorMessage || "Failed without an error message", tone: "bad" }
+        : job.status === "stuck"
+          ? { label: "Stuck", text: `No result after ${timeAgo(job.startedAt, nowIso).replace(" ago", "")}. The job never finished.`, tone: "bad" }
+          : undefined,
+  };
 }
 
 export function SystemJobsTable({ jobs, nowIso }: { jobs: SystemJob[]; nowIso: string }) {
   const [filter, setFilter] = useState<string>("all");
   const [tool, setTool] = useState<"all" | SystemJob["type"]>("all");
+  const [selected, setSelected] = useState<SystemJob | null>(null);
 
   const byTool = useMemo(() => (tool === "all" ? jobs : jobs.filter((j) => j.type === tool)), [jobs, tool]);
   const filtered = useMemo(() => byTool.filter((j) => matchesStatus(j, filter)), [byTool, filter]);
@@ -95,9 +126,12 @@ export function SystemJobsTable({ jobs, nowIso }: { jobs: SystemJob[]; nowIso: s
           </TableHead>
           <tbody>
             {pageItems.map((job) => (
-              <TableRow key={job.id}>
+              <TableRow key={job.id} onClick={() => setSelected(job)} className="cursor-pointer">
                 <TableCell className="pl-5 font-mono text-xs text-subtle">
-                  <span title={job.id}>{job.id.slice(0, 8)}</span>
+                  {/* The keyboard way into the row's dialog; a click anywhere on the row opens it too. */}
+                  <button type="button" title={job.id} className="rounded outline-none hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40">
+                    {job.id.slice(0, 8)}
+                  </button>
                 </TableCell>
                 <TableCell className="max-w-[240px]">
                   <p className="whitespace-nowrap text-heading">{JOB_TYPE_LABEL[job.type]}</p>
@@ -108,6 +142,7 @@ export function SystemJobsTable({ jobs, nowIso }: { jobs: SystemJob[]; nowIso: s
                         target="_blank"
                         rel="noreferrer"
                         title={job.source}
+                        onClick={(e) => e.stopPropagation()}
                         className="block truncate text-xs text-subtle hover:text-heading hover:underline"
                       >
                         {job.source.replace(/^https?:\/\/(www\.)?/, "")}
@@ -137,7 +172,7 @@ export function SystemJobsTable({ jobs, nowIso }: { jobs: SystemJob[]; nowIso: s
                   <span title={`${job.startedAt.slice(0, 16).replace("T", " ")} UTC`}>{timeAgo(job.startedAt, nowIso)}</span>
                 </TableCell>
                 <TableCell className="pr-5 text-right tabular-nums text-body">
-                  {job.durationMs ? `${(job.durationMs / 1000).toFixed(1)}s` : <span className="text-subtle">—</span>}
+                  {job.durationMs ? formatDuration(job.durationMs) : <span className="text-subtle">—</span>}
                 </TableCell>
               </TableRow>
             ))}
@@ -146,6 +181,19 @@ export function SystemJobsTable({ jobs, nowIso }: { jobs: SystemJob[]; nowIso: s
         <Pagination {...pagerProps} noun="jobs" />
         </>
       )}
+
+      <DetailDialog
+        spec={selected && jobDetail(selected, nowIso)}
+        onClose={() => setSelected(null)}
+        badge={selected && <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABEL[selected.status]}</Badge>}
+        actions={
+          selected && (
+            <a href={`mailto:${selected.userEmail}`} className={ADMIN_BUTTON.secondary}>
+              Email user
+            </a>
+          )
+        }
+      />
     </Panel>
   );
 }

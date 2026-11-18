@@ -1,21 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import type { ApiEndpointHealth } from "@/lib/types";
+import { DetailDialog } from "@/components/admin/DetailDialog";
+import { endpointDetail, endpointStatus as statusBadge } from "@/components/admin/details";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { Panel } from "@/components/admin/Panel";
 import { cn } from "@/lib/utils";
 
-function statusBadge(errorRatePct: number): { variant: "success" | "warning" | "danger"; label: string } {
-  if (errorRatePct >= 10) return { variant: "danger", label: "Degraded" };
-  if (errorRatePct > 0) return { variant: "warning", label: "Watch" };
-  return { variant: "success", label: "Healthy" };
-}
-
 export function EndpointHealthTable({ rows }: { rows: ApiEndpointHealth[] }) {
   // A quiet in-cell bar puts each p95 against the slowest one today, so the
   // outliers read before the numbers do.
   const maxP95 = Math.max(1, ...rows.map((r) => r.p95Ms));
+  const [selected, setSelected] = useState<ApiEndpointHealth | null>(null);
 
   return (
     <Panel title="API & MCP endpoints" description="Calls, latency and error rate per endpoint, today" flush>
@@ -40,8 +38,12 @@ export function EndpointHealthTable({ rows }: { rows: ApiEndpointHealth[] }) {
             {rows.map((row) => {
               const status = statusBadge(row.errorRatePct);
               return (
-                <TableRow key={`${row.endpoint}::${row.method}`}>
-                  <TableCell className="whitespace-nowrap pl-5 font-mono text-xs text-heading">{row.endpoint}</TableCell>
+                <TableRow key={`${row.endpoint}::${row.method}`} onClick={() => setSelected(row)} className="cursor-pointer">
+                  <TableCell className="whitespace-nowrap pl-5 font-mono text-xs text-heading">
+                    <button type="button" className="rounded outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary/40">
+                      {row.endpoint}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <span className="rounded bg-(--admin-fill-strong) px-1.5 py-0.5 font-mono text-[11px] font-medium text-body">
                       {row.method}
@@ -74,6 +76,10 @@ export function EndpointHealthTable({ rows }: { rows: ApiEndpointHealth[] }) {
           </tbody>
         </Table>
       )}
+      <DetailDialog
+        spec={selected && endpointDetail(selected)}
+        onClose={() => setSelected(null)}
+      />
     </Panel>
   );
 }

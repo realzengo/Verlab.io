@@ -130,7 +130,7 @@ export function AdminSelect<T extends string>({
           aria-activedescendant={`${id}-${active}`}
           onKeyDown={onListKeyDown}
           className={cn(
-            "admin-select-menu absolute top-[calc(100%+4px)] z-40 max-h-72 min-w-full overflow-y-auto rounded-[10px] border border-hairline bg-surface p-1 shadow-(--shadow-elevated) outline-none",
+            "admin-select-menu absolute top-[calc(100%+6px)] z-40 max-h-72 min-w-full overflow-y-auto rounded-xl p-1 shadow-(--admin-menu-shadow) outline-none admin-float",
             align === "right" ? "right-0" : "left-0"
           )}
         >
@@ -145,7 +145,7 @@ export function AdminSelect<T extends string>({
                 onPointerMove={() => setActive(i)}
                 onClick={() => choose(i)}
                 className={cn(
-                  "flex h-8 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-md pl-2.5 pr-2 text-[13px]",
+                  "flex h-8 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-lg pl-2.5 pr-2 text-[13px] transition-colors duration-100",
                   i === active ? "bg-(--admin-fill-strong) text-heading" : "text-body",
                   isSelected && "font-medium text-heading"
                 )}

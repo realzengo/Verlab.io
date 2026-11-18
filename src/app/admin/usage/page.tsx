@@ -1,17 +1,25 @@
+import { CalendarDotsIcon, LightningIcon, PlugIcon, TrophyIcon } from "@phosphor-icons/react/dist/ssr";
 import { getAdminUsers, getUsageData } from "@/lib/server/admin-queries";
 import type { UsagePoint } from "@/lib/types";
 import { PageHeader } from "@/components/admin/PageHeader";
-import { Panel } from "@/components/admin/Panel";
+import { HeaderStats, Panel } from "@/components/admin/Panel";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
 import { ColumnChart } from "@/components/admin/charts/ColumnChart";
-import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
 import { BarList } from "@/components/admin/charts/BarList";
-import { formatStat, sumOf } from "@/components/admin/charts/format";
+import { formatDay, formatStat, sumOf } from "@/components/admin/charts/format";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 import { formatNumber } from "@/lib/utils";
+import { seriesDetail } from "@/components/admin/details";
 
 export const dynamic = "force-dynamic";
+
+/** "Last run today", "yesterday", "4 days ago": how fresh a tool's latest run is. */
+function lastRunLabel(daysAgo: number): string {
+  if (daysAgo <= 0) return "Last run today";
+  if (daysAgo === 1) return "Last run yesterday";
+  return `Last run ${daysAgo} days ago`;
+}
 
 export default async function AdminUsagePage() {
   const [{ series, share }, { users }] = await Promise.all([getUsageData(), getAdminUsers()]);
@@ -26,9 +34,11 @@ export default async function AdminUsagePage() {
   const mcpDaily = series.map((p) => p.mcp);
   const avgPerDay = totalRuns / Math.max(series.length, 1);
 
-  // Small multiples share one ceiling so a tall line means more runs, not
-  // just a busier shape.
+  // Small multiples share one ceiling so a tall column means more runs, not
+  // just a busier tile.
   const sharedMax = Math.max(0, ...toolKeys.flatMap((k) => series.map((p) => p[k])));
+  const peakDay = totalRuns > 0 ? dailyRuns.indexOf(Math.max(...dailyRuns)) : -1;
+  const activeDays = dailyRuns.filter((v) => v > 0).length;
 
   const powerUsers = [...users]
     .map((u) => ({ ...u, totalUsage: u.usage.bends + u.usage.transcripts + u.usage.downloads + u.usage.apiCalls }))
@@ -41,9 +51,10 @@ export default async function AdminUsagePage() {
       <PageHeader title="Usage & tools" description="Which tools people run, how often, and who runs them most." />
 
       <KpiStrip>
-        <Kpi label="Tool runs, 30 days" value={formatStat(totalRuns)} trend={dailyRuns.slice(-14)} />
+        <Kpi label="Tool runs, 30 days" value={formatStat(totalRuns)} icon={LightningIcon} accent />
         <Kpi
           label="Most used tool"
+          icon={TrophyIcon}
           value={topTool && topTool.count > 0 ? topTool.label : "None yet"}
           footnote={
             topTool && totalRuns > 0
@@ -51,43 +62,104 @@ export default async function AdminUsagePage() {
               : undefined
           }
         />
-        <Kpi label="Runs per day" value={formatStat(Math.round(avgPerDay))} footnote="30-day average" />
-        <Kpi label="MCP calls, 30 days" value={formatStat(sumOf(mcpDaily))} trend={mcpDaily.slice(-14)} />
+        <Kpi label="Runs per day" value={formatStat(Math.round(avgPerDay))} footnote="30-day average" icon={CalendarDotsIcon} />
+        <Kpi label="MCP calls, 30 days" value={formatStat(sumOf(mcpDaily))} icon={PlugIcon} />
       </KpiStrip>
 
-      <Panel title="Runs per day" description="Every tool combined, last 30 days">
+      <Panel
+        title="Runs per day"
+        description="Every tool combined, last 30 days"
+        action={
+          <HeaderStats
+            items={[
+              { label: "Today", value: formatNumber(dailyRuns[dailyRuns.length - 1] ?? 0) },
+              peakDay >= 0
+                ? { label: "Busiest day", value: formatNumber(dailyRuns[peakDay]), hint: formatDay(dates[peakDay]) }
+                : { label: "Busiest day", value: "None" },
+              { label: "Active days", value: formatNumber(activeDays), hint: `of ${dates.length}` },
+            ]}
+          />
+        }
+      >
         <ColumnChart dates={dates} values={dailyRuns} label="Tool runs" height={220} ariaLabel="Tool runs per day, last 30 days" />
       </Panel>
 
       <Panel title="By tool" description="Daily runs per tool on one shared scale, last 30 days">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {ranked.map((tool) => (
-            <div key={tool.tool} className="flex min-w-0 flex-col gap-3 rounded-lg border border-hairline p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="truncate text-[13px] font-medium text-heading">{tool.label}</p>
-                <p className="shrink-0 text-[13px] tabular-nums">
-                  <span className="font-semibold text-heading">{formatNumber(tool.count)}</span>
-                  <span className="ml-1.5 text-subtle">
+        {/* A ruled grid, not cards in a card: one frame, hairlines between
+            the tiles, every tile on the same scale. */}
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-hairline bg-(--color-hairline) sm:grid-cols-2 xl:grid-cols-4">
+          {ranked.map((tool, rank) => {
+            const values = series.map((p) => p[tool.tool]);
+            const idle = tool.count === 0;
+            const peak = idle ? -1 : values.indexOf(Math.max(...values));
+            const lastRun = values.findLastIndex((v) => v > 0);
+            return (
+              <div key={tool.tool} className="flex min-w-0 flex-col bg-surface px-4 pb-4 pt-3.5 sm:px-5 sm:pb-4 sm:pt-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="font-mono text-[11px] tabular-nums text-subtle">{String(rank + 1).padStart(2, "0")}</span>
+                  <p className={idle ? "truncate text-[13px] text-subtle" : "truncate text-[13px] font-medium text-heading"}>
+                    {tool.label}
+                  </p>
+                  <span className="ml-auto shrink-0 text-[12px] tabular-nums text-subtle">
                     {totalRuns > 0 ? `${Math.round((tool.count / totalRuns) * 100)}%` : "0%"}
                   </span>
+                </div>
+
+                <p className="mt-2.5 flex items-baseline gap-1.5">
+                  <span
+                    className={
+                      idle
+                        ? "text-[24px] font-semibold leading-none tracking-[-0.03em] text-subtle"
+                        : "text-[24px] font-semibold leading-none tracking-[-0.03em] text-heading"
+                    }
+                  >
+                    {formatNumber(tool.count)}
+                  </span>
+                  <span className="text-[12px] text-subtle">{tool.count === 1 ? "run" : "runs"}</span>
                 </p>
+
+                <div className="mt-4">
+                  <ColumnChart
+                    dates={dates}
+                    values={values}
+                    label={tool.label}
+                    axes={false}
+                    height={44}
+                    yMax={sharedMax}
+                    ariaLabel={`${tool.label} runs per day, last 30 days`}
+                  />
+                </div>
+
+                <div className="mt-3.5 flex items-center justify-between gap-3 text-[12px] text-subtle">
+                  {idle ? (
+                    <span>No runs in {dates.length} days</span>
+                  ) : (
+                    <>
+                      <span className="truncate">
+                        Peak <span className="font-medium tabular-nums text-body">{formatNumber(values[peak])}</span> ·{" "}
+                        {formatDay(dates[peak])}
+                      </span>
+                      <span className="shrink-0">{lastRunLabel(values.length - 1 - lastRun)}</span>
+                    </>
+                  )}
+                </div>
               </div>
-              <TimeSeriesChart
-                dates={dates}
-                series={[{ label: tool.label, values: series.map((p) => p[tool.tool]) }]}
-                axes={false}
-                height={56}
-                yMax={sharedMax}
-                ariaLabel={`${tool.label} runs per day, last 30 days`}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Panel title="Total runs by tool" description="Last 30 days">
-          <BarList items={ranked.map((t) => ({ label: t.label, value: t.count }))} emptyLabel="No tool runs yet" />
+        <Panel title="Total runs by tool" description="Last 30 days" bodyClassName="flex flex-col">
+          <BarList
+            items={ranked.map((t) => ({
+              label: t.label,
+              value: t.count,
+              detail: seriesDetail({ title: t.label, dates, values: series.map((p) => p[t.tool]), total: totalRuns, unit: "runs" }),
+            }))}
+            emptyLabel="No tool runs yet"
+            fill
+          />
         </Panel>
 
         <Panel className="xl:col-span-2" title="Most active users" description="Ranked by total runs across every product" flush>
@@ -110,7 +182,7 @@ export default async function AdminUsagePage() {
                   <TableRow key={u.id}>
                     <TableCell className="pl-5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar name={u.name} size="sm" />
+                        <UserAvatar name={u.name} size="sm" />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-heading">{u.name}</p>
                           <p className="truncate text-xs text-subtle">{u.email}</p>

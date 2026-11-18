@@ -8,17 +8,26 @@ import { useEffect, useRef, useState } from "react";
  * at 0 on the server; the first measure lands before paint on the client.
  */
 export function useElementWidth<T extends HTMLElement>() {
+  const [ref, { width }] = useElementSize<T>();
+  return [ref, width] as const;
+}
+
+/** Width and height, for charts that grow to fill their panel (`fill`). */
+export function useElementSize<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    setWidth(el.getBoundingClientRect().width);
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    const measure = (width: number, height: number) =>
+      setSize((s) => (s.width === width && s.height === height ? s : { width, height }));
+    const rect = el.getBoundingClientRect();
+    measure(rect.width, rect.height);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height));
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  return [ref, width] as const;
+  return [ref, size] as const;
 }

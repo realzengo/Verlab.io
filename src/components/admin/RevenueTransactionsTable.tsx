@@ -4,17 +4,43 @@ import { useMemo, useState } from "react";
 import type { RevenueTransaction } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 import { Panel } from "@/components/admin/Panel";
 import { SegmentedControl } from "@/components/admin/SegmentedControl";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { cn, formatDate } from "@/lib/utils";
+import { DetailDialog } from "@/components/admin/DetailDialog";
+import { ADMIN_BUTTON } from "@/components/admin/AdminDialog";
+import type { DetailSpec } from "@/components/admin/details";
 
 const formatMoney = (value: number) =>
   value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Local date and time, for the dialog (rendered on the client only). */
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+function transactionDetail(txn: RevenueTransaction): DetailSpec {
+  const refund = txn.type === "order.refunded";
+  const fee = txn.net === undefined ? undefined : Math.abs(txn.amount) - Math.abs(txn.net);
+  return {
+    title: txn.itemLabel,
+    subtitle: `${txn.userName} · ${txn.userEmail}`,
+    rows: [
+      { label: refund ? "Refunded" : "Paid", value: formatMoney(txn.amount), tone: refund ? "bad" : "default" },
+      { label: "Whop fees", value: fee === undefined ? "—" : formatMoney(fee), tone: fee === undefined ? "muted" : "default" },
+      { label: "After fees", value: txn.net === undefined ? "—" : formatMoney(txn.net), tone: txn.net === undefined ? "muted" : "good" },
+      { label: "Billing reason", value: txn.billingReason ?? (refund ? "Refund" : "Payment") },
+      { label: "Currency", value: txn.currency.toUpperCase() },
+      { label: "Date", value: when(txn.createdAt) },
+      { label: "Transaction ID", value: txn.id, mono: true },
+    ],
+  };
+}
+
 export function RevenueTransactionsTable({ transactions }: { transactions: RevenueTransaction[] }) {
   const [filter, setFilter] = useState("all");
+  const [selected, setSelected] = useState<RevenueTransaction | null>(null);
 
   const filtered = useMemo(
     () => (filter === "all" ? transactions : transactions.filter((t) => t.type === filter)),
@@ -56,12 +82,14 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
           </TableHead>
           <tbody>
             {pageItems.map((txn) => (
-              <TableRow key={txn.id}>
+              <TableRow key={txn.id} onClick={() => setSelected(txn)} className="cursor-pointer">
                 <TableCell className="pl-5">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={txn.userName} size="sm" />
+                    <UserAvatar name={txn.userName} size="sm" />
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-heading">{txn.userName}</p>
+                      <button type="button" className="block max-w-full truncate rounded font-medium text-heading outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary/40">
+                        {txn.userName}
+                      </button>
                       <p className="truncate text-xs text-subtle">{txn.userEmail}</p>
                     </div>
                   </div>
@@ -88,6 +116,18 @@ export function RevenueTransactionsTable({ transactions }: { transactions: Reven
         <Pagination {...pagerProps} noun="transactions" />
         </>
       )}
+      <DetailDialog
+        spec={selected && transactionDetail(selected)}
+        onClose={() => setSelected(null)}
+        media={selected ? <UserAvatar name={selected.userName} size="md" className="h-10 w-10" /> : undefined}
+        actions={
+          selected && (
+            <a href={`mailto:${selected.userEmail}`} className={ADMIN_BUTTON.secondary}>
+              Email customer
+            </a>
+          )
+        }
+      />
     </Panel>
   );
 }

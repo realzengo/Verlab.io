@@ -2,22 +2,22 @@
 
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { ExternalLink, Plug, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { ExternalLink, Plug, Plus, Trash2, TriangleAlert } from "lucide-react";
 import type { ApiProvider } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Callout, Panel } from "@/components/admin/Panel";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { KeyIcon, PlugIcon, WalletIcon } from "@phosphor-icons/react/dist/ssr";
 import { BarList } from "@/components/admin/charts/BarList";
+import { ADMIN_BUTTON, ADMIN_FIELD, ADMIN_LABEL, AdminConfirmDialog, AdminDialog, AdminDialogBody, AdminDialogFooter } from "@/components/admin/AdminDialog";
 import { cn, formatCurrency } from "@/lib/utils";
 import { NAME_MAX, SHORT_TEXT_MAX, URL_MAX, isPlainTextSafe, isValidName, isValidUrl } from "@/lib/validation";
 
-const inputClass =
-  "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
-const labelClass = "mb-1.5 block text-xs font-medium text-body";
+const inputClass = ADMIN_FIELD;
+const labelClass = ADMIN_LABEL;
 
 interface FormState {
   name: string;
@@ -158,10 +158,11 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
       )}
 
       <KpiStrip>
-        <Kpi label="Monthly spend" value={formatCurrency(totalMonthly)} footnote={`${formatCurrency(totalMonthly * 12)} a year`} />
-        <Kpi label="Active providers" value={activeProviders.length} footnote={`of ${providers.length} integrated`} />
+        <Kpi label="Monthly spend" value={formatCurrency(totalMonthly)} footnote={`${formatCurrency(totalMonthly * 12)} a year`} icon={WalletIcon} accent />
+        <Kpi label="Active providers" value={activeProviders.length} footnote={`of ${providers.length} integrated`} icon={PlugIcon} />
         <Kpi
           label="Missing API keys"
+          icon={KeyIcon}
           value={missingKeys.length}
           delta={
             missingKeys.length > 0
@@ -172,11 +173,33 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
       </KpiStrip>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Panel title="Spend by provider" description="Active providers, per month">
+        {/* A summary rail beside a long table: its own height, kept in view
+            while the table scrolls, rather than stretched to the table. */}
+        <Panel title="Spend by provider" description="Active providers, per month" className="xl:sticky xl:top-6 xl:self-start">
           <BarList
             format="currency"
-            items={[...activeProviders].sort((a, b) => b.monthlyCost - a.monthlyCost).map((p) => ({ label: p.name, value: p.monthlyCost }))}
-            emptyLabel="No costs entered yet"
+            items={[...activeProviders]
+              .sort((a, b) => b.monthlyCost - a.monthlyCost)
+              .map((p) => ({
+                label: p.name,
+                value: p.monthlyCost,
+                detail: {
+                  title: p.name,
+                  subtitle: p.category,
+                  rows: [
+                    { label: "Monthly cost", value: formatCurrency(p.monthlyCost) },
+                    { label: "Yearly", value: formatCurrency(p.monthlyCost * 12) },
+                    {
+                      label: "Share of spend",
+                      value: totalMonthly > 0 ? `${Math.round((p.monthlyCost / totalMonthly) * 100)}%` : "0%",
+                    },
+                    { label: "API key", value: p.configured ? "Configured" : "Missing", tone: p.configured ? "good" : "bad" },
+                    ...(p.envVar ? [{ label: "Env var", value: p.envVar, mono: true }] : []),
+                    ...(p.websiteUrl ? [{ label: "Website", value: p.websiteUrl.replace(/^https?:\/\/(www\.)?/, ""), href: p.websiteUrl }] : []),
+                  ],
+                },
+              }))}
+            emptyLabel="No costs yet. Click a provider's cost in the table to enter it."
           />
         </Panel>
 
@@ -269,104 +292,111 @@ export function ApiProvidersTable({ initialProviders }: { initialProviders: ApiP
         </Panel>
       </div>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
-          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="flex items-center gap-2 text-[22px]">
-                <Plug className="h-4.5 w-4.5" />
-                Add API provider
-              </h2>
-              <button type="button" onClick={() => setIsOpen(false)} aria-label="Close" className="text-body hover:text-heading">
-                <X className="h-5 w-5" />
-              </button>
+      <AdminDialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Add API provider"
+        description="Track what a provider costs each month"
+        icon={Plug}
+        size="md"
+      >
+        <form onSubmit={handleSubmit}>
+          <AdminDialogBody>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="provider-name" className={labelClass}>
+                  Name
+                </label>
+                <input
+                  id="provider-name"
+                  type="text"
+                  required
+                  maxLength={NAME_MAX}
+                  value={form.name}
+                  onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                  className={inputClass}
+                  placeholder="ElevenLabs"
+                />
+              </div>
+              <div>
+                <label htmlFor="provider-category" className={labelClass}>
+                  Category
+                </label>
+                <input
+                  id="provider-category"
+                  type="text"
+                  required
+                  maxLength={NAME_MAX}
+                  value={form.category}
+                  onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
+                  className={inputClass}
+                  placeholder="AI / Media generation"
+                />
+              </div>
             </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-4 p-5">
-                <div>
-                  <label className={labelClass}>Name</label>
+            <div>
+              <label htmlFor="provider-env" className={labelClass}>
+                Env var <span className="font-normal text-subtle">· optional</span>
+              </label>
+              <input
+                id="provider-env"
+                type="text"
+                maxLength={SHORT_TEXT_MAX}
+                value={form.envVar}
+                onChange={(event) => setForm((prev) => ({ ...prev, envVar: event.target.value }))}
+                className={cn(inputClass, "font-mono text-[13px]")}
+                placeholder="ELEVENLABS_API_KEY"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
+              <div>
+                <label htmlFor="provider-url" className={labelClass}>
+                  Website <span className="font-normal text-subtle">· optional</span>
+                </label>
+                <input
+                  id="provider-url"
+                  type="url"
+                  value={form.websiteUrl}
+                  onChange={(event) => setForm((prev) => ({ ...prev, websiteUrl: event.target.value }))}
+                  className={inputClass}
+                  placeholder="https://"
+                  maxLength={URL_MAX}
+                />
+              </div>
+              <div>
+                <label htmlFor="provider-cost" className={labelClass}>
+                  Monthly cost
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-subtle">$</span>
                   <input
-                    type="text"
-                    required
-                    maxLength={NAME_MAX}
-                    value={form.name}
-                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                    className={inputClass}
-                    placeholder="e.g. ElevenLabs"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Category</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={NAME_MAX}
-                    value={form.category}
-                    onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                    className={inputClass}
-                    placeholder="e.g. AI / Media generation"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Env var (optional)</label>
-                  <input
-                    type="text"
-                    maxLength={SHORT_TEXT_MAX}
-                    value={form.envVar}
-                    onChange={(event) => setForm((prev) => ({ ...prev, envVar: event.target.value }))}
-                    className={cn(inputClass, "font-mono")}
-                    placeholder="e.g. ELEVENLABS_API_KEY"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Website (optional)</label>
-                  <input
-                    type="url"
-                    value={form.websiteUrl}
-                    onChange={(event) => setForm((prev) => ({ ...prev, websiteUrl: event.target.value }))}
-                    className={inputClass}
-                    placeholder="https://"
-                    maxLength={URL_MAX}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Monthly cost</label>
-                  <input
+                    id="provider-cost"
                     type="number"
                     min={0}
                     step="0.01"
                     value={form.monthlyCost}
                     onChange={(event) => setForm((prev) => ({ ...prev, monthlyCost: event.target.value }))}
-                    className={inputClass}
+                    className={cn(inputClass, "pl-6 tabular-nums")}
                     placeholder="0.00"
                   />
                 </div>
-                {error && <p className="text-xs text-danger">{error}</p>}
               </div>
+            </div>
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </AdminDialogBody>
 
-              <div className="flex justify-end gap-3 border-t border-hairline p-5">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-medium text-body hover:bg-app"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-md bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:bg-btn-primary-hover disabled:opacity-50"
-                >
-                  {submitting ? "Saving…" : "Add provider"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          <AdminDialogFooter>
+            <button type="button" onClick={() => setIsOpen(false)} className={ADMIN_BUTTON.secondary}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className={ADMIN_BUTTON.primary}>
+              {submitting ? "Adding…" : "Add provider"}
+            </button>
+          </AdminDialogFooter>
+        </form>
+      </AdminDialog>
 
-      <ConfirmDialog
+      <AdminConfirmDialog
         isOpen={deleteTarget != null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}

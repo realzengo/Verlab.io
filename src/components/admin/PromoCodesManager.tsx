@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
-import { Check, Copy, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, Plus, TicketPercent, Trash2 } from "lucide-react";
 import type { PromoCode, PromoRewardType } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Panel } from "@/components/admin/Panel";
 import { Pagination, usePagination } from "@/components/admin/Pagination";
 import { AdminSelect } from "@/components/admin/AdminSelect";
+import { ADMIN_BUTTON, ADMIN_FIELD, ADMIN_LABEL, AdminConfirmDialog, AdminDialog, AdminDialogBody, AdminDialogFooter } from "@/components/admin/AdminDialog";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
+import { ReceiptIcon, TicketIcon, TrophyIcon } from "@phosphor-icons/react/dist/ssr";
 import { formatStat } from "@/components/admin/charts/format";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import { CODE_MAX, isValidCode } from "@/lib/validation";
 
-const inputClass =
-  "w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm text-heading outline-none placeholder:text-subtle focus:border-primary";
-const labelClass = "mb-1.5 block text-xs font-medium text-body";
+const inputClass = ADMIN_FIELD;
+const labelClass = ADMIN_LABEL;
 
 const REWARD_TYPES: { value: PromoRewardType; label: string }[] = [
   { value: "credits", label: "Free credits" },
@@ -80,15 +80,6 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
       setCodes((prev) => prev.filter((c) => c.id !== target.id));
     }
   }
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
 
   function openModal() {
     setForm(EMPTY_FORM);
@@ -154,10 +145,11 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
       </PageHeader>
 
       <KpiStrip>
-        <Kpi label="Active codes" value={formatStat(liveCodes.length)} footnote={`of ${formatNumber(codes.length)} created`} />
-        <Kpi label="Redemptions" value={formatStat(redemptions)} footnote="across every code" />
+        <Kpi label="Active codes" value={formatStat(liveCodes.length)} footnote={`of ${formatNumber(codes.length)} created`} icon={TicketIcon} accent />
+        <Kpi label="Redemptions" value={formatStat(redemptions)} footnote="across every code" icon={ReceiptIcon} />
         <Kpi
           label="Most redeemed"
+          icon={TrophyIcon}
           value={topCode && topCode.usedCount > 0 ? topCode.code : "None yet"}
           footnote={topCode && topCode.usedCount > 0 ? `${formatNumber(topCode.usedCount)} uses` : undefined}
         />
@@ -225,97 +217,99 @@ export function PromoCodesManager({ initialCodes }: { initialCodes: PromoCode[] 
         )}
       </Panel>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-card border border-hairline bg-surface shadow-[var(--shadow-elevated)]" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-hairline p-5">
-              <h2 className="text-[22px]">Create promo code</h2>
-              <button type="button" onClick={closeModal} aria-label="Close" className="text-body hover:text-heading">
-                <X className="h-5 w-5" />
-              </button>
+      <AdminDialog
+        open={isOpen}
+        onClose={closeModal}
+        title="Create promo code"
+        description="Grants credits or a discount when redeemed at checkout"
+        icon={TicketPercent}
+      >
+        <form onSubmit={handleSubmit}>
+          <AdminDialogBody>
+            <div>
+              <label htmlFor="promo-code" className={labelClass}>
+                Code
+              </label>
+              <input
+                id="promo-code"
+                type="text"
+                required
+                maxLength={CODE_MAX}
+                value={form.code}
+                onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
+                className={cn(inputClass, "font-mono uppercase tracking-[0.04em] placeholder:font-sans placeholder:normal-case placeholder:tracking-normal")}
+                placeholder="e.g. LAUNCH50"
+              />
             </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-4 p-5">
-                <div>
-                  <label className={labelClass}>Code</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={CODE_MAX}
-                    value={form.code}
-                    onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
-                    className={cn(inputClass, "uppercase")}
-                    placeholder="e.g. LAUNCH50"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Reward type</label>
-                  <AdminSelect
-                    label="Reward type"
-                    value={form.rewardType}
-                    onChange={(rewardType) => setForm((prev) => ({ ...prev, rewardType }))}
-                    options={REWARD_TYPES}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Reward value</label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    required
-                    value={form.rewardValue}
-                    onChange={(event) => setForm((prev) => ({ ...prev, rewardValue: event.target.value }))}
-                    className={inputClass}
-                    placeholder={form.rewardType === "credits" ? "e.g. 1000" : "e.g. 50"}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Max uses (optional)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={form.maxUses}
-                    onChange={(event) => setForm((prev) => ({ ...prev, maxUses: event.target.value }))}
-                    className={inputClass}
-                    placeholder="Unlimited"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Expiry date (optional)</label>
-                  <DatePicker
-                    value={form.expiresAt}
-                    onChange={(value) => setForm((prev) => ({ ...prev, expiresAt: value }))}
-                    placeholder="No expiry"
-                  />
-                </div>
-                {error && <p className="text-xs text-danger">{error}</p>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_120px]">
+              <div>
+                <span className={labelClass}>Reward type</span>
+                <AdminSelect
+                  label="Reward type"
+                  value={form.rewardType}
+                  onChange={(rewardType) => setForm((prev) => ({ ...prev, rewardType }))}
+                  options={REWARD_TYPES}
+                />
               </div>
-
-              <div className="flex justify-end gap-3 border-t border-hairline p-5">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-md border border-hairline bg-surface px-4 py-2 text-sm font-medium text-body hover:bg-app"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-md bg-btn-primary px-4 py-2 text-sm font-medium text-white hover:bg-btn-primary-hover disabled:opacity-50"
-                >
-                  {submitting ? "Saving…" : "Save"}
-                </button>
+              <div>
+                <label htmlFor="promo-value" className={labelClass}>
+                  {form.rewardType === "credits" ? "Credits" : "Percent off"}
+                </label>
+                <input
+                  id="promo-value"
+                  type="number"
+                  min={1}
+                  step={1}
+                  required
+                  value={form.rewardValue}
+                  onChange={(event) => setForm((prev) => ({ ...prev, rewardValue: event.target.value }))}
+                  className={cn(inputClass, "tabular-nums")}
+                  placeholder={form.rewardType === "credits" ? "1000" : "50"}
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="promo-max-uses" className={labelClass}>
+                  Max uses <span className="font-normal text-subtle">· optional</span>
+                </label>
+                <input
+                  id="promo-max-uses"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={form.maxUses}
+                  onChange={(event) => setForm((prev) => ({ ...prev, maxUses: event.target.value }))}
+                  className={cn(inputClass, "tabular-nums")}
+                  placeholder="Unlimited"
+                />
+              </div>
+              <div>
+                <span className={labelClass}>
+                  Expires <span className="font-normal text-subtle">· optional</span>
+                </span>
+                <DatePicker
+                  value={form.expiresAt}
+                  onChange={(value) => setForm((prev) => ({ ...prev, expiresAt: value }))}
+                  placeholder="No expiry"
+                />
+              </div>
+            </div>
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </AdminDialogBody>
 
-      <ConfirmDialog
+          <AdminDialogFooter>
+            <button type="button" onClick={closeModal} className={ADMIN_BUTTON.secondary}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className={ADMIN_BUTTON.primary}>
+              {submitting ? "Creating…" : "Create code"}
+            </button>
+          </AdminDialogFooter>
+        </form>
+      </AdminDialog>
+
+      <AdminConfirmDialog
         isOpen={deleteTarget != null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}

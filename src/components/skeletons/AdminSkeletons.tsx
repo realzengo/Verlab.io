@@ -20,20 +20,14 @@ function Shell({ children }: { children: ReactNode }) {
 
 function SkKpis({ count = 4 }: { count?: number }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card",
-        count === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4"
-      )}
-    >
+    <div className={cn("grid grid-cols-1 gap-4", count === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4")}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex min-w-0 flex-col justify-between gap-4 bg-surface p-5">
-          <Skeleton className="h-3.5 w-28 rounded-full" />
-          <div className="flex items-end justify-between gap-3">
-            <Skeleton className="h-7 w-24 rounded-md" />
-            <Skeleton className="h-6 w-16 rounded-md" />
+        <div key={i} className="admin-kpi flex h-[72px] min-w-0 items-center gap-[18px] pr-5">
+          <span className="admin-kpi-disc -my-1.5 -ml-3 h-[84px] w-[84px] shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-5 w-20 rounded-md" />
+            <Skeleton className="mt-2 h-3.5 w-28 max-w-full rounded-full" />
           </div>
-          <Skeleton className="h-3 w-32 rounded-full" />
         </div>
       ))}
     </div>
@@ -43,16 +37,19 @@ function SkKpis({ count = 4 }: { count?: number }) {
 /** A Panel's chrome with a placeholder header; children fill the body. */
 function SkPanel({ className, children, hero = false }: { className?: string; children?: ReactNode; hero?: boolean }) {
   return (
-    <section className={cn("flex min-w-0 flex-col rounded-card border border-hairline bg-surface shadow-card", className)}>
-      <header className="px-5 pt-5">
-        <Skeleton className="h-4 w-32 rounded-full" />
-        <Skeleton className="mt-2 h-3.5 w-56 max-w-full rounded-full" />
-      </header>
-      <div className="flex-1 px-5 pb-5 pt-4">
+    <section className={cn("flex min-w-0 flex-col admin-card rounded-card border border-hairline shadow-card", className)}>
+      {/* A hero card's figure is its header, so it has no title line. */}
+      {!hero && (
+        <header className="px-5 pt-5 sm:px-6">
+          <Skeleton className="h-4 w-32 rounded-full" />
+          <Skeleton className="mt-2 h-3.5 w-56 max-w-full rounded-full" />
+        </header>
+      )}
+      <div className={cn("flex-1 px-5 pb-5 sm:px-6 sm:pb-6", hero ? "pt-5 sm:pt-6" : "pt-4")}>
         {hero && (
-          <div className="mb-5">
-            <Skeleton className="h-10 w-36 rounded-lg sm:h-12" />
-            <Skeleton className="mt-3 h-3.5 w-48 rounded-full" />
+          <div className="mb-6">
+            <Skeleton className="h-10 w-56 max-w-full rounded-lg sm:h-12" />
+            <Skeleton className="mt-3 h-3.5 w-64 max-w-full rounded-full" />
           </div>
         )}
         {children}
@@ -82,7 +79,7 @@ function SkBars({ rows = 5 }: { rows?: number }) {
 function SkShare() {
   return (
     <div className="flex flex-col gap-4">
-      <Skeleton className="h-2.5 w-full rounded-full" />
+      <Skeleton className="h-3 w-full rounded-full" />
       {[0, 1, 2, 3].map((i) => (
         <div key={i} className="flex items-center justify-between gap-3">
           <Skeleton className="h-3.5 w-20 rounded-full" />
@@ -97,7 +94,7 @@ function SkMiniStats({ count = 2 }: { count?: number }) {
   return (
     <div className={cn("grid gap-3", count === 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-2")}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="rounded-lg bg-(--admin-fill) px-3.5 py-3">
+        <div key={i} className="rounded-[10px] bg-(--admin-fill) px-3.5 py-3">
           <Skeleton className="h-3 w-16 rounded-full" />
           <Skeleton className="mt-2 h-5 w-12 rounded-md" />
         </div>
@@ -108,8 +105,8 @@ function SkMiniStats({ count = 2 }: { count?: number }) {
 
 function SkTable({ rows = 8, toolbar = false }: { rows?: number; toolbar?: boolean }) {
   return (
-    <section className="flex min-w-0 flex-col rounded-card border border-hairline bg-surface shadow-card">
-      <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
+    <section className="flex min-w-0 flex-col admin-card rounded-card border border-hairline shadow-card">
+      <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6">
         <div>
           <Skeleton className="h-4 w-32 rounded-full" />
           <Skeleton className="mt-2 h-3.5 w-48 rounded-full" />
@@ -258,14 +255,19 @@ export function AdminUsageSkeleton() {
         <SkChart height={220} />
       </SkPanel>
       <SkPanel>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-hairline bg-(--color-hairline) sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="flex flex-col gap-3 rounded-lg border border-hairline p-4">
+            <div key={i} className="flex flex-col bg-surface px-4 pb-4 pt-3.5 sm:px-5 sm:pt-4">
               <div className="flex justify-between gap-3">
-                <Skeleton className="h-3.5 w-24 rounded-full" />
-                <Skeleton className="h-3.5 w-12 rounded-full" />
+                <Skeleton className="h-3.5 w-28 rounded-full" />
+                <Skeleton className="h-3.5 w-8 rounded-full" />
               </div>
-              <Skeleton className="h-14 w-full rounded-md" />
+              <Skeleton className="mt-3 h-6 w-16 rounded-md" />
+              <Skeleton className="mt-4 h-[45px] w-full rounded-md" />
+              <div className="mt-3.5 flex justify-between gap-3">
+                <Skeleton className="h-3 w-20 rounded-full" />
+                <Skeleton className="h-3 w-24 rounded-full" />
+              </div>
             </div>
           ))}
         </div>

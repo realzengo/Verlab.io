@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { formatDay, formatValue, niceTicks, type ValueFormat } from "./format";
+import { formatCompactValue, formatDay, formatValue, niceTicks, type ValueFormat } from "./format";
 import {
   AXIS_BAND,
   AXIS_GUTTER,
+  AxisValuePill,
   ChartTooltip,
   GridY,
   nearestIndex,
@@ -13,7 +14,8 @@ import {
   XLabels,
   type PlotBox,
 } from "./parts";
-import { useElementWidth } from "./useElementWidth";
+import { useElementSize } from "./useElementWidth";
+import { cn } from "@/lib/utils";
 
 export interface TimeSeries {
   label: string;
@@ -66,6 +68,17 @@ function monotonePath(pts: { x: number; y: number }[]): string {
   return d;
 }
 
+/** How one day compares with the window's daily average. */
+function averageNote(values: number[], i: number): string | undefined {
+  const avg = values.reduce((s, v) => s + v, 0) / Math.max(values.length, 1);
+  const v = values[i] ?? 0;
+  if (avg <= 0 || v === 0) return undefined;
+  const ratio = v / avg;
+  if (ratio >= 1.05) return `${ratio.toFixed(1)}× the daily average`;
+  if (ratio <= 0.95) return `${Math.round((1 - ratio) * 100)}% under the average`;
+  return "Right on the average";
+}
+
 export function TimeSeriesChart({
   dates,
   series,
@@ -75,6 +88,7 @@ export function TimeSeriesChart({
   axes = true,
   ariaLabel,
   yMax,
+  fill = false,
 }: {
   /** YYYY-MM-DD, one per point. */
   dates: string[];
@@ -88,22 +102,36 @@ export function TimeSeriesChart({
   ariaLabel: string;
   /** Shared ceiling, so small multiples compare on one scale. */
   yMax?: number;
+  /** Grow taller than `height` to fill the panel when a neighbour in the
+      row is taller; the panel body must be a flex column. */
+  fill?: boolean;
 }) {
   const id = useId().replace(/:/g, "");
-  const [ref, width] = useElementWidth<HTMLDivElement>();
-  const [active, setActive] = useState<number | null>(null);
+  const [ref, { width, height: boxHeight }] = useElementSize<HTMLDivElement>();
+  const n = dates.length;
+  // `at` is where the hover marks sit; they stay put (hidden) when the
+  // pointer leaves, so the next hover glides from there. They start on today.
+  const [hover, setHover] = useState<{ active: number | null; at: number }>({ active: null, at: Math.max(n - 1, 0) });
+  const { active, at } = hover;
+  const setActive = (next: number | null | ((cur: number | null) => number | null)) =>
+    setHover((h) => {
+      const value = typeof next === "function" ? next(h.active) : next;
+      return { active: value, at: value ?? h.at };
+    });
 
   const colored = series.map((s, i) => ({ ...s, color: s.color ?? SLOT_COLORS[i % SLOT_COLORS.length] }));
-  const n = dates.length;
   const dataMax = Math.max(0, ...colored.flatMap((s) => s.values));
   const ticks = niceTicks(Math.max(yMax ?? 0, dataMax), axes ? 4 : 1);
   const top = ticks[ticks.length - 1] || 1;
 
+  const chrome = axes ? PLOT_TOP + AXIS_BAND : 8;
+  const minHeight = height + chrome;
+  const plotHeight = fill && boxHeight > minHeight ? boxHeight - chrome : height;
   const box: PlotBox = {
     left: axes ? AXIS_GUTTER : 0,
     right: Math.max(width - (axes ? 2 : 0), 1),
     top: axes ? PLOT_TOP : 4,
-    bottom: (axes ? PLOT_TOP : 4) + height,
+    bottom: (axes ? PLOT_TOP : 4) + plotHeight,
   };
   const svgHeight = box.bottom + (axes ? AXIS_BAND : 4);
   const xFor = (i: number) => (n <= 1 ? (box.left + box.right) / 2 : box.left + (i / (n - 1)) * (box.right - box.left));
@@ -131,7 +159,8 @@ export function TimeSeriesChart({
     });
   };
 
-  const showEndDot = active === null && paths.length === 1 && n > 1;
+  const solo = paths.length === 1;
+  const showEndDot = active === null && solo && n > 1;
 
   // Two or more series always get a legend, so identity never rides on color alone.
   const legend = paths.length > 1 && (
@@ -146,12 +175,15 @@ export function TimeSeriesChart({
   );
 
   return (
-    <div className="w-full">
+    <div className={cn("w-full", fill && "flex flex-1 flex-col")}>
       {legend}
       <div
         ref={ref}
-        className="relative w-full outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-primary/40"
-        style={{ height: svgHeight }}
+        className={cn(
+          "relative w-full outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-primary/40",
+          fill && "flex-1"
+        )}
+        style={fill ? { minHeight } : { height: svgHeight }}
         tabIndex={0}
         role="group"
         aria-roledescription="chart"
@@ -161,18 +193,43 @@ export function TimeSeriesChart({
         onBlur={() => setActive(null)}
       >
         {width > 0 && n > 0 && (
-          <svg width={width} height={svgHeight} className="block overflow-visible" aria-hidden="true">
+          <svg width={width} height={svgHeight} className="absolute left-0 top-0 block overflow-visible" aria-hidden="true">
             <defs>
               {paths.map((p, i) => (
                 <linearGradient key={p.label} id={`${id}-fill-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" style={{ stopColor: p.color, stopOpacity: paths.length > 1 ? 0.08 : 0.16 }} />
+                  <stop offset="0" style={{ stopColor: p.color, stopOpacity: solo ? 0.26 : 0.08 }} />
+                  <stop offset="0.55" style={{ stopColor: p.color, stopOpacity: solo ? 0.07 : 0.02 }} />
                   <stop offset="1" style={{ stopColor: p.color, stopOpacity: 0 }} />
                 </linearGradient>
               ))}
+              {/* A lone series fades in from the left, so the eye lands on the
+                  recent end. User-space units so a perfectly flat line
+                  (zero-height box) still paints. */}
+              {solo && (
+                <>
+                  <linearGradient
+                    id={`${id}-stroke`}
+                    gradientUnits="userSpaceOnUse"
+                    x1={box.left}
+                    y1="0"
+                    x2={box.right}
+                    y2="0"
+                  >
+                    <stop offset="0" style={{ stopColor: paths[0].color, stopOpacity: 0.35 }} />
+                    <stop offset="0.6" style={{ stopColor: paths[0].color, stopOpacity: 1 }} />
+                  </linearGradient>
+                </>
+              )}
             </defs>
 
             {axes ? (
-              <GridY ticks={ticks} box={box} yFor={yFor} format={format} />
+              <GridY
+                ticks={ticks}
+                box={box}
+                yFor={yFor}
+                format={format}
+                clearY={solo && active !== null ? Math.round(paths[0].pts[active].y) : null}
+              />
             ) : (
               <line
                 x1={box.left}
@@ -183,22 +240,39 @@ export function TimeSeriesChart({
               />
             )}
 
-            {/* One wipe reveals every line and its fill together (globals.css). */}
-            <g className="admin-chart-draw">
-              {variant === "area" &&
-                paths.map((p, i) => p.area && <path key={`a-${p.label}`} d={p.area} fill={`url(#${id}-fill-${i})`} />)}
-              {paths.map((p) => (
-                <path
-                  key={`l-${p.label}`}
-                  d={p.line}
-                  fill="none"
-                  style={{ stroke: p.color }}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-            </g>
+            {/* A thin marker standing at the latest day: where "now" is. */}
+            {axes && n > 1 && (
+              <line
+                className="admin-late-in"
+                x1={Math.round(xFor(n - 1)) + 0.5}
+                x2={Math.round(xFor(n - 1)) + 0.5}
+                y1={box.top}
+                y2={box.bottom}
+                style={{ stroke: "var(--viz-baseline)" }}
+                strokeWidth={1}
+              />
+            )}
+
+            {/* Each line draws itself left to right while its fill rises in
+                behind it (globals.css, admin-line-draw / admin-area-in). */}
+            {variant === "area" &&
+              paths.map(
+                (p, i) => p.area && <path key={`a-${p.label}`} className="admin-area-in" d={p.area} fill={`url(#${id}-fill-${i})`} />
+              )}
+            {paths.map((p) => (
+              <path
+                key={`l-${p.label}`}
+                className="admin-line-draw"
+                pathLength={1}
+                d={p.line}
+                fill="none"
+                stroke={solo ? `url(#${id}-stroke)` : undefined}
+                style={solo ? undefined : { stroke: p.color }}
+                strokeWidth={solo ? 2.25 : 2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
 
             {showEndDot && (
               <circle
@@ -211,27 +285,40 @@ export function TimeSeriesChart({
               />
             )}
 
-            {active !== null && (
-              <g>
+            {/* The crosshair and its dots stay mounted and glide between days;
+                leaving the plot just fades them. */}
+            {n > 0 && (
+              <g className="admin-glide pointer-events-none" style={{ opacity: active === null ? 0 : 1 }}>
                 <line
-                  x1={Math.round(xFor(active)) + 0.5}
-                  x2={Math.round(xFor(active)) + 0.5}
+                  className="admin-glide"
+                  x1={0.5}
+                  x2={0.5}
                   y1={box.top}
                   y2={box.bottom}
-                  style={{ stroke: "var(--viz-crosshair)" }}
+                  style={{ stroke: "var(--viz-crosshair)", transform: `translateX(${Math.round(xFor(at))}px)` }}
                   strokeWidth={1}
+                  strokeDasharray="3 3"
                 />
                 {paths.map((p) => (
-                  <circle
+                  <g
                     key={`d-${p.label}`}
-                    cx={p.pts[active].x}
-                    cy={p.pts[active].y}
-                    r={4}
-                    style={{ fill: p.color, stroke: "var(--color-surface)" }}
-                    strokeWidth={2}
-                  />
+                    className="admin-glide"
+                    style={{ transform: `translate(${p.pts[at]?.x ?? 0}px, ${p.pts[at]?.y ?? 0}px)` }}
+                  >
+                    <circle r={9} style={{ fill: p.color, opacity: 0.16 }} />
+                    <circle r={4.5} style={{ fill: p.color, stroke: "var(--color-surface)" }} strokeWidth={2} />
+                  </g>
                 ))}
               </g>
+            )}
+
+            {axes && solo && active !== null && (
+              <AxisValuePill
+                y={Math.round(paths[0].pts[active].y)}
+                box={box}
+                toX={paths[0].pts[active].x - 6}
+                label={formatCompactValue(paths[0].values[active] ?? 0, format)}
+              />
             )}
 
             {axes && <XLabels dates={dates} xFor={xFor} y={box.bottom + 18} width={box.right - box.left} />}
@@ -254,7 +341,8 @@ export function TimeSeriesChart({
             x={xFor(active)}
             top={box.top}
             containerWidth={width}
-            title={formatDay(dates[active])}
+            title={active === n - 1 ? `${formatDay(dates[active])} · Today` : formatDay(dates[active])}
+            note={solo ? averageNote(paths[0].values, active) : undefined}
             rows={paths.map((p) => ({
               label: paths.length > 1 ? p.label : undefined,
               value: formatValue(p.values[active] ?? 0, format),

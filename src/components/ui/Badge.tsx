@@ -23,6 +23,7 @@ export function Badge({
 }) {
   return (
     <span
+      data-badge={variant}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold",
         VARIANT_CLASSES[variant],

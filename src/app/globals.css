@@ -1692,12 +1692,33 @@ html[data-scrolling="true"] *::after {
    ========================================================================= */
 
 .admin-theme {
-  /* --- Canvas & ink --- */
-  --background: #f7f7f8;
+  /* --- Canvas & ink. Two steps: one page tone behind the sidebar and the
+         content column, and the cards on it. --- */
+  --background: #f8f8f9;
   --foreground: #0a0a0b;
-  --color-app: #f7f7f8;
+  --admin-canvas: #f5f5f6;
+  --admin-canvas-top: #f7f7f8;
+  --color-app: #f8f8f9;
+  /* Ivory to graphite: every big surface is a soft vertical tone shift
+     inside one neutral, never one hue to another. */
+  --admin-canvas-bg: linear-gradient(180deg, #f7f7f8 0%, #f3f3f5 100%);
+  --admin-card-bg: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+  --admin-float-bg: linear-gradient(180deg, #ffffff 0%, #f8f8fa 100%);
   --color-surface: #ffffff;
   --color-ink: #0a0a0b;
+
+  /* --- Raised icon tiles, the ink tooltip, and floating layers (dialogs,
+         menus, cards that pop over the page). --- */
+  --admin-tile: linear-gradient(180deg, #ffffff, #f3f3f6);
+  --admin-tile-shadow: 0 0 0 1px rgba(10, 10, 30, 0.07), 0 1px 2px rgba(10, 10, 30, 0.06), inset 0 -1px 0 rgba(10, 10, 30, 0.04);
+  --admin-tooltip-bg: #0c0c10;
+  --admin-tooltip-fg: #fafafa;
+  --admin-tooltip-muted: #a1a1aa;
+  --admin-float: #ffffff;
+  --admin-tooltip-ring: rgba(255, 255, 255, 0.06);
+  --admin-overlay: rgba(12, 12, 20, 0.32);
+  --admin-float-shadow: 0 0 0 1px rgba(10, 10, 30, 0.06), 0 2px 4px rgba(10, 10, 30, 0.04), 0 12px 32px -8px rgba(10, 10, 30, 0.14), 0 32px 64px -24px rgba(10, 10, 30, 0.12);
+  --admin-menu-shadow: 0 0 0 1px rgba(10, 10, 30, 0.07), 0 2px 4px rgba(10, 10, 30, 0.04), 0 12px 24px -8px rgba(10, 10, 30, 0.12);
 
   /* --- The one accent: the product blue. Actions, links, active, focus. --- */
   --color-primary: #335cff;
@@ -1734,6 +1755,10 @@ html[data-scrolling="true"] *::after {
          control's track. --- */
   --admin-fill: rgba(10, 10, 20, 0.04);
   --admin-fill-strong: rgba(10, 10, 20, 0.07);
+  /* Shared ui/Skeleton reads the app's fill token, which only exists under
+     .app-theme -- without these, every admin placeholder drew nothing. */
+  --app-fill: var(--admin-fill);
+  --app-fill-strong: var(--admin-fill-strong);
 
   /* --- Data viz. Validated with the dataviz six-checks script against
          #ffffff (light) and #141417 (dark):
@@ -1747,6 +1772,9 @@ html[data-scrolling="true"] *::after {
   --viz-2: #eb6834;
   --viz-3: #1baf7a;
   --viz-1-wash: rgba(51, 92, 255, 0.12);
+  /* Columns at rest: a solid lighter step of the accent, so history stays
+     crisp blue instead of a see-through tint muddied by the surface. */
+  --viz-1-rest: #93a6ff;
   --viz-tier-1: #93a6ff;
   --viz-tier-2: #335cff;
   --viz-tier-3: #1a2e9e;
@@ -1775,11 +1803,11 @@ html[data-scrolling="true"] *::after {
   --chart-grid: #f0f0f2;
   --chart-axis: #8b8b94;
 
-  /* --- Shape. Cards 12px, controls 8px, list rows 6px. --- */
+  /* --- Shape. Cards 14px, controls 8px, list rows 6px. --- */
   --radius-chip: 8px;
   --radius-card-sm: 8px;
-  --radius-card: 12px;
-  --radius-card-lg: 16px;
+  --radius-card: 14px;
+  --radius-card-lg: 18px;
   --radius-input: 8px;
 
   --radius-sm: 4px;
@@ -1789,7 +1817,7 @@ html[data-scrolling="true"] *::after {
   --radius-2xl: 16px;
 
   /* --- Elevation: a breath under cards, more only for things that float. --- */
-  --shadow-card: 0 1px 2px rgba(16, 16, 24, 0.04);
+  --shadow-card: 0 1px 2px rgba(16, 16, 24, 0.04), 0 4px 12px -6px rgba(16, 16, 24, 0.06);
   --shadow-card-hover: 0 1px 2px rgba(16, 16, 24, 0.05), 0 6px 16px -4px rgba(16, 16, 24, 0.1);
   --shadow-elevated: 0 2px 6px rgba(16, 16, 24, 0.05), 0 16px 40px -8px rgba(16, 16, 24, 0.18);
   --shadow-blue: none;
@@ -1799,16 +1827,51 @@ html[data-scrolling="true"] *::after {
   font-family: var(--font-admin-body);
   font-feature-settings: "cv11" 1, "ss01" 1;
   letter-spacing: -0.003em;
-  background-color: var(--color-app);
+  /* The page tone behind everything. Unlayered, so it beats any bg utility
+     on the root. */
+  background-color: var(--admin-canvas);
   color: var(--color-body);
+  /* Holds the canvas layer below every child without dropping under <body>. */
+  isolation: isolate;
+}
+
+/* The canvas gradient on its own fixed layer, so it stays put while the page
+   scrolls without forcing a repaint the way background-attachment: fixed does. */
+.admin-theme::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--admin-canvas-bg);
 }
 
 .dark .admin-theme {
-  --background: #0b0b0d;
-  --foreground: #fafafa;
-  --color-app: #0b0b0d;
-  --color-surface: #141417;
-  --color-ink: #fafafa;
+  /* Graphite, no blue cast: one flat page tone, cards a step up, raised
+     controls a step above that. */
+  --background: #141414;
+  --foreground: #f4f4f4;
+  --admin-canvas: #141414;
+  --admin-canvas-top: #141414;
+  --color-app: #141414;
+  --admin-canvas-bg: #141414;
+  --admin-card-bg: linear-gradient(180deg, #1d1d1d 0%, #1a1a1a 100%);
+  --admin-float-bg: linear-gradient(180deg, #222222 0%, #1d1d1d 100%);
+  --color-surface: #1b1b1b;
+  --color-ink: #f4f4f4;
+
+  --admin-tile: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  --admin-tile-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --admin-tooltip-bg: #262626;
+  --admin-tooltip-fg: #f4f4f4;
+  --admin-tooltip-muted: #8f8f8f;
+  --admin-tooltip-ring: rgba(255, 255, 255, 0.1);
+  --admin-overlay: rgba(0, 0, 0, 0.6);
+  /* Dark floats get no drop shadow worth the name: a lighter step and a
+     hairline of light along the top edge carry the lift. */
+  --admin-float-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 48px -12px rgba(0, 0, 0, 0.7);
+  --admin-menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 32px -12px rgba(0, 0, 0, 0.7);
+  --admin-float: #222222;
 
   --color-primary: #7d97ff;
   --color-primary-hover: #a3b4ff;
@@ -1822,12 +1885,12 @@ html[data-scrolling="true"] *::after {
   --color-accent: rgba(92, 124, 255, 0.14);
   --color-accent-line: rgba(92, 124, 255, 0.28);
 
-  --color-heading: #fafafa;
-  --color-slate: #fafafa;
-  --color-body: #c9c9d1;
-  --color-subtle: #8e8e99;
+  --color-heading: #f4f4f4;
+  --color-slate: #f4f4f4;
+  --color-body: #b5b5b5;
+  --color-subtle: #808080;
 
-  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-hairline: rgba(255, 255, 255, 0.07);
 
   --color-success: #4ade80;
   --color-success-tint: rgba(34, 197, 94, 0.14);
@@ -1836,13 +1899,14 @@ html[data-scrolling="true"] *::after {
   --color-danger: #f87171;
   --color-danger-tint: rgba(239, 68, 68, 0.14);
 
-  --admin-fill: rgba(255, 255, 255, 0.04);
-  --admin-fill-strong: rgba(255, 255, 255, 0.08);
+  --admin-fill: rgba(255, 255, 255, 0.045);
+  --admin-fill-strong: rgba(255, 255, 255, 0.085);
 
   --viz-1: #5c7cff;
   --viz-2: #d95926;
   --viz-3: #199e70;
   --viz-1-wash: rgba(92, 124, 255, 0.2);
+  --viz-1-rest: #3a55d9;
   --viz-tier-1: #2f47c8;
   --viz-tier-2: #5c7cff;
   --viz-tier-3: #a6b6ff;
@@ -1863,7 +1927,8 @@ html[data-scrolling="true"] *::after {
   --chart-grid: rgba(255, 255, 255, 0.05);
   --chart-axis: #7c7c86;
 
-  --shadow-card: none;
+  /* No drop shadow on dark: a hairline of light along the top edge instead. */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --shadow-card-hover: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
   --shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 48px -12px rgba(0, 0, 0, 0.7);
 }
@@ -1897,20 +1962,53 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* Table headers in sentence case and muted ink. Unlayered on purpose: it has
-   to beat the shared Table's `uppercase tracking-wide` utilities, which the
-   user dashboard keeps. */
+/* Tables. Unlayered on purpose: these beat the shared Table's utilities
+   (uppercase tracked headers, a filled header band, 16px insets), which the
+   user dashboard keeps. A quiet header line, airy rows on hairlines, and
+   the first and last columns on the same 20/24px inset as panel titles. */
 .admin-theme thead {
-  background-color: var(--admin-fill);
+  background: transparent;
 }
 
 .admin-theme thead th {
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
   font-weight: 500;
   font-size: 12px;
-  line-height: 1.33;
-  letter-spacing: 0;
+  line-height: 16px;
+  letter-spacing: 0.005em;
   text-transform: none;
   color: var(--color-subtle);
+  white-space: nowrap;
+}
+
+.admin-theme tbody td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  font-size: 13.5px;
+}
+
+.admin-theme thead th:first-child,
+.admin-theme tbody td:first-child {
+  padding-left: 20px;
+}
+
+.admin-theme thead th:last-child,
+.admin-theme tbody td:last-child {
+  padding-right: 20px;
+}
+
+@media (min-width: 640px) {
+  .admin-theme thead th:first-child,
+  .admin-theme tbody td:first-child {
+    padding-left: 24px;
+  }
+
+  .admin-theme thead th:last-child,
+  .admin-theme tbody td:last-child {
+    padding-right: 24px;
+  }
 }
 
 .admin-theme tbody tr {
@@ -1919,6 +2017,44 @@ html[data-scrolling="true"] *::after {
 
 .admin-theme tbody tr:hover {
   background-color: var(--admin-fill);
+}
+
+/* Status badges: a dot of the status color, then the word, on a faint tint
+   with a hairline of the same hue. Badges that carry an icon skip the dot. */
+.admin-theme [data-badge] {
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.admin-theme [data-badge]:not(:has(svg))::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+/* The three surface materials, as classes because they're gradients. */
+.admin-card {
+  background: var(--admin-card-bg), var(--color-surface);
+}
+
+.admin-float {
+  background: var(--admin-float-bg), var(--admin-float);
+}
+
+/* A table's scroll box is its containing block, so absolutely placed bits
+   inside it (sr-only header labels) scroll and clip with the table instead of
+   stretching the page sideways on phones. */
+.admin-theme .overflow-x-auto.rounded-card {
+  position: relative;
 }
 
 /* A table directly under a panel header runs edge to edge: the panel draws
@@ -1973,7 +2109,9 @@ html[data-scrolling="true"] *::after {
   border-radius: var(--radius-input);
 }
 
-.admin-theme input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+/* `data-bare` opts out: a field drawn borderless inside its own frame, like
+   the ⌘K search, where the frame already says where focus is. */
+.admin-theme input:not([type="checkbox"]):not([type="radio"]):not([data-bare]):focus-visible,
 .admin-theme select:focus-visible,
 .admin-theme textarea:focus-visible {
   outline: none;
@@ -1982,27 +2120,51 @@ html[data-scrolling="true"] *::after {
 }
 
 /* -------------------------------------------------------------------------
-   Chart motion. Lines draw in under one wipe with the end dot arriving last;
-   columns rise from the baseline. Once, on mount -- hover never replays it.
+   Chart motion. Lines draw themselves left to right with the fill rising in
+   behind; columns rise from the baseline one after another; the end dot
+   arrives last. Once, on mount -- hover never replays it. Hover marks (the
+   column highlight, crosshair, dot, tooltip) glide between days.
    ------------------------------------------------------------------------- */
 
-.admin-chart-draw {
-  animation: admin-chart-wipe 900ms cubic-bezier(0.45, 0, 0.2, 1) both;
+.admin-glide {
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease;
 }
 
-@keyframes admin-chart-wipe {
-  from {
-    clip-path: inset(-8px 100% -8px 0);
-  }
+/* Needs pathLength="1" on the path, so one dash is the whole line. */
+.admin-line-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: admin-line-draw 1100ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes admin-line-draw {
   to {
-    clip-path: inset(-8px -8px -8px 0);
+    stroke-dashoffset: 0;
   }
+}
+
+.admin-area-in {
+  animation: admin-area-in 900ms 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes admin-area-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Reference marks (an average line) settle in after the data. */
+.admin-late-in {
+  animation: admin-chart-fade 500ms 700ms ease-out backwards;
 }
 
 .admin-chart-enddot {
   transform-box: fill-box;
   transform-origin: center;
-  animation: admin-chart-pop 320ms 760ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation: admin-chart-pop 320ms 1000ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
 }
 
 @keyframes admin-chart-pop {
@@ -2019,7 +2181,7 @@ html[data-scrolling="true"] *::after {
 .admin-chart-rise path {
   transform-box: fill-box;
   transform-origin: 50% 100%;
-  animation: admin-chart-rise 700ms cubic-bezier(0.25, 0.8, 0.25, 1) both;
+  animation: admin-chart-rise 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes admin-chart-rise {
@@ -2044,12 +2206,436 @@ html[data-scrolling="true"] *::after {
   }
 }
 
+/* Bars and meters grow out from their start edge. */
+.admin-grow-x {
+  transform-origin: left center;
+  animation: admin-grow-x 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes admin-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .admin-chart-draw,
   .admin-chart-enddot,
   .admin-chart-rise path,
-  .admin-chart-tooltip {
+  .admin-chart-tooltip,
+  .admin-grow-x,
+  .admin-area-in,
+  .admin-late-in {
     animation: none;
+  }
+
+  .admin-line-draw {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
+  .admin-glide {
+    transition: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Admin shell effects
+   ------------------------------------------------------------------------- */
+
+/* A raised icon tile: KPI cards, tool cards, the sidebar search. */
+.admin-tile {
+  background: var(--admin-tile);
+  box-shadow: var(--admin-tile-shadow);
+}
+
+/* Chess-piece avatars: ivory and ebony sides, plus the accent king (you). */
+.admin-piece-ivory {
+  background: linear-gradient(155deg, #ffffff 0%, #ebebef 100%);
+  color: #1b1b20;
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 10, 30, 0.09),
+    0 1px 2px rgba(10, 10, 30, 0.06);
+}
+
+.admin-piece-ebony {
+  background: linear-gradient(155deg, #45454d 0%, #121215 100%);
+  color: #f6f6f8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(10, 10, 30, 0.16);
+}
+
+.admin-piece-accent {
+  background: linear-gradient(155deg, #6283ff 0%, #2a4ef0 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(20, 40, 160, 0.35),
+    0 1px 2px rgba(16, 24, 80, 0.22);
+}
+
+.dark .admin-piece-ivory {
+  background: linear-gradient(155deg, #e6e6eb 0%, #b8b8c2 100%);
+  color: #16161a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.dark .admin-piece-ebony {
+  background: linear-gradient(155deg, #33333b 0%, #16161a 100%);
+  color: #ededf0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* The profile card's banner: a quiet run of board squares in the user's side. */
+.admin-board-ivory {
+  background:
+    linear-gradient(180deg, transparent 30%, var(--admin-float) 100%),
+    repeating-conic-gradient(#f3f3f6 0 25%, #e6e6eb 0 50%) 0 0 / 22px 22px;
+}
+
+.admin-board-ebony {
+  background:
+    linear-gradient(180deg, transparent 30%, var(--admin-float) 100%),
+    repeating-conic-gradient(#2c2c33 0 25%, #1b1b20 0 50%) 0 0 / 22px 22px;
+}
+
+.dark .admin-board-ivory {
+  background:
+    linear-gradient(180deg, transparent 30%, var(--admin-float) 100%),
+    repeating-conic-gradient(#3a3a42 0 25%, #2b2b31 0 50%) 0 0 / 22px 22px;
+}
+
+/* KPI tiles. A diagonal tone shift inside one neutral, a hairline edge lit
+   brighter along the top, and a disc as tall as the tile sitting flush on
+   its left edge (the tile's corner clips it). The lead tile -- the figure the
+   page is about -- takes a glow of its tint from the bottom left, a tinted
+   disc and a lit bottom edge. --kpi-tint is the accent unless the figure
+   carries a status. */
+.admin-theme {
+  --kpi-bg: linear-gradient(135deg, #ffffff 0%, #f7f7f8 100%);
+  --kpi-edge: linear-gradient(180deg, rgba(10, 10, 30, 0.06), rgba(10, 10, 30, 0.08) 50%, rgba(10, 10, 30, 0.12));
+  --kpi-disc: rgba(10, 10, 30, 0.04);
+  --kpi-shadow: 0 1px 2px rgba(10, 10, 30, 0.05);
+}
+
+.dark .admin-theme {
+  --kpi-bg: linear-gradient(135deg, #272727 0%, #202020 100%);
+  --kpi-edge: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.11));
+  --kpi-disc: rgba(255, 255, 255, 0.035);
+  --kpi-shadow: none;
+}
+
+/* The sidebar's ground: the page tone in light (see-through on desktop so
+   the canvas runs under it), a step darker than the page in dark. */
+.admin-theme {
+  --admin-sidebar: var(--admin-canvas);
+  --admin-sidebar-desktop: transparent;
+}
+
+.dark .admin-theme {
+  --admin-sidebar: #111111;
+  --admin-sidebar-desktop: #111111;
+}
+
+.admin-kpi {
+  --kpi-tint: var(--viz-1);
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--kpi-bg);
+  box-shadow: var(--kpi-shadow);
+}
+
+.admin-kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--kpi-edge);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.admin-kpi-lead {
+  background:
+    radial-gradient(140% 170% at 0% 100%, color-mix(in srgb, var(--kpi-tint) 22%, transparent), transparent 66%),
+    var(--kpi-bg);
+}
+
+.admin-kpi-lead::after {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.04) 50%,
+    color-mix(in srgb, var(--kpi-tint) 45%, transparent)
+  );
+}
+
+:root:not(.dark) .admin-kpi-lead::after {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 30, 0.06),
+    rgba(10, 10, 30, 0.07) 50%,
+    color-mix(in srgb, var(--kpi-tint) 50%, transparent)
+  );
+}
+
+.admin-kpi-disc {
+  background: var(--kpi-disc);
+}
+
+.admin-kpi-disc-tinted {
+  background: radial-gradient(circle at 55% 50%, color-mix(in srgb, var(--kpi-tint) 24%, transparent), color-mix(in srgb, var(--kpi-tint) 14%, transparent));
+  color: var(--kpi-tint);
+}
+
+/* KPI hover, choreographed. Three registered numbers drive every layer so
+   gradients animate instead of snapping, each on its own clock:
+     --kpi-glow   0..1    how strong the tint is (wash, edge, disc, icon)
+     --kpi-reach  0..1    how far the light has spread from the bottom-left
+     --kpi-sheen  -40..140%  where the one-off light band is
+   Entering is slow and eased out (the light blooms from the corner, runs
+   along the bottom edge, a band of light crosses once); leaving is quick and
+   the band resets out of sight. Plain tiles take their own hue by position
+   (blue, violet, cyan, pink -- never the status green/amber/red); every tile
+   gets the light band, the icon spring and the figure's lean. No loops, no
+   cursor tracking. */
+@property --kpi-glow {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --kpi-reach {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --kpi-sheen {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: -40%;
+}
+
+.admin-theme {
+  --kpi-hue-1: #335cff;
+  --kpi-hue-2: #7c3aed;
+  --kpi-hue-3: #0891b2;
+  --kpi-hue-4: #db2777;
+  --kpi-edge-low: rgba(10, 10, 30, 0.12);
+}
+
+.dark .admin-theme {
+  --kpi-hue-1: #5c7cff;
+  --kpi-hue-2: #9b7bff;
+  --kpi-hue-3: #22b8d6;
+  --kpi-hue-4: #ec5f9a;
+  --kpi-edge-low: rgba(255, 255, 255, 0.11);
+}
+
+.admin-kpi.admin-kpi-hover:nth-child(4n + 1) { --kpi-tint: var(--kpi-hue-1); }
+.admin-kpi.admin-kpi-hover:nth-child(4n + 2) { --kpi-tint: var(--kpi-hue-2); }
+.admin-kpi.admin-kpi-hover:nth-child(4n + 3) { --kpi-tint: var(--kpi-hue-3); }
+.admin-kpi.admin-kpi-hover:nth-child(4n + 4) { --kpi-tint: var(--kpi-hue-4); }
+
+/* Leaving: quick, and the light band jumps back out of sight. */
+.admin-kpi {
+  --kpi-sheen-color: rgba(255, 255, 255, 0.075);
+  transition:
+    --kpi-glow 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    --kpi-reach 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    --kpi-sheen 0s;
+}
+
+:root:not(.dark) .admin-kpi {
+  --kpi-sheen-color: color-mix(in srgb, var(--kpi-tint) 11%, transparent);
+}
+
+/* Entering: the tint arrives first, the light keeps spreading after it,
+   the band crosses once a beat later. */
+.admin-kpi:hover {
+  --kpi-glow: 1;
+  --kpi-reach: 1;
+  --kpi-sheen: 140%;
+  transition:
+    --kpi-glow 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    --kpi-reach 950ms cubic-bezier(0.16, 1, 0.3, 1),
+    --kpi-sheen 1150ms cubic-bezier(0.45, 0, 0.15, 1) 60ms;
+}
+
+/* The light band: a soft diagonal sweep, once per hover. */
+.admin-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent calc(var(--kpi-sheen) - 22%),
+    var(--kpi-sheen-color) var(--kpi-sheen),
+    transparent calc(var(--kpi-sheen) + 22%)
+  );
+}
+
+/* The wash blooms out of the bottom-left corner as --kpi-reach grows. */
+.admin-kpi-hover {
+  background:
+    radial-gradient(
+      calc(140% * var(--kpi-reach) + 1%) calc(170% * var(--kpi-reach) + 1%) at 0% 100%,
+      color-mix(in srgb, var(--kpi-tint) calc(24% * var(--kpi-glow)), transparent),
+      transparent 66%
+    ),
+    var(--kpi-bg);
+}
+
+/* The edge lights from the same corner and runs along the bottom. */
+.admin-kpi-hover::after {
+  background:
+    radial-gradient(
+      calc(170% * var(--kpi-reach) + 1%) calc(260% * var(--kpi-reach) + 1%) at 0% 100%,
+      color-mix(in srgb, var(--kpi-tint) calc(75% * var(--kpi-glow)), transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.08) 50%, var(--kpi-edge-low));
+}
+
+:root:not(.dark) .admin-kpi-hover::after {
+  background:
+    radial-gradient(
+      calc(170% * var(--kpi-reach) + 1%) calc(260% * var(--kpi-reach) + 1%) at 0% 100%,
+      color-mix(in srgb, var(--kpi-tint) calc(70% * var(--kpi-glow)), transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, rgba(10, 10, 30, 0.06), rgba(10, 10, 30, 0.08) 50%, var(--kpi-edge-low));
+}
+
+.admin-kpi-hover .admin-kpi-disc {
+  background: radial-gradient(
+    circle at 55% 50%,
+    color-mix(in srgb, var(--kpi-tint) calc(26% * var(--kpi-glow)), var(--kpi-disc)),
+    color-mix(in srgb, var(--kpi-tint) calc(14% * var(--kpi-glow)), var(--kpi-disc))
+  );
+  color: color-mix(in srgb, var(--kpi-tint) calc(100% * var(--kpi-glow)), var(--color-subtle));
+}
+
+/* The icon springs a touch and settles; the figure leans in. */
+.admin-kpi-glyph,
+.admin-kpi-text {
+  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-kpi:hover .admin-kpi-glyph {
+  transform: scale(1.1) rotate(-6deg);
+  transition: transform 560ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-kpi:hover .admin-kpi-text {
+  transform: translateX(3px);
+  transition: transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-kpi,
+  .admin-kpi:hover {
+    transition: none;
+  }
+
+  .admin-kpi::before {
+    display: none;
+  }
+
+  .admin-kpi:hover .admin-kpi-glyph,
+  .admin-kpi:hover .admin-kpi-text {
+    transform: none;
+  }
+}
+
+/* A page's lead figure: the same tile, tinted with the accent. */
+.admin-tile-accent {
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent-line);
+  color: var(--color-primary);
+}
+
+/* Page entrance: each block of a page rises in, a beat after the one above.
+   Skeletons hold still so the data arriving is the only motion. */
+.admin-stage > * > * {
+  animation: admin-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.admin-stage > * > *:nth-child(2) { animation-delay: 40ms; }
+.admin-stage > * > *:nth-child(3) { animation-delay: 80ms; }
+.admin-stage > * > *:nth-child(4) { animation-delay: 120ms; }
+.admin-stage > * > *:nth-child(5) { animation-delay: 160ms; }
+.admin-stage > * > *:nth-child(6) { animation-delay: 200ms; }
+.admin-stage > * > *:nth-child(n + 7) { animation-delay: 240ms; }
+
+.admin-stage > [aria-busy="true"] > * {
+  animation: none;
+}
+
+@keyframes admin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The sidebar's active pill glides between rows. */
+.admin-nav-pill {
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease;
+}
+
+/* Floating layers -- dialogs, ⌘K, the profile card: the scrim fades, the
+   layer fades and rises a few pixels. One curve, two durations. */
+@keyframes admin-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes admin-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+.admin-overlay-in {
+  animation: admin-fade-in 160ms ease-out;
+}
+
+.admin-pop-in {
+  animation: admin-pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-stage > * > *,
+  .admin-overlay-in,
+  .admin-pop-in {
+    animation: none;
+  }
+
+  .admin-nav-pill {
+    transition: none;
   }
 }
 

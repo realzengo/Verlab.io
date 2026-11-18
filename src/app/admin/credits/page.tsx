@@ -1,6 +1,7 @@
+import { CalendarDotsIcon, CoinsIcon, FireIcon, GiftIcon } from "@phosphor-icons/react/dist/ssr";
 import { getCreditsOverview, getUsersForCreditsAdmin } from "@/lib/server/admin-queries";
 import { Table, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui/Table";
-import { Avatar } from "@/components/ui/Avatar";
+import { UserAvatar } from "@/components/admin/UserAvatar";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { HeroFigure, Panel } from "@/components/admin/Panel";
 import { Kpi, KpiStrip } from "@/components/admin/KpiStrip";
@@ -26,14 +27,19 @@ export default async function AdminCreditsPage() {
       <PageHeader title="Credits" description="Balances, daily spend and manual grants across every account." />
 
       <KpiStrip>
-        <Kpi label="Outstanding" value={formatStat(totalOutstanding)} footnote="across all balances" />
-        <Kpi label="Spent today" value={formatStat(spentToday)} />
-        <Kpi label="Spent, 7 days" value={formatStat(spentLast7Days)} trend={dailySeries.slice(-7).map((p) => p.spent)} />
-        <Kpi label="Granted, 30 days" value={formatStat(sumOf(granted))} trend={granted.slice(-14)} />
+        <Kpi label="Outstanding" value={formatStat(totalOutstanding)} footnote="across all balances" icon={CoinsIcon} accent />
+        <Kpi label="Spent today" value={formatStat(spentToday)} icon={FireIcon} footnote="credits charged so far" />
+        <Kpi label="Spent, 7 days" value={formatStat(spentLast7Days)} icon={CalendarDotsIcon} />
+        <Kpi label="Granted, 30 days" value={formatStat(sumOf(granted))} icon={GiftIcon} />
       </KpiStrip>
 
-      <Panel title="Credits spent" description="Charged across every credit-metered tool, per day">
-        <HeroFigure value={formatStat(spentLast30Days)} caption={`Spent in the last 30 days · ${formatNumber(Math.round(avgPerDay))} a day on average`} />
+      {/* The figure is the card's header: "8,760 credits spent". */}
+      <Panel>
+        <HeroFigure
+          value={formatStat(spentLast30Days)}
+          unit="credits spent"
+          caption={`Every credit-metered tool, last 30 days · ${formatNumber(Math.round(avgPerDay))} a day on average`}
+        />
         <TimeSeriesChart
           dates={dailySeries.map((p) => p.date)}
           series={[{ label: "Credits spent", values: dailySeries.map((p) => p.spent) }]}
@@ -43,7 +49,26 @@ export default async function AdminCreditsPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Panel title="Spend by action" description="Last 30 days, most to least credits">
-          <BarList items={spendByAction.map((a) => ({ label: a.label, value: a.amount }))} emptyLabel="No credit spend yet" />
+          <BarList
+            items={spendByAction.map((a) => {
+              const total = sumOf(spendByAction.map((x) => x.amount));
+              return {
+                label: a.label,
+                value: a.amount,
+                detail: {
+                  title: a.label,
+                  subtitle: "Last 30 days",
+                  rows: [
+                    { label: "Credits spent", value: a.amount.toLocaleString("en-US") },
+                    { label: "Share of all spend", value: total > 0 ? `${Math.round((a.amount / total) * 100)}%` : "0%" },
+                    { label: "Daily average", value: Math.round(a.amount / Math.max(dailySeries.length, 1)).toLocaleString("en-US") },
+                    { label: "Action key", value: a.actionKey, mono: true },
+                  ],
+                },
+              };
+            })}
+            emptyLabel="No credit spend yet"
+          />
         </Panel>
 
         <Panel className="xl:col-span-2" title="Top spenders" description="Ranked by credits spent, last 30 days" flush>
@@ -66,7 +91,7 @@ export default async function AdminCreditsPage() {
                   <TableRow key={u.id}>
                     <TableCell className="pl-5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar name={u.name} size="sm" />
+                        <UserAvatar name={u.name} size="sm" />
                         <div className="min-w-0">
                           <p className="truncate font-medium text-heading">{u.name}</p>
                           <p className="truncate text-xs text-subtle">{u.email}</p>
