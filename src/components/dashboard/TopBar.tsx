@@ -148,7 +148,7 @@ export function TopBar({
             style={button3d(3)}
           >
             <Rocket className="h-3.5 w-3.5" fill="currentColor" />
-            <span className="hidden sm:inline-block">Upgrade</span>
+            <span>Upgrade</span>
           </button>
         )}
         <ProfileDropdown isPaywalled={isPaywalled} />
