@@ -386,7 +386,7 @@ function StudioCard() {
 
 export function FeaturesGridSection() {
   return (
-    <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-16">
+    <section id="features" className="w-full pb-2 pt-10 sm:pb-3 sm:pt-14 lg:pt-16">
       <div className="mx-auto max-w-[1600px] px-6 md:px-12">
         <div className="flex flex-col items-center text-center">
           <VerifiedBadge label="AI Tools" className="mb-5 sm:mb-6" />

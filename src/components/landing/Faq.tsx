@@ -22,7 +22,7 @@ export function Faq({
 
   return (
     <section id="faq" className={cn("w-full", backgroundClassName)}>
-      <div className="mx-auto w-full max-w-[88rem] px-4 py-14 sm:px-6 sm:py-[90px]">
+      <div className="mx-auto w-full max-w-[88rem] px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
         <div className="text-center">
           <VerifiedBadge label="FAQ" className="mb-5 sm:mb-6" />
           <h2 className="font-display text-[32px] font-bold leading-[1.1] tracking-tight text-heading sm:text-3xl sm:leading-normal md:text-5xl">

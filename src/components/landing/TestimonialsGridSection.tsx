@@ -58,7 +58,7 @@ function TestimonialCard({ name, image, quote }: Testimonial) {
 
 export function TestimonialsGridSection() {
   return (
-    <section className="w-full bg-white pb-14 pt-14 sm:pb-20 sm:pt-24">
+    <section className="w-full bg-white py-10 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-[96rem] px-5 sm:px-6">
         <div className="flex justify-center">
           <VerifiedBadge label="Testimonials" className="mb-5 sm:mb-6" />

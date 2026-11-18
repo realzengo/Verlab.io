@@ -92,7 +92,7 @@ export function Hero() {
         hero a uniform margin on every side. */}
     <div className="bg-white px-0 py-3 sm:p-3">
       <section
-        className="relative isolate flex flex-col overflow-hidden rounded-none sm:rounded-2xl sm:min-h-[calc(100vh-1.5rem)]"
+        className="relative isolate flex flex-col overflow-hidden rounded-none sm:rounded-2xl"
       >
         {/* Map fragments: desktop only, top edge 3px above the rating pill (the
             content starts at md:pt-44). Scaled down at xl so the right cluster
@@ -110,14 +110,12 @@ export function Hero() {
           />
         </div>
 
-        {/* Content layer: sits above the map fragments. Bottom padding
-            from sm up mirrors the preview card's pull-up magnitude below (both
-            keyed off the same 40vh term) plus a fixed ~2rem buffer, so the card
-            can never climb high enough to cover the CTA button -- if it grew to
-            match the pull exactly, a tall/short viewport edge case could still
-            close the gap to zero. */}
+        {/* Content layer: sits above the map fragments. Sized by its content,
+            not the viewport: a 100vh hero with a capped pull-up left anything
+            from 28px to 900px of white between the CTA and the preview
+            depending on screen height. */}
         <div
-          className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-88 pt-24 text-center sm:px-6 sm:pb-[clamp(12rem,40vh,32rem)] sm:pt-32 lg:px-8 md:pt-44"
+          className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center px-4 pt-24 text-center sm:px-6 sm:pt-32 lg:px-8 md:pt-44"
           style={{ fontFamily: '"Inter", -apple-system, system-ui, sans-serif' }}
         >
           <div className="inline-flex h-[29px] items-center gap-3 rounded-full bg-[#f5f6fc] px-2 text-[12px] font-medium text-[#0f172a]">
@@ -168,14 +166,8 @@ export function Hero() {
       </section>
     </div>
 
-    {/* Product preview: floats on top of the frame, overlapping its bottom edge.
-        The pull-up is clamped rather than a bare `-40vh` -- an unbounded vh value
-        can overshoot past the hero's own (content-floored) height at extreme zoom
-        levels or unusual viewport aspect ratios, dragging this card, and everything
-        after it in flow, up into content it shouldn't touch. The clamp keeps the
-        normal ~40vh feel at ordinary viewport heights but can never pull further
-        than -30rem or less than -10rem. */}
-    <div className="relative z-20 mx-auto -mt-80 w-full max-w-6xl px-3 sm:mt-[clamp(-30rem,-40vh,-10rem)] sm:px-6 lg:px-8">
+    {/* Product preview: a fixed step below the CTA on every screen size. */}
+    <div className="relative z-20 mx-auto mt-4 w-full max-w-6xl px-3 sm:mt-6 sm:px-6 lg:mt-8 lg:px-8">
       <div className="relative p-2.5 sm:p-4">
         {/* The video carries a small bottom fade so the footage dissolves into the
             white page background instead of hard-cutting at the corner. */}

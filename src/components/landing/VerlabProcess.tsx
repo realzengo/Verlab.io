@@ -129,7 +129,7 @@ function StepThreeCard() {
 
 export function VerlabProcess() {
   return (
-    <section className="w-full pb-14 pt-16 sm:pb-24 sm:pt-16">
+    <section className="w-full py-10 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-[96rem] px-5 sm:px-6">
         <div className="text-center">
           <VerifiedBadge label="How It Works" className="mb-5 sm:mb-6" />

@@ -93,14 +93,14 @@ function ToolCard({ title, description, art }: ToolCardData) {
 
 export function ShowcaseGridSection() {
   return (
-    <section className="w-full pb-14 pt-16 sm:pb-20 sm:pt-28">
+    <section className="w-full py-10 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-[96rem] px-5 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
           <div>
-            <h2 className="ml-3 font-display text-[26px] font-bold leading-[1.15] tracking-[-0.015em] text-heading sm:ml-4 sm:text-3xl sm:leading-normal sm:tracking-tight md:text-5xl">
+            <h2 className="ml-3 text-balance font-display text-[26px] font-bold leading-[1.15] tracking-[-0.015em] text-heading sm:ml-4 sm:text-3xl sm:tracking-tight md:text-5xl md:leading-[1.08]">
               Verlab has everything you need to go viral.
             </h2>
-            <p className="ml-3 mt-0.5 text-sm text-subtle sm:ml-4 sm:text-base">
+            <p className="ml-3 mt-2 text-sm text-subtle sm:ml-4 sm:mt-3 sm:text-base">
               One toolkit for every step, from finding a niche to shipping the video.
             </p>
           </div>
