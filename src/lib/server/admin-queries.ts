@@ -7,6 +7,7 @@ import { findSubscriptionPlanByPlanId } from "@/lib/config/whop";
 import { getWhopMoney } from "@/lib/server/whop-revenue";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import { CANCELLATION_REASONS } from "@/lib/cancellation";
+import { PAYMENT_FAILED_NOTICE_TYPE } from "@/lib/server/payment-failed";
 import type {
   ActivityLogEntry,
   AdminTeamMember,
@@ -16,6 +17,9 @@ import type {
   ApiProvider,
   CreditsAdminUser,
   CreditsOverview,
+  FailedPayment,
+  FailedPaymentEmailStatus,
+  FailedPaymentKind,
   FeatureFlag,
   AdminUserStatus,
   PlanDistribution,
@@ -1104,6 +1108,127 @@ const getSubscriptionSummary = cache(async () => {
   return { mrr, activeSubscribers, trialingCount, pastDueCount, planBuckets, paidUserIds };
 });
 
+const FAILED_PAYMENT_KIND: Record<string, FailedPaymentKind> = {
+  subscription_cycle: "renewal",
+  subscription: "renewal",
+  subscription_update: "renewal",
+  subscription_create: "new_signup",
+  one_time: "credit_pack",
+};
+
+interface FailedPaymentData {
+  id?: string;
+  billing_reason?: string | null;
+  metadata?: { user_id?: unknown } | null;
+  membership?: { id?: string } | null;
+  plan?: { id?: string } | null;
+  user?: { name?: string | null; email?: string | null } | null;
+  usd_total?: number | null;
+  total?: number | null;
+  failure_message?: string | null;
+  decline_code?: string | null;
+  payments_failed?: number | null;
+}
+
+/**
+ * payment.failed deliveries from the last 90 days. Whop sends one per
+ * attempt, reusing the payment id, so rows collapse to the latest attempt
+ * per payment. A failure counts as recovered once a payment.succeeded on the
+ * same membership, or by the same user, is logged after it (by the webhook or
+ * the sync cron) -- a declined checkout retried successfully often lands on a
+ * fresh membership.
+ */
+async function getFailedPayments(): Promise<FailedPayment[]> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: failedRows, error }, { data: noticeRows }, { data: successRows }] = await Promise.all([
+    admin
+      .from("whop_webhook_events")
+      .select("id, payload, created_at")
+      .eq("type", "payment.failed")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    admin
+      .from("whop_webhook_events")
+      .select("payment_id:payload->data->>id, status:payload->data->>status")
+      .eq("type", PAYMENT_FAILED_NOTICE_TYPE)
+      .gte("created_at", since)
+      .limit(1000),
+    admin
+      .from("whop_webhook_events")
+      .select("membership_id:payload->data->membership->>id, user_id:payload->data->metadata->>user_id, created_at")
+      .eq("type", "payment.succeeded")
+      .gte("created_at", since)
+      .limit(5000),
+  ]);
+  if (error) throw error;
+
+  const latestByPayment = new Map<string, { data: FailedPaymentData; createdAt: string }>();
+  for (const row of failedRows ?? []) {
+    const data = (row.payload as { data?: FailedPaymentData } | null)?.data;
+    if (!data?.id || latestByPayment.has(data.id)) continue; // rows are newest first
+    latestByPayment.set(data.id, { data, createdAt: row.created_at });
+  }
+  if (latestByPayment.size === 0) return [];
+
+  const emailStatus = new Map<string, FailedPaymentEmailStatus>();
+  for (const row of (noticeRows ?? []) as { payment_id: string | null; status: string | null }[]) {
+    if (row.payment_id && (row.status === "sent" || row.status === "failed" || row.status === "sending")) {
+      emailStatus.set(row.payment_id, row.status);
+    }
+  }
+
+  // Latest successful payment per membership and per user, keyed "m:<id>" / "u:<id>".
+  const lastSuccess = new Map<string, string>();
+  const noteSuccess = (key: string, at: string) => {
+    const prev = lastSuccess.get(key);
+    if (!prev || at > prev) lastSuccess.set(key, at);
+  };
+  for (const row of (successRows ?? []) as { membership_id: string | null; user_id: string | null; created_at: string }[]) {
+    if (row.membership_id) noteSuccess(`m:${row.membership_id}`, row.created_at);
+    if (row.user_id) noteSuccess(`u:${row.user_id}`, row.created_at);
+  }
+
+  const userIdOf = (data: FailedPaymentData) =>
+    typeof data.metadata?.user_id === "string" ? data.metadata.user_id : null;
+  const userIds = [...latestByPayment.values()].map((v) => userIdOf(v.data)).filter((id): id is string => !!id);
+  const [emails, { data: profiles }] = await Promise.all([
+    getEmailsById(userIds),
+    userIds.length
+      ? admin.from("profiles").select("id, full_name").in("id", [...new Set(userIds)])
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+  ]);
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+
+  return [...latestByPayment.entries()].map(([paymentId, { data, createdAt }]) => {
+    const userId = userIdOf(data);
+    const email = (userId && emails.get(userId)) || data.user?.email || "N/A";
+    const name = (userId && nameById.get(userId)) || data.user?.name || (email !== "N/A" ? email : "Unknown");
+    const plan = data.plan?.id ? findSubscriptionPlanByPlanId(data.plan.id) : null;
+    const membershipId = data.membership?.id;
+    const paidAfter = (key: string | null) => {
+      const at = key ? lastSuccess.get(key) : undefined;
+      return !!at && at > createdAt;
+    };
+    return {
+      paymentId,
+      userId,
+      userName: name,
+      userEmail: email,
+      kind: FAILED_PAYMENT_KIND[data.billing_reason ?? ""] ?? "other",
+      planLabel: plan ? `${PLAN_LABEL[plan.planId]}, ${plan.period}` : null,
+      amount: data.usd_total ?? data.total ?? 0,
+      reason: data.failure_message || data.decline_code || null,
+      attempts: Math.max(data.payments_failed ?? 1, 1),
+      failedAt: createdAt,
+      recovered: paidAfter(membershipId ? `m:${membershipId}` : null) || paidAfter(userId ? `u:${userId}` : null),
+      emailStatus: emailStatus.get(paymentId) ?? "not_sent",
+    };
+  });
+}
+
 export async function getRevenueData(): Promise<RevenueData> {
   const admin = createAdminClient();
   const since30 = new Date();
@@ -1113,7 +1238,7 @@ export async function getRevenueData(): Promise<RevenueData> {
   // Whop's API runs alongside the database reads rather than after them.
   // Money comes from Whop itself whenever Whop answers; the webhook rows
   // below are only the fallback.
-  const [summary, { data: cancellationRows }, { data: eventRows }, webhookEnabled, whopMoney] = await Promise.all([
+  const [summary, { data: cancellationRows }, { data: eventRows }, webhookEnabled, whopMoney, failedPayments] = await Promise.all([
     getSubscriptionSummary(),
     admin
       .from("cancellation_feedback")
@@ -1130,6 +1255,10 @@ export async function getRevenueData(): Promise<RevenueData> {
     getWhopMoney(days).catch((error) => {
       console.error("[admin/revenue] Whop API unavailable, falling back to webhook rows:", error);
       return null;
+    }),
+    getFailedPayments().catch((error) => {
+      console.error("[admin/revenue] Failed payments unavailable:", error);
+      return [] as FailedPayment[];
     }),
   ]);
   const { mrr, activeSubscribers, trialingCount, pastDueCount, planBuckets, paidUserIds } = summary;
@@ -1210,6 +1339,7 @@ export async function getRevenueData(): Promise<RevenueData> {
     })),
     dailySeries,
     recentTransactions,
+    failedPayments,
     webhookConfigured: !!process.env.WHOP_WEBHOOK_SECRET,
     webhookEnabled,
     cancellationBreakdown,

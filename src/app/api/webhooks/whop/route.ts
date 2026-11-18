@@ -7,6 +7,8 @@ import {
   syncMembershipState,
   handleMembershipDeactivated,
 } from "@/lib/server/whop-sync";
+import { reportBillingError } from "@/lib/server/billing-alerts";
+import { notifyPaymentFailed, type FailedPaymentLike } from "@/lib/server/payment-failed";
 import type { Payment, Membership } from "@whop/sdk/resources/shared";
 import type { RefundCreatedWebhookEvent } from "@whop/sdk/resources/webhooks";
 
@@ -39,7 +41,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const webhookSecret = process.env.WHOP_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error("[whop webhook] Missing WHOP_WEBHOOK_SECRET; delivery acked but not processed");
+      after(() =>
+        reportBillingError({ source: "whop_webhook", stage: "config", error: new Error("WHOP_WEBHOOK_SECRET is not set") }),
+      );
       return ack({ received: true, processed: false });
     }
 
@@ -49,10 +53,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const event = verify(body, headers, webhookSecret);
     if (!event) {
+      const webhookId = headers["webhook-id"] ?? null;
+      const looksLikeWhop = Boolean(webhookId && headers["webhook-signature"]);
       console.error("[whop webhook] Rejected delivery (bad signature or payload); acked but ignored", {
-        webhookId: headers["webhook-id"] ?? null,
+        webhookId,
         hasSignature: Boolean(headers["webhook-signature"]),
       });
+      // A request carrying Standard Webhooks headers is almost certainly Whop,
+      // so a rejection means our secret or verification is wrong -- the exact
+      // failure that lost deliveries until 2026-11-18. Bare probes without
+      // those headers are only logged, so scanners can't flood the alerts.
+      if (looksLikeWhop) {
+        after(() =>
+          reportBillingError({
+            source: "whop_webhook",
+            stage: "verify_signature",
+            error: new Error("A signed delivery failed verification"),
+            eventId: webhookId,
+          }),
+        );
+      }
       return ack({ received: false });
     }
 
@@ -72,7 +92,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Any other insert failure (e.g. a transient Supabase timeout) still
       // acks; the raw payload is only in this log, since the insert itself
       // is what failed. cron/whop-sync picks the object up from Whop's API.
-      console.error("[whop webhook] Failed to log event:", insertError, JSON.stringify(event));
+      console.error("[whop webhook] Failed to log event:", JSON.stringify(event));
+      after(() =>
+        reportBillingError({
+          source: "whop_webhook",
+          stage: "log_event",
+          error: insertError,
+          eventId: event.id,
+          eventType: event.type,
+          objectId: objectIdOf(event),
+        }),
+      );
       return ack({ received: true, logged: false });
     }
 
@@ -83,7 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return ack({ received: true });
   } catch (error) {
-    console.error("[whop webhook] Unexpected error; delivery acked:", error);
+    after(() => reportBillingError({ source: "whop_webhook", stage: "unexpected", error }));
     return ack({ received: true, processed: false });
   }
 }
@@ -132,6 +162,9 @@ async function processEvent(admin: AdminClient, event: WhopEvent): Promise<void>
       case "payment.succeeded":
         await handlePaymentSucceeded(admin, event.data as Payment, "webhook");
         break;
+      case "payment.failed":
+        await notifyPaymentFailed(admin, event.data as FailedPaymentLike);
+        break;
       case "refund.created":
         await handleRefundCreated(admin, event.data as RefundCreatedWebhookEvent.Data);
         break;
@@ -149,7 +182,15 @@ async function processEvent(admin: AdminClient, event: WhopEvent): Promise<void>
         break;
     }
   } catch (error) {
-    console.error(`[whop webhook] Failed to process ${event.type} ${event.id}:`, error);
+    await reportBillingError({
+      source: "whop_webhook",
+      stage: "process_event",
+      error,
+      eventId: event.id,
+      eventType: event.type,
+      objectId: objectIdOf(event),
+      userId: userIdOf(event),
+    });
     return;
   }
 
@@ -157,5 +198,24 @@ async function processEvent(admin: AdminClient, event: WhopEvent): Promise<void>
     .from("whop_webhook_events")
     .update({ processed_at: new Date().toISOString() })
     .eq("id", event.id);
-  if (error) console.error(`[whop webhook] Failed to mark ${event.id} processed:`, error);
+  if (error) {
+    await reportBillingError({
+      source: "whop_webhook",
+      stage: "mark_processed",
+      error,
+      eventId: event.id,
+      eventType: event.type,
+      objectId: objectIdOf(event),
+    });
+  }
+}
+
+function objectIdOf(event: WhopEvent): string | null {
+  const id = (event.data as { id?: unknown } | null)?.id;
+  return typeof id === "string" ? id : null;
+}
+
+function userIdOf(event: WhopEvent): string | null {
+  const id = (event.data as { metadata?: { user_id?: unknown } | null } | null)?.metadata?.user_id;
+  return typeof id === "string" ? id : null;
 }

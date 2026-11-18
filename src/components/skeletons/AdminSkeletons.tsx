@@ -222,6 +222,7 @@ export function AdminRevenueSkeleton() {
           <SkMiniStats count={4} />
         </SkPanel>
       </div>
+      <SkTable rows={3} toolbar />
       <SkTable rows={6} />
     </Shell>
   );

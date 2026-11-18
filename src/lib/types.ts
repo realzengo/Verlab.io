@@ -469,6 +469,31 @@ export interface RevenueTransaction {
   createdAt: string;
 }
 
+/** What a failed Whop charge was for, from Whop's billing_reason. */
+export type FailedPaymentKind = "renewal" | "new_signup" | "credit_pack" | "other";
+
+/** Whether the customer was emailed about a failed payment (renewals only). */
+export type FailedPaymentEmailStatus = "sent" | "failed" | "sending" | "not_sent";
+
+/** One failed Whop charge, latest attempt, for the admin revenue page. */
+export interface FailedPayment {
+  paymentId: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  kind: FailedPaymentKind;
+  planLabel: string | null;
+  amount: number;
+  /** Whop's customer-facing decline message, else its decline code. */
+  reason: string | null;
+  /** How many times Whop has tried this charge. */
+  attempts: number;
+  failedAt: string;
+  /** A later successful payment landed on the same membership. */
+  recovered: boolean;
+  emailStatus: FailedPaymentEmailStatus;
+}
+
 /** The Whop account balance, as the Whop dashboard shows it. */
 export interface WhopBalance {
   available: number;
@@ -514,6 +539,8 @@ export interface RevenueData {
   planBreakdown: PlanMrrBreakdown[];
   dailySeries: RevenueDailyPoint[];
   recentTransactions: RevenueTransaction[];
+  /** Failed charges in the last 90 days, newest first, one row per payment. */
+  failedPayments: FailedPayment[];
   webhookConfigured: boolean;
   /** Whether Whop is delivering to our endpoint right now; null if Whop couldn't be asked. */
   webhookEnabled: boolean | null;

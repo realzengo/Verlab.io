@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureWhopWebhookEnabled } from "@/lib/server/whop-sync";
 import { reconcileWhopRange } from "@/lib/server/whop-reconcile-range";
+import { reportBillingError } from "@/lib/server/billing-alerts";
 
 export const maxDuration = 300;
 
@@ -33,11 +34,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     webhook = await ensureWhopWebhookEnabled();
     if (webhook.reenabled.length > 0) {
-      console.error(`[cron/whop-sync] Whop had disabled our webhook; re-enabled ${webhook.reenabled.join(", ")}`);
+      // Whop only disables an endpoint after days of failed deliveries, so
+      // this means the webhook has been broken that long.
+      await reportBillingError({
+        source: "whop_sync_cron",
+        stage: "webhook_disabled",
+        error: new Error(`Whop had disabled our webhook; re-enabled ${webhook.reenabled.join(", ")}`),
+      });
     }
   } catch (error) {
     webhook = { error: error instanceof Error ? error.message : String(error) };
-    console.error("[cron/whop-sync] Webhook check failed:", error);
+    await reportBillingError({ source: "whop_sync_cron", stage: "webhook_check", error });
   }
 
   try {
@@ -48,12 +55,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       dryRun: false,
       includeMemberships: true,
     });
-    if (result.payments.granted > 0 || result.refunds.clawedBack > 0 || result.errors.length > 0) {
+    if (result.payments.granted > 0 || result.refunds.clawedBack > 0) {
       console.error("[cron/whop-sync] Recovered events the webhook missed:", JSON.stringify(result));
+    }
+    // One alert per failed object: each carries the Whop id in its message
+    // ("payment pay_...: <error>"), so PostHog groups repeats of the same one
+    // into one issue. Capped so a sweep where everything fails can't spend
+    // the run on reporting.
+    for (const message of result.errors.slice(0, 20)) {
+      await reportBillingError({
+        source: "whop_sync_cron",
+        stage: "reconcile_item",
+        error: new Error(message),
+        objectId: message.match(/\b(?:pay|mem|rfnd|ref)_[A-Za-z0-9]+/)?.[0] ?? null,
+      });
     }
     return NextResponse.json({ webhook, ...result });
   } catch (error) {
-    console.error("[cron/whop-sync] Reconcile failed:", error);
+    await reportBillingError({ source: "whop_sync_cron", stage: "reconcile", error });
     return NextResponse.json({ webhook, error: "Reconcile failed" }, { status: 500 });
   }
 }

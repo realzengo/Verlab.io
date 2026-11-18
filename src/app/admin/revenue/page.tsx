@@ -5,6 +5,7 @@ import { Callout, HeroFigure, MiniStat, Panel } from "@/components/admin/Panel";
 import { Kpi, KpiStrip, signed } from "@/components/admin/KpiStrip";
 import { formatStat } from "@/components/admin/charts/format";
 import { RevenueTransactionsTable } from "@/components/admin/RevenueTransactionsTable";
+import { FailedPaymentsTable } from "@/components/admin/FailedPaymentsTable";
 import { TimeSeriesChart } from "@/components/admin/charts/TimeSeriesChart";
 import { ShareBar } from "@/components/admin/charts/ShareBar";
 import { BarList } from "@/components/admin/charts/BarList";
@@ -38,6 +39,7 @@ export default async function AdminRevenuePage() {
     planBreakdown,
     dailySeries,
     recentTransactions,
+    failedPayments,
     webhookConfigured,
     webhookEnabled,
     whopBalance,
@@ -181,6 +183,8 @@ export default async function AdminRevenuePage() {
           </div>
         </Panel>
       </div>
+
+      <FailedPaymentsTable payments={failedPayments} />
 
       <RevenueTransactionsTable transactions={recentTransactions} />
     </div>
