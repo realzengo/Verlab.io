@@ -22,6 +22,7 @@ import { normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/li
 export const maxDuration = 300;
 
 const LIST_LIMIT = 24;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // ?all=1, for the "Your clips" page.
 const LIST_ALL_LIMIT = 100;
 
@@ -60,12 +61,21 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return rateLimitedResponse();
   }
 
-  let body: { url?: string; options?: unknown };
+  let body: { url?: string; options?: unknown; requestId?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  // One id per Create the user means: a repeat of it (a double click, a
+  // retry after a dropped answer, a second tab) gets the project it already
+  // made, and is never charged again.
+  const requestId =
+    typeof body.requestId === "string" && UUID.test(body.requestId) ? body.requestId : crypto.randomUUID();
+  const admin = createAdminClient();
+  const repeat = await projectForRequest(admin, user.id, requestId);
+  if (repeat) return NextResponse.json({ project: toClipProject(repeat) });
 
   const videoId = parseYoutubeVideoId(body.url ?? "");
   if (!videoId) {
@@ -91,17 +101,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const cost = getClippingCost(video.durationSeconds);
-  try {
-    await chargeUser(user.id, cost, "Clipping", "clipping.analyze");
-  } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
-      return NextResponse.json({ error: "Insufficient credits", credits: cost }, { status: 402 });
-    }
-    throw error;
-  }
 
-  // Service role: users can read and delete their projects, never write them.
-  const { data, error } = await createAdminClient()
+  // Recorded before charging, so two copies of one request can't both charge:
+  // the second's insert collides on (user_id, request_id) and returns the
+  // first's project. Service role: users can read and delete their projects,
+  // never write them.
+  const { data: created, error } = await admin
     .from("clip_projects")
     .insert({
       user_id: user.id,
@@ -112,14 +117,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       thumbnail_url: video.thumbnailUrl || null,
       duration_seconds: video.durationSeconds,
       options: normalizeClipOptions(body.options),
-      credits_charged: cost,
+      credits_charged: 0,
+      request_id: requestId,
     })
     .select(CLIP_PROJECT_COLUMNS)
     .single<ClipProjectRow>();
+  if (error?.code === "23505") {
+    const first = await projectForRequest(admin, user.id, requestId);
+    if (first) return NextResponse.json({ project: toClipProject(first) });
+  }
+  if (error || !created) return serverError("clips/create", error, "Could not start clipping");
 
-  if (error || !data) {
+  try {
+    await chargeUser(user.id, cost, "Clipping", "clipping.analyze");
+  } catch (chargeError) {
+    await admin.from("clip_projects").delete().eq("id", created.id);
+    if (chargeError instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: "Insufficient credits", credits: cost }, { status: 402 });
+    }
+    throw chargeError;
+  }
+  const { data, error: chargedError } = await admin
+    .from("clip_projects")
+    .update({ credits_charged: cost })
+    .eq("id", created.id)
+    .select(CLIP_PROJECT_COLUMNS)
+    .single<ClipProjectRow>();
+  if (chargedError || !data) {
+    // Charged but not recorded: give the credits back rather than keep them for nothing.
     await refundUser(user.id, cost, "Clipping refund", "clipping.analyze");
-    return serverError("clips/create", error, "Could not start clipping");
+    await admin.from("clip_projects").delete().eq("id", created.id);
+    return serverError("clips/create", chargedError, "Could not start clipping");
   }
 
   // Replicate calls back when the transcript is done, so the project finishes
@@ -128,6 +156,21 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   after(() => prepareClipProject(data.id, webhookUrl));
 
   return NextResponse.json({ project: toClipProject(data) });
+}
+
+/** The project an earlier copy of this Create request made, if any. */
+async function projectForRequest(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  requestId: string
+): Promise<ClipProjectRow | null> {
+  const { data } = await admin
+    .from("clip_projects")
+    .select(CLIP_PROJECT_COLUMNS)
+    .eq("user_id", userId)
+    .eq("request_id", requestId)
+    .maybeSingle<ClipProjectRow>();
+  return data ?? null;
 }
 
 export const GET = withApiLogging("/api/clips", handleGET);

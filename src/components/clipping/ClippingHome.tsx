@@ -40,6 +40,13 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
   const [options, setOptions] = useState<ClipOptions>(DEFAULT_CLIP_OPTIONS);
   const inputRef = useRef<HTMLInputElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
+  // One request id per video + options the user means to clip: a double
+  // submit, or trying again after a dropped answer, reuses it, so the server
+  // makes one project and charges once. A new video or new options, or a
+  // successful Create, gets a new one.
+  const request = useRef<{ key: string; id: string } | null>(null);
+  // State updates land a render later; a second click before then still sees `submitting` false.
+  const inFlight = useRef(false);
 
   const videoId = parseYoutubeVideoId(link);
   useEffect(() => {
@@ -76,17 +83,29 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
       return;
     }
 
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const key = `${videoId}:${JSON.stringify(options)}`;
+    if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     setSubmitting(true);
     setError(null);
     try {
       const { project } = await fetchJson<{ project: ClipProject }>("/api/clips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: youtubeWatchUrl(videoId), options }),
+        body: JSON.stringify({ url: youtubeWatchUrl(videoId), options, requestId: request.current.id }),
       });
-      mutateProjects((current) => ({ projects: [project, ...(current?.projects ?? [])] }), { revalidate: false });
+      request.current = null;
+      mutateProjects(
+        (current) => ({
+          projects: [project, ...(current?.projects ?? []).filter((item) => item.id !== project.id)],
+        }),
+        { revalidate: false }
+      );
       onOpenProject(project.id);
+      inFlight.current = false;
     } catch (caught) {
+      inFlight.current = false;
       const message = caught instanceof Error ? caught.message : "Could not start clipping";
       setError(
         message === "Insufficient credits"
