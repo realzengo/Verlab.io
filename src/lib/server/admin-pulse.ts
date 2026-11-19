@@ -6,6 +6,7 @@ import {
   getFailedPayments,
   getJobHealth24h,
   getLatestHealthCheck,
+  getRenderHealth,
   getWeekOverWeekCounts,
 } from "@/lib/server/admin-queries";
 import { getWhopWebhookEnabled } from "@/lib/server/whop-sync";
@@ -21,6 +22,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Health checks run every 5 minutes; this long without one means the crons stopped. */
 const HEALTH_STALE_MS = 20 * 60 * 1000;
 const MAX_ITEMS = 4;
+/** The render worker checks in every 15s; this long without one means it's down. */
+const WORKER_STALE_MS = 2 * 60 * 1000;
+/** A render waiting this long means the worker is behind (or stuck). */
+const QUEUE_SLOW_MS = 10 * 60 * 1000;
 
 // Whop's API is the slow, rate-limited source and its answer rarely changes.
 const whopWebhookEnabled = unstable_cache(getWhopWebhookEnabled, ["admin-pulse-whop-webhook"], { revalidate: 600 });
@@ -63,6 +68,7 @@ export async function getAdminPulse(): Promise<AdminPulse> {
     getFailedPayments(),
     getLatestHealthCheck(),
     whopWebhookEnabled(),
+    getRenderHealth(),
   ]);
   if (results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
   for (const r of results) if (r.status === "rejected") console.error("[admin/pulse]", r.reason);
@@ -73,6 +79,7 @@ export async function getAdminPulse(): Promise<AdminPulse> {
   const failedPayments = ok(results[3]);
   const health = ok(results[4]);
   const webhookOn = ok(results[5]);
+  const renders = ok(results[6]);
   const now = Date.now();
   const problems: PulseItem[] = [];
 
@@ -102,6 +109,39 @@ export async function getAdminPulse(): Promise<AdminPulse> {
         tone: rate >= 0.25 && jobs.failed >= 3 ? "critical" : "warning",
         title: `${formatNumber(jobs.failed)} of ${formatNumber(jobs.settled)} jobs failed`,
         detail: worst ? `Last 24h · mostly ${worst}` : "Last 24h",
+        href: "/admin/system",
+      });
+    }
+  }
+
+  // The render worker (Railway): down while renders wait is broken; a long
+  // queue or many failures is worth a look. Untouched when no one renders.
+  if (renders && (renders.queued > 0 || renders.done + renders.failed > 0)) {
+    const sinceSeen = renders.workerLastSeen ? now - new Date(renders.workerLastSeen).getTime() : null;
+    if (sinceSeen === null || sinceSeen > WORKER_STALE_MS) {
+      problems.push({
+        id: "render-worker-down",
+        tone: "critical",
+        title: "Render worker offline",
+        detail: `${renders.queued > 0 ? `${formatNumber(renders.queued)} waiting · ` : ""}${sinceSeen === null ? "never checked in" : `last seen ${ago(sinceSeen)}`}`,
+        href: "/admin/system",
+      });
+    } else if (renders.oldestQueuedMs !== null && renders.oldestQueuedMs > QUEUE_SLOW_MS) {
+      problems.push({
+        id: "render-queue-slow",
+        tone: "warning",
+        title: `${formatNumber(renders.queued)} ${plural(renders.queued, "render")} waiting`,
+        detail: `Oldest for ${ago(renders.oldestQueuedMs).replace(" ago", "")}`,
+        href: "/admin/system",
+      });
+    }
+    const settled = renders.done + renders.failed;
+    if (renders.failed >= 3 && renders.failed / settled >= 0.2) {
+      problems.push({
+        id: "renders-failed",
+        tone: renders.failed / settled >= 0.5 ? "critical" : "warning",
+        title: `${formatNumber(renders.failed)} of ${formatNumber(settled)} renders failed`,
+        detail: "Last 24h · server renders",
         href: "/admin/system",
       });
     }
@@ -167,6 +207,15 @@ export async function getAdminPulse(): Promise<AdminPulse> {
   }
   if (declined) updates.push(declined);
   if (weeks) updates.push(trendItem("runs", "Tool runs", weeks.runs, "/admin/usage"));
+  if (renders && renders.done > 0) {
+    updates.push({
+      id: "renders",
+      tone: "neutral",
+      title: `${formatNumber(renders.done)} ${plural(renders.done, "clip")} rendered on servers`,
+      detail: renders.p95Ms !== null ? `Last 24h · 95% done within ${Math.round(renders.p95Ms / 1000)}s` : "Last 24h",
+      href: "/admin/system",
+    });
+  }
 
   // Anything flagged leads, worst first -- a growth line can be flagged too
   // (signups halving). The rest keep their order. Signups always keep a line.

@@ -1456,6 +1456,58 @@ export interface JobHealth {
   worstType: SystemJobType | null;
 }
 
+export interface RenderHealth {
+  /** The render worker's last check-in (null: never seen). */
+  workerLastSeen: string | null;
+  done: number;
+  failed: number;
+  /** 95th percentile of a finished render's total time, queue excluded (ms). */
+  p95Ms: number | null;
+  queued: number;
+  /** How long the oldest waiting render has waited (ms). */
+  oldestQueuedMs: number | null;
+}
+
+/** The server renders (clip_jobs, worker/) over the last 24 hours, and the queue now. */
+export async function getRenderHealth(): Promise<RenderHealth> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [worker, finished, waiting] = await Promise.all([
+    admin.from("clip_workers").select("last_seen").order("last_seen", { ascending: false }).limit(1).maybeSingle<{ last_seen: string }>(),
+    admin
+      .from("clip_jobs")
+      .select("status, timings")
+      .eq("kind", "render")
+      .in("status", ["done", "failed"])
+      .gte("created_at", since)
+      .limit(5000)
+      .returns<{ status: string; timings: { totalMs?: number } | null }[]>(),
+    admin
+      .from("clip_jobs")
+      .select("created_at")
+      .eq("kind", "render")
+      .eq("status", "queued")
+      .order("created_at", { ascending: true })
+      .limit(1000)
+      .returns<{ created_at: string }[]>(),
+  ]);
+  if (finished.error) throw finished.error;
+  const rows = finished.data ?? [];
+  const totals = rows
+    .map((row) => Number(row.timings?.totalMs))
+    .filter((ms) => Number.isFinite(ms) && ms > 0)
+    .sort((a, b) => a - b);
+  const queued = waiting.data ?? [];
+  return {
+    workerLastSeen: worker.data?.last_seen ?? null,
+    done: rows.filter((row) => row.status === "done").length,
+    failed: rows.filter((row) => row.status === "failed").length,
+    p95Ms: totals.length ? totals[Math.min(totals.length - 1, Math.floor(totals.length * 0.95))] : null,
+    queued: queued.length,
+    oldestQueuedMs: queued.length ? Date.now() - Date.parse(queued[0].created_at) : null,
+  };
+}
+
 /** Every tool's jobs from the last 24 hours. Older stuck rows are left out:
  * one stuck since last week has already been seen on the System page. */
 export async function getJobHealth24h(): Promise<JobHealth> {
