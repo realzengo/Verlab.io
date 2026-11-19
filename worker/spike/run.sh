@@ -19,7 +19,7 @@ try node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux --re
 # Lean Chrome: no GPU process, fewer helper processes, a capped JS heap.
 LEAN="--disable-gpu --renderer-process-limit=1 --no-zygote --disable-extensions --disable-background-networking --disable-component-update --disable-features=Translate,MediaRouter,OptimizationHints,BackForwardCache --js-flags=--max-old-space-size=384"
 try env CHROME_EXTRA_ARGS="$LEAN" node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-lean --ref spike/ref
-try env CHROME_EXTRA_ARGS="$LEAN" node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-lean-track --track
+try env CHROME_EXTRA_ARGS="$LEAN" node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-lean-track --track --track-seconds 20
 
 echo "SPIKE DONE"
 exec sleep infinity

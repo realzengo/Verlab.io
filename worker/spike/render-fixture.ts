@@ -25,6 +25,8 @@ const { values } = parseArgs({
     label: { type: "string", default: os.platform() },
     chrome: { type: "string", default: process.env.CHROME_PATH },
     track: { type: "boolean", default: false },
+    // Seconds of source to face-track (from the clip's start); tracking is the slow step.
+    "track-seconds": { type: "string", default: "60" },
     pauses: { type: "boolean", default: false },
     ref: { type: "string" },
     "write-ref": { type: "string" },
@@ -107,7 +109,7 @@ try {
         settings,
         words,
         clip: { keywords: clip.keywords, emojis: clip.emojis },
-        track: values.track ? { from: 0, to: 60 } : null,
+        track: values.track ? { from: clip.start, to: clip.start + Number(values["track-seconds"]) } : null,
       },
       { sourcePath, backgroundPath: null, outputPath },
       {
@@ -156,6 +158,7 @@ try {
     result,
     wallMs,
     realtime: Number((result.duration / (result.encodeMs / 1000)).toFixed(2)),
+    trackRealtime: result.tracked ? Number((Number(values["track-seconds"]) / (result.trackMs / 1000)).toFixed(2)) : null,
     output: media,
     audioRemuxed: playable !== outputPath,
     playable,
