@@ -5,7 +5,7 @@ import type { ClipEditSettings } from "@/lib/client/clip-render";
 import type { ClipEmoji, TranscriptWord } from "@/lib/clips";
 
 /** Bumped when the page's API changes shape, so a stale page bundle is caught at startup. */
-export const PAGE_API_VERSION = 1;
+export const PAGE_API_VERSION = 2;
 
 /** What the page's Chrome can encode, read once at startup and logged. */
 export interface CodecProbe {
@@ -28,8 +28,10 @@ export interface PageRenderInput {
   settings: ClipEditSettings;
   words: TranscriptWord[];
   clip: { keywords?: string[]; emojis?: ClipEmoji[] };
-  /** Run face tracking over this source range first (null: centered crop, no tracking). */
-  track: { from: number; to: number } | null;
+  /** The editor's face track (encodeTrack bytes), served by the worker; null for none. */
+  trackUrl?: string | null;
+  /** Or run face tracking over this source range first (the spike; slow on a server CPU). */
+  track?: { from: number; to: number } | null;
   /** The split layout's bottom video, if the clip uses one. */
   backgroundUrl: string | null;
   /** Where the page PUTs the finished MP4. */
@@ -45,12 +47,22 @@ export interface PageRenderResult {
   tracked: boolean;
 }
 
+/** A render that failed inside the page, as data (an exception's class doesn't survive the page boundary). */
+export interface PageRenderFailure {
+  failed: true;
+  /** "ClipAudioError", "ClipRenderError", ... */
+  name: string;
+  message: string;
+  /** Nothing a retry can fix (the clip itself, or the browser). */
+  fatal: boolean;
+}
+
 export type PageStage = "tracking" | "encoding";
 
 export interface PageApi {
   version: number;
   probe(): Promise<CodecProbe>;
-  render(input: PageRenderInput): Promise<PageRenderResult>;
+  render(input: PageRenderInput): Promise<PageRenderResult | PageRenderFailure>;
 }
 
 declare global {

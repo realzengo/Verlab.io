@@ -120,12 +120,19 @@ export function ClipResults({
     return entry ? rendersAhead(queue, entry) : -1;
   };
   const allDone = done.length === clips.length;
+  // Rendering on the worker: nothing here is lost if the tab closes.
+  const onServer = queue.some(
+    (entry) => entry.projectId === project.id && entry.server && entry.status !== "done" && entry.status !== "error"
+  );
 
   const downloadAll = () => {
     done.forEach((clip, index) => {
       const render = workspace.renders[clip.id];
       // Browsers drop rapid back-to-back downloads; space them out.
-      setTimeout(() => downloadBlob(render.url!, clipFileName(workspace.settingsFor(clip).title, index)), index * 400);
+      setTimeout(
+        () => downloadBlob(render.downloadUrl ?? render.url!, clipFileName(workspace.settingsFor(clip).title, index)),
+        index * 400
+      );
     });
   };
 
@@ -137,7 +144,8 @@ export function ClipResults({
             {allDone ? "Ready to post" : clips.length > 1 ? "Rendering your clips" : "Rendering your clip"}
           </h2>
           <p className="mt-1 text-[14px] text-subtle">
-            Keeps rendering if you leave. Each one is saved to{" "}
+            {onServer ? "Rendering on Verlab's servers, so you can close this tab." : "Keeps rendering if you leave."}{" "}
+            Each one is saved to{" "}
             <Link
               href="/clipping?view=all"
               className="font-medium text-heading underline decoration-hairline underline-offset-4 transition-colors hover:decoration-heading"
@@ -267,7 +275,7 @@ export function PendingFrame({
   // Waiting: the first in line is being prepared, the rest count down.
   const preparing = Boolean(render?.preparing);
   const label = preparing
-    ? "Preparing the clip"
+    ? (render?.stageLabel ?? "Preparing the clip")
     : ahead <= 0
       ? "Getting ready"
       : `${ahead} clip${ahead === 1 ? "" : "s"} ahead`;
@@ -380,7 +388,7 @@ function ResultCard({
               </button>
               <button
                 type="button"
-                onClick={() => render?.url && downloadBlob(render.url, fileName)}
+                onClick={() => render?.url && downloadBlob(render.downloadUrl ?? render.url, fileName)}
                 aria-label="Download"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline text-heading transition-colors hover:bg-(--app-fill)"
               >
@@ -390,7 +398,7 @@ function ResultCard({
           ) : finished ? (
             <button
               type="button"
-              onClick={() => downloadBlob(render.url!, fileName)}
+              onClick={() => downloadBlob(render.downloadUrl ?? render.url!, fileName)}
               className={cn(INK_BUTTON, "h-10 min-w-0 flex-1 px-4 text-[13px] sm:h-9")}
             >
               <Download className="h-3.5 w-3.5" /> Download

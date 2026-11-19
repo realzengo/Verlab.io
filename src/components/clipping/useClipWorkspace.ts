@@ -19,6 +19,8 @@ import {
   type ClipSource,
 } from "@/lib/client/clip-render";
 import { analyzeReframe, type ReframeTrack } from "@/lib/client/clip-reframe";
+import { encodeTrack, sha256Hex } from "@/lib/client/clip-track-io";
+import type { ClipRenderJob, ClipRenderRequest } from "@/lib/clip-jobs";
 import { defaultSettings } from "@/lib/client/clip-defaults";
 import {
   CLIP_EXPORT_MAX_BYTES,
@@ -28,8 +30,10 @@ import {
   type ClipStoredSource,
 } from "@/lib/clips";
 import {
+  adoptServerRenders,
   getRender,
   isCurrentRender,
+  onServerRenderFailure,
   queueRenders,
   runInQueue,
   updateRender,
@@ -70,6 +74,10 @@ export interface RenderState {
   error?: string;
   /** Saving to the library happens right after rendering. */
   saved?: "saving" | "saved" | "failed" | "too-large";
+  /** A server render's file, signed to download under the clip's name (a cross-origin `url` can't be). */
+  downloadUrl?: string;
+  /** What a server render is doing before it encodes ("Getting the video", "Tracking faces"). */
+  stageLabel?: string;
 }
 
 export interface BackgroundVideo {
@@ -142,6 +150,20 @@ function deferred<T>(): Deferred<T> {
 }
 
 export const exportsKey = (projectId: string) => `/api/clips/${projectId}/exports`;
+
+// Whether the render worker takes renders right now, asked at most every 20s.
+const SERVER_CHECK_MS = 20_000;
+const serverChecks = new Map<string, { at: number; available: Promise<boolean> }>();
+
+function serverTakesRenders(projectId: string): Promise<boolean> {
+  const cached = serverChecks.get(projectId);
+  if (cached && Date.now() - cached.at < SERVER_CHECK_MS) return cached.available;
+  const available = fetch(`/api/clips/${projectId}/renders`, { cache: "no-store" })
+    .then(async (response) => response.ok && ((await response.json()) as { serverAvailable?: boolean }).serverAvailable === true)
+    .catch(() => false);
+  serverChecks.set(projectId, { at: Date.now(), available });
+  return available;
+}
 
 /** The clips the server has cut ahead (GET /api/clips/[id]/sources); null if that check fails. */
 async function fetchStoredSources(projectId: string, signal: AbortSignal) {
@@ -289,6 +311,8 @@ export function useClipWorkspace(project: ClipProject) {
   // cleanup waits until the last one is done.
   const exportsPending = useRef(0);
   const cleanupLater = useRef<(() => void) | null>(null);
+  // A server render's inputs, uploaded once per content (by hash).
+  const inputUploads = useRef(new Map<string, Promise<string>>());
 
   // Created here, not at first render: StrictMode's rehearsal unmount would
   // otherwise leave every later request holding an already-aborted signal.
@@ -646,12 +670,122 @@ export function useClipWorkspace(project: ClipProject) {
     [project.id, project.durationSeconds, recutSource]
   );
 
+  /** Uploads one of a server render's inputs (once per content) and returns its Storage path. */
+  const uploadRenderInput = useCallback(
+    async (file: { kind: "track"; clipId: string } | { kind: "background" }, bytes: Uint8Array, contentType: string) => {
+      const hash = await sha256Hex(bytes);
+      const key = `${file.kind}:${file.kind === "track" ? file.clipId : ""}:${hash}`;
+      let upload = inputUploads.current.get(key);
+      if (!upload) {
+        upload = (async () => {
+          const response = await fetch(`/api/clips/${project.id}/render-uploads`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ files: [{ ...file, hash, sizeBytes: bytes.byteLength }] }),
+          });
+          const data = (await response.json().catch(() => null)) as {
+            uploads?: { path: string; exists: boolean; token?: string }[];
+          } | null;
+          const target = data?.uploads?.[0];
+          if (!response.ok || !target) throw new Error(`Preparing the render failed (${response.status})`);
+          if (!target.exists) {
+            const { error } = await createBrowserClient()
+              .storage.from("clip-exports")
+              .uploadToSignedUrl(target.path, target.token!, new Blob([bytes as BlobPart], { type: contentType }), {
+                contentType,
+              });
+            if (error) throw new Error(`Uploading the render's ${file.kind} failed: ${error.message}`);
+          }
+          return target.path;
+        })();
+        upload.catch(() => inputUploads.current.delete(key));
+        inputUploads.current.set(key, upload);
+      }
+      return upload;
+    },
+    [project.id]
+  );
+
   /**
-   * Queues each clip's render (one encoder at a time, across projects), then
-   * saves it to the library. Keeps running if the page is left.
+   * Hands clips to the render worker (they render on Verlab's servers and
+   * keep going if the tab closes). Returns the clips it didn't take: the
+   * server is off or has no worker up, or a clip's inputs couldn't be
+   * prepared. Those render in this tab, as before.
+   */
+  const renderOnServer = useCallback(
+    async (
+      targets: ClipMoment[],
+      tokens: Map<string, number>,
+      settingsOf: (clip: ClipMoment) => ClipEditSettings,
+      signal: AbortSignal
+    ): Promise<ClipMoment[]> => {
+      if (!(await serverTakesRenders(project.id))) return targets;
+      const items: ClipRenderRequest[] = [];
+      const here: ClipMoment[] = [];
+      await Promise.all(
+        targets.map(async (clip) => {
+          const token = tokens.get(clip.id)!;
+          if (!isCurrentRender(project.id, clip.id, token)) return;
+          updateRender(project.id, clip.id, token, { preparing: true });
+          const settings = settingsOf(clip);
+          try {
+            // The worker frames the clip with this editor's face track, so the
+            // render shows what the preview showed (and the server never re-tracks).
+            let trackPath: string | null = null;
+            if (usesTracking(settings)) {
+              await requestSource(clip).catch(() => null);
+              const track = await (trackJobs.current.get(clip.id)?.promise.catch(() => null) ?? null);
+              if (track) {
+                trackPath = await uploadRenderInput(
+                  { kind: "track", clipId: clip.id },
+                  await encodeTrack(track),
+                  "application/octet-stream"
+                );
+              }
+            }
+            const bottom = settings.bottomVideo ? (backgroundRef.current?.file ?? null) : null;
+            const backgroundPath = bottom
+              ? await uploadRenderInput({ kind: "background" }, new Uint8Array(await bottom.arrayBuffer()), "video/mp4")
+              : null;
+            items.push({ clipId: clip.id, settings, trackPath, backgroundPath });
+          } catch (error) {
+            console.warn(`[clips] preparing ${clip.id} for the server failed; rendering it here:`, error);
+            here.push(clip);
+          }
+        })
+      );
+      if (signal.aborted || !items.length) return here;
+
+      try {
+        const response = await fetch(`/api/clips/${project.id}/renders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        const data = (await response.json().catch(() => null)) as { jobs?: ClipRenderJob[] } | null;
+        if (!response.ok || !data?.jobs) {
+          // Switched off or no worker since the check: render them all here.
+          serverChecks.delete(project.id);
+          return targets;
+        }
+        adoptServerRenders(project.id, tokens, data.jobs);
+        const taken = new Set(data.jobs.map((job) => job.clipId));
+        return targets.filter((clip) => !taken.has(clip.id));
+      } catch {
+        return targets;
+      }
+    },
+    [project.id, requestSource, uploadRenderInput]
+  );
+
+  /**
+   * Renders each clip and saves it to the library: on the render worker when
+   * it's up, else here (one encoder at a time, across projects). Both keep
+   * going if the page is left; a server render keeps going if the tab closes.
+   * `browserOnly` skips the server (a server render that failed for good).
    */
   const exportClips = useCallback(
-    async (ids: string[]) => {
+    async (ids: string[], { browserOnly = false }: { browserOnly?: boolean } = {}) => {
       const targets = ids.map((id) => clips.find((clip) => clip.id === id)).filter((c): c is ClipMoment => Boolean(c));
       if (!targets.length) return;
       const settingsOf = (clip: ClipMoment) =>
@@ -663,14 +797,17 @@ export function useClipWorkspace(project: ClipProject) {
       );
       const signal = abort.current.signal;
       exportsPending.current += 1;
-      // Every clip's cut is asked for now, in one tick: one read of the source
-      // serves them all, and each clip's cut and face tracking get ready
-      // while the clips ahead of it render, instead of only once its turn comes.
-      for (const clip of targets) void requestSource(clip);
 
       try {
+        const local = browserOnly ? targets : await renderOnServer(targets, tokens, settingsOf, signal);
+        if (!local.length || signal.aborted) return;
+        // Every clip's cut is asked for now, in one tick: one read of the source
+        // serves them all, and each clip's cut and face tracking get ready
+        // while the clips ahead of it render, instead of only once its turn comes.
+        for (const clip of local) void requestSource(clip);
+
         await runInQueue(async () => {
-          for (const clip of targets) {
+          for (const clip of local) {
             const token = tokens.get(clip.id)!;
             // Queued again since (Try again, or a second export): that one renders it.
             if (signal.aborted || !isCurrentRender(project.id, clip.id, token)) continue;
@@ -741,7 +878,27 @@ export function useClipWorkspace(project: ClipProject) {
         }
       }
     },
-    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, recover, defaultsFor]
+    [
+      clips,
+      project.id,
+      project.title,
+      project.thumbnailUrl,
+      project.transcript,
+      requestSource,
+      recover,
+      defaultsFor,
+      renderOnServer,
+    ]
+  );
+
+  // A server render that fails for good while this editor is open renders here instead.
+  const exportClipsRef = useRef(exportClips);
+  useEffect(() => {
+    exportClipsRef.current = exportClips;
+  }, [exportClips]);
+  useEffect(
+    () => onServerRenderFailure(project.id, (clipId) => void exportClipsRef.current([clipId], { browserOnly: true })),
+    [project.id]
   );
 
   return {

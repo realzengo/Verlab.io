@@ -9,6 +9,7 @@ import { chromium, type Browser, type Page } from "playwright-core";
 import {
   PAGE_API_VERSION,
   type CodecProbe,
+  type PageRenderFailure,
   type PageRenderInput,
   type PageRenderResult,
   type PageStage,
@@ -50,6 +51,8 @@ export interface BrowserOptions {
 export interface RenderJobFiles {
   sourcePath: string;
   backgroundPath: string | null;
+  /** The editor's face track (encodeTrack bytes). */
+  trackPath?: string | null;
   outputPath: string;
 }
 
@@ -199,16 +202,17 @@ export class RenderBrowser {
    * the time limit stops it.
    */
   async render(
-    input: Omit<PageRenderInput, "sourceUrl" | "backgroundUrl" | "outputUrl">,
+    input: Omit<PageRenderInput, "sourceUrl" | "backgroundUrl" | "outputUrl" | "trackUrl">,
     files: RenderJobFiles,
     {
       onProgress,
       signal,
       timeoutMs,
     }: { onProgress?: (stage: PageStage, progress: number) => void; signal?: AbortSignal; timeoutMs: number }
-  ): Promise<PageRenderResult> {
+  ): Promise<PageRenderResult | PageRenderFailure> {
     const inputs: Record<string, string> = { source: files.sourcePath };
     if (files.backgroundPath) inputs.background = files.backgroundPath;
+    if (files.trackPath) inputs.track = files.trackPath;
     const lease = this.files.lease(inputs, files.outputPath);
     const page = await this.openPage(onProgress);
     let timer: NodeJS.Timeout | undefined;
@@ -219,6 +223,7 @@ export class RenderBrowser {
         ...input,
         sourceUrl: lease.urls.source,
         backgroundUrl: lease.urls.background ?? null,
+        trackUrl: lease.urls.track ?? null,
         outputUrl: lease.outputUrl,
       } satisfies PageRenderInput);
       const limit = new Promise<never>((_, reject) => {

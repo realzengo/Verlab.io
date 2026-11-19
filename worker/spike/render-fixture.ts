@@ -129,6 +129,7 @@ try {
       throw error;
     });
   const wallMs = Date.now() - started;
+  if ("failed" in result) throw new Error(`${result.name}: ${result.message}`);
 
   const media = await probeStreams(outputPath);
   const audio = media.streams.find((s) => s.codec_type === "audio");

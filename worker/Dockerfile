@@ -42,6 +42,6 @@ ENV NODE_ENV=production \
     FONTS_DIR=/worker/fonts
 
 USER node
-# Phase 0: run the render spike once, print the report, then stay up so the
-# logs can be read. Phase 1 replaces this with `node dist/worker.mjs`.
-CMD ["sh", "spike/run.sh"]
+# The render worker (src/index.ts). The Phase 0 render spike is still in the
+# image: `sh spike/run.sh` prints a codec/speed/memory report.
+CMD ["node", "dist/worker.mjs"]

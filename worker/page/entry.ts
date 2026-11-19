@@ -21,9 +21,17 @@ import "@fontsource/bebas-neue/latin-400.css";
 import "@fontsource/luckiest-guy/latin-400.css";
 import "@/components/clipping/montserrat-arabic.css";
 import "@/components/clipping/komika-axis.css";
-import { exportClip } from "@/lib/client/clip-render";
+import { ClipRenderError, exportClip } from "@/lib/client/clip-render";
 import { analyzeReframe, type ReframeTrack } from "@/lib/client/clip-reframe";
-import { PAGE_API_VERSION, type CodecProbe, type PageApi, type PageRenderInput } from "../src/page-api";
+import { decodeTrack } from "@/lib/client/clip-track-io";
+import {
+  PAGE_API_VERSION,
+  type CodecProbe,
+  type PageApi,
+  type PageRenderFailure,
+  type PageRenderInput,
+  type PageRenderResult,
+} from "../src/page-api";
 
 async function fetchBlob(url: string): Promise<Blob> {
   const response = await fetch(url);
@@ -64,7 +72,20 @@ async function probe(): Promise<CodecProbe> {
   return { userAgent: navigator.userAgent, webCodecs, avc1080, avc720, avcHardware, aac, opus };
 }
 
-async function render(input: PageRenderInput) {
+async function render(input: PageRenderInput): Promise<PageRenderResult | PageRenderFailure> {
+  try {
+    return await renderClip(input);
+  } catch (error) {
+    return {
+      failed: true,
+      name: error instanceof Error ? error.name : "Error",
+      message: error instanceof Error ? error.message : String(error),
+      fatal: error instanceof ClipRenderError && error.fatal,
+    };
+  }
+}
+
+async function renderClip(input: PageRenderInput): Promise<PageRenderResult> {
   const report = (stage: "tracking" | "encoding", progress: number) => window.verlabProgress?.(stage, progress);
   const [blob, background] = await Promise.all([
     fetchBlob(input.sourceUrl),
@@ -74,7 +95,9 @@ async function render(input: PageRenderInput) {
 
   let track: ReframeTrack | null = null;
   const trackStarted = performance.now();
-  if (input.track) {
+  if (input.trackUrl) {
+    track = await decodeTrack(new Uint8Array(await (await fetchBlob(input.trackUrl)).arrayBuffer()));
+  } else if (input.track) {
     try {
       track = await analyzeReframe(source, input.track.from, input.track.to, (p) => report("tracking", p));
     } catch (error) {

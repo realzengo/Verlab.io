@@ -35,7 +35,7 @@ await build({
 });
 await copyFile(path.join(here, "page/index.html"), path.join(dist, "page/index.html"));
 
-const entries = { spike: "spike/render-fixture.ts", fixture: "spike/make-fixture.ts" };
+const entries = { worker: "src/index.ts", spike: "spike/render-fixture.ts", fixture: "spike/make-fixture.ts" };
 await build({
   entryPoints: Object.fromEntries(Object.entries(entries).map(([name, file]) => [name, path.join(here, file)])),
   outdir: dist,
