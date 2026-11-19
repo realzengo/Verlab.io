@@ -14,13 +14,12 @@ try() {
 
 node dist/fixture.mjs /tmp/fixture || { echo "SPIKE FAILED at fixture"; exec sleep infinity; }
 
-# Chrome's defaults: on a machine without a GPU it emulates one (SwiftShader).
+# Default Chrome again, now with a once-a-second memory trace.
 try node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux --ref spike/ref
-# No GPU process at all: canvas rasters on the CPU in the page's own process.
-try env CHROME_EXTRA_ARGS=--disable-gpu node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-nogpu --ref spike/ref
-try env CHROME_EXTRA_ARGS=--disable-gpu node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-nogpu-pauses --pauses
-# Face tracking (MediaPipe): the step that was ~5x slower than encoding on a Mac.
-try env CHROME_EXTRA_ARGS=--disable-gpu node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-nogpu-track --track
+# Lean Chrome: no GPU process, fewer helper processes, a capped JS heap.
+LEAN="--disable-gpu --renderer-process-limit=1 --no-zygote --disable-extensions --disable-background-networking --disable-component-update --disable-features=Translate,MediaRouter,OptimizationHints,BackForwardCache --js-flags=--max-old-space-size=384"
+try env CHROME_EXTRA_ARGS="$LEAN" node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-lean --ref spike/ref
+try env CHROME_EXTRA_ARGS="$LEAN" node dist/spike.mjs --fixture /tmp/fixture --out /tmp/out --label linux-lean-track --track
 
 echo "SPIKE DONE"
 exec sleep infinity

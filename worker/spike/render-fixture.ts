@@ -81,6 +81,10 @@ const mb = (bytes: number | null | undefined) => (bytes == null ? null : Math.ro
 const memoryBase = await cgroupMemory();
 const oomBefore = await oomKills();
 const memory = sampleMemoryPeak();
+// The climb during a render, once a second (Linux only): where the memory goes, and how fast.
+const trace = setInterval(() => {
+  void cgroupMemory().then((m) => m && console.log(`MEM ${values.label} ${Math.round(m.current / 1048576)}MB`));
+}, 1000);
 /** Container memory and OOM kills over the run, for the report (success or not). */
 const memoryReport = async () => ({
   chromeArgs: process.env.CHROME_EXTRA_ARGS ?? "",
@@ -163,5 +167,6 @@ try {
   await writeFile(path.join(outDir, `${values.label}.json`), JSON.stringify(report, null, 2));
   console.log(`REPORT ${JSON.stringify(report)}`);
 } finally {
+  clearInterval(trace);
   await browser.close();
 }
