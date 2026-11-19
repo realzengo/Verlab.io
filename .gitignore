@@ -20,6 +20,12 @@
 # production
 /build
 
+# render worker: its own deps, build output and spike files
+/worker/node_modules/
+/worker/dist/
+/worker/spike/fixture/
+/worker/spike/out/
+
 # generated MCP App widget bundles (see src/lib/server/mcp/apps/build.mjs)
 /src/lib/server/mcp/apps/generated/
 

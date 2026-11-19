@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "src/lib/server/mcp/apps/generated/**",
+    // The render worker has its own package and checks (worker/tsconfig.json).
+    "worker/dist/**",
+    "worker/node_modules/**",
   ]),
 ]);
 
