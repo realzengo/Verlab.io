@@ -1457,7 +1457,20 @@ function drawHeadline(
  * with the canvas's short side, so the half-size preview and the full-size
  * export (in any aspect) draw the same picture.
  */
-export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) {
+export function createFramePainter(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  {
+    fastBackdrop = false,
+  }: {
+    /**
+     * Stretch the blurred backdrop through a VideoFrame. Where the canvas
+     * rasters in software (the render worker), stretching the tiny backdrop
+     * canvas over the frame was ~33ms a frame (Fit rendered at 0.86x
+     * realtime); a VideoFrame scales on the media path (2.6x, SSIM 0.997).
+     */
+    fastBackdrop?: boolean;
+  } = {}
+) {
   const ctx = canvas.getContext("2d") as Canvas2D | null;
   if (!ctx) throw new ClipRenderError("Your browser can't draw video frames.", { fatal: true });
   // Blurred backdrops: the frame shrunk to a few dozen pixels, then
@@ -1483,7 +1496,16 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     backdropCtx.fillStyle = "#000";
     backdropCtx.fillRect(0, 0, bw, bh);
     backdropCtx.drawImage(source, (bw - srcW * cover) / 2, (bh - srcH * cover) / 2, srcW * cover, srcH * cover);
-    ctx.drawImage(backdrop, x, y, w, h);
+    if (fastBackdrop && typeof VideoFrame !== "undefined") {
+      const frame = new VideoFrame(backdrop, { timestamp: 0 });
+      try {
+        ctx.drawImage(frame, x, y, w, h);
+      } finally {
+        frame.close();
+      }
+    } else {
+      ctx.drawImage(backdrop, x, y, w, h);
+    }
     ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
     ctx.fillRect(x, y, w, h);
   };
@@ -2082,6 +2104,8 @@ export interface ExportOptions {
    * packet edges with no fades. The render worker sets this.
    */
   preciseAudio?: boolean;
+  /** See createFramePainter's `fastBackdrop`; the render worker sets this. */
+  fastBackdrop?: boolean;
 }
 
 export interface ExportResult {
@@ -2105,6 +2129,7 @@ export async function exportClip({
   onProgress,
   signal,
   preciseAudio = false,
+  fastBackdrop = false,
 }: ExportOptions): Promise<ExportResult> {
   const mb = await import("mediabunny");
   if (typeof VideoEncoder === "undefined") {
@@ -2133,7 +2158,7 @@ export async function exportClip({
 
   await loadCaptionFonts(fontsFor(settings, words));
   const canvas = makeCanvas(width, height);
-  const paint = createFramePainter(canvas);
+  const paint = createFramePainter(canvas, { fastBackdrop });
   const captions = prepareCaptions(words, settings, clip);
   const path = track ? cameraPath(track, cropAspectFor(settings), settings.camera) : null;
   const plan = planFor(track, settings, words, clip.keywords, audio);

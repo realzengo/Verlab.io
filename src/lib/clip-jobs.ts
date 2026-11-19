@@ -9,7 +9,7 @@ import type { ClipEditSettings } from "@/lib/client/clip-render";
  * encoding). It's part of every render's dedupe key, so a finished render is
  * only reused while it would still come out the same.
  */
-export const RENDERER_VERSION = 2;
+export const RENDERER_VERSION = 3;
 
 export type ClipJobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 export type ClipJobStage = "waiting" | "fetching" | "tracking" | "encoding" | "uploading";

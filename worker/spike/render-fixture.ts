@@ -64,7 +64,12 @@ await mkdir(outDir, { recursive: true });
 
 const words = JSON.parse(await readFile(path.join(fixture, "words.json"), "utf8")) as TranscriptWord[];
 const clip = JSON.parse(await readFile(path.join(fixture, "clip.json"), "utf8")) as ClipMoment;
-const settings: ClipEditSettings = { ...defaultSettings(clip), removePauses: values.pauses! };
+const settings: ClipEditSettings = {
+  ...defaultSettings(clip),
+  removePauses: values.pauses!,
+  // SPIKE_LAYOUT=fit|fill pins one layout (the default lets the AI pick).
+  ...(process.env.SPIKE_LAYOUT ? { layouts: [process.env.SPIKE_LAYOUT as ClipEditSettings["layouts"][number]] } : {}),
+};
 const sourcePath = path.join(fixture, "source.mp4");
 const outputPath = path.join(outDir, `${values.label}.mp4`);
 

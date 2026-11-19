@@ -117,6 +117,8 @@ async function renderClip(input: PageRenderInput): Promise<PageRenderResult> {
     background,
     onProgress: (p) => report("encoding", p),
     preciseAudio: input.preciseAudio,
+    // This page always rasters in software (no GPU on the worker).
+    fastBackdrop: true,
   });
   const encodeMs = performance.now() - encodeStarted;
 
