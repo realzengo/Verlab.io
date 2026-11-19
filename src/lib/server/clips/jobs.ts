@@ -54,15 +54,35 @@ const JOB_COLUMNS =
   "id, user_id, project_id, clip_id, kind, status, stage, progress, input, dedupe_key, attempts, max_attempts, export_id, error_code, error_message, created_at, finished_at";
 
 /**
- * Who renders on the server (CLIP_SERVER_RENDER): "1" everyone, "0" no one
- * (every export renders in the browser), unset (the rollout default) admins
- * only (ADMIN_EMAILS), so the worker proves itself in production first.
+ * Who renders on the server (CLIP_SERVER_RENDER): everyone by default (the
+ * export keeps going if the tab closes, and phones don't have to encode);
+ * "0" no one, the off switch (every export renders in the browser);
+ * "admins" admins only (ADMIN_EMAILS), for trying a worker change first.
  */
 export function serverRenderEnabledFor(email: string | null | undefined): boolean {
   const mode = process.env.CLIP_SERVER_RENDER;
-  if (mode === "1") return true;
   if (mode === "0") return false;
-  return isAdminEmail(email);
+  if (mode === "admins") return isAdminEmail(email);
+  return true;
+}
+
+/**
+ * Renders that may wait for the worker, across everyone (CLIP_RENDER_QUEUE_LIMIT).
+ * About two rounds of the worker's 3 at once: past that, waiting would take
+ * longer than the user's own browser takes to render, so it renders there.
+ */
+const RENDER_QUEUE_LIMIT = Number(process.env.CLIP_RENDER_QUEUE_LIMIT) || 6;
+
+/** How many more renders the worker's queue takes now (0: busy, the browser renders them). */
+export async function renderQueueRoom(admin: SupabaseClient): Promise<number> {
+  const { count, error } = await admin
+    .from("clip_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("kind", "render")
+    .eq("status", "queued");
+  // Unknown: don't pile on; the browser renders as it did before the worker.
+  if (error || count === null) return 0;
+  return Math.max(0, RENDER_QUEUE_LIMIT - count);
 }
 
 /** Whether any render worker has checked in recently. */

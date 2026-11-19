@@ -10,6 +10,7 @@ import {
   enqueueRenders,
   latestRenderJobs,
   readRenderRequest,
+  renderQueueRoom,
   serverRenderEnabledFor,
   toRenderJobs,
   workerOnline,
@@ -18,9 +19,10 @@ import {
 // Server renders of a project's clips (the render worker, worker/).
 //   GET   each clip's latest render, plus whether the server takes renders now
 //   POST  { items: ClipRenderRequest[] } -> the queued (or already finished) renders
-// A POST the server can't take (switched off or not this user's yet, see
-// serverRenderEnabledFor, or no worker checked in) answers 503
-// { fallback: true }, and the editor renders those clips itself.
+// A POST the server can't take (switched off, see serverRenderEnabledFor,
+// no worker checked in, or its queue full, see renderQueueRoom) answers 503
+// { fallback: true }, and the editor renders those clips itself. With room
+// for only some, it queues those and the editor renders the rest.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ITEMS = 24;
@@ -93,12 +95,13 @@ async function handlePOST(
   }
 
   const admin = createAdminClient();
-  if (!(await serverAvailable(admin, ctx.user.email))) {
+  const [available, room] = await Promise.all([serverAvailable(admin, ctx.user.email), renderQueueRoom(admin)]);
+  if (!available || room === 0) {
     return NextResponse.json({ error: "Rendering on the server is unavailable", fallback: true }, { status: 503 });
   }
 
   try {
-    const rows = await enqueueRenders(admin, { userId: ctx.user.id, projectId: id, items });
+    const rows = await enqueueRenders(admin, { userId: ctx.user.id, projectId: id, items: items.slice(0, room) });
     return NextResponse.json({ jobs: await toRenderJobs(admin, rows) });
   } catch (error) {
     return serverError("clips/renders/queue", error, "Could not start rendering");
