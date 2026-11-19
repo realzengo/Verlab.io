@@ -6,7 +6,6 @@ import { refundUser } from "@/lib/server/credits";
 import { fetchDownloadLink, humanizeVideoProviderError, VideoProviderError } from "@/lib/server/video-provider";
 import { getTranscription, startTranscription } from "@/lib/server/clips/transcribe";
 import { ClipMomentsError, findViralMoments } from "@/lib/server/clips/moments";
-import { romanizeClip, romanizeDarija } from "@/lib/server/clips/darija";
 import { mediaFormatFor } from "@/lib/server/clips/cut-source";
 import { precutClipSources, withoutCut, type StoredClipMoment } from "@/lib/server/clips/precut";
 import { MCP_PUBLIC_ORIGIN } from "@/lib/server/mcp/links";
@@ -33,7 +32,8 @@ import {
 export const CLIP_PROJECT_COLUMNS =
   "id, user_id, source_url, video_id, title, channel_title, thumbnail_url, duration_seconds, status, options, credits_charged, prediction_id, media_url, clips, error_message, created_at, updated_at";
 
-/** A stored word: [start, end, word as transcribed, its caption spelling when that differs (Latin Darija)]. */
+/** A stored word: [start, end, word as transcribed]. Projects from before 2026-11-19 may carry a 4th
+ * element, a romanized Darija spelling, which is no longer shown: captions keep the Arabic script. */
 export type StoredTranscriptWord = [number, number, string, string?];
 
 export interface ClipProjectRow {
@@ -70,9 +70,9 @@ export function toClipProject(row: ClipProjectRow): ClipProject {
     options: normalizeClipOptions(row.options),
     // The cut state is the server's (GET /api/clips/[id]/sources reports it).
     clips: row.clips?.map(withoutCut) ?? null,
-    // The editor captions with each word's caption spelling.
+    // Captions use each word as transcribed (an old romanized spelling is ignored).
     ...(row.transcript !== undefined
-      ? { transcript: row.transcript?.map(([start, end, word, caption]) => [start, end, caption ?? word]) ?? null }
+      ? { transcript: row.transcript?.map(([start, end, word]) => [start, end, word]) ?? null }
       : {}),
     errorMessage: row.error_message,
     createdAt: row.created_at,
@@ -186,27 +186,16 @@ async function findMoments(
   precutDeadline: number
 ): Promise<ClipProjectRow> {
   try {
-    const found = await findViralMoments({
+    const clips = await findViralMoments({
       title: row.title,
       channelTitle: row.channel_title,
       durationSeconds: row.duration_seconds,
       words,
       options: normalizeClipOptions(row.options),
     });
-    let clips = found.clips;
-    let romanized: { transcript: StoredTranscriptWord[]; language: string } | null = null;
-    if (found.darija) {
-      // Darija captions in Latin letters; the Arabic-script words are kept beside them.
-      const latin = await romanizeDarija(words, clips);
-      clips = clips.map((clip) => romanizeClip(clip, words, latin));
-      romanized = {
-        transcript: words.map((w, i) => (latin.has(i) ? [w[0], w[1], w[2], latin.get(i)] : w)),
-        language: "ar-MA",
-      };
-    }
     const { data: ready } = await admin
       .from("clip_projects")
-      .update({ status: "ready", clips, ...romanized })
+      .update({ status: "ready", clips })
       .eq("id", row.id)
       .eq("status", "finding")
       .select(CLIP_PROJECT_COLUMNS)

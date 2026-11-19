@@ -384,10 +384,8 @@ export function getVoiceCloneCost(): number {
 //     each clip comes back as ~320-360 output tokens. Priced at 700/min,
 //     1,500 fixed, and 450 per clip for as many clips as the shortest length
 //     option asks for (targetClipCount in moments.ts: one per 2 minutes, 4-12).
-// Not priced in: a Moroccan Darija video's romanizing pass (darija.ts, ~20k
-// in / 7.5k out, ~$0.12 for 12 clips) isn't known when this is charged; at
-// the measured rates those videos still clear 70%+ margin. Failed runs are
-// refunded after the GPU time is spent, which the margin on the rest absorbs.
+// Failed runs are refunded after the GPU time is spent, which the margin on
+// the rest absorbs.
 const CLIPPING_DOWNLOADS_COST_USD = 0.01 * 4;
 const CLIPPING_TRANSCRIBE_GPU_PER_SECOND_USD = 0.0014;
 const CLIPPING_TRANSCRIBE_FIXED_SECONDS = 30;

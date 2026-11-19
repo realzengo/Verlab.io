@@ -361,7 +361,7 @@ export function useClipWorkspace(project: ClipProject) {
   }, [allRenders, project.id]);
 
   const clips = useMemo(() => project.clips ?? [], [project.clips]);
-  // Clips spoken in Arabic (in Arabic script; Darija comes romanized) start in the Arabic font.
+  // Clips spoken in Arabic script (Darija included) start in the Arabic font.
   const rtlClips = useMemo(
     () => new Set(clips.filter((clip) => isRtlClip(project.transcript ?? [], clip.start, clip.end)).map((c) => c.id)),
     [clips, project.transcript]
