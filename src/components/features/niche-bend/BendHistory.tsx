@@ -53,7 +53,7 @@ function StatusLabel({ status }: { status: NicheBendJobStatus }) {
 function HistorySkeleton() {
   return (
     <div className="w-full">
-      <div className="divide-y divide-hairline rounded-[30px] border border-[#EBEDF0] bg-white p-1.5 dark:border-white/[0.06] dark:bg-surface">
+      <div className="divide-y divide-hairline rounded-[30px] border border-[#EBEDF0] bg-white p-1.5 dark:border-white/[0.06] dark:bg-[#0E0E10]">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-center gap-4 px-4 py-3 sm:px-5">
             <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-hairline" />

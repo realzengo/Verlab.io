@@ -22,7 +22,7 @@ const SOP_LOADING_PHASES = [
 ];
 
 const toolButton =
-  "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-hairline bg-white px-3 text-subtle shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] hover:text-heading dark:bg-white/[0.04] dark:hover:bg-white/[0.085]";
+  "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-hairline bg-white px-3 text-subtle shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] hover:text-heading dark:bg-[#1C1C1F] dark:hover:bg-[#232326]";
 
 /** One bend as a column of the choose-step panel, like a step column on the MCP page. */
 export function BendCandidateCard({

@@ -373,6 +373,15 @@ export function AdminPromoCodesSkeleton() {
   return <TablePageSkeleton title="Promo codes" description="Codes that grant credits or a discount at checkout." kpis={3} />;
 }
 
+export function AdminAnnouncementsSkeleton() {
+  return (
+    <TablePageSkeleton
+      title="Announcements"
+      description="Product updates and offers, in a bar across the top of the app. The newest live one shows first; closing it shows the next."
+    />
+  );
+}
+
 export function AdminApiCostsSkeleton() {
   return (
     <TablePageSkeleton

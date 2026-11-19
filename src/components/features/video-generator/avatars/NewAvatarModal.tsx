@@ -56,7 +56,7 @@ function OptionCard({
         )}
       >
         {busy ? <Loader2 className="h-8 w-8 animate-spin text-blue-500" /> : <Icon className="h-9 w-9" strokeWidth={1.5} />}
-        <span className="absolute -right-3.5 -top-3.5 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-blue-600 shadow-[0_4px_10px_-4px_rgba(15,23,42,0.25)] dark:border-white/[0.12] dark:bg-float dark:text-blue-400">
+        <span className="absolute -right-3.5 -top-3.5 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-blue-600 shadow-[0_4px_10px_-4px_rgba(15,23,42,0.25)] dark:border-white/[0.12] dark:bg-zinc-900 dark:text-blue-400">
           <Badge className="h-4 w-4" />
         </span>
       </span>

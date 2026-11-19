@@ -77,7 +77,7 @@ export function ToolGridCard({
     <Link
       href={href}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-surface p-0 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover",
+        "group relative flex h-full flex-col overflow-hidden rounded-card border border-hairline bg-surface p-0 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover dark:border-zinc-800 dark:bg-zinc-900",
         comingSoon && "opacity-70"
       )}
     >

@@ -114,7 +114,7 @@ export function HoverZoom({ src, children, className }: { src: string; children:
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="pointer-events-none fixed z-[70] overflow-hidden rounded-2xl bg-slate-50 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.45)] ring-1 ring-black/10 dark:bg-float dark:ring-white/10"
+            className="pointer-events-none fixed z-[70] overflow-hidden rounded-2xl bg-slate-50 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.45)] ring-1 ring-black/10 dark:bg-[#131318] dark:ring-white/10"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL preview, not a static asset */}
             <img src={src} alt="" className="h-full w-full object-contain" />

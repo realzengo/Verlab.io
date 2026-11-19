@@ -16,6 +16,7 @@ import {
   Wrench,
   Scissors,
   Key,
+  Megaphone,
 } from "lucide-react";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
 import type { NavItem } from "@/lib/types";
@@ -40,6 +41,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Revenue", href: "/admin/revenue", icon: DollarSign },
   { label: "API Costs", href: "/admin/api-costs", icon: Wallet },
   { label: "Usage & Tools", href: "/admin/usage", icon: BarChart3 },
+  { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
   { label: "System", href: "/admin/system", icon: Activity },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -50,7 +52,7 @@ const ADMIN_NAV_GROUPS: { label: string | null; hrefs: string[] }[] = [
   { label: null, hrefs: ["/admin"] },
   { label: "Customers", hrefs: ["/admin/users", "/admin/credits", "/admin/promo-codes"] },
   { label: "Revenue", hrefs: ["/admin/revenue", "/admin/plans", "/admin/api-costs"] },
-  { label: "Product", hrefs: ["/admin/usage"] },
+  { label: "Product", hrefs: ["/admin/usage", "/admin/announcements"] },
   { label: "Operations", hrefs: ["/admin/system", "/admin/settings"] },
 ];
 

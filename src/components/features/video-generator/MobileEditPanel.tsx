@@ -14,7 +14,7 @@ const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 function MobileCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 dark:border-white/[0.08] dark:bg-surface">
+    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 dark:border-white/[0.08] dark:bg-[#131318]">
       <span className="mb-3 block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</span>
       {children}
     </div>
@@ -301,7 +301,7 @@ export function MobileEditPanel({
         <LowCreditBanner balance={creditBalance} cost={estimatedCost} onTopUp={onTopUp} />
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-app/90 lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/90 lg:hidden">
         <button
           type="button"
           onClick={() => {

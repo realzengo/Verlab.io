@@ -255,7 +255,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
     <Portal>
     <div className="fixed inset-0 z-[60] flex h-[100dvh] bg-black/40 md:backdrop-blur-sm" onClick={onClose}>
       <div
-        className="m-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-float md:h-[85vh] md:max-h-[92vh] md:max-w-6xl md:rounded-2xl"
+        className="m-auto flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-zinc-950 md:h-[85vh] md:max-h-[92vh] md:max-w-6xl md:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Mobile pane switcher -- desktop shows editor + AI chat side by side,
@@ -265,7 +265,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute left-4 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300"
+            className="absolute left-4 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             <X className="h-4 w-4" />
           </button>
@@ -331,7 +331,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="mr-1 hidden shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300 md:inline-flex"
+                className="mr-1 hidden shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 md:inline-flex"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -356,7 +356,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                     type="button"
                     onClick={() => setIsEditingTitle(true)}
                     aria-label="Edit title"
-                    className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300"
+                    className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -371,7 +371,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                   onClick={undo}
                   disabled={undoStack.length === 0}
                   aria-label="Undo"
-                  className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300"
+                  className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                 >
                   <Undo2 className="h-4 w-4" />
                 </button>
@@ -380,7 +380,7 @@ export function ScriptEditorModal({ script, onClose, onSaved }: ScriptEditorModa
                   onClick={redo}
                   disabled={redoStack.length === 0}
                   aria-label="Redo"
-                  className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300"
+                  className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-30 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                 >
                   <Redo2 className="h-4 w-4" />
                 </button>
@@ -683,7 +683,7 @@ function SegmentRow({ index, value, canRevert, onChange, onCommit, onRevert, onD
         disabled={!canRevert}
         aria-label="Revert line"
         title="Revert to original"
-        className="shrink-0 rounded-full p-1.5 text-slate-400 opacity-100 transition-opacity hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-0 md:opacity-0 md:group-hover:opacity-100 dark:text-zinc-500 dark:hover:bg-white/[0.08] dark:hover:text-zinc-300"
+        className="shrink-0 rounded-full p-1.5 text-slate-400 opacity-100 transition-opacity hover:bg-slate-100 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-0 md:opacity-0 md:group-hover:opacity-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
       >
         <RotateCcw className="h-3.5 w-3.5" />
       </button>
@@ -692,7 +692,7 @@ function SegmentRow({ index, value, canRevert, onChange, onCommit, onRevert, onD
         onClick={onDelete}
         aria-label="Delete line"
         title="Delete line"
-        className="shrink-0 cursor-pointer rounded-full p-1.5 text-slate-300 opacity-100 transition-opacity hover:bg-slate-100 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-white/[0.08]"
+        className="shrink-0 cursor-pointer rounded-full p-1.5 text-slate-300 opacity-100 transition-opacity hover:bg-slate-100 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 dark:text-zinc-600 dark:hover:bg-zinc-800"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

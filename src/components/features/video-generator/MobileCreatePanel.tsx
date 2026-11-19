@@ -13,7 +13,7 @@ import { LowCreditBanner } from "./LowCreditBanner";
 
 function MobileCard({ label, badge, children }: { label: string; badge?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 dark:border-white/[0.08] dark:bg-surface">
+    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 dark:border-white/[0.08] dark:bg-[#131318]">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</span>
         {badge}
@@ -358,7 +358,7 @@ export function MobileCreatePanel({
                 onClick={() => onAspectRatioChange(ratio)}
                 className={cn(
                   "flex flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-semibold transition-colors",
-                  selected ? "bg-white text-blue-600 shadow-sm dark:bg-white/[0.09] dark:text-blue-400" : "text-slate-500 dark:text-slate-400"
+                  selected ? "bg-white text-blue-600 shadow-sm dark:bg-zinc-800 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"
                 )}
               >
                 {ratio}
@@ -472,7 +472,7 @@ export function MobileCreatePanel({
         <LowCreditBanner balance={creditBalance} cost={estimatedCost} onTopUp={onTopUp} />
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-app/90 lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/90 lg:hidden">
         <button
           type="button"
           onClick={() => {

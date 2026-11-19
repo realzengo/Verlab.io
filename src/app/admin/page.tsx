@@ -28,6 +28,7 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
   "/admin/revenue": "MRR, churn and transactions",
   "/admin/api-costs": "What each API provider costs monthly",
   "/admin/usage": "Tool adoption and activity",
+  "/admin/announcements": "Update and offer bar in the app",
   "/admin/system": "Job queue and endpoint health",
   "/admin/settings": "Feature flags and admin team",
 };

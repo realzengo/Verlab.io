@@ -511,7 +511,7 @@ export function FrameImageGenerateModal({
         initial={{ opacity: 0, scale: 0.98, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-        className="flex min-h-0 w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl dark:bg-float"
+        className="flex min-h-0 w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl dark:bg-[#131318]"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 sm:px-5 dark:border-white/[0.08]">
           <div className="min-w-0">

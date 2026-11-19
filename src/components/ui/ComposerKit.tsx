@@ -12,7 +12,7 @@ export const COMPOSER_RIM =
 
 /** The white sheet without a focus state -- for a rim that holds settings rather than a prompt. */
 export const COMPOSER_SHEET_STATIC =
-  "rounded-[22px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-surface dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+  "rounded-[22px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[#141417] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
 
 /** The white prompt sheet; pair with px-5 so the tray's chips land on its text column. */
 export const COMPOSER_SHEET =

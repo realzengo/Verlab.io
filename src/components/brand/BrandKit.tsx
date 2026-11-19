@@ -15,7 +15,7 @@ export const APP_TILE =
   "relative flex items-center justify-center overflow-hidden border " +
   "border-[#E3E5E9] bg-white " +
   "shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_2px_rgba(15,23,42,0.06),0_10px_24px_-8px_rgba(15,23,42,0.16)] " +
-  "dark:border-[color:var(--app-tile-line,#323436)] dark:bg-[color:var(--app-tile,#1B1D20)] " +
+  "dark:border-[#323436] dark:bg-[#1B1D20] " +
   "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_2px_6px_rgba(0,0,0,0.5),0_16px_32px_-8px_rgba(0,0,0,0.75)]";
 
 /**
@@ -62,7 +62,7 @@ export const INK_BUTTON =
 export const BEZEL_FIELD =
   "rounded-[22px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.025]";
 export const BEZEL_FIELD_ROW =
-  "flex items-center gap-2 rounded-2xl border border-[#E6E8EC] bg-white py-2 pl-3 pr-2 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 sm:gap-3 sm:pl-4 dark:border-white/[0.07] dark:bg-[color:var(--app-panel,#0E0E10)]";
+  "flex items-center gap-2 rounded-2xl border border-[#E6E8EC] bg-white py-2 pl-3 pr-2 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] transition-[border-color,box-shadow] duration-150 focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 sm:gap-3 sm:pl-4 dark:border-white/[0.07] dark:bg-[#0E0E10]";
 
 /** A mono step chip: "01", "02". */
 export function MonoChip({ children, className }: { children: ReactNode; className?: string }) {
@@ -102,7 +102,7 @@ export function BezelPanel({
     >
       <div
         className={cn(
-          "overflow-hidden rounded-[24px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[color:var(--app-panel,#0E0E10)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+          "overflow-hidden rounded-[24px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[#0E0E10] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
           innerClassName
         )}
       >

@@ -8,6 +8,8 @@ import { NicheSidebarProvider } from "@/components/dashboard/NicheSidebarContext
 import { SidebarCollapsedProvider } from "@/components/dashboard/SidebarCollapsedContext";
 import { IsAdminProvider } from "@/components/dashboard/IsAdminContext";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
+import { AnnouncementBanner } from "@/components/dashboard/AnnouncementBanner";
+import type { Announcement } from "@/lib/announcements";
 import { fetcher } from "@/lib/client/fetcher";
 import { cn } from "@/lib/utils";
 
@@ -19,10 +21,13 @@ export function AppShell({
   children,
   isPaywalled,
   isAdmin,
+  announcements,
 }: {
   children: React.ReactNode;
   isPaywalled: boolean;
   isAdmin: boolean;
+  /** Live announcements, newest first (lib/server/announcements). */
+  announcements: Announcement[];
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showBackdrop, setShowBackdrop] = useState(false);
@@ -38,6 +43,9 @@ export function AppShell({
 
   const topBarAndMain = (
     <>
+      {/* In the page flow, above the top bar: it pushes content down rather
+          than covering it, and scrolls away with the page. */}
+      <AnnouncementBanner announcements={announcements} />
       <TopBar onMenuClick={() => setMobileNavOpen(true)} heading={isPaywalled ? "Pricing" : undefined} isPaywalled={isPaywalled} />
       <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">{children}</main>
     </>

@@ -97,8 +97,8 @@ export function TopBar({
         // Scoped to this one route rather than applied globally, since other
         // pages (home, MCP) rely on TopBar staying transparent over their
         // own background effects.
-        pathname.startsWith("/niches") && "bg-surface dark:bg-app",
-        isHome && "bg-white dark:bg-app"
+        pathname.startsWith("/niches") && "bg-surface dark:bg-[#000000]",
+        isHome && "bg-white dark:bg-[#010204]"
       )}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">

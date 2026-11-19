@@ -138,7 +138,7 @@ function DropZone({ label, icon: Icon, file, isUploading, onSelect, onClear, inp
       className={cn(
         "group relative flex min-w-0 flex-1 aspect-square cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl text-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
         hasFile
-          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-surface"
+          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
           : "border border-dashed border-slate-300 bg-slate-50/60 hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:bg-white/[0.02] dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06]",
         isDragOver && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10",
         isUploading && "pointer-events-none opacity-70"
@@ -241,7 +241,7 @@ function TranscriptDropZone({ files, isUploading, onSelect, onRemove, inputRef: 
       className={cn(
         "group relative flex min-w-0 flex-1 aspect-square flex-col overflow-hidden rounded-2xl text-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
         hasFiles
-          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-surface"
+          ? "border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
           : "border border-dashed border-slate-300 bg-slate-50/60 hover:border-blue-400 hover:bg-blue-50/50 dark:border-zinc-700 dark:bg-white/[0.02] dark:hover:border-blue-400/50 dark:hover:bg-blue-500/[0.06]",
         isDragOver && "border-blue-400 bg-blue-50/60 dark:border-blue-400/50 dark:bg-blue-500/10"
       )}
@@ -640,8 +640,8 @@ function ScriptWriterPageInner() {
 
       {/* Prompter */}
       <div className="group relative mt-8">
-        <div className="relative rounded-2xl border border-slate-200 shadow-sm transition-shadow duration-300 dark:border-white/10 dark:bg-surface/80">
-          <div className="relative flex flex-col gap-6 rounded-[calc(1rem-1px)] bg-[#F9FAFC] p-5 md:flex-row dark:bg-surface">
+        <div className="relative rounded-2xl border border-slate-200 shadow-sm transition-shadow duration-300 dark:border-white/10 dark:bg-[#111013]/80">
+          <div className="relative flex flex-col gap-6 rounded-[calc(1rem-1px)] bg-[#F9FAFC] p-5 md:flex-row dark:bg-[#111013]">
             {/* Text Input Area */}
             <div className="relative flex flex-1 gap-3">
               <textarea
@@ -827,12 +827,12 @@ function ScriptWriterPageInner() {
           placeholder="Search Scripts..."
           className={cn(
             "w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-400",
-            "focus:border-slate-300 dark:border-zinc-800 dark:bg-surface dark:text-white dark:placeholder:text-zinc-500"
+            "focus:border-slate-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500"
           )}
         />
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-surface/50 sm:p-5">
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50 sm:p-5">
         {isLoadingHistory ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[0, 1, 2].map((i) => (

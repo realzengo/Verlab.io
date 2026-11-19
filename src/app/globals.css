@@ -30,8 +30,6 @@ html {
   --color-hairline: #e4e4e7;
   --color-app: #fafafa;
   --color-surface: #ffffff;
-  /* Floating layers: menus, popovers, dialogs. */
-  --color-float: #ffffff;
   --color-ink: #111827;
   --color-star: #eab308;
 
@@ -97,7 +95,6 @@ html {
   --color-hairline: rgba(255, 255, 255, 0.08);
   --color-app: #09090b;
   --color-surface: #18181b;
-  --color-float: #1c1c1f;
   --color-star: #eab308;
 
   --color-success: #34d399;
@@ -148,7 +145,6 @@ html {
   --color-hairline: var(--color-hairline);
   --color-app: var(--color-app);
   --color-surface: var(--color-surface);
-  --color-float: var(--color-float);
   --color-ink: var(--color-ink);
   --color-star: var(--color-star);
 
@@ -2657,82 +2653,9 @@ html[data-scrolling="true"] *::after {
   --app-fill-strong: rgba(16, 24, 40, 0.07);
 }
 
-/* =========================================================================
-   APP dark mode -- the admin's graphite palette
-   -------------------------------------------------------------------------
-   The dashboard wears the admin's dark colors (`.dark .admin-theme`):
-   graphite with no blue cast, one flat page tone, cards a step up, floating
-   layers (menus, popovers, dialogs) a step above that, the sidebar a step
-   below the page. Same `:root:has(.app-theme)` key as the fills above, so
-   portaled layers get it too; the marketing site keeps the `.dark` palette
-   at the top of this file.
-
-   Colors only: the brand blue stays fixed (85+ `bg-primary` buttons), and
-   radii, type and shadows stay the app's own.
-   ========================================================================= */
-
 :root.dark:has(.app-theme) {
-  --background: #141414;
-  --foreground: #f4f4f4;
-  --color-app: #141414;
-  --color-surface: #1b1b1b;
-  --color-float: #222222;
-
-  --color-heading: #f4f4f4;
-  --color-slate: #f4f4f4;
-  --color-body: #b5b5b5;
-  --color-subtle: #808080;
-  --color-hairline: rgba(255, 255, 255, 0.07);
-
-  --color-btn-secondary: rgba(255, 255, 255, 0.04);
-  --color-btn-secondary-hover: rgba(255, 255, 255, 0.08);
-  --color-btn-secondary-border: rgba(255, 255, 255, 0.1);
-  --color-accent: rgba(92, 124, 255, 0.14);
-  --color-accent-line: rgba(92, 124, 255, 0.28);
-
-  --color-success: #4ade80;
-  --color-success-tint: rgba(34, 197, 94, 0.14);
-  --color-warning: #fbbf24;
-  --color-warning-tint: rgba(245, 158, 11, 0.14);
-  --color-danger: #f87171;
-  --color-danger-tint: rgba(239, 68, 68, 0.14);
-
-  --app-fill: rgba(255, 255, 255, 0.045);
-  --app-fill-strong: rgba(255, 255, 255, 0.085);
-
-  /* Pieces shared with the marketing site read these with their own hex as
-     the fallback (`var(--app-panel, #0e0e10)`), so only the app changes:
-     BrandKit's bezel sheet and app-icon tile, ToolArt's illustration stage. */
-  --app-panel: #222222;
-  --app-tile: #262626;
-  --app-tile-line: #363636;
-  --app-stage: #1f1f1f;
-
-  /* Zinc and slate render as graphite here, so every hand-picked
-     dark:zinc-* / dark:slate-* class loses its blue cast with the rest of
-     the page. Same lightness steps: Tailwind's neutral scale. */
-  --color-zinc-50: oklch(98.5% 0 0);
-  --color-zinc-100: oklch(97% 0 0);
-  --color-zinc-200: oklch(92.2% 0 0);
-  --color-zinc-300: oklch(87% 0 0);
-  --color-zinc-400: oklch(70.8% 0 0);
-  --color-zinc-500: oklch(55.6% 0 0);
-  --color-zinc-600: oklch(43.9% 0 0);
-  --color-zinc-700: oklch(37.1% 0 0);
-  --color-zinc-800: oklch(26.9% 0 0);
-  --color-zinc-900: oklch(20.5% 0 0);
-  --color-zinc-950: oklch(14.5% 0 0);
-  --color-slate-50: oklch(98.5% 0 0);
-  --color-slate-100: oklch(97% 0 0);
-  --color-slate-200: oklch(92.2% 0 0);
-  --color-slate-300: oklch(87% 0 0);
-  --color-slate-400: oklch(70.8% 0 0);
-  --color-slate-500: oklch(55.6% 0 0);
-  --color-slate-600: oklch(43.9% 0 0);
-  --color-slate-700: oklch(37.1% 0 0);
-  --color-slate-800: oklch(26.9% 0 0);
-  --color-slate-900: oklch(20.5% 0 0);
-  --color-slate-950: oklch(14.5% 0 0);
+  --app-fill: rgba(255, 255, 255, 0.05);
+  --app-fill-strong: rgba(255, 255, 255, 0.08);
 }
 
 /* =========================================================================

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AppShell } from "@/components/dashboard/AppShell";
+import { getLiveAnnouncements } from "@/lib/server/announcements";
 
 // The dashboard is gated behind login and a paid subscription -- nothing
 // here should ever appear in search results.
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const headersList = await headers();
+  // Announcements come from a cached read and never throw (see getLiveAnnouncements).
+  const [headersList, announcements] = await Promise.all([headers(), getLiveAnnouncements()]);
   // Cosmetic only (Upgrade button, "Pricing" heading, greeting) -- this
   // layout is shared with /app/settings, which proxy.ts never paywalls, so
   // isPaywalled reads false whenever it was last rendered from a settings
@@ -21,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isAdmin = headersList.get("x-is-admin") === "1";
 
   return (
-    <AppShell isPaywalled={isPaywalled} isAdmin={isAdmin}>
+    <AppShell isPaywalled={isPaywalled} isAdmin={isAdmin} announcements={announcements}>
       {children}
     </AppShell>
   );
