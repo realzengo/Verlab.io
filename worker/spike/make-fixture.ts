@@ -51,6 +51,12 @@ await execFileAsync("ffmpeg", [
   "libx264",
   "-preset",
   "veryfast",
+  // x264 sizes its threads (and their frame buffers) to the HOST's cores; in a
+  // container that's many more than its share, and it got OOM-killed on Railway.
+  "-threads",
+  "2",
+  "-rc-lookahead",
+  "10",
   "-b:v",
   "6M",
   "-g",

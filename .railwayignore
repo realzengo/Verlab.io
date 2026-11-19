@@ -1,0 +1,12 @@
+# `railway up` (the render worker, worker/Dockerfile) uploads only what the
+# image needs: src/, worker/, public/fonts and the root package files.
+backups/
+docs/
+supabase/
+scripts/
+public/*
+!public/fonts/
+worker/spike/fixture/
+worker/spike/out/
+* 2
+* 2.*
