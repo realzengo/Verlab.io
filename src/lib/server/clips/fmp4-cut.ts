@@ -12,6 +12,8 @@
 // exact range while it renders. Several ranges share one read, since
 // reaching any point means reading everything before it.
 
+import { repairMoovAacConfig } from "@/lib/clip-aac-config";
+
 export class Fmp4CutError extends Error {
   constructor(
     message: string,
@@ -573,11 +575,13 @@ export async function cutFragmentedMp4Ranges(
     if (type === "ftyp") {
       ftyp = box;
     } else if (type === "moov") {
-      tracks = parseMoov(box);
+      // Some provider streams leave out the AAC config WebCodecs needs; every cut gets it back.
+      const moov = repairMoovAacConfig(box) ?? box;
+      tracks = parseMoov(moov);
       if (requireAudio && ![...tracks.values()].some((track) => track.kind === "audio")) {
         throw new Fmp4CutError("Source has no audio track", "no_audio");
       }
-      const head = ftyp ? [ftyp, box] : [box];
+      const head = ftyp ? [ftyp, moov] : [moov];
       cutters = ranges.map((range) => new RangeCutter(range, tracks!, head, maxBytes));
     } else if (type === "moof") {
       if (!tracks) throw new Fmp4CutError("Fragment before moov");

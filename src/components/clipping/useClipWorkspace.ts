@@ -9,6 +9,7 @@ import {
   MAX_MISSING_VIDEO,
   MIN_SOURCE_AUDIO,
   checkClipCut,
+  withAacConfig,
   exportClip,
   fetchClipAudio,
   fetchClipSources,
@@ -439,8 +440,9 @@ export function useClipWorkspace(project: ClipProject) {
    * silent result.
    */
   const checkCut = useCallback(
-    async ({ clip, from, to }: SourceRequest, source: ClipSource): Promise<ClipSource | null> => {
+    async ({ clip, from, to }: SourceRequest, cut: ClipSource): Promise<ClipSource | null> => {
       const signal = abort.current.signal;
+      const source = await withAacConfig(cut).catch(() => cut);
       const { missingVideo, audio } = await checkClipCut(source, clip.start, clip.end);
       if (missingVideo > MAX_MISSING_VIDEO) {
         console.warn(`[clips] ${clip.id}: the cut misses ${missingVideo.toFixed(1)}s of the clip`);

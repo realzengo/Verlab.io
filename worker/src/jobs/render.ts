@@ -7,7 +7,13 @@ import { probeStreams, remuxAudioToAac } from "../media";
 import type { PageStage } from "../page-api";
 import type { ClipJobStage, ClipRenderInput } from "@/lib/clip-jobs";
 import { CLIP_EXPORT_MAX_BYTES, clipSourceRange, type ClipMoment, type TranscriptWord } from "@/lib/clips";
-import { cutClipSource, openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
+import {
+  TRIM_AFTER_SECONDS,
+  cutClipSource,
+  cutTrimmedRanges,
+  openClipSource,
+  paddedCutRange,
+} from "@/lib/server/clips/cut-source";
 import { CLIP_SOURCES_BUCKET, clipSourcePath, type StoredClipMoment } from "@/lib/server/clips/precut";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
 
@@ -122,7 +128,9 @@ export async function runRenderJob({
     )
   );
   if ("failed" in result) {
-    if (result.name === "ClipAudioError") throw new JobError("no_audio", result.message, true);
+    // Another try reads the same cut and comes out just as silent; the browser
+    // takes it from here (it fills the sound in from the project's mp3).
+    if (result.name === "ClipAudioError") throw new JobError("no_audio", result.message, false);
     throw new JobError(result.fatal ? "fatal" : "render", result.message, !result.fatal);
   }
 
@@ -196,7 +204,8 @@ async function download(admin: SupabaseClient, storagePath: string, file: string
 
 /**
  * The clip's cut to a local file: the stored pre-cut when it covers the
- * trim, else a read of the source (which this worker can afford: no 300s
+ * trim, else (a clip further in) a trimmed download of just the clip, else
+ * a read of the source from 0:00 (which this worker can afford: no 300s
  * function limit), on a fresh link if a read breaks.
  */
 async function fetchSource(
@@ -229,6 +238,29 @@ async function fetchSource(
 
   const { from, to } = clipSourceRange(clip, project.duration_seconds);
   const range = paddedCutRange({ start: Math.min(from, settings.start), end: Math.max(to, settings.end) });
+  if (range.start >= TRIM_AFTER_SECONDS) {
+    // Retried on fresh links inside; hands the cut over whole, or fails it.
+    const chunks: Uint8Array[] = [];
+    let offset = 0;
+    let done = false;
+    await cutTrimmedRanges(
+      project,
+      [range],
+      (event) => {
+        if (event.type === "start") offset = event.offset;
+        else if (event.type === "data") chunks.push(event.bytes);
+        else if (event.type === "end") done = true;
+      },
+      signal,
+      { onRangeProgress: (_, fraction) => progress("fetching", Math.min(0.99, fraction)) }
+    );
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    if (done) {
+      await writeFile(file, Buffer.concat(chunks));
+      return { file, offset };
+    }
+    // No trimmed download came through: read the stream from 0:00 instead.
+  }
   let lastError: unknown = null;
   for (let read = 0; read < SOURCE_READS; read++) {
     if (signal.aborted) throw new DOMException("Aborted", "AbortError");

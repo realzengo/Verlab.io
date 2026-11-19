@@ -34,6 +34,7 @@ import {
   type TranscriptWord,
 } from "@/lib/clips";
 import { SEGMENT_ALL, SEGMENT_FRAME, SEGMENT_HEADER_BYTES } from "@/lib/clip-segments";
+import { needsAacConfigRepair, repairAacConfig } from "@/lib/clip-aac-config";
 
 export type CaptionTemplate =
   | "pop"
@@ -210,6 +211,18 @@ export interface ClipSource {
   blob: Blob;
   /** Source time (seconds) at 0 in `blob`. */
   offset: number;
+}
+
+/**
+ * The cut with its AAC config put back when the provider's stream left it
+ * out (see clip-aac-config.ts): without it WebCodecs can't decode the sound
+ * and the clip renders silent. Reads only the head when nothing's missing.
+ */
+export async function withAacConfig(source: ClipSource): Promise<ClipSource> {
+  const head = new Uint8Array(await source.blob.slice(0, 512 * 1024).arrayBuffer());
+  if (!needsAacConfigRepair(head)) return source;
+  const fixed = repairAacConfig(new Uint8Array(await source.blob.arrayBuffer()));
+  return { ...source, blob: new Blob([fixed as BlobPart], { type: source.blob.type || "video/mp4" }) };
 }
 
 export class ClipRenderError extends Error {
@@ -2121,7 +2134,7 @@ export interface ExportResult {
  * the file under the library's upload cap.
  */
 export async function exportClip({
-  source,
+  source: given,
   settings,
   words,
   clip,
@@ -2136,6 +2149,7 @@ export async function exportClip({
   if (typeof VideoEncoder === "undefined") {
     throw new ClipRenderError("Your browser can't render video. Use a recent Chrome, Edge or Safari.", { fatal: true });
   }
+  const source = await withAacConfig(given);
 
   let { width, height } = OUTPUT_SIZES[settings.aspect];
   if (!(await mb.canEncodeVideo("avc", { width, height }))) {
