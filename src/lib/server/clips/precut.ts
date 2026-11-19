@@ -24,6 +24,10 @@ const PART_BYTES = 40 * 1024 * 1024;
 const PROGRESS_EVERY_MS = 8_000;
 /** A pre-cut never runs longer than the 300s function it rides on. */
 export const PRECUT_MAX_MS = 300_000;
+// Reads of the source per pre-cut: the first, then fresh links for clips a cut-off read missed.
+const PRECUT_READS = 3;
+// Another read only starts with this much of the deadline left.
+const RETRY_MIN_MS = 30_000;
 
 /** Where a clip's stored cut stands. */
 export type ClipCutState =
@@ -79,6 +83,8 @@ export async function precutClipSources(
   const chunks: Uint8Array[][] = clips.map(() => []);
   const offsets = clips.map(() => 0);
   const finished: Promise<void>[] = [];
+  // Clips whose read broke (the stream ended or errored before them); worth another read.
+  const broken = new Set<number>();
 
   /** Uploads a finished cut (in parts under the bucket's cap) and records it. */
   const store = async (index: number) => {
@@ -112,39 +118,83 @@ export async function precutClipSources(
     await save();
   };
 
-  const upstream = new AbortController();
-  const timer = setTimeout(() => upstream.abort(), Math.max(0, deadline - Date.now()));
-  let lastProgress = Date.now();
-  try {
-    const source = await openClipSource(row, upstream.signal);
-    await cutClipSource(
-      row,
-      source,
-      ranges.map((range) => paddedCutRange({ start: range.from, end: range.to })),
-      (event) => {
-        if (event.type === "start") {
-          offsets[event.index] = event.offset;
-        } else if (event.type === "data") {
-          chunks[event.index].push(event.bytes);
-        } else if (event.type === "end") {
-          finished.push(store(event.index));
-        } else if (Date.now() - lastProgress >= PROGRESS_EVERY_MS) {
-          lastProgress = Date.now();
-          for (const clip of clips) if (clip.cut?.state === "cutting") clip.cut.reached = event.time;
-          void save();
-        }
-      },
-      upstream.signal
-    );
-  } catch (error) {
-    console.error("[clips/precut] read failed:", upstream.signal.aborted ? "out of time" : error);
-  } finally {
-    clearTimeout(timer);
-    upstream.abort();
+  /** One read of the source for the clips at `indices`; true if it ran out of time. */
+  const read = async (indices: number[], fresh: boolean): Promise<boolean> => {
+    const upstream = new AbortController();
+    const timer = setTimeout(() => upstream.abort(), Math.max(0, deadline - Date.now()));
+    let lastProgress = Date.now();
+    // Cut in full this read (storing may still be under way): never read again.
+    const ended = new Set<number>();
+    try {
+      const source = await openClipSource(row, upstream.signal, { fresh });
+      await cutClipSource(
+        row,
+        source,
+        indices.map((index) => paddedCutRange({ start: ranges[index].from, end: ranges[index].to })),
+        (event) => {
+          if (event.type === "progress") {
+            if (Date.now() - lastProgress < PROGRESS_EVERY_MS) return;
+            lastProgress = Date.now();
+            for (const index of indices) {
+              const cut = clips[index].cut;
+              if (cut?.state === "cutting") cut.reached = event.time;
+            }
+            void save();
+            return;
+          }
+          const index = indices[event.index];
+          if (event.type === "start") {
+            offsets[index] = event.offset;
+          } else if (event.type === "data") {
+            chunks[index].push(event.bytes);
+          } else if (event.type === "failed") {
+            // The stream ended before this clip did: never store a truncated cut.
+            console.warn(`[clips/precut] ${clips[index].id} of ${row.id}: stream ended early`);
+            chunks[index] = [];
+            broken.add(index);
+          } else {
+            if (event.audio < 0.8) {
+              // Stored anyway; the editor fills the missing sound from the project's mp3.
+              console.warn(
+                `[clips/precut] ${clips[index].id} of ${row.id}: ${Math.round(event.audio * 100)}% of it has sound`
+              );
+            }
+            ended.add(index);
+            finished.push(store(index));
+          }
+        },
+        upstream.signal
+      );
+      return false;
+    } catch (error) {
+      const outOfTime = upstream.signal.aborted;
+      console.error("[clips/precut] read failed:", outOfTime ? "out of time" : error);
+      if (!outOfTime) for (const index of indices) if (!ended.has(index)) broken.add(index);
+      return outOfTime;
+    } finally {
+      clearTimeout(timer);
+      upstream.abort();
+    }
+  };
+
+  // A read the provider cut off (or broke) is tried again on a fresh link
+  // while there's time; one that simply ran out of time isn't.
+  let indices = clips.map((_, index) => index);
+  for (let attempt = 0; attempt < PRECUT_READS && indices.length; attempt++) {
+    if (attempt > 0 && deadline - Date.now() < RETRY_MIN_MS) break;
+    broken.clear();
+    for (const index of indices) {
+      chunks[index] = [];
+      clips[index].cut = { state: "cutting", startedAt, reached: 0 };
+    }
+    const outOfTime = await read(indices, attempt > 0);
+    if (outOfTime) break;
+    indices = indices.filter((index) => broken.has(index));
+    if (indices.length) console.warn(`[clips/precut] ${row.id}: reading ${indices.length} clip(s) again`);
   }
 
   await Promise.all(finished);
-  // Whatever the read didn't reach: the editor cuts these itself.
+  // Whatever the reads didn't reach: the editor cuts these itself.
   for (const clip of clips) if (clip.cut?.state === "cutting") clip.cut = { state: "failed" };
   await save();
 }

@@ -63,7 +63,7 @@ export function AvatarDialog({
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "relative flex w-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#131318]",
+          "relative flex w-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-float",
           className
         )}
       >

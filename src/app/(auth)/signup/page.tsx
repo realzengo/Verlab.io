@@ -121,10 +121,10 @@ function SignupForm() {
       transition={FADE_TRANSITION}
       className="text-center"
     >
-      <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
+      <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#335cff]/10 text-[#335cff]">
         <CheckCircle2 className="h-6 w-6" />
       </div>
-      <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+      <h1 className="text-[30px] font-bold leading-tight tracking-[-0.03em] text-heading">
         Check your inbox
       </h1>
       <p className="mt-1.5 text-sm text-body">
@@ -134,7 +134,7 @@ function SignupForm() {
       </p>
       <Link
         href="/login"
-        className="mt-6 inline-flex text-sm font-semibold text-[#0075ff] hover:underline"
+        className="mt-6 inline-flex text-sm font-semibold text-[#335cff] hover:underline"
       >
         Back to sign in
       </Link>
@@ -147,7 +147,7 @@ function SignupForm() {
       exit={{ opacity: 0, y: -6 }}
       transition={FADE_TRANSITION}
     >
-      <h1 className="text-center text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+      <h1 className="text-center text-[30px] font-bold leading-tight tracking-[-0.03em] text-heading">
         Create your Verlab account
       </h1>
       <p className="mt-1.5 text-center text-sm text-body">
@@ -164,10 +164,10 @@ function SignupForm() {
         Continue with Google
       </button>
 
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-hairline" />
-        <span className="text-xs font-medium text-subtle">or sign up with email</span>
-        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-hairline" />
+      <div className="my-6 flex items-center gap-4">
+        <div className="h-px flex-1 bg-hairline" />
+        <span className="text-xs font-medium uppercase text-subtle">or</span>
+        <div className="h-px flex-1 bg-hairline" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
@@ -199,13 +199,13 @@ function SignupForm() {
             placeholder="Password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className={`${AUTH_INPUT_CLASSES} pr-10`}
+            className={`${AUTH_INPUT_CLASSES} pr-12`}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
@@ -226,7 +226,7 @@ function SignupForm() {
 
       <p className="mt-4 text-center text-sm text-body">
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-[#0075ff] hover:underline">
+        <Link href="/login" className="font-semibold text-[#335cff] hover:underline">
           Sign in here
         </Link>
       </p>

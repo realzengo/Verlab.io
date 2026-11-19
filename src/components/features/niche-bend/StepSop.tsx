@@ -41,7 +41,7 @@ function SectionHeading({ id }: { id: string }) {
 }
 
 const secondaryButton =
-  "inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-white px-3.5 text-[13px] font-medium text-heading shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] disabled:pointer-events-none disabled:opacity-50 dark:bg-[#1C1C1F] dark:hover:bg-[#232326]";
+  "inline-flex h-9 items-center gap-1.5 rounded-full border border-hairline bg-white px-3.5 text-[13px] font-medium text-heading shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#F7F8FA] disabled:pointer-events-none disabled:opacity-50 dark:bg-white/[0.04] dark:hover:bg-white/[0.085]";
 const primaryButton = `${INK_BUTTON} h-9 px-4 text-[13px]`;
 
 function DefRow({ label, children }: { label: string; children: React.ReactNode }) {

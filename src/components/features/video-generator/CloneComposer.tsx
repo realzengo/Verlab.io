@@ -330,7 +330,7 @@ export function CloneComposer({
 
   return (
     // Phone radius 28 = the rows' 16 + this 12px padding, so the corners nest.
-    <div className="flex w-full flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-sm transition-[border-color,box-shadow] duration-200 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(51,92,255,0.12)] lg:rounded-[2rem] lg:p-4 dark:border-white/[0.08] dark:bg-[#131318] dark:focus-within:border-blue-500/70">
+    <div className="flex w-full flex-col gap-3 rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-sm transition-[border-color,box-shadow] duration-200 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(51,92,255,0.12)] lg:rounded-[2rem] lg:p-4 dark:border-white/[0.08] dark:bg-surface dark:focus-within:border-blue-500/70">
       <div className="flex flex-col gap-3 lg:flex-row lg:gap-4">
         {/* Phone: the video and the images as two full-width rows */}
         <div className="flex flex-col gap-2 lg:hidden">
@@ -630,7 +630,7 @@ export function CloneComposer({
                 ) : (
                   <span className="flex">
                     {[UserRound, Shirt, Package, MapPin].map((Icon, index) => (
-                      <UploadOrb key={index} icon={Icon} className={cn("h-8 w-8 ring-2 ring-white dark:ring-[#131318]", index > 0 && "-ml-2")} />
+                      <UploadOrb key={index} icon={Icon} className={cn("h-8 w-8 ring-2 ring-white dark:ring-surface", index > 0 && "-ml-2")} />
                     ))}
                   </span>
                 )}
@@ -757,7 +757,7 @@ export function CloneComposer({
       </div>
 
       {/* Phone action bar -- the same fixed bar Create uses (MobileCreatePanel). */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden dark:border-white/[0.08] dark:bg-zinc-950/90">
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center border-t border-slate-200/70 bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden dark:border-white/[0.08] dark:bg-app/90">
         <PlasticButton
           text="Generate"
           loading={isGenerating}

@@ -31,10 +31,16 @@ import { Segmented, useMediaQuery } from "@/components/clipping/parts";
 import type { ClipWorkspace, SourceState, TrackState } from "@/components/clipping/useClipWorkspace";
 import {
   CAPTION_FONTS,
+  CAPTION_TEMPLATES,
   CAPTION_PRESET_Y,
   HOOK_PRESET_Y,
+  NO_ADJUST,
   OUTPUT_SIZES,
+  PANEL_NAMES,
   captionTakesColor,
+  isAdjusted,
+  panelAdjust,
+  withPanelAdjust,
   planFor,
   usesTracking,
   createFramePainter,
@@ -55,6 +61,8 @@ import {
   type ClipSource,
   type FrameCrop,
   type FramePlacement,
+  type PanelAdjust,
+  type PanelPlacement,
   type HookMotion,
   type HookStyle,
 } from "@/lib/client/clip-render";
@@ -85,6 +93,8 @@ import "@fontsource/anton/latin-400.css";
 import "@fontsource/bebas-neue/latin-400.css";
 import "@fontsource/luckiest-guy/latin-400.css";
 import "./montserrat-arabic.css";
+import "./komika-axis.css";
+import { FontSelect } from "@/components/clipping/FontSelect";
 
 const MIN_CLIP_SECONDS = 5;
 const TRIM_STEP = 0.5;
@@ -133,6 +143,34 @@ type Movable = "caption" | "hook";
 const SNAP = 0.025;
 /** How near the AI's framing (or the middle, in manual) a dragged picture snaps back onto it, as a share of the source width. */
 const PAN_SNAP = 0.015;
+// Correcting an AI panel: how far its crop zooms out and in on the AI's, and
+// the least of the source's height it may show (closer only blows up pixels).
+const PANEL_ZOOM_MIN = 0.5;
+const PANEL_ZOOM_MAX = 4;
+const PANEL_MIN_SHOWN = 0.08;
+
+/** The AI panel under a point on the preview (client coordinates), if any. */
+function panelAt(panels: PanelPlacement[], canvas: HTMLElement, clientX: number, clientY: number) {
+  const box = canvas.getBoundingClientRect();
+  const x = (clientX - box.left) / box.width;
+  const y = (clientY - box.top) / box.height;
+  return panels.find((p) => x >= p.rect.x && x <= p.rect.x + p.rect.w && y >= p.rect.y && y <= p.rect.y + p.rect.h) ?? null;
+}
+
+/**
+ * A panel's zoom, kept to what changes the picture: its crop no bigger than
+ * the source (`shown` was measured at the panel's current zoom), and no
+ * smaller than PANEL_MIN_SHOWN of it. No snapping to 1: a pinch moves a
+ * percent at a time and would never get off it (Reset puts it back).
+ */
+function zoomWithin(panel: PanelPlacement, wanted: number): number {
+  const current = panel.adjust.zoom;
+  const height = panel.shown.sh / panel.srcH;
+  const share = Math.max(panel.shown.sw / panel.srcW, height);
+  const min = Math.max(PANEL_ZOOM_MIN, Math.min(current, current * share));
+  const max = Math.min(PANEL_ZOOM_MAX, Math.max(current, (current * height) / PANEL_MIN_SHOWN));
+  return Math.min(max, Math.max(min, wanted));
+}
 
 const positionOf = (settings: ClipEditSettings, what: Movable) =>
   what === "caption" ? settings.captionPosition : settings.hookPosition;
@@ -682,7 +720,6 @@ const TEMPLATE_SWATCHES: {
 ];
 
 const SWATCH_BACKDROP = "bg-[radial-gradient(120%_120%_at_30%_20%,#3a3f4b,#121318)]";
-const FONT_IDS = Object.keys(CAPTION_FONTS) as CaptionFont[];
 const CAPTION_COLORS = ["#FFE14D", "#4ADE80", "#335CFF", "#22D3EE", "#F472B6", "#FF5C5C", "#FFFFFF"];
 const HOOK_LOOK_SWATCHES: { value: HookStyle; label: string; chip: string }[] = [
   { value: "card", label: "Card", chip: "bg-white text-[#0B0D12]" },
@@ -898,52 +935,76 @@ function ColorChoice({
   );
 }
 
-/** Font choices, each name set in its own face. */
-function FontPicker<T extends CaptionFont | "auto">({
-  label,
-  value,
+/**
+ * Each panel of the layouts the AI uses in this clip, zoomed (and put back)
+ * from the sidebar: the preview moves them, and on a touch screen this is
+ * where they zoom.
+ */
+function PanelZooms({
+  layouts,
+  settings,
   onChange,
-  withAuto,
 }: {
-  label: string;
-  value: T;
-  onChange: (value: T) => void;
-  withAuto?: boolean;
+  layouts: LayoutId[];
+  settings: ClipEditSettings;
+  onChange: (patch: Partial<ClipEditSettings>) => void;
 }) {
-  const options = [...(withAuto ? (["auto"] as const) : []), ...FONT_IDS] as T[];
+  const touch = useMediaQuery("(pointer: coarse)");
+  const correctable = layouts.filter((id): id is Exclude<LayoutId, "fit"> => id !== "fit");
+  if (!correctable.length) return null;
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {options.map((id) => {
-        const selected = id === value;
-        const font = id === "auto" ? null : CAPTION_FONTS[id as CaptionFont];
-        return (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(id)}
-            style={
-              font
-                ? {
-                    fontFamily: `${font.family}, sans-serif`,
-                    fontWeight: font.weights[font.weights.length - 1],
-                  }
-                : undefined
-            }
-            className={cn(
-              "h-8 rounded-full px-3 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/40",
-              !font && "font-medium",
-              selected
-                ? "bg-heading text-surface dark:bg-white dark:text-[#0B0D12]"
-                : "bg-(--app-fill) text-heading hover:bg-(--app-fill-strong)"
+    <Field label="Panels">
+      <div className="space-y-3.5">
+        {correctable.map((layout) => (
+          <div key={layout} className="space-y-2">
+            {correctable.length > 1 && (
+              <div className="text-[11.5px] font-medium text-subtle">
+                {LAYOUTS.find((option) => option.id === layout)?.label}
+              </div>
             )}
-          >
-            {font ? font.label : "Template"}
-          </button>
-        );
-      })}
-    </div>
+            {PANEL_NAMES[layout].map((name, index) => {
+              const adjust = panelAdjust(settings, layout, index);
+              const set = (next: PanelAdjust) =>
+                onChange({ framing: withPanelAdjust(settings.framing, layout, index, next) });
+              const label = layout === "fill" ? "Zoom" : name;
+              return (
+                <div key={name} className="flex items-center gap-3">
+                  <span className="w-[84px] shrink-0 truncate text-[13px] text-body">{label}</span>
+                  <div className="min-w-0 flex-1">
+                    <Slider
+                      label={`${label} zoom`}
+                      value={adjust.zoom}
+                      min={PANEL_ZOOM_MIN}
+                      max={3}
+                      step={0.01}
+                      onChange={(zoom) => set({ ...adjust, zoom })}
+                    />
+                  </div>
+                  <span className="w-10 shrink-0 text-right font-mono text-[11.5px] tabular-nums text-subtle">
+                    {Math.round(adjust.zoom * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set(NO_ADJUST)}
+                    disabled={!isAdjusted(adjust)}
+                    aria-label={`Put ${label.toLowerCase()} back to the AI's framing`}
+                    title="Back to the AI's framing"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-subtle outline-none transition-colors hover:bg-(--app-fill) hover:text-heading focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+        <p className="text-[12px] leading-snug text-subtle">
+          {touch
+            ? "Drag a panel in the preview to move what it shows."
+            : "Drag a panel in the preview to move what it shows. Pinch, or hold ⌘ or Ctrl and scroll, over it to zoom."}
+        </p>
+      </div>
+    </Field>
   );
 }
 
@@ -1458,7 +1519,7 @@ function ClipSettingsPanel({
                   </div>
                 </Field>
                 <Field label="Font">
-                  <FontPicker
+                  <FontSelect
                     label="Hook font"
                     value={settings.hookFont}
                     onChange={(hookFont) => onChange({ hookFont })}
@@ -1630,6 +1691,9 @@ function ClipSettingsPanel({
                         <p className="text-[12px] leading-snug text-subtle">{ZOOM_NOTES[settings.zoom]}</p>
                       </Field>
                     )}
+                    {plan && !settings.bottomVideo && (
+                      <PanelZooms layouts={plan.used} settings={settings} onChange={onChange} />
+                    )}
                   </>
                 ) : (
                   <Field label="Position" value={`${Math.round(settings.focusX * 100)}%`}>
@@ -1785,11 +1849,12 @@ function ClipSettingsPanel({
                 </Field>
               ))}
               <Field label="Font">
-                <FontPicker
+                <FontSelect
                   label="Caption font"
                   value={settings.captionFont}
                   onChange={(captionFont) => onChange({ captionFont })}
                   withAuto
+                  autoFont={captionsOn ? CAPTION_TEMPLATES[settings.captions as Exclude<CaptionTemplate, "off">].font : undefined}
                 />
               </Field>
               <Field label="Size" value={`${Math.round(settings.captionSize * 100)}%`}>
@@ -2013,12 +2078,22 @@ function ClipPreview({
   const [canPan, setCanPan] = useState(false);
   /** When a pan ended, so the click that ends it doesn't also play. */
   const panEnded = useRef(0);
+  // Correcting the AI's panels (Gameplay's webcam and game, a Split's people,
+  // Fill's frame): the panels on screen, kept only when their places change,
+  // the one under the pointer, and the one being moved (fresh each frame, for
+  // the navigator). A pinch's zoom runs ahead of the repaint in zoomedRef.
+  const [panels, setPanels] = useState<PanelPlacement[]>([]);
+  const panelsKey = useRef("");
+  const [hoveredPanel, setHoveredPanel] = useState<number | null>(null);
+  const movingPanelRef = useRef<number | null>(null);
+  const [movingPanel, setMovingPanel] = useState<PanelPlacement | null>(null);
+  const zoomedRef = useRef<{ key: string; zoom: number; at: number } | null>(null);
   const [captionCovered, setCaptionCovered] = useState(false);
   const [hookCovered, setHookCovered] = useState(false);
   // No hover on a touch screen: a paused preview shows what can be moved instead.
   const touch = useMediaQuery("(pointer: coarse)");
 
-  const latest = useRef({ settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor });
+  const latest = useRef({ settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor, onChange });
   const paint = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -2060,6 +2135,14 @@ function ClipPreview({
     });
     placement.current = placed;
     setCanPan(placed.crop !== null);
+    const key = placed.panels
+      .map((p) => `${p.layout}${p.index}:${[p.rect.x, p.rect.y, p.rect.w, p.rect.h].map((v) => v.toFixed(3))}`)
+      .join("|");
+    if (key !== panelsKey.current) {
+      panelsKey.current = key;
+      setPanels(placed.panels);
+    }
+    if (movingPanelRef.current !== null) setMovingPanel(placed.panels[movingPanelRef.current] ?? null);
     if (panningRef.current && placed.crop) {
       setPanCrop(placed.crop);
       const ghost = ghostRef.current;
@@ -2096,9 +2179,9 @@ function ClipPreview({
   }, []);
 
   useEffect(() => {
-    latest.current = { settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor };
+    latest.current = { settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor, onChange };
     paint();
-  }, [settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor, paint]);
+  }, [settings, captions, offset, ranges, path, plan, placing, focus, touch, onAnchor, onChange, paint]);
 
   const fontKey = fontsFor(settings, words).join();
   useEffect(() => {
@@ -2319,10 +2402,122 @@ function ClipPreview({
     canvas.addEventListener("pointerup", up);
     canvas.addEventListener("pointercancel", up);
   };
+  /**
+   * Dragging one of the AI's panels moves what it shows, under the pointer,
+   * in any direction: the correction (see PanelAdjust) rides on the AI's crop,
+   * stays on the source, and snaps back onto the AI's framing close by.
+   */
+  const startPanelMove = (event: React.PointerEvent<HTMLCanvasElement>, panel: PanelPlacement) => {
+    const canvas = event.currentTarget;
+    const box = canvas.getBoundingClientRect();
+    canvas.setPointerCapture(event.pointerId);
+    const { shown, drawn, srcW, srcH, base, adjust: from, layout, index } = panel;
+    const framing = settings.framing;
+    // The crop's share of the source, and how far its center may go while it stays on it.
+    const shareX = shown.sw / srcW;
+    const shareY = shown.sh / srcH;
+    const keep = (value: number, share: number, center: number) => {
+      const low = share / 2 - center;
+      const high = 1 - share / 2 - center;
+      const kept = low > high ? value : Math.min(high, Math.max(low, value));
+      return Math.abs(kept) < PAN_SNAP ? 0 : kept;
+    };
+    const { clientX, clientY } = event;
+    let moved = false;
+    const move = (e: PointerEvent) => {
+      const dx = e.clientX - clientX;
+      const dy = e.clientY - clientY;
+      if (!moved && Math.hypot(dx, dy) < 4) return;
+      if (!moved) {
+        moved = true;
+        movingPanelRef.current = index;
+        setMovingPanel(panel);
+      }
+      // The pointer's travel across the drawn picture, in source, the other way.
+      const x = keep(from.x - (dx / box.width / drawn.w) * shareX, shareX, base.cx);
+      const y = keep(from.y - (dy / box.height / drawn.h) * shareY, shareY, base.cy);
+      onChange({ framing: withPanelAdjust(framing, layout, index, { ...from, x, y }) });
+    };
+    const up = () => {
+      canvas.removeEventListener("pointermove", move);
+      canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointercancel", up);
+      if (!moved) return;
+      panEnded.current = performance.now();
+      movingPanelRef.current = null;
+      setMovingPanel(null);
+      paint();
+    };
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointercancel", up);
+  };
+
+  /** A press on the picture: an AI panel moves on its own; else the Fill crop slides (startPan). */
+  const startReframe = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const list = placement.current?.panels;
+    if (!list?.length) {
+      startPan(event);
+      return;
+    }
+    const panel = event.button === 0 ? panelAt(list, event.currentTarget, event.clientX, event.clientY) : null;
+    if (panel) startPanelMove(event, panel);
+  };
+
+  const hoverPanel = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerType !== "mouse" || movingPanelRef.current !== null) return;
+    const list = placement.current?.panels ?? [];
+    const index = list.length ? (panelAt(list, event.currentTarget, event.clientX, event.clientY)?.index ?? null) : null;
+    setHoveredPanel((current) => (current === index ? current : index));
+  };
+
+  // Zooming a panel: a pinch on a trackpad (a wheel with Ctrl), or the wheel
+  // with Ctrl or ⌘ held. A plain wheel still scrolls the page. Native, since
+  // React's wheel listener is passive and couldn't stop the page zooming.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      const list = placement.current?.panels;
+      const panel = list?.length ? panelAt(list, canvas, event.clientX, event.clientY) : null;
+      if (!panel) return;
+      event.preventDefault();
+      const key = `${panel.layout}:${panel.index}`;
+      const last = zoomedRef.current;
+      const current = last?.key === key && event.timeStamp - last.at < 400 ? last.zoom : panel.adjust.zoom;
+      const step = Math.max(-40, Math.min(40, event.deltaY));
+      const zoom = zoomWithin(panel, current * Math.exp(-step * 0.01));
+      zoomedRef.current = { key, zoom, at: event.timeStamp };
+      const { settings: s, onChange: change } = latest.current;
+      change({
+        framing: withPanelAdjust(s.framing, panel.layout, panel.index, {
+          ...panelAdjust(s, panel.layout, panel.index),
+          zoom,
+        }),
+      });
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [ready]);
+
+  /** The live layout's panels the user has corrected. */
+  const corrected =
+    liveLayout !== null && liveLayout !== "fit" && (settings.framing?.[liveLayout] ?? []).some(isAdjusted);
+
   /** Moved off where the AI (or, in manual, the middle) framed it. */
   const panned =
     settings.aspect !== "16:9" && (settings.reframe === "auto" ? (settings.panX ?? 0) !== 0 : settings.focusX !== 0.5);
-  const resetPan = () => onChange(settings.reframe === "auto" ? { panX: 0 } : { focusX: 0.5 });
+  const resetPan = () =>
+    onChange(
+      settings.reframe === "auto"
+        ? {
+            panX: 0,
+            // The panels of the layout on screen, back to the AI's framing.
+            ...(liveLayout ? { framing: { ...settings.framing, [liveLayout]: [] } } : {}),
+          }
+        : { focusX: 0.5 }
+    );
 
   const moving = dragging ?? resizing ?? placing;
   const showZones = settings.aspect === "9:16" && moving !== null;
@@ -2416,15 +2611,67 @@ function ClipPreview({
                     ref={canvasRef}
                     width={size.width}
                     height={size.height}
-                    onPointerDown={startPan}
+                    onPointerDown={startReframe}
+                    onPointerMove={hoverPanel}
+                    onPointerLeave={() => setHoveredPanel(null)}
                     onClick={() => {
                       if (performance.now() - panEnded.current > 250) toggle();
                     }}
                     className={cn(
                       "absolute inset-0 h-full w-full",
-                      panning ? "cursor-grabbing" : canPan ? "cursor-grab touch-none" : "cursor-pointer"
+                      panning || movingPanel
+                        ? "cursor-grabbing"
+                        : canPan || panels.length
+                          ? "cursor-grab touch-none"
+                          : "cursor-pointer"
                     )}
                   />
+                  {/* the AI's panels: the one under the pointer (every one, paused on a touch screen), and the one moved */}
+                  {panels.map((panel) => {
+                    const active = movingPanel?.index === panel.index;
+                    const shown =
+                      active ||
+                      (!movingPanel && !panning && !moving && (hoveredPanel === panel.index || (touch && !playing)));
+                    const name = panel.layout === "fit" ? "" : PANEL_NAMES[panel.layout][panel.index];
+                    const single = panels.length === 1;
+                    return (
+                      <div
+                        key={`${panel.layout}${panel.index}`}
+                        aria-hidden
+                        className={cn(
+                          "pointer-events-none absolute transition-opacity duration-150",
+                          single && "rounded-[20px]",
+                          shown ? "opacity-100" : "opacity-0"
+                        )}
+                        style={{
+                          left: `${panel.rect.x * 100}%`,
+                          top: `${panel.rect.y * 100}%`,
+                          width: `${panel.rect.w * 100}%`,
+                          height: `${panel.rect.h * 100}%`,
+                        }}
+                      >
+                        {active &&
+                          [1 / 3, 2 / 3].map((at) => (
+                            <span key={at}>
+                              <span className="absolute inset-y-0 w-px bg-white/30" style={{ left: `${at * 100}%` }} />
+                              <span className="absolute inset-x-0 h-px bg-white/30" style={{ top: `${at * 100}%` }} />
+                            </span>
+                          ))}
+                        <span
+                          className={cn(
+                            "absolute inset-0 rounded-[inherit] ring-inset",
+                            active ? "ring-2 ring-primary" : "ring-[1.5px] ring-white/75"
+                          )}
+                        />
+                        {!active && !single && (
+                          <span className="absolute left-2 top-2 inline-flex h-6 items-center gap-1 rounded-full bg-black/60 px-2 text-[10.5px] font-medium text-white backdrop-blur-md">
+                            <Move className="h-3 w-3" />
+                            {name}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                   {/* while dragged: the crop's outline and thirds */}
                   {panCrop && (
                     <div
@@ -2525,18 +2772,20 @@ function ClipPreview({
                     </button>
                   )}
                   {panning && panCrop && <PanNavigator crop={panCrop} auto={settings.reframe === "auto"} panned={panned} />}
-                  {canPan && !panned && !playing && !moving && !panning && (
+                  {movingPanel && <PanelNavigator panel={movingPanel} adjust={panelAdjust(settings, movingPanel.layout, movingPanel.index)} />}
+                  {(canPan || panels.length > 0) && !panned && !corrected && !playing && !moving && !panning && (
                     <span
                       className={cn(
                         "pointer-events-none absolute bottom-3 left-3 inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white backdrop-blur-md transition-opacity duration-150",
                         touch ? "opacity-100" : "opacity-0 group-hover/stage:opacity-100"
                       )}
                     >
-                      <MoveHorizontal className="h-3.5 w-3.5" /> {narrow ? "Drag" : "Drag to reframe"}
+                      {panels.length > 0 ? <Move className="h-3.5 w-3.5" /> : <MoveHorizontal className="h-3.5 w-3.5" />}{" "}
+                      {narrow ? "Drag" : panels.length > 1 ? "Drag a panel to reframe it" : "Drag to reframe"}
                     </span>
                   )}
                   <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5">
-                    {panned && !panning && (
+                    {(panned || corrected) && !panning && !movingPanel && (
                       <button
                         type="button"
                         onClick={resetPan}
@@ -2809,6 +3058,45 @@ function ghostRect(crop: FrameCrop, box: { width: number; height: number }): CSS
  * While the picture is dragged: a map of the source with the crop's window
  * and the AI's spot (the middle, in manual), and where the window sits.
  */
+/**
+ * While one of the AI's panels is moved: the whole source with the panel's
+ * crop on it and the AI's own center as a dot, its name, and its zoom.
+ */
+function PanelNavigator({ panel, adjust }: { panel: PanelPlacement; adjust: PanelAdjust }) {
+  const { shown, srcW, srcH, base } = panel;
+  const mapWidth = 44;
+  const mapHeight = Math.round(Math.min(26, (mapWidth * srcH) / srcW));
+  const pct = (part: number, whole: number) => `${(part / whole) * 100}%`;
+  const name = panel.layout === "fit" ? "" : PANEL_NAMES[panel.layout][panel.index];
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-3 inline-flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-[12px] bg-black/65 py-1.5 pl-1.5 pr-3 text-[11px] font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.25)] ring-1 ring-white/10 backdrop-blur-md">
+      <span className="relative overflow-hidden rounded-[6px] bg-white/15" style={{ width: mapWidth, height: mapHeight }}>
+        <span
+          className="absolute rounded-[3px] border-[1.5px] border-white bg-white/25"
+          style={{
+            left: pct(shown.sx, srcW),
+            width: pct(shown.sw, srcW),
+            top: pct(shown.sy, srcH),
+            height: pct(shown.sh, srcH),
+          }}
+        />
+        <span
+          className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+          style={{ left: `${base.cx * 100}%`, top: `${base.cy * 100}%` }}
+        />
+      </span>
+      {name && name !== "Frame" && <span>{name}</span>}
+      {isAdjusted(adjust) ? (
+        <span className="font-mono tabular-nums text-white/75">{Math.round(adjust.zoom * 100)}%</span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-white/75">
+          <ScanFace className="h-3.5 w-3.5" /> AI framing
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PanNavigator({ crop, auto, panned }: { crop: FrameCrop; auto: boolean; panned: boolean }) {
   const mapWidth = 44;
   const mapHeight = Math.round(Math.min(26, (mapWidth * crop.srcH) / crop.srcW));

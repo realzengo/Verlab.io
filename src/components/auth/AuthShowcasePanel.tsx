@@ -1,189 +1,135 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion } from "framer-motion";
-import { MeshGradient } from "@paper-design/shaders-react";
-import { GradientOrb } from "@/components/auth/GradientOrb";
-import { MeshDriftShader } from "@/components/auth/MeshDriftShader";
-import { TubesBackground } from "@/components/auth/TubesBackground";
+import { motion } from "framer-motion";
+import { Play } from "lucide-react";
 import { ProtectedVideo } from "@/components/dashboard/ProtectedVideo";
+import { cn } from "@/lib/utils";
 
-const ROTATE_MS = 7500;
+/* The grey half of the sign-in page: a headline, three faceless shorts (two
+ * cartoon explainers around an AI Video Generator clip), and the same "100k+"
+ * social proof the landing hero carries. Auth routes are never themed, so the
+ * colors are fixed light values. */
 
-// Each tool gets its own background effect. Most reuse the shared mesh
-// shader with different hue/scale/warp; swap a tool's entry to a different
-// component to give it a distinct effect.
-const FEATURES = [
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const CLIPS = [
   {
-    tab: "Finder",
-    title: "Niche Finder",
-    subtitle: "Discover non-competitive faceless niches, backed by real transcripts.",
-    background: () => (
-      <MeshGradient
-        className="absolute inset-0 h-full w-full"
-        distortion={0.8}
-        swirl={0.1}
-        offsetX={0}
-        offsetY={0}
-        scale={1}
-        rotation={0}
-        speed={1}
-        colors={["hsl(216, 90%, 27%)", "hsl(243, 68%, 36%)", "hsl(205, 91%, 64%)", "hsl(211, 61%, 57%)"]}
-      />
-    ),
+    key: "school-college",
+    video: "/videos/school-college.mp4",
+    poster: "/videos/school-college-poster.jpg",
+    views: "870K",
   },
   {
-    tab: "Bending",
-    title: "Niche Bending",
-    subtitle: "Reinvent proven formats into fresh angles for your channel.",
-    background: () => <MeshDriftShader className="absolute inset-0" />,
+    key: "ai-video",
+    video: "/videos/video-generator-showcase.mp4",
+    poster: "/videos/video-generator-showcase-poster.jpg",
+    views: "2.4M",
+    featured: true,
   },
   {
-    tab: "Scripts",
-    title: "AI Scripts",
-    subtitle: "Generate ready-to-record scripts from any transcript in seconds.",
-    background: () => <TubesBackground className="absolute inset-0" />,
+    key: "misc",
+    video: "/videos/misc.mp4",
+    poster: "/videos/misc-poster.jpg",
+    views: "1.3M",
   },
-  {
-    tab: "Voice",
-    title: "AI Voiceovers",
-    subtitle: "Turn scripts into natural voiceovers with one click.",
-    background: () => (
-      <GradientOrb
-        className="absolute inset-x-0 -top-24 bottom-0"
-        config={{ background: "#08080c" }}
-      />
-    ),
-  },
-  {
-    tab: "Images",
-    title: "AI Images",
-    subtitle: "Generate scroll-stopping thumbnails and cover art in seconds.",
-    background: () => (
-      <Image
-        src="/auth-showcase-images-v2.jpg"
-        alt=""
-        fill
-        priority
-        className="object-cover"
-      />
-    ),
-  },
-  {
-    tab: "Video",
-    title: "AI Video",
-    subtitle: "Turn a script into a fully edited video in minutes.",
-    background: () => (
-      <ProtectedVideo
-        src="/videos/video-generator-showcase.mp4"
-        poster="/videos/video-generator-showcase-poster.jpg"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-    ),
-  },
+] as const;
+
+const AVATARS = [
+  "/reviewers/reviewer-02.jpeg",
+  "/reviewers/reviewer-04.jpeg",
+  "/reviewers/reviewer-07.jpeg",
+  "/reviewers/reviewer-08.jpeg",
 ];
 
 export function AuthShowcasePanel() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % FEATURES.length);
-    }, ROTATE_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  const feature = FEATURES[index];
-
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl bg-[#08080c]">
-      <AnimatePresence mode="sync">
-        <motion.div
-          key={feature.tab}
-          className="absolute inset-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.8, ease: [0.45, 0, 0.15, 1] }}
-        >
-          {feature.background()}
-        </motion.div>
-      </AnimatePresence>
+    <div className="flex h-full w-full flex-col items-center justify-center px-10 py-14 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: EASE }}
+      >
+        <h2 className="text-balance text-[28px] font-bold leading-[1.1] tracking-[-0.03em] text-[#0f172a] xl:text-[32px]">
+          Go viral without showing your face
+        </h2>
+        <p className="mt-3 text-balance text-[15px] text-[#5b6472] xl:text-base">
+          Find the niche, write the script, make the video.
+        </p>
+      </motion.div>
 
-      {/* bottom scrim for legibility */}
+      {/* Width is capped by the panel, a 600px ceiling, and the viewport
+          height, so the tall middle clip never pushes the trust row off a
+          short laptop screen. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black to-transparent"
-      />
-
-      <Image
-        src="/verlab-studio-logo-white.png"
-        alt="Verlab Studio"
-        width={1500}
-        height={384}
-        className="absolute left-2 top-4 h-10 w-auto mix-blend-difference xl:left-3 xl:top-5 xl:h-12"
-        priority
-      />
-
-      <div className="relative flex h-full flex-col justify-end p-10 xl:p-14">
-        <div>
-          <AnimatePresence mode="wait">
+        className="mt-10 grid grid-cols-[0.76fr_1fr_0.76fr] items-center gap-2.5 xl:mt-12 xl:gap-3"
+        style={{ width: "min(100%, 600px, calc((100dvh - 330px) * 1.45))" }}
+      >
+        {CLIPS.map((clip, i) => {
+          const featured = "featured" in clip && clip.featured;
+          return (
             <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 10 }}
+              key={clip.key}
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              transition={{ duration: 0.7, delay: 0.12 + (featured ? 0 : 0.1 + i * 0.04), ease: EASE }}
+              className="relative"
             >
-              <h3 className="text-[40px] font-extrabold uppercase leading-[1.05] tracking-tight text-white xl:text-[52px]">
-                {feature.title}
-              </h3>
-              <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/60">
-                {feature.subtitle}
-              </p>
-            </motion.div>
-          </AnimatePresence>
-
-          <div className="mt-9 inline-flex flex-wrap items-stretch gap-0.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md">
-            {FEATURES.map((f, i) => (
-              <motion.button
-                key={f.tab}
-                type="button"
-                onClick={() => setIndex(i)}
-                whileHover={{ scale: i === index ? 1 : 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className={`relative flex flex-col items-center gap-2 rounded-xl px-3.5 pb-2 pt-2.5 outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
-                  i === index ? "text-white" : "text-white/40 hover:text-white/70"
-                }`}
-              >
-                {i === index && (
-                  <motion.span
-                    layoutId="auth-showcase-tab-pill"
-                    className="absolute inset-0 rounded-xl bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  />
+              <div
+                className={cn(
+                  "relative aspect-[9/16] overflow-hidden bg-zinc-200",
+                  featured
+                    ? "rounded-[18px] shadow-[0_28px_48px_-22px_rgba(15,23,42,0.45),0_8px_18px_-8px_rgba(15,23,42,0.18)]"
+                    : "rounded-[14px] shadow-[0_18px_34px_-20px_rgba(15,23,42,0.4),0_4px_10px_-6px_rgba(15,23,42,0.12)]"
                 )}
-                <span className="relative z-10 text-[10.5px] font-bold uppercase tracking-wider">
-                  {f.tab}
-                </span>
-                <span className="relative z-10 h-[2.5px] w-8 overflow-hidden rounded-full bg-white/10">
-                  {i < index && <span className="block h-full w-full bg-white" />}
-                  {i === index && (
-                    <motion.span
-                      key={index}
-                      className="block h-full bg-gradient-to-r from-white/70 to-white shadow-[0_0_6px_1px_rgba(255,255,255,0.5)]"
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: ROTATE_MS / 1000, ease: "linear" }}
-                    />
+              >
+                <ProtectedVideo
+                  src={clip.video}
+                  poster={clip.poster}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/45 to-transparent" />
+                <span
+                  className={cn(
+                    "absolute flex items-center gap-1 rounded-full border border-white/20 bg-black/60 font-semibold leading-none text-white backdrop-blur-sm",
+                    featured
+                      ? "bottom-2.5 left-2.5 px-2 py-1 text-[11px]"
+                      : "bottom-2 left-2 px-1.5 py-[3px] text-[10px]"
                   )}
+                >
+                  <Play className="h-2.5 w-2.5 fill-white" strokeWidth={0} />
+                  {featured ? `${clip.views} views` : clip.views}
                 </span>
-              </motion.button>
-            ))}
-          </div>
-        </div>
+              </div>
+
+            </motion.div>
+          );
+        })}
       </div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.5, ease: EASE }}
+        className="mt-10 flex items-center gap-3 xl:mt-12"
+      >
+        <div className="flex -space-x-2">
+          {AVATARS.map((src) => (
+            <Image
+              key={src}
+              src={src}
+              alt=""
+              width={64}
+              height={64}
+              className="h-8 w-8 rounded-full object-cover ring-2 ring-[#f5f5f6]"
+            />
+          ))}
+        </div>
+        <span className="text-[15px] font-medium tracking-[-0.01em] text-[#0f172a]">
+          Trusted by 100k+ creators
+        </span>
+      </motion.div>
     </div>
   );
 }

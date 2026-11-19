@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState, type FormEvent, type ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -133,7 +132,7 @@ function LoginForm() {
         transition={FADE_TRANSITION}
         className="text-center"
       >
-        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#335cff]/10 text-[#335cff]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em] text-heading">
@@ -146,7 +145,7 @@ function LoginForm() {
         <button
           type="button"
           onClick={() => setView("login")}
-          className="mt-6 inline-flex text-sm font-semibold text-[#0075ff] hover:underline"
+          className="mt-6 inline-flex text-sm font-semibold text-[#335cff] hover:underline"
         >
           Back to sign in
         </button>
@@ -224,17 +223,7 @@ function LoginForm() {
         exit={{ opacity: 0, y: -6 }}
         transition={FADE_TRANSITION}
       >
-        {/* The showcase panel carries the logo on desktop; below lg it's
-            hidden, so the app icon anchors the form instead. */}
-        <Image
-          src="/logo-icon.png"
-          alt="Verlab"
-          width={44}
-          height={44}
-          priority
-          className="mx-auto mb-6 h-11 w-11 lg:hidden"
-        />
-        <h1 className="text-center text-[28px] font-bold leading-tight tracking-[-0.025em] text-heading">
+        <h1 className="text-center text-[30px] font-bold leading-tight tracking-[-0.03em] text-heading">
           Sign in to Verlab
         </h1>
         <p className="mt-2 text-center text-[15px] text-body">
@@ -251,9 +240,9 @@ function LoginForm() {
           Continue with Google
         </button>
 
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-6 flex items-center gap-4">
           <div className="h-px flex-1 bg-hairline" />
-          <span className="text-xs font-medium text-subtle">or</span>
+          <span className="text-xs font-medium uppercase text-subtle">or</span>
           <div className="h-px flex-1 bg-hairline" />
         </div>
 
@@ -286,7 +275,7 @@ function LoginForm() {
                   setError(null);
                   setView("forgot");
                 }}
-                className="text-[13px] font-medium text-[#0075ff] hover:underline"
+                className="text-[13px] font-medium text-[#335cff] hover:underline"
               >
                 Forgot password?
               </button>
@@ -300,13 +289,13 @@ function LoginForm() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className={`${AUTH_INPUT_CLASSES} pr-11`}
+                className={`${AUTH_INPUT_CLASSES} pr-12`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-subtle transition-colors hover:bg-zinc-100 hover:text-heading"
+                className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-subtle transition-colors hover:bg-zinc-100 hover:text-heading"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -331,7 +320,7 @@ function LoginForm() {
 
         <p className="mt-8 text-center text-sm text-body">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-semibold text-[#0075ff] hover:underline">
+          <Link href="/signup" className="font-semibold text-[#335cff] hover:underline">
             Sign up
           </Link>
         </p>

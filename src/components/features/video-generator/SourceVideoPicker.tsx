@@ -194,7 +194,7 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
             className={cn(
               "absolute left-0 top-full z-50 mt-2 w-56 origin-top-left rounded-2xl border p-1.5",
               "border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl",
-              "dark:border-white/[0.08] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
+              "dark:border-white/[0.08] dark:bg-float/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.03)]"
             )}
           >
             <button
@@ -251,7 +251,7 @@ export function SourceVideoPicker({ source, onSelect, onClear, onUploadFile, isU
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96, y: 8 }}
                   transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+                  className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-float"
                   onClick={(event) => event.stopPropagation()}
                 >
                   <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/[0.08]">

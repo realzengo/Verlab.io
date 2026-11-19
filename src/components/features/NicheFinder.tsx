@@ -486,7 +486,7 @@ function NicheFinderInner({
     <section ref={sectionRef} className="@container">
       {/* Page-level switch: underline tabs (as on Library), a level above
           the toolbar's own segmented Platform control. */}
-      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-app sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <div role="tablist" aria-label="Niche Finder view" className="flex gap-6 border-b border-hairline">
           {viewTabs.map((tab) => (
             <button

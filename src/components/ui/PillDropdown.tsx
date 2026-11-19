@@ -27,14 +27,14 @@ export const GLASS_PILL_IDLE = cn(
 );
 
 export const GLASS_PILL_FOCUS =
-  "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-zinc-950";
+  "focus-visible:ring-2 focus-visible:ring-blue-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-blue-500/40 dark:focus-visible:ring-offset-surface";
 
 export const GLASS_PILL_ACTIVE =
   "border-blue-300 bg-blue-50 shadow-[0_1px_2px_rgba(37,99,235,0.08),0_8px_16px_-6px_rgba(37,99,235,0.18),inset_0_1px_0_rgba(255,255,255,1)] dark:border-blue-400/50 dark:bg-blue-500/15 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_8px_18px_-8px_rgba(0,0,0,0.7)]";
 
 export const GLASS_PANEL =
   "border border-slate-200/80 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,1)] backdrop-blur-2xl backdrop-saturate-150 " +
-  "dark:border-white/[0.10] dark:bg-zinc-900/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)] dark:backdrop-blur-2xl";
+  "dark:border-white/[0.10] dark:bg-float/95 dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)] dark:backdrop-blur-2xl";
 
 /** The quiet "tray" look: borderless chips sitting on a composer's gray rim
  * (the image generator's settings tray). Hover is a neutral fill; an open
@@ -46,7 +46,7 @@ export const TRAY_CHIP_OPEN =
   "bg-white text-heading shadow-[0_0_0_1px_#E6E8EC,0_1px_2px_rgba(16,24,40,0.06)] hover:bg-white dark:bg-white/[0.08] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] dark:hover:bg-white/[0.08]";
 
 export const TRAY_PANEL =
-  "border border-[#E6E8EC] bg-white shadow-[0_2px_6px_rgba(16,24,40,0.05),0_20px_44px_-16px_rgba(16,24,40,0.22)] dark:border-white/[0.08] dark:bg-[#161619] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.75)]";
+  "border border-[#E6E8EC] bg-white shadow-[0_2px_6px_rgba(16,24,40,0.05),0_20px_44px_-16px_rgba(16,24,40,0.22)] dark:border-white/[0.08] dark:bg-float dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.75)]";
 
 /** A row in a TRAY_PANEL menu. */
 export const TRAY_MENU_ITEM =
@@ -60,7 +60,7 @@ export const SHEET_BUTTON_OPEN = "bg-[var(--app-fill)] text-heading";
 
 /** A small app-icon tile for a model logo inside a tray chip or menu row. */
 export const TRAY_ICON_TILE =
-  "flex shrink-0 items-center justify-center border border-[#E6E8EC] bg-white dark:border-white/[0.08] dark:bg-[#1B1D20]";
+  "flex shrink-0 items-center justify-center border border-[#E6E8EC] bg-white dark:border-white/[0.08] dark:bg-white/[0.06]";
 
 interface PillDropdownOption {
   value: string;
@@ -278,7 +278,7 @@ export function PillDropdown({
                           : cn(
                               "flex h-6 w-6 shrink-0 items-center justify-center rounded-full ring-1",
                               selected
-                                ? "bg-white ring-blue-500/20 dark:bg-zinc-800 dark:ring-blue-400/20"
+                                ? "bg-white ring-blue-500/20 dark:bg-white/[0.085] dark:ring-blue-400/20"
                                 : "bg-slate-100 ring-slate-900/[0.04] dark:bg-white/[0.06] dark:ring-white/[0.06]",
                             )
                       }

@@ -350,7 +350,7 @@ function VideoTile({
     const isRendering = item.status === "processing";
     return (
       <div
-        className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 dark:border-zinc-800 dark:from-zinc-900 dark:to-zinc-950"
+        className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 dark:border-zinc-800 dark:from-surface dark:to-app"
         style={{ aspectRatio: `${w} / ${h}` }}
       >
         <div className="absolute -left-1/4 -top-1/4 h-3/4 w-3/4 rounded-full bg-indigo-300/25 blur-3xl animate-render-drift dark:bg-indigo-500/10" />
@@ -518,7 +518,7 @@ function VideoTile({
                 exit={{ opacity: 0, y: -4, scale: 0.97 }}
                 transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                 style={{ top: menuPos.top, left: menuPos.left, width: VIDEO_TILE_MENU_WIDTH }}
-                className="fixed z-[110] origin-top-right overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-900/95"
+                className="fixed z-[110] origin-top-right overflow-hidden rounded-xl border border-slate-200/70 bg-white/95 shadow-[0_20px_45px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-float/95"
                 onClick={(event) => event.stopPropagation()}
               >
                 <button
@@ -1645,7 +1645,7 @@ export function VideoGenerator() {
                         <motion.span
                           layoutId="mode-tab-desktop-active"
                           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                          className="absolute inset-0 rounded-2xl border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06)] dark:border-white/[0.07] dark:bg-[#141417] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                          className="absolute inset-0 rounded-2xl border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06)] dark:border-white/[0.07] dark:bg-surface dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                         />
                       )}
                       <span className="relative z-10 flex flex-col items-center gap-1">

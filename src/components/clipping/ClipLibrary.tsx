@@ -892,7 +892,7 @@ function ClipPlayer({
 
         <div
           onClick={(event) => event.stopPropagation()}
-          className="relative flex h-full w-full flex-col overflow-y-auto bg-surface sm:h-auto sm:max-h-full sm:w-auto sm:flex-row sm:overflow-hidden sm:rounded-[24px] sm:shadow-[0_32px_80px_-24px_rgba(0,0,0,0.6)] dark:bg-[#0E0E10] dark:sm:ring-1 dark:sm:ring-white/10"
+          className="relative flex h-full w-full flex-col overflow-y-auto bg-surface sm:h-auto sm:max-h-full sm:w-auto sm:flex-row sm:overflow-hidden sm:rounded-[24px] sm:shadow-[0_32px_80px_-24px_rgba(0,0,0,0.6)] dark:bg-float dark:sm:ring-1 dark:sm:ring-white/10"
         >
           <div className="relative shrink-0 bg-black">
             {/* phones: the panel's own close button scrolls away, so one rides on the video */}
@@ -985,7 +985,7 @@ function ClipPlayer({
               )}
             </div>
 
-            <div className="sticky bottom-0 flex items-center gap-2 border-t border-hairline bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] dark:bg-[#0E0E10]">
+            <div className="sticky bottom-0 flex items-center gap-2 border-t border-hairline bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] dark:bg-float">
               <PlasticButton
                 text="Download"
                 trailing={<Download className="h-4 w-4" strokeWidth={2} />}

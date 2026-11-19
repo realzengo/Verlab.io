@@ -34,7 +34,7 @@ function vars(v: Record<string, string | number>): CSSProperties {
 
 function ToolStage({ children }: { children: ReactNode }) {
   return (
-    <Stage width={W} height={H} background={<div className="absolute inset-0 bg-[#EFEFEF] dark:bg-[#1c1c1f]" />}>
+    <Stage width={W} height={H} background={<div className="absolute inset-0 bg-[#EFEFEF] dark:bg-[color:var(--app-stage,#1c1c1f)]" />}>
       {children}
     </Stage>
   );
@@ -157,7 +157,7 @@ export function NicheBendingArt() {
 
       <motion.span
         variants={rise(0.35, 0)}
-        className={cn("absolute grid h-8 w-8 place-items-center rounded-full ring-4 ring-[#EFEFEF] dark:ring-[#1c1c1f]", BLUE_BUTTON)}
+        className={cn("absolute grid h-8 w-8 place-items-center rounded-full ring-4 ring-[#EFEFEF] dark:ring-[color:var(--app-stage,#1c1c1f)]", BLUE_BUTTON)}
         style={{ left: 140, top: 97 }}
       >
         <Wand2 className="h-4 w-4" strokeWidth={2.25} />

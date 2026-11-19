@@ -29,11 +29,22 @@ interface TrackInfo {
   timescale: number;
   kind: TrackKind;
   defaultSampleFlags: number | null;
+  defaultSampleDuration: number | null;
+}
+
+/** One track's run of samples inside a fragment, seconds on the source timeline. */
+interface Span {
+  kind: TrackKind;
+  start: number;
+  end: number;
 }
 
 interface Fragment {
   /** Earliest decode time across the fragment's tracks, seconds. */
   start: number;
+  /** Latest sample end across the fragment's tracks, seconds (`start` when durations aren't known). */
+  end: number;
+  spans: Span[];
   /** The video track's own decode time, when the fragment carries video. */
   videoStart: number | null;
   isVideo: boolean;
@@ -60,6 +71,9 @@ const END_SAFETY_SECONDS = 10;
 // A single box this large means a regular (non-fragmented) MP4's mdat, which
 // can't be cut while streaming.
 const MAX_BOX_BYTES = 64 * 1024 * 1024;
+// A video's listed length and its stream's real end differ by a second or
+// two; a stream ending further from where it should is a cut-off read.
+const TRUNCATION_SLACK_SECONDS = 3;
 
 function readType(bytes: Uint8Array, offset: number): string {
   return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
@@ -119,7 +133,7 @@ function parseMoov(moov: Uint8Array): Map<number, TrackInfo> {
     const timescale = view.getUint32(mdhdBody + (moov[mdhdBody] === 1 ? 20 : 12));
     const handler = readType(moov, hdlr.start + hdlr.headerSize + 8);
     const kind: TrackKind = handler === "vide" ? "video" : handler === "soun" ? "audio" : "other";
-    if (timescale > 0) tracks.set(trackId, { timescale, kind, defaultSampleFlags: null });
+    if (timescale > 0) tracks.set(trackId, { timescale, kind, defaultSampleFlags: null, defaultSampleDuration: null });
   }
 
   const mvex = child(moov, root, "mvex");
@@ -129,13 +143,36 @@ function parseMoov(moov: Uint8Array): Map<number, TrackInfo> {
   for (const trex of children(moov, mvex, "trex")) {
     const body = trex.start + trex.headerSize;
     const track = tracks.get(view.getUint32(body + 4));
-    if (track) track.defaultSampleFlags = view.getUint32(body + 20);
+    if (!track) continue;
+    track.defaultSampleDuration = view.getUint32(body + 12);
+    track.defaultSampleFlags = view.getUint32(body + 20);
   }
 
   return tracks;
 }
 
 const isSyncSample = (flags: number) => (flags & 0x00010000) === 0;
+
+/** Ticks a traf's samples last: per-sample trun durations, else tfhd's default, else trex's. */
+function trafTicks(moof: Uint8Array, view: DataView, traf: Box, defaultDuration: number | null): number {
+  let ticks = 0;
+  for (const trun of children(moof, traf, "trun")) {
+    const body = trun.start + trun.headerSize;
+    const flags = view.getUint32(body) & 0xffffff;
+    const count = view.getUint32(body + 4);
+    if (!(flags & 0x100)) {
+      ticks += count * (defaultDuration ?? 0);
+      continue;
+    }
+    let at = body + 8;
+    if (flags & 0x1) at += 4;
+    if (flags & 0x4) at += 4;
+    const stride = 4 * [0x100, 0x200, 0x400, 0x800].filter((bit) => flags & bit).length;
+    const end = trun.start + trun.size;
+    for (let i = 0; i < count && at + 4 <= end; i++, at += stride) ticks += view.getUint32(at);
+  }
+  return ticks;
+}
 
 function parseMoof(moof: Uint8Array, tracks: Map<number, TrackInfo>): Omit<Fragment, "bytes" | "sourceOffset"> {
   const view = new DataView(moof.buffer, moof.byteOffset, moof.byteLength);
@@ -145,6 +182,7 @@ function parseMoof(moof: Uint8Array, tracks: Map<number, TrackInfo>): Omit<Fragm
   let isVideo = false;
   let startsWithSync = true;
   const trackIds: number[] = [];
+  const spans: Span[] = [];
 
   for (const traf of children(moof, root, "traf")) {
     const tfhd = child(moof, traf, "tfhd");
@@ -162,20 +200,32 @@ function parseMoof(moof: Uint8Array, tracks: Map<number, TrackInfo>): Omit<Fragm
     const decodeTime = moof[tfdtBody] === 1 ? Number(view.getBigUint64(tfdtBody + 4)) : view.getUint32(tfdtBody + 4);
     start = Math.min(start, decodeTime / track.timescale);
 
+    // tfhd's optional fields, in order; the defaults override trex's.
+    let defaultFlags = track.defaultSampleFlags;
+    let defaultDuration = track.defaultSampleDuration;
+    let cursor = tfhdBody + 8;
+    if (tfhdFlags & 0x1) cursor += 8;
+    if (tfhdFlags & 0x2) cursor += 4;
+    if (tfhdFlags & 0x8) {
+      defaultDuration = view.getUint32(cursor);
+      cursor += 4;
+    }
+    if (tfhdFlags & 0x10) cursor += 4;
+    if (tfhdFlags & 0x20) defaultFlags = view.getUint32(cursor);
+
+    const ticks = trafTicks(moof, view, traf, defaultDuration);
+    spans.push({
+      kind: track.kind,
+      start: decodeTime / track.timescale,
+      end: (decodeTime + ticks) / track.timescale,
+    });
+
     if (track.kind !== "video") continue;
     isVideo = true;
     videoStart = decodeTime / track.timescale;
 
     // The first sample's flags: trun's first_sample_flags, else its
     // per-sample flags, else tfhd's default, else trex's default.
-    let defaultFlags = track.defaultSampleFlags;
-    let cursor = tfhdBody + 8;
-    if (tfhdFlags & 0x1) cursor += 8;
-    if (tfhdFlags & 0x2) cursor += 4;
-    if (tfhdFlags & 0x8) cursor += 4;
-    if (tfhdFlags & 0x10) cursor += 4;
-    if (tfhdFlags & 0x20) defaultFlags = view.getUint32(cursor);
-
     const trun = child(moof, traf, "trun");
     let firstFlags = defaultFlags;
     if (trun) {
@@ -197,7 +247,8 @@ function parseMoof(moof: Uint8Array, tracks: Map<number, TrackInfo>): Omit<Fragm
   if (!Number.isFinite(start)) {
     throw new Fmp4CutError("Fragment has no decode time");
   }
-  return { start, videoStart, isVideo, startsWithSync, trackIds };
+  const end = Math.max(start, ...spans.map((span) => span.end));
+  return { start, end, spans, videoStart, isVideo, startsWithSync, trackIds };
 }
 
 /**
@@ -332,9 +383,14 @@ class RangeCutter {
   private written = 0;
   private timeShift = 0;
   private readonly pastEnd = new Set<number>();
+  // Seconds of each kind of media inside the range that went into the cut.
+  private videoSeconds = 0;
+  private audioSeconds = 0;
   /** Source time at 0 in this cut, once it has started. */
   offset: number | null = null;
   done = false;
+  /** Set when the stream ended before the range did: the cut is incomplete and must be thrown away. */
+  failed: "truncated" | null = null;
 
   constructor(
     private readonly range: CutRange,
@@ -342,6 +398,12 @@ class RangeCutter {
     private readonly head: Uint8Array[],
     private readonly maxBytes: number
   ) {}
+
+  /** Share of the cut's video time inside the range that also has audio, 0..1. */
+  get audioCoverage(): number {
+    if (this.videoSeconds <= 0) return this.audioSeconds > 0 ? 1 : 0;
+    return Math.min(1, this.audioSeconds / this.videoSeconds);
+  }
 
   private emit(fragment: Fragment, out: Uint8Array[]) {
     // Copied: another range may pass the same fragment through.
@@ -351,6 +413,11 @@ class RangeCutter {
       this.written += part.byteLength;
       if (this.written > this.maxBytes) throw new Fmp4CutError("Clip range is too large");
       out.push(part);
+    }
+    for (const span of fragment.spans) {
+      const inside = Math.max(0, Math.min(span.end, this.range.end) - Math.max(span.start, this.range.start));
+      if (span.kind === "video") this.videoSeconds += inside;
+      else if (span.kind === "audio") this.audioSeconds += inside;
     }
   }
 
@@ -400,10 +467,21 @@ class RangeCutter {
     return out;
   }
 
-  /** The end of the stream: whatever the range still holds. */
-  finish(): Uint8Array[] {
+  /**
+   * The end of the stream: whatever the range still holds. `streamEnd` is how
+   * far the stream's media reached (seconds). Knowing the video's length, a
+   * stream that stops well short of both the range's end and the video's
+   * own end was cut off (the provider dropped the connection), so the range
+   * fails instead of passing for a complete cut.
+   */
+  finish(streamEnd: number, sourceDuration?: number): Uint8Array[] {
     const out: Uint8Array[] = [];
     if (this.done) return out;
+    if (sourceDuration !== undefined && streamEnd < Math.min(this.range.end, sourceDuration - TRUNCATION_SLACK_SECONDS)) {
+      this.failed = "truncated";
+      this.done = true;
+      return out;
+    }
     if (!this.emitting && this.pending.length) {
       // The range runs past the end of the video.
       this.begin(this.pending, out);
@@ -417,7 +495,10 @@ class RangeCutter {
 export type CutEvent =
   | { type: "start"; index: number; offset: number }
   | { type: "data"; index: number; bytes: Uint8Array }
-  | { type: "end"; index: number }
+  /** The cut is complete; `audio` is the share of its video time inside the range that has sound (0..1). */
+  | { type: "end"; index: number; audio: number }
+  /** The stream ended before this range did: drop whatever was delivered for it. */
+  | { type: "failed"; index: number; reason: "truncated" }
   /** How far into the source (seconds) the read has got. */
   | { type: "progress"; time: number };
 
@@ -438,10 +519,17 @@ export async function cutFragmentedMp4Ranges(
   {
     maxBytes = 400 * 1024 * 1024,
     requireAudio = false,
+    sourceDuration,
   }: {
     maxBytes?: number;
     /** Throw Fmp4CutError("no_audio") before cutting anything if the source has no audio track. */
     requireAudio?: boolean;
+    /**
+     * The video's length (seconds). With it, a stream that ends early fails the
+     * ranges it didn't reach ("failed" events) instead of handing back
+     * truncated cuts as complete ones.
+     */
+    sourceDuration?: number;
   } = {}
 ): Promise<void> {
   let ftyp: Uint8Array | null = null;
@@ -449,20 +537,26 @@ export async function cutFragmentedMp4Ranges(
   let cutters: RangeCutter[] = [];
   let current: Fragment | null = null;
   let lastProgress = -Infinity;
+  let streamEnd = 0;
   const announced = new Set<number>();
 
   const deliver = async (index: number, parts: Uint8Array[]) => {
     const cutter = cutters[index];
+    if (cutter.failed) {
+      await onEvent({ type: "failed", index, reason: cutter.failed });
+      return;
+    }
     if (parts.length && !announced.has(index)) {
       announced.add(index);
       await onEvent({ type: "start", index, offset: cutter.offset ?? 0 });
     }
     for (const bytes of parts) await onEvent({ type: "data", index, bytes });
-    if (cutter.done) await onEvent({ type: "end", index });
+    if (cutter.done) await onEvent({ type: "end", index, audio: cutter.audioCoverage });
   };
 
   // Returns true once every range is finished.
   const settle = async (fragment: Fragment): Promise<boolean> => {
+    streamEnd = Math.max(streamEnd, fragment.end);
     if (fragment.start - lastProgress >= PROGRESS_EVERY_SECONDS) {
       lastProgress = fragment.start;
       await onEvent({ type: "progress", time: fragment.start });
@@ -500,8 +594,9 @@ export async function cutFragmentedMp4Ranges(
     // styp/sidx/free/emsg/mfra between fragments carry nothing a player needs.
   }
 
-  if (current && (await settle(current))) return;
+  // A moof still waiting for its mdat here was cut off mid-fragment: its
+  // samples never arrived, so it's left out rather than written broken.
   for (let index = 0; index < cutters.length; index++) {
-    if (!cutters[index].done) await deliver(index, cutters[index].finish());
+    if (!cutters[index].done) await deliver(index, cutters[index].finish(streamEnd, sourceDuration));
   }
 }

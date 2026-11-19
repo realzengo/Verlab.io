@@ -20,6 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Reading stops a little before the route's own limit, so unfinished clips
 // get an error frame instead of the response being cut off mid-body.
 const UPSTREAM_TIMEOUT_MS = 285_000;
+const STREAM_ENDED_MESSAGE = "The video stream stopped before this clip. Try again.";
 
 type Range = { start: number; end: number };
 
@@ -67,16 +68,19 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "This project isn't ready yet" }, { status: 409 });
   }
 
-  const ranges = readRanges(await request.json().catch(() => null), row.duration_seconds);
+  const body = await request.json().catch(() => null);
+  const ranges = readRanges(body, row.duration_seconds);
   if (!ranges) {
     return NextResponse.json({ error: "Invalid clip ranges" }, { status: 400 });
   }
+  // A retry after a broken read asks for a fresh provider link.
+  const fresh = (body as { fresh?: unknown } | null)?.fresh === true;
 
   const upstream = new AbortController();
   const timeout = setTimeout(() => upstream.abort(), UPSTREAM_TIMEOUT_MS);
   let source: ReadableStream<Uint8Array>;
   try {
-    source = await openClipSource(row, upstream.signal);
+    source = await openClipSource(row, upstream.signal, { fresh });
   } catch (error) {
     clearTimeout(timeout);
     console.error("[clips/segments] source unavailable:", error);
@@ -100,7 +104,18 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
             await writer.write(encodeSegmentFrame(SEGMENT_FRAME.data, event.index, event.bytes));
           } else if (event.type === "end") {
             finished.add(event.index);
+            if (event.audio < 0.8) {
+              // The editor fills the missing sound from the project's mp3; logged to see how often.
+              console.warn(`[clips/segments] ${row.id} range ${event.index}: ${Math.round(event.audio * 100)}% has sound`);
+            }
             await writer.write(encodeSegmentFrame(SEGMENT_FRAME.end, event.index));
+          } else if (event.type === "failed") {
+            // The stream ended before this clip did; the editor reads it again on a fresh link.
+            finished.add(event.index);
+            console.warn(`[clips/segments] ${row.id} range ${event.index}: stream ended early`);
+            await writer.write(
+              encodeSegmentFrame(SEGMENT_FRAME.error, event.index, new TextEncoder().encode(STREAM_ENDED_MESSAGE))
+            );
           } else {
             await writer.write(encodeSegmentFrame(SEGMENT_FRAME.progress, 0, float64(event.time)));
           }

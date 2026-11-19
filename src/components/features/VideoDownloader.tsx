@@ -325,7 +325,7 @@ export function VideoDownloader() {
             role="dialog"
             aria-modal="true"
             aria-labelledby={popupTitleId}
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-zinc-900"
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-float"
             onClick={(event) => event.stopPropagation()}
           >
             {state === "preparing" ? (
@@ -364,7 +364,7 @@ export function VideoDownloader() {
                         key={index}
                         className={cn(
                           "h-2 flex-1 rounded-full transition-colors duration-300",
-                          filled ? "bg-primary" : "bg-slate-200 dark:bg-zinc-800"
+                          filled ? "bg-primary" : "bg-slate-200 dark:bg-white/10"
                         )}
                       />
                     );
@@ -384,7 +384,7 @@ export function VideoDownloader() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-zinc-800">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-hairline">
                   <h3 className="text-base font-semibold text-slate-900 dark:text-white">Download Complete</h3>
                   <button
                     type="button"

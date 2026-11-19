@@ -1014,7 +1014,7 @@ export function NicheTopBar({
   }
 
   return (
-    <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+    <div className="sticky top-0 z-20 -mx-4 bg-surface px-4 dark:bg-app sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
       {/* Search, then every control that narrows or orders the feed: one
           row once the page is wide enough, the field over the controls
           below that. Breakpoints are container queries on NicheFinder's

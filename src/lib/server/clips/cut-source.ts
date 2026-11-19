@@ -30,7 +30,7 @@ const LEAD_SECONDS = 1;
 const TAIL_SECONDS = 0.5;
 
 // Same browser-like UA the downloads proxy sends; the provider rejects bare fetches.
-const UPSTREAM_HEADERS = {
+export const UPSTREAM_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
 };
@@ -59,8 +59,10 @@ async function openFreshClipSource(
  * the provider serves a stream with no audio track (its merge of YouTube's
  * separate audio and video failed), which would cut into silent clips; that
  * stream is dropped before anything is cut and a fresh link is read instead.
- * Should that one come silent too, the cut goes ahead and the editor, which
- * knows whether the clip has speech, refuses the silent render.
+ * Should that one come silent too, the cut goes ahead: the editor checks each
+ * cut's sound and fills a missing one from the project's mp3
+ * (GET /api/clips/[id]/audio). A stream that ends before a range does fails
+ * that range ("failed" event) instead of passing a truncated cut as whole.
  */
 export async function cutClipSource(
   row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds">,
@@ -69,21 +71,27 @@ export async function cutClipSource(
   onEvent: (event: CutEvent) => void | Promise<void>,
   signal: AbortSignal
 ): Promise<void> {
+  const sourceDuration = row.duration_seconds > 0 ? row.duration_seconds : undefined;
   try {
-    await cutFragmentedMp4Ranges(source, ranges, onEvent, { requireAudio: true });
+    await cutFragmentedMp4Ranges(source, ranges, onEvent, { requireAudio: true, sourceDuration });
   } catch (error) {
     if (!(error instanceof Fmp4CutError && error.code === "no_audio") || signal.aborted) throw error;
     console.warn(`[clips] source of ${row.id} came without audio; reading a fresh link`);
-    await cutFragmentedMp4Ranges(await openFreshClipSource(row, signal), ranges, onEvent);
+    await cutFragmentedMp4Ranges(await openFreshClipSource(row, signal), ranges, onEvent, { sourceDuration });
   }
 }
 
-/** The source video's stream, minting a fresh provider link if the saved one has expired. */
+/**
+ * The source video's stream, minting a fresh provider link if the saved one
+ * has expired. `fresh` skips the saved link: a retry after a cut-off read
+ * lands on a new link (often another of the provider's servers).
+ */
 export async function openClipSource(
   row: Pick<ClipProjectRow, "id" | "source_url" | "duration_seconds" | "media_url">,
-  signal: AbortSignal
+  signal: AbortSignal,
+  { fresh = false }: { fresh?: boolean } = {}
 ): Promise<ReadableStream<Uint8Array>> {
-  if (row.media_url) {
+  if (row.media_url && !fresh) {
     const response = await fetch(row.media_url, { headers: UPSTREAM_HEADERS, signal }).catch(() => null);
     if (response?.ok && response.body) return response.body;
     await response?.body?.cancel().catch(() => {});

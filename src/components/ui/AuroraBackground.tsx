@@ -27,7 +27,7 @@ export function AuroraBackground({ className, children, ...props }: AuroraBackgr
     // so registering as that reference frame anyway just breaks sticky
     // app-wide (e.g. StepSop's "On this page" nav scrolled away instead of
     // pinning in the viewport) without clipping anything itself.
-    <div className={cn("relative min-h-screen bg-white dark:bg-black", className)} {...props}>
+    <div className={cn("relative min-h-screen bg-white dark:bg-app", className)} {...props}>
       {children}
     </div>
   );

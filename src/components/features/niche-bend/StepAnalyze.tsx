@@ -174,7 +174,7 @@ export function StepAnalyze({
                             className={cn(
                               "h-7 rounded-full px-3 text-[13px] font-medium transition-colors duration-150",
                               active
-                                ? "bg-white text-heading shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-[#232326]"
+                                ? "bg-white text-heading shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-white/[0.09]"
                                 : "text-subtle hover:text-heading"
                             )}
                           >

@@ -1,0 +1,10 @@
+/* Komika Axis (WolfBainX & Apostrophic Labs, freeware: public/fonts/komika-axis/LICENSE.txt):
+   the comic caption face of MrBeast-style videos. The license allows use "as is" but not
+   modified re-releases, so the original TTF is served untouched (no WOFF2 conversion). */
+@font-face {
+  font-family: "Komika Axis";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/komika-axis/KOMIKAX_.ttf") format("truetype");
+}

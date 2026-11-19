@@ -70,7 +70,7 @@ export function ToolsSkeleton() {
         {Array.from({ length: 7 }, (_, i) => (
           <div
             key={i}
-            className="flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card dark:border-zinc-800 dark:bg-zinc-900"
+            className="flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card"
           >
             <div className="flex flex-1 flex-col p-2.5">
               <Skeleton className="aspect-video w-full rounded-card-sm" />
@@ -134,7 +134,7 @@ export function NichesSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="@container">
       {/* Discover / Liked */}
-      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <div className="-mx-4 bg-surface px-4 pt-1 dark:bg-app sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <div className="flex gap-6 border-b border-hairline">
           <Skeleton className="mb-3 h-4 w-16 rounded-full" />
           <Skeleton className="mb-3 h-4 w-12 rounded-full" />
@@ -142,7 +142,7 @@ export function NichesSkeleton() {
       </div>
 
       {/* Search + filters bar */}
-      <div className="-mx-4 bg-surface px-4 dark:bg-[#000000] sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <div className="-mx-4 bg-surface px-4 dark:bg-app sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
         <div className="flex flex-wrap items-center gap-2 py-3">
           <Skeleton className="h-9 w-full rounded-lg @4xl:w-auto @4xl:min-w-[240px] @4xl:flex-1" />
           <Skeleton className="h-9 w-[86px] rounded-lg" />

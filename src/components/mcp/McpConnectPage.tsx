@@ -186,7 +186,7 @@ export function McpConnectPage() {
       {/* Setup -- a double-bezel panel: a tinted shell around a crisp inner card */}
       <section className="mx-auto mt-14 w-full max-w-6xl sm:mt-20">
         <div className="rounded-[30px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 dark:border-white/[0.06] dark:bg-white/[0.025]">
-          <div className="overflow-hidden rounded-[24px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[#0E0E10] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="overflow-hidden rounded-[24px] border border-[#E6E8EC] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] dark:border-white/[0.07] dark:bg-[color:var(--app-panel,#0E0E10)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex items-center justify-between gap-4 border-b border-hairline px-5 py-4 sm:px-8">
               <div role="tablist" aria-label="Choose your assistant" className="inline-flex items-center gap-0.5 rounded-full bg-(--app-fill) p-1">
                 {(Object.keys(ASSISTANTS) as AssistantId[]).map((id) => {
@@ -205,7 +205,7 @@ export function McpConnectPage() {
                         <motion.span
                           layoutId="mcp-connect-tab"
                           transition={{ type: "spring", stiffness: 500, damping: 38 }}
-                          className="absolute inset-0 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-[#232326] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(255,255,255,0.06)]"
+                          className="absolute inset-0 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-white/[0.09] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(255,255,255,0.06)]"
                         />
                       )}
                       <span
@@ -240,7 +240,7 @@ export function McpConnectPage() {
                     <button
                       type="button"
                       onClick={handleCopy}
-                      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 text-xs font-medium text-heading shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors hover:bg-[#F7F8FA] dark:bg-[#1C1C1F] dark:hover:bg-[#232326]"
+                      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 text-xs font-medium text-heading shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors hover:bg-[#F7F8FA] dark:bg-white/[0.04] dark:hover:bg-white/[0.085]"
                     >
                       {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5 text-subtle" />}
                       <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
@@ -275,7 +275,7 @@ export function McpConnectPage() {
                 title="Approve and start creating"
                 action={
                   // A quiet preview of the first prompt, styled as a chat composer.
-                  <div className="flex items-center gap-3 rounded-xl border border-hairline bg-white p-1.5 pl-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:bg-[#141416]">
+                  <div className="flex items-center gap-3 rounded-xl border border-hairline bg-white p-1.5 pl-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:bg-white/[0.04]">
                     <span className="min-w-0 flex-1 truncate text-[13px] text-subtle">
                       Script a 30s TikTok about cold plunges
                     </span>

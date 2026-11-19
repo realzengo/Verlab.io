@@ -43,10 +43,10 @@ function UpdatePasswordForm() {
   if (done) {
     return (
       <div className="text-center">
-        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#0075ff]/10 text-[#0075ff]">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#335cff]/10 text-[#335cff]">
           <CheckCircle2 className="h-6 w-6" />
         </div>
-        <h1 className="text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+        <h1 className="text-[30px] font-bold leading-tight tracking-[-0.03em] text-heading">
           Password updated
         </h1>
         <p className="mt-1.5 text-sm text-body">Taking you to your dashboard&hellip;</p>
@@ -56,7 +56,7 @@ function UpdatePasswordForm() {
 
   return (
     <div>
-      <h1 className="text-center text-[30px] font-extrabold tracking-[-0.6px] text-heading">
+      <h1 className="text-center text-[30px] font-bold leading-tight tracking-[-0.03em] text-heading">
         Set a new password
       </h1>
       <p className="mt-1.5 text-center text-sm text-body">
@@ -77,13 +77,13 @@ function UpdatePasswordForm() {
             placeholder="New password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className={`${AUTH_INPUT_CLASSES} pr-10`}
+            className={`${AUTH_INPUT_CLASSES} pr-12`}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-subtle transition-colors hover:text-heading"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>

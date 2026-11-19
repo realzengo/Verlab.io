@@ -20,7 +20,7 @@ export function Stepper({
     <div className="pointer-events-none sticky top-3 z-20 flex justify-center">
       <nav
         aria-label="Progress"
-        className="pointer-events-auto inline-flex items-center gap-0.5 rounded-full border border-[#EBEDF0] bg-[#F5F6F8]/95 p-1 shadow-[0_8px_24px_-14px_rgba(15,23,42,0.25)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-[#141416]/95"
+        className="pointer-events-auto inline-flex items-center gap-0.5 rounded-full border border-[#EBEDF0] bg-[#F5F6F8]/95 p-1 shadow-[0_8px_24px_-14px_rgba(15,23,42,0.25)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-float/95"
       >
         {STEPS.map(({ step, label }) => {
           const complete = step < currentStep;
@@ -36,7 +36,7 @@ export function Stepper({
               className={cn(
                 "inline-flex h-8 items-center gap-2 rounded-full px-3.5 text-[13px] font-medium transition-colors duration-150",
                 current
-                  ? "bg-white text-heading shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-[#232326] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(255,255,255,0.06)]"
+                  ? "bg-white text-heading shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.05)] dark:bg-white/[0.09] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(255,255,255,0.06)]"
                   : complete
                     ? "text-heading hover:bg-white/70 dark:hover:bg-white/5"
                     : "text-subtle"

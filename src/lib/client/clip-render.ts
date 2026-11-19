@@ -55,7 +55,16 @@ export type PlacementPreset = "top" | "middle" | "bottom";
 export type HookPosition = PlacementPreset | "custom";
 /** Captions can also be Auto: the middle on stacked layouts (gameplay, screen, split), else the bottom. */
 export type CaptionPosition = HookPosition | "auto";
-export type CaptionFont = "sauce" | "montserrat" | "poppins" | "inter" | "anton" | "bebas" | "luckiest" | "arabic";
+export type CaptionFont =
+  | "sauce"
+  | "montserrat"
+  | "poppins"
+  | "inter"
+  | "anton"
+  | "bebas"
+  | "luckiest"
+  | "komika"
+  | "arabic";
 export type HookStyle = "card" | "dark" | "outline" | "brand";
 /** How the hook comes in: pops, drops and bounces, fades, or word by word. */
 export type HookMotion = "pop" | "drop" | "fade" | "words";
@@ -82,6 +91,12 @@ export interface ClipEditSettings {
    * source width (0 or missing: as the AI framed it).
    */
   panX?: number;
+  /**
+   * The user's corrections to the AI's panels, per layout and panel (see
+   * PANEL_NAMES): Gameplay's webcam and game, each person of a Split, Fill's
+   * frame. Missing: as the AI framed them.
+   */
+  framing?: Partial<Record<LayoutId, PanelAdjust[]>>;
   captions: CaptionTemplate;
   /** Top, Middle and Bottom sit where suits the layout; "custom" pins the captions at captionX/captionY. */
   captionPosition: CaptionPosition;
@@ -123,6 +138,61 @@ export interface ClipEditSettings {
   title: string;
 }
 
+/**
+ * The user's correction to one panel of an AI layout (the webcam, the game,
+ * a person): the AI's crop moved and zoomed. Relative to the AI's crop, so it
+ * rides along as the AI follows a face and holds across shots of the layout.
+ */
+export interface PanelAdjust {
+  /** Shift of the crop's center, as fractions of the source's width and height. */
+  x: number;
+  y: number;
+  /** On the AI's crop: 2 shows half as much (closer), 0.5 twice as much. */
+  zoom: number;
+}
+
+export const NO_ADJUST: PanelAdjust = { x: 0, y: 0, zoom: 1 };
+
+/** Each AI layout's panels, in the order its crops come (Fit has none to correct). */
+export const PANEL_NAMES: Record<Exclude<LayoutId, "fit">, string[]> = {
+  fill: ["Frame"],
+  split: ["Top", "Bottom"],
+  three: ["Top", "Bottom left", "Bottom right"],
+  four: ["Top left", "Top right", "Bottom left", "Bottom right"],
+  screen: ["Webcam", "Screen"],
+  gameplay: ["Webcam", "Gameplay"],
+};
+
+export const panelAdjust = (settings: Pick<ClipEditSettings, "framing">, layout: LayoutId, index: number) =>
+  settings.framing?.[layout]?.[index] ?? NO_ADJUST;
+
+export const isAdjusted = (adjust: PanelAdjust | undefined) =>
+  Boolean(adjust && (adjust.x !== 0 || adjust.y !== 0 || adjust.zoom !== 1));
+
+/** `framing` with one panel's correction set (NO_ADJUST puts it back to the AI's). */
+export function withPanelAdjust(
+  framing: ClipEditSettings["framing"],
+  layout: LayoutId,
+  index: number,
+  adjust: PanelAdjust
+): NonNullable<ClipEditSettings["framing"]> {
+  const list = [...(framing?.[layout] ?? [])];
+  while (list.length <= index) list.push(NO_ADJUST);
+  list[index] = adjust;
+  return { ...framing, [layout]: list };
+}
+
+/** The AI's crop with the user's correction on it. */
+function adjustedCrop(crop: PanelCrop, adjust: PanelAdjust): PanelCrop {
+  if (!isAdjusted(adjust)) return crop;
+  return {
+    cx: crop.cx + adjust.x,
+    cy: crop.cy + adjust.y,
+    h: crop.h / adjust.zoom,
+    ...(crop.w !== undefined ? { w: crop.w / adjust.zoom } : {}),
+  };
+}
+
 export interface CaptionChunk {
   start: number;
   end: number;
@@ -143,15 +213,20 @@ export interface ClipSource {
 }
 
 export class ClipRenderError extends Error {
-  constructor(message: string) {
+  /** Nothing a retry can fix (the browser can't do it, or the clip itself is the problem). */
+  readonly fatal: boolean;
+
+  constructor(message: string, { fatal = false }: { fatal?: boolean } = {}) {
     super(message);
     this.name = "ClipRenderError";
+    this.fatal = fatal;
   }
 }
 
 /**
- * The clip has speech but its cut came through without (enough) sound. The
- * workspace answers this with a fresh cut of the source and one more try.
+ * The clip has speech but the render came out without (enough) sound. The
+ * workspace answers this with the project's mp3 in place of the cut's audio,
+ * then a fresh cut, before showing it.
  */
 export class ClipAudioError extends ClipRenderError {
   constructor() {
@@ -180,6 +255,8 @@ export const CAPTION_FONTS: Record<CaptionFont, { label: string; family: string;
   anton: { label: "Anton", family: '"Anton"', weights: [400], scale: 1.12 },
   bebas: { label: "Bebas Neue", family: '"Bebas Neue"', weights: [400], scale: 1.24 },
   luckiest: { label: "Luckiest Guy", family: '"Luckiest Guy"', weights: [400], scale: 1.22 },
+  // MrBeast's caption face. Already reads as big as the scaled display faces (cap height 1.15x Open Sauce's).
+  komika: { label: "Komika Axis", family: '"Komika Axis"', weights: [400], scale: 1 },
   arabic: { label: "Montserrat Arabic", family: '"Montserrat Arabic"', weights: [600, 700, 800, 900], scale: 1 },
 };
 
@@ -783,13 +860,39 @@ export interface FrameCrop {
   base: number;
 }
 
+/** A rect as fractions of the frame. */
+export interface FrameRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** One panel of an AI layout on this frame, for the editor to move and zoom. */
+export interface PanelPlacement {
+  layout: LayoutId;
+  index: number;
+  /** The panel on the frame (what the pointer grabs). */
+  rect: FrameRect;
+  /** The source rect shown, in pixels, and where on the frame it's drawn (inside `rect`). */
+  shown: { sx: number; sy: number; sw: number; sh: number };
+  drawn: FrameRect;
+  srcW: number;
+  srcH: number;
+  /** The AI's crop center before the user's correction, as fractions of the source. */
+  base: { cx: number; cy: number };
+  adjust: PanelAdjust;
+}
+
 /** Where a frame put its captions and hook, for the editor's drag handles. */
 export interface FramePlacement {
   caption: Placed;
   /** Null without a hook. */
   hook: Placed | null;
-  /** The Fill crop, when there's room to move it sideways; null otherwise. */
+  /** The Fill crop, when there's room to move it sideways and no AI panels to move instead; null otherwise. */
   crop: FrameCrop | null;
+  /** The AI layout's panels (empty without one): each can be moved and zoomed. */
+  panels: PanelPlacement[];
 }
 
 type Canvas2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -1356,7 +1459,7 @@ function drawHeadline(
  */
 export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) {
   const ctx = canvas.getContext("2d") as Canvas2D | null;
-  if (!ctx) throw new ClipRenderError("Your browser can't draw video frames.");
+  if (!ctx) throw new ClipRenderError("Your browser can't draw video frames.", { fatal: true });
   // Blurred backdrops: the frame shrunk to a few dozen pixels, then
   // stretched back up, is already soft; ctx.filter adds more where supported.
   const backdrop = makeCanvas(54, 96);
@@ -1461,6 +1564,7 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     let shown: { sx: number; sy: number; sw: number; sh: number } | null = null;
     let shownBase = base;
     let shownHalf = false;
+    const panels: PanelPlacement[] = [];
     const hook = settings.hookTitle && settings.hookText.trim() ? settings.hookText.trim() : "";
     // The presets' spots move with the layout; a custom spot is fixed (applied below).
     const preset = captionPreset(settings.captionPosition, layout, scene);
@@ -1473,10 +1577,22 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     let headlineY: number | null = null;
 
     if (layout === "fill" && scene?.layout === "fill" && scene.crops[0]) {
-      // The AI camera: framed on the face, zoomed and punched in.
-      const crop = scene.crops[0];
-      shown = drawPanel(source, sourceWidth, sourceHeight, { ...crop, cx: crop.cx + pan }, 0, 0, width, height);
+      // The AI camera: framed on the face, zoomed and punched in, then the user's correction.
+      const crop = { ...scene.crops[0], cx: scene.crops[0].cx + pan };
+      const adjust = panelAdjust(settings, "fill", 0);
+      shown = drawPanel(source, sourceWidth, sourceHeight, adjustedCrop(crop, adjust), 0, 0, width, height);
       shownBase = crop.cx;
+      panels.push({
+        layout: "fill",
+        index: 0,
+        rect: WHOLE_FRAME,
+        shown,
+        drawn: WHOLE_FRAME,
+        srcW: sourceWidth,
+        srcH: sourceHeight,
+        base: { cx: crop.cx, cy: crop.cy },
+        adjust,
+      });
     } else if (layout === "fill") {
       const r = cropRect(sourceWidth, sourceHeight, width / height, followed, settings.focusX);
       ctx.drawImage(source, r.sx, r.sy, r.sw, r.sh, 0, 0, width, height);
@@ -1531,13 +1647,18 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
         const y = Math.round(rect.y * height) + (rect.y > 0 ? gap / 2 : 0);
         const w = Math.round(rect.w * width) - (rect.x > 0 ? gap / 2 : 0) - (rect.x + rect.w < 1 ? gap / 2 : 0);
         const h = Math.round(rect.h * height) - (rect.y > 0 ? gap / 2 : 0) - (rect.y + rect.h < 1 ? gap / 2 : 0);
+        const adjust = panelAdjust(settings, layout, i);
+        const at = { x: x / width, y: y / height, w: w / width, h: h / height };
         if (layout === "screen" && i === 1) {
           // The screen (without the cam, when the plan cut it out), fitted to the panel over a blur of itself.
-          const region = scene?.crops[1];
-          const rw = (region?.w ?? 1) * sourceWidth;
-          const rh = (region?.h ?? 1) * sourceHeight;
-          const rx = Math.max(0, ((region?.cx ?? 0.5) - (region?.w ?? 1) / 2) * sourceWidth);
-          const ry = Math.max(0, ((region?.cy ?? 0.5) - (region?.h ?? 1) / 2) * sourceHeight);
+          const screen = scene?.crops[1] ?? { cx: 0.5, cy: 0.5, h: 1, w: 1 };
+          const region = adjustedCrop({ ...screen, w: screen.w ?? 1 }, adjust);
+          const regionW = Math.min(1, region.w ?? 1);
+          const regionH = Math.min(1, region.h);
+          const rw = regionW * sourceWidth;
+          const rh = regionH * sourceHeight;
+          const rx = Math.min(1 - regionW, Math.max(0, region.cx - regionW / 2)) * sourceWidth;
+          const ry = Math.min(1 - regionH, Math.max(0, region.cy - regionH / 2)) * sourceHeight;
           ctx.save();
           ctx.beginPath();
           ctx.rect(x, y, w, h);
@@ -1548,8 +1669,31 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
           const fh = rh * scale;
           ctx.drawImage(source, rx, ry, rw, rh, x + (w - fw) / 2, y + (h - fh) / 2, fw, fh);
           ctx.restore();
+          panels.push({
+            layout,
+            index: i,
+            rect: at,
+            shown: { sx: rx, sy: ry, sw: rw, sh: rh },
+            drawn: { x: (x + (w - fw) / 2) / width, y: (y + (h - fh) / 2) / height, w: fw / width, h: fh / height },
+            srcW: sourceWidth,
+            srcH: sourceHeight,
+            base: { cx: screen.cx, cy: screen.cy },
+            adjust,
+          });
         } else {
-          drawPanel(source, sourceWidth, sourceHeight, scene?.crops[i] ?? { cx: 0.5, cy: 0.5, h: 1 }, x, y, w, h);
+          const crop = scene?.crops[i] ?? { cx: 0.5, cy: 0.5, h: 1 };
+          const drawn = drawPanel(source, sourceWidth, sourceHeight, adjustedCrop(crop, adjust), x, y, w, h);
+          panels.push({
+            layout,
+            index: i,
+            rect: at,
+            shown: drawn,
+            drawn: at,
+            srcW: sourceWidth,
+            srcH: sourceHeight,
+            base: { cx: crop.cx, cy: crop.cy },
+            adjust,
+          });
         }
       });
       const seam = layout === "three" || layout === "four" ? 0.5 : rects[1].y;
@@ -1594,9 +1738,9 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
     return {
       caption: { anchor: { x: captionX / width, y: captionY / height }, box: caption, pivot: CENTER },
       hook: hookPlaced,
-      // Movable only with room to the sides (not a portrait source shown whole).
+      // Movable only with room to the sides (not a portrait source shown whole); AI panels move on their own.
       crop:
-        shown && shown.sw < sourceWidth - 1
+        shown && !panels.length && shown.sw < sourceWidth - 1
           ? {
               ...shown,
               srcW: sourceWidth,
@@ -1606,9 +1750,12 @@ export function createFramePainter(canvas: HTMLCanvasElement | OffscreenCanvas) 
               base: shownBase,
             }
           : null,
+      panels,
     };
   };
 }
+
+const WHOLE_FRAME: FrameRect = { x: 0, y: 0, w: 1, h: 1 };
 
 /** Waits for the fonts a clip draws with; canvas text silently falls back otherwise. */
 export async function loadCaptionFonts(fonts: CaptionFont[] = ["sauce"]): Promise<void> {
@@ -1649,7 +1796,9 @@ export async function fetchClipSources(
   projectId: string,
   ranges: { start: number; end: number }[],
   handlers: SegmentHandlers,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** Read from a fresh provider link (a retry after a broken read). */
+  { fresh = false }: { fresh?: boolean } = {}
 ): Promise<void> {
   const settled = new Set<number>();
   const failRest = (message: string) => {
@@ -1667,6 +1816,7 @@ export async function fetchClipSources(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ranges: ranges.map((range) => ({ start: Number(range.start.toFixed(2)), end: Number(range.end.toFixed(2)) })),
+        ...(fresh ? { fresh: true } : {}),
       }),
       signal,
     });
@@ -1729,6 +1879,152 @@ export async function fetchClipSources(
   failRest(GENERIC_SEGMENT_ERROR);
 }
 
+/** A cut with less sound than this over its clip gets the project's mp3 put in (see withClipAudio). */
+export const MIN_SOURCE_AUDIO = 0.95;
+/** A cut whose video misses more than this much of its clip (seconds) is incomplete: read it again. */
+export const MAX_MISSING_VIDEO = 1;
+
+const AUDIO_UNAVAILABLE = "This clip's sound couldn't be loaded. Try again.";
+
+export interface CutCheck {
+  /** Seconds of [from, to] the cut's video doesn't reach (a read cut off before the clip ended). */
+  missingVideo: number;
+  /** How much (0..1) of the stretch the video does cover has sound. */
+  audio: number;
+}
+
+/**
+ * Whether a cut really holds its clip [from, to] (source seconds), from
+ * packet timing alone (nothing is decoded, so it's quick): how much of the
+ * clip its video misses, and how much of the rest has sound. A cut that
+ * can't be read reports nothing missing: the render's own checks still
+ * stand behind it.
+ */
+export async function checkClipCut(source: ClipSource, from: number, to: number): Promise<CutCheck> {
+  const mb = await import("mediabunny");
+  const input = new mb.Input({ source: new mb.BlobSource(source.blob), formats: mb.ALL_FORMATS });
+  try {
+    const a = Math.max(0, from - source.offset);
+    const b = to - source.offset;
+    if (!(b - a > 0.5)) return { missingVideo: 0, audio: 1 };
+    const video = await input.getPrimaryVideoTrack();
+    if (!video) return { missingVideo: b - a, audio: 0 };
+    const [videoStart, videoEnd] = await Promise.all([video.getFirstTimestamp(), video.computeDuration()]);
+    const start = Math.max(a, videoStart);
+    const end = Math.min(b, videoEnd);
+    const missingVideo = Math.max(0, b - a - Math.max(0, end - start));
+    if (!(end - start > 0.5)) return { missingVideo, audio: 1 };
+
+    const track = await input.getPrimaryAudioTrack();
+    if (!track) return { missingVideo, audio: 0 };
+    const sink = new mb.EncodedPacketSink(track);
+    const options = { metadataOnly: true };
+    const first = (await sink.getPacket(start, options)) ?? (await sink.getFirstPacket(options));
+    if (!first) return { missingVideo, audio: 0 };
+    let covered = 0;
+    for await (const packet of sink.packets(first, undefined, options)) {
+      if (packet.timestamp >= end) break;
+      covered += Math.max(0, Math.min(end, packet.timestamp + packet.duration) - Math.max(start, packet.timestamp));
+    }
+    return { missingVideo, audio: Math.min(1, covered / (end - start)) };
+  } catch (error) {
+    console.warn("[clip-render] couldn't check the cut:", error);
+    return { missingVideo: 0, audio: 1 };
+  } finally {
+    input.dispose();
+  }
+}
+
+/**
+ * The sound for [from, to] (source seconds) from the project's mp3
+ * (GET /api/clips/[id]/audio): the audio its transcript was made from, so it
+ * has the clip's speech even when the video cut lost it.
+ */
+export async function fetchClipAudio(
+  projectId: string,
+  from: number,
+  to: number,
+  signal?: AbortSignal
+): Promise<ClipSource> {
+  const params = new URLSearchParams({ from: from.toFixed(2), to: to.toFixed(2) });
+  const response = await fetch(`/api/clips/${projectId}/audio?${params}`, { cache: "no-store", signal });
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ClipRenderError(data?.error ?? AUDIO_UNAVAILABLE);
+  }
+  const offset = Number(response.headers.get("X-Clip-Offset"));
+  const blob = await response.blob();
+  if (!Number.isFinite(offset) || blob.size < 1024) throw new ClipRenderError(AUDIO_UNAVAILABLE);
+  return { blob: new Blob([blob], { type: "audio/mpeg" }), offset };
+}
+
+/**
+ * The cut with its audio replaced by `audio` (see fetchClipAudio): the video
+ * packets copied as they are, the audio packets moved onto the cut's
+ * timeline. Nothing is decoded or encoded, so it takes a moment, and every
+ * later step -- the preview, the waveform, face tracking, the export -- gets
+ * the clip with its sound.
+ */
+export async function withClipAudio(source: ClipSource, audio: ClipSource): Promise<ClipSource> {
+  const mb = await import("mediabunny");
+  const videoInput = new mb.Input({ source: new mb.BlobSource(source.blob), formats: mb.ALL_FORMATS });
+  const audioInput = new mb.Input({ source: new mb.BlobSource(audio.blob), formats: mb.ALL_FORMATS });
+  try {
+    const [videoTrack, audioTrack] = await Promise.all([
+      videoInput.getPrimaryVideoTrack(),
+      audioInput.getPrimaryAudioTrack(),
+    ]);
+    if (!videoTrack?.codec || !audioTrack?.codec) throw new ClipRenderError(AUDIO_UNAVAILABLE);
+    const [videoConfig, audioConfig, videoEnd] = await Promise.all([
+      videoTrack.getDecoderConfig(),
+      audioTrack.getDecoderConfig(),
+      videoTrack.computeDuration(),
+    ]);
+    if (!videoConfig || !audioConfig) throw new ClipRenderError(AUDIO_UNAVAILABLE);
+
+    const output = new mb.Output({
+      format: new mb.Mp4OutputFormat({ fastStart: "in-memory" }),
+      target: new mb.BufferTarget(),
+    });
+    const videoOut = new mb.EncodedVideoPacketSource(videoTrack.codec);
+    const audioOut = new mb.EncodedAudioPacketSource(audioTrack.codec);
+    output.addVideoTrack(videoOut, { rotation: videoTrack.rotation });
+    output.addAudioTrack(audioOut);
+    await output.start();
+
+    const copyVideo = async () => {
+      let first = true;
+      for await (const packet of new mb.EncodedPacketSink(videoTrack).packets()) {
+        await videoOut.add(packet, first ? { decoderConfig: videoConfig } : undefined);
+        first = false;
+      }
+      videoOut.close();
+    };
+    // The mp3 cut's 0 is source time `audio.offset`; the video cut's is `source.offset`.
+    const shift = audio.offset - source.offset;
+    const copyAudio = async () => {
+      let first = true;
+      for await (const packet of new mb.EncodedPacketSink(audioTrack).packets()) {
+        const timestamp = packet.timestamp + shift;
+        if (timestamp < 0) continue;
+        if (timestamp >= videoEnd) break;
+        await audioOut.add(packet.clone({ timestamp }), first ? { decoderConfig: audioConfig } : undefined);
+        first = false;
+      }
+      audioOut.close();
+    };
+    await Promise.all([copyVideo(), copyAudio()]);
+    await output.finalize();
+
+    const buffer = (output.target as InstanceType<typeof mb.BufferTarget>).buffer;
+    if (!buffer || buffer.byteLength < 1024) throw new ClipRenderError(AUDIO_UNAVAILABLE);
+    return { blob: new Blob([buffer], { type: "video/mp4" }), offset: source.offset };
+  } finally {
+    videoInput.dispose();
+    audioInput.dispose();
+  }
+}
+
 /** A background video's frames on a loop, read in order (export only ever moves forward). */
 async function openLoopingFrames(blob: Blob) {
   const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
@@ -1736,7 +2032,7 @@ async function openLoopingFrames(blob: Blob) {
   const track = await input.getPrimaryVideoTrack();
   if (!track) {
     input.dispose();
-    throw new ClipRenderError("The background video couldn't be read.");
+    throw new ClipRenderError("The background video couldn't be read.", { fatal: true });
   }
   const [first, duration] = await Promise.all([track.getFirstTimestamp(), track.computeDuration()]);
   const span = Math.max(0.5, duration - first);
@@ -1804,7 +2100,7 @@ export async function exportClip({
 }: ExportOptions): Promise<ExportResult> {
   const mb = await import("mediabunny");
   if (typeof VideoEncoder === "undefined") {
-    throw new ClipRenderError("Your browser can't render video. Use a recent Chrome, Edge or Safari.");
+    throw new ClipRenderError("Your browser can't render video. Use a recent Chrome, Edge or Safari.", { fatal: true });
   }
 
   let { width, height } = OUTPUT_SIZES[settings.aspect];
@@ -1812,7 +2108,9 @@ export async function exportClip({
     width = Math.round((width * 2) / 3 / 2) * 2;
     height = Math.round((height * 2) / 3 / 2) * 2;
     if (!(await mb.canEncodeVideo("avc", { width, height }))) {
-      throw new ClipRenderError("Your browser can't encode H.264 video. Use a recent Chrome, Edge or Safari.");
+      throw new ClipRenderError("Your browser can't encode H.264 video. Use a recent Chrome, Edge or Safari.", {
+        fatal: true,
+      });
     }
   }
 
@@ -1822,7 +2120,7 @@ export async function exportClip({
     ([a, b]) => [Math.max(0, a - source.offset), b - source.offset] as [number, number]
   );
   const total = rangesDuration(ranges);
-  if (!(total > 0.5)) throw new ClipRenderError("This clip is too short to render.");
+  if (!(total > 0.5)) throw new ClipRenderError("This clip is too short to render.", { fatal: true });
   const bitrate = Math.round(Math.min(8e6, Math.max(2e6, (CLIP_EXPORT_MAX_BYTES * 0.9 * 8) / total - 192e3)));
 
   await loadCaptionFonts(fontsFor(settings, words));

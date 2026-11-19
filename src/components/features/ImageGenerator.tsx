@@ -271,7 +271,7 @@ function PendingGenerationTile({
 
   return (
     <div
-      className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900"
+      className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-zinc-800 dark:bg-surface"
       style={fill ? { height: "100%" } : { aspectRatio: `${w} / ${h}` }}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 dark:from-zinc-800 dark:via-zinc-900 dark:to-zinc-800" />
@@ -411,7 +411,7 @@ function HistoryTile({
   return (
     <div
       className={cn(
-        "group relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950",
+        "group relative w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-surface",
         className
       )}
       style={style && naturalAspect ? { ...style, aspectRatio: String(naturalAspect) } : style}
@@ -1320,7 +1320,7 @@ export function ImageGenerator() {
 
         {/* ---------------- Mobile layout (< md) ---------------- */}
         <div className="mt-6 md:hidden">
-          <div className="flex rounded-full bg-slate-100 p-1 dark:bg-zinc-900">
+          <div className="flex rounded-full bg-slate-100 p-1 dark:bg-white/[0.045]">
             <button
               type="button"
               onClick={() => setActiveTab("generate")}
@@ -1330,7 +1330,7 @@ export function ImageGenerator() {
                 <motion.span
                   layoutId={`${activeTabPillId}-active`}
                   transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-white/[0.09]"
                 />
               )}
               <span
@@ -1350,7 +1350,7 @@ export function ImageGenerator() {
                 <motion.span
                   layoutId={`${activeTabPillId}-active`}
                   transition={{ type: "spring", stiffness: 500, damping: 34 }}
-                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-zinc-800"
+                  className="absolute inset-0 rounded-full bg-white shadow-sm dark:bg-white/[0.09]"
                 />
               )}
               <span
@@ -1365,18 +1365,18 @@ export function ImageGenerator() {
 
           {activeTab === "generate" ? (
             <div className="mt-6 flex flex-col gap-4 pb-36">
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">PROMPT</h2>
                 <textarea
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                   placeholder="Describe the image you want to generate..."
                   maxLength={PROMPT_MAX}
-                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-normal text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-zinc-900 dark:text-white"
+                  className="mt-3 min-h-[140px] w-full resize-none rounded-2xl bg-slate-100 p-4 font-normal text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:bg-white/[0.05] dark:text-white"
                 />
               </section>
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">REFERENCE IMAGES</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   {refImages.length} of {MAX_REF_IMAGES} reference images added.
@@ -1399,7 +1399,7 @@ export function ImageGenerator() {
                         type="button"
                         onClick={() => removeRefImage(index)}
                         aria-label="Remove reference image"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-white/[0.05] dark:text-slate-400"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -1411,7 +1411,7 @@ export function ImageGenerator() {
                       onClick={() => fileInputRef.current?.click()}
                       className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 p-4 text-left dark:border-zinc-700"
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-900">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-white/[0.05]">
                         <Upload className="h-4 w-4 text-slate-500" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -1423,7 +1423,7 @@ export function ImageGenerator() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">MODEL</h2>
                 <div className="mt-3 flex flex-col gap-2">
                   {MODEL_OPTIONS.map((option) => {
@@ -1436,10 +1436,10 @@ export function ImageGenerator() {
                         className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
                           selected
                             ? "border-blue-400 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-500/10"
-                            : "border-transparent bg-slate-50 dark:bg-zinc-900"
+                            : "border-transparent bg-slate-50 dark:bg-white/[0.05]"
                         }`}
                       >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-zinc-800">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm dark:bg-white/[0.09]">
                           {/* eslint-disable-next-line @next/next/no-img-element -- decorative small model icon */}
                           <img
                             src={option.icon}
@@ -1465,7 +1465,7 @@ export function ImageGenerator() {
               </section>
 
               {QUALITY_LADDER_MODELS.has(selectedModel) && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                   <h2 className="text-xs font-semibold tracking-wide text-slate-500">QUALITY</h2>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {QUALITY_OPTIONS.map((option) => {
@@ -1478,7 +1478,7 @@ export function ImageGenerator() {
                           className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                             selected
                               ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
-                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-white/[0.05] dark:text-slate-300"
                           }`}
                         >
                           {option.label}
@@ -1489,7 +1489,7 @@ export function ImageGenerator() {
                 </section>
               )}
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">ASPECT RATIO</h2>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {ASPECT_RATIOS.map((ratio) => {
@@ -1502,7 +1502,7 @@ export function ImageGenerator() {
                         className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
                           selected
                             ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
-                            : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                            : "border border-transparent bg-slate-100 text-slate-700 dark:bg-white/[0.05] dark:text-slate-300"
                         }`}
                       >
                         <RatioIcon ratio={ratio} />
@@ -1513,7 +1513,7 @@ export function ImageGenerator() {
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+              <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                 <h2 className="text-xs font-semibold tracking-wide text-slate-500">OUTPUTS</h2>
                 <p className="mt-1 text-sm text-slate-400">Generate multiple variations from the same prompt in one run.</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1527,7 +1527,7 @@ export function ImageGenerator() {
                         className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
                           selected
                             ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
-                            : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                            : "border border-transparent bg-slate-100 text-slate-700 dark:bg-white/[0.05] dark:text-slate-300"
                         }`}
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -1539,7 +1539,7 @@ export function ImageGenerator() {
               </section>
 
               {RESOLUTION_MODELS.has(selectedModel) && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+                <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-surface">
                   <h2 className="text-xs font-semibold tracking-wide text-slate-500">RESOLUTION</h2>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {RESOLUTIONS.map((value) => {
@@ -1552,7 +1552,7 @@ export function ImageGenerator() {
                           className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                             selected
                               ? "border border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-500/50 dark:bg-blue-500/10 dark:text-blue-400"
-                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-zinc-900 dark:text-slate-300"
+                              : "border border-transparent bg-slate-100 text-slate-700 dark:bg-white/[0.05] dark:text-slate-300"
                           }`}
                         >
                           {value}
@@ -1609,7 +1609,7 @@ export function ImageGenerator() {
                           createdAt: new Date().toISOString(),
                         })
                       }
-                      className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-inset ring-slate-200 dark:bg-zinc-950 dark:ring-surface"
+                      className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-inset ring-slate-200 dark:bg-surface dark:ring-hairline"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- generated images arrive as data URLs, not static assets */}
                       <img src={src} alt={`Generated image ${index + 1}`} draggable={false} className="h-full w-full object-cover" />
@@ -1625,7 +1625,7 @@ export function ImageGenerator() {
               ) : historyError ? (
                 <p className="mt-4 text-center text-sm font-medium text-red-500">{historyError}</p>
               ) : !history || history.filter((item) => item.status === "completed").length === 0 ? (
-                <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
+                <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-white/[0.03]">
                   <ImageIcon className="h-8 w-8" />
                   <p className="text-sm font-medium">Nothing Here!</p>
                 </div>
@@ -1637,9 +1637,9 @@ export function ImageGenerator() {
                       type="button"
                       disabled={loadingPreviewId === item.id}
                       onClick={() => openHistoryPreview(item)}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-zinc-950"
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-surface"
                     >
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-zinc-900">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-white/[0.05]">
                         {/* eslint-disable-next-line @next/next/no-img-element -- lazily-resized thumbnail served by /api/library/image, not a static asset */}
                         <img
                           src={`/api/library/image/${item.id}/0?w=112`}
@@ -1840,13 +1840,13 @@ export function ImageGenerator() {
                     onClick={() => setIsFilterOpen((prev) => !prev)}
                     aria-label="Gallery settings & filters"
                     aria-expanded={isFilterOpen}
-                    className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-zinc-100 transition-all hover:border-slate-200 dark:bg-zinc-900 dark:hover:border-zinc-700"
+                    className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-zinc-100 transition-all hover:border-slate-200 dark:bg-white/[0.05] dark:hover:border-zinc-700"
                   >
                     <SlidersHorizontal className="h-4 w-4 text-slate-600 dark:text-zinc-400" />
                   </button>
 
                   {isFilterOpen && (
-                    <div className="absolute right-0 top-12 z-50 flex w-72 flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-[#1C1C1E]">
+                    <div className="absolute right-0 top-12 z-50 flex w-72 flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-hairline dark:bg-float">
                       <div>
                         <h3 className="mb-3 text-sm font-medium text-slate-900 dark:text-zinc-100">Filter by</h3>
                         <div className="flex flex-col gap-2.5">
@@ -1910,13 +1910,13 @@ export function ImageGenerator() {
                       <div>
                         <h3 className="mb-3 text-sm font-medium text-slate-900 dark:text-zinc-100">Layout</h3>
 
-                        <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-[#2C2C2E]">
+                        <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/[0.05]">
                           <button
                             type="button"
                             onClick={() => setGalleryLayout("Grid")}
                             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors ${
                               galleryLayout === "Grid"
-                                ? "bg-white text-slate-900 shadow-sm dark:bg-[#4A4A4C] dark:text-white"
+                                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
                                 : "text-slate-500 dark:text-zinc-400"
                             }`}
                           >
@@ -1928,7 +1928,7 @@ export function ImageGenerator() {
                             onClick={() => setGalleryLayout("Mosaic")}
                             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors ${
                               galleryLayout === "Mosaic"
-                                ? "bg-white text-slate-900 shadow-sm dark:bg-[#4A4A4C] dark:text-white"
+                                ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white"
                                 : "text-slate-500 dark:text-zinc-400"
                             }`}
                           >
@@ -2028,7 +2028,7 @@ export function ImageGenerator() {
               <HistoryGridSkeleton />
             </div>
           ) : (
-            <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-zinc-900/50">
+            <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 rounded-2xl bg-slate-50 text-slate-400 dark:bg-white/[0.03]">
               <ImageIcon className="h-8 w-8" />
               <p className="text-sm font-medium">Nothing Here!</p>
             </div>

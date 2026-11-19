@@ -6,10 +6,15 @@ import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import {
   ClipAudioError,
   ClipRenderError,
+  MAX_MISSING_VIDEO,
+  MIN_SOURCE_AUDIO,
+  checkClipCut,
   exportClip,
+  fetchClipAudio,
   fetchClipSources,
   isRtlClip,
   usesTracking,
+  withClipAudio,
   wordKey,
   type ClipEditSettings,
   type ClipSource,
@@ -78,6 +83,15 @@ export interface BackgroundVideo {
 const BATCH_MAX = 12;
 // How often to look again for clips the server is still cutting.
 const STORED_POLL_MS = 2500;
+// Reads of the source per clip before its error shows: the first, then fresh provider links.
+const SOURCE_TRIES = 3;
+// Pause before a retry read; failures that land together are retried in one read.
+const SOURCE_RETRY_MS = 1500;
+// A failed read that took longer than this is retried once at most.
+const SLOW_READ_MS = 90_000;
+// Saving a finished clip to the library, tries and pause between them.
+const SAVE_TRIES = 3;
+const SAVE_RETRY_MS = 2000;
 
 /** The parts of the settings that are style, not content: "Apply to all" copies these. */
 const STYLE_KEYS = [
@@ -217,6 +231,17 @@ const wait = (ms: number, signal: AbortSignal) =>
 
 type SourceRequest = { clip: ClipMoment; from: number; to: number };
 
+/** A save that failed; `retryable` when trying again can't record the clip twice. */
+class SaveError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = "SaveError";
+  }
+}
+
 async function saveToLibrary(
   projectId: string,
   clip: ClipMoment,
@@ -240,19 +265,42 @@ async function saveToLibrary(
     path?: string;
     token?: string;
   } | null;
-  if (!prepare.ok || !prepared?.exportId || !prepared.path || !prepared.token) throw new Error("prepare failed");
+  if (!prepare.ok || !prepared?.exportId || !prepared.path || !prepared.token) {
+    throw new SaveError("prepare failed", prepare.status !== 400 && prepare.status !== 413);
+  }
 
   const { error } = await createBrowserClient()
     .storage.from("clip-exports")
     .uploadToSignedUrl(prepared.path, prepared.token, blob, { contentType: "video/mp4" });
-  if (error) throw error;
+  if (error) throw new SaveError(`upload failed: ${error.message}`, true);
 
-  const confirm = await fetch(exportsKey(projectId), {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...meta, exportId: prepared.exportId }),
-  });
-  if (!confirm.ok) throw new Error("confirm failed");
+  // A confirm whose answer never came may have saved the clip: trying again
+  // could record it twice, so only an answered "no" is retried (each try
+  // prepares a new export, and a refused confirm removes its upload).
+  let confirm: Response;
+  try {
+    confirm = await fetch(exportsKey(projectId), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...meta, exportId: prepared.exportId }),
+    });
+  } catch {
+    throw new SaveError("confirm unanswered", false);
+  }
+  if (!confirm.ok) throw new SaveError("confirm failed", confirm.status !== 400);
+}
+
+/** saveToLibrary, tried again after a pause when that's safe (see SaveError). */
+async function saveWithRetries(...args: Parameters<typeof saveToLibrary>) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await saveToLibrary(...args);
+    } catch (error) {
+      if (attempt >= SAVE_TRIES || (error instanceof SaveError && !error.retryable)) throw error;
+      console.warn(`[clips] saving to the library failed (try ${attempt}); trying again:`, error);
+      await new Promise((resolve) => setTimeout(resolve, SAVE_RETRY_MS * attempt));
+    }
+  }
 }
 
 export function useClipWorkspace(project: ClipProject) {
@@ -269,6 +317,13 @@ export function useClipWorkspace(project: ClipProject) {
     backgroundRef.current = background;
   }, [settings, background]);
   const sourceJobs = useRef(new Map<string, Deferred<ClipSource>>());
+  // Failed reads so far per clip (see SOURCE_TRIES), and the cuts waiting to be read again.
+  const sourceTries = useRef(new Map<string, number>());
+  const cutStartedAt = useRef(new Map<string, number>());
+  // sourceFailed, for sourceReady (declared before it) to hand back a cut that came incomplete.
+  const sourceFailedRef = useRef<(item: SourceRequest, message: string) => void>(() => {});
+  const retryQueue = useRef<SourceRequest[]>([]);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackJobs = useRef(new Map<string, Deferred<ReframeTrack>>());
   const batch = useRef<SourceRequest[]>([]);
   const batchScheduled = useRef(false);
@@ -386,23 +441,78 @@ export function useClipWorkspace(project: ClipProject) {
     });
   }, []);
 
+  /**
+   * The cut, checked before anyone sees it. Its video stopping short of the
+   * clip (a read cut off early, or such a cut stored before that was caught)
+   * makes it null: it gets read again. Its sound missing over the clip (the
+   * provider's merge lost it) gets the project's mp3 put in. If that fails
+   * too, the cut goes on as it came and the render's own check catches a
+   * silent result.
+   */
+  const checkCut = useCallback(
+    async ({ clip, from, to }: SourceRequest, source: ClipSource): Promise<ClipSource | null> => {
+      const signal = abort.current.signal;
+      const { missingVideo, audio } = await checkClipCut(source, clip.start, clip.end);
+      if (missingVideo > MAX_MISSING_VIDEO) {
+        console.warn(`[clips] ${clip.id}: the cut misses ${missingVideo.toFixed(1)}s of the clip`);
+        return null;
+      }
+      if (audio >= MIN_SOURCE_AUDIO || signal.aborted) return source;
+      console.warn(`[clips] ${clip.id}: ${Math.round(audio * 100)}% of the cut has sound; using the project's audio`);
+      try {
+        return await withClipAudio(source, await fetchClipAudio(project.id, from, to, signal));
+      } catch (error) {
+        if (!signal.aborted) console.error("[clips] couldn't fill in the clip's sound:", error);
+        return source;
+      }
+    },
+    [project.id]
+  );
+
   const sourceReady = useCallback(
-    ({ clip, from, to }: SourceRequest, source: ClipSource) => {
+    async (item: SourceRequest, cut: ClipSource) => {
+      const { clip, from, to } = item;
+      const source = await checkCut(item, cut);
+      if (!source) {
+        sourceFailedRef.current(item, "This clip's video came through incomplete. Try again.");
+        return;
+      }
+      sourceTries.current.delete(clip.id);
       const url = URL.createObjectURL(source.blob);
       urls.current.add(url);
       setSources((current) => ({ ...current, [clip.id]: { ...current[clip.id], status: "ready", source, url } }));
       sourceJobs.current.get(clip.id)?.resolve(source);
       startTrack(clip, source, from, to);
     },
-    [startTrack]
+    [startTrack, checkCut]
   );
 
-  const sourceFailed = useCallback((clip: ClipMoment, message: string) => {
+  // Set below: a failed cut is read again through cutSources, which is declared after this.
+  const retryCut = useRef<(item: SourceRequest) => void>(() => {});
+
+  const sourceFailed = useCallback((item: SourceRequest, message: string) => {
+    const { clip } = item;
+    const tries = (sourceTries.current.get(clip.id) ?? 0) + 1;
+    // A read that ran for minutes before failing gets one more go, not two:
+    // the user would wait that long again each time.
+    const slow = Date.now() - (cutStartedAt.current.get(clip.id) ?? Date.now()) > SLOW_READ_MS;
+    if (tries < (slow ? 2 : SOURCE_TRIES) && !abort.current.signal.aborted) {
+      // Read again on a fresh link; the clip stays "loading" meanwhile.
+      sourceTries.current.set(clip.id, tries);
+      console.warn(`[clips] cutting ${clip.id} failed (${message}); reading it again`);
+      retryCut.current(item);
+      return;
+    }
+    sourceTries.current.delete(clip.id);
     const job = sourceJobs.current.get(clip.id);
     sourceJobs.current.delete(clip.id);
     setSources((current) => ({ ...current, [clip.id]: { ...current[clip.id], status: "error", error: message } }));
     job?.reject(new ClipRenderError(message));
   }, []);
+
+  useEffect(() => {
+    sourceFailedRef.current = sourceFailed;
+  }, [sourceFailed]);
 
   const setReached = useCallback((reached: Map<string, number>) => {
     setSources((current) => {
@@ -418,10 +528,11 @@ export function useClipWorkspace(project: ClipProject) {
   // for all of them, and early clips arrive long before the read reaches
   // the last one.
   const cutSources = useCallback(
-    (items: SourceRequest[]) => {
+    (items: SourceRequest[], { fresh = false }: { fresh?: boolean } = {}) => {
       for (let i = 0; i < items.length; i += BATCH_MAX) {
         const group = items.slice(i, i + BATCH_MAX);
         const now = Date.now();
+        for (const { clip } of group) cutStartedAt.current.set(clip.id, now);
         setSources((current) => {
           const next = { ...current };
           for (const { clip } of group)
@@ -432,16 +543,30 @@ export function useClipWorkspace(project: ClipProject) {
           project.id,
           group.map(({ from, to }) => ({ start: from, end: to })),
           {
-            onReady: (index, source) => sourceReady(group[index], source),
+            onReady: (index, source) => void sourceReady(group[index], source),
             onProgress: (time) => setReached(new Map(group.map(({ clip }) => [clip.id, time]))),
-            onError: (index, message) => sourceFailed(group[index].clip, message),
+            onError: (index, message) => sourceFailed(group[index], message),
           },
-          abort.current.signal
+          abort.current.signal,
+          { fresh }
         );
       }
     },
     [project.id, sourceReady, sourceFailed, setReached]
   );
+
+  // Cuts that failed close together are read again together, on a fresh link.
+  useEffect(() => {
+    retryCut.current = (item) => {
+      retryQueue.current.push(item);
+      if (retryTimer.current) return;
+      retryTimer.current = setTimeout(() => {
+        retryTimer.current = null;
+        const items = retryQueue.current.splice(0).sort((a, b) => a.from - b.from);
+        if (items.length && !abort.current.signal.aborted) cutSources(items, { fresh: true });
+      }, SOURCE_RETRY_MS);
+    };
+  }, [cutSources]);
 
   // The server cuts every clip ahead as soon as the project is ready
   // (precut.ts). Stored ones download straight from Storage, ones it's still
@@ -465,7 +590,7 @@ export function useClipWorkspace(project: ClipProject) {
           ) {
             reached.set(item.clip.id, item.from);
             downloadStoredSource(entry, signal).then(
-              (source) => sourceReady(item, source),
+              (source) => void sourceReady(item, source),
               () => {
                 if (!signal.aborted) cutSources([item]);
               }
@@ -515,16 +640,56 @@ export function useClipWorkspace(project: ClipProject) {
 
   const retrySource = useCallback((clip: ClipMoment) => void requestSource(clip), [requestSource]);
 
-  /** Drops the clip's cut and cuts it again from the source itself, skipping any stored cut. */
+  /** Drops the clip's cut and cuts it again from a fresh link to the source, skipping any stored cut. */
   const recutSource = useCallback(
     (clip: ClipMoment): Promise<ClipSource> => {
       const job = deferred<ClipSource>();
       sourceJobs.current.set(clip.id, job);
+      sourceTries.current.delete(clip.id);
       const { from, to } = clipSourceRange(clip, project.durationSeconds);
-      cutSources([{ clip, from, to }]);
+      cutSources([{ clip, from, to }], { fresh: true });
       return job.promise;
     },
     [project.durationSeconds, cutSources]
+  );
+
+  /**
+   * A render that failed, tried again cheapest fix first. No sound: the
+   * project's mp3 in place of the cut's audio (a fresh cut of a source whose
+   * merge lost the audio would be just as silent). Anything else, or the mp3
+   * didn't do it: a fresh cut from a fresh link, which gets its sound checked
+   * like any cut, rendered once more. Throws if that fails too.
+   */
+  const recover = useCallback(
+    async (
+      clip: ClipMoment,
+      source: ClipSource,
+      error: ClipRenderError,
+      render: (from: ClipSource) => ReturnType<typeof exportClip>,
+      setPreparing: (preparing: boolean) => void
+    ) => {
+      const signal = abort.current.signal;
+      if (error instanceof ClipAudioError) {
+        console.warn(`[clips] ${clip.id} rendered without sound; using the project's audio`);
+        try {
+          setPreparing(true);
+          const { from, to } = clipSourceRange(clip, project.durationSeconds);
+          const fixed = await withClipAudio(source, await fetchClipAudio(project.id, from, to, signal));
+          setPreparing(false);
+          return await render(fixed);
+        } catch (next) {
+          if (signal.aborted || (next instanceof ClipRenderError && next.fatal)) throw next;
+          console.warn("[clips] the project's audio didn't fix it; cutting the clip fresh:", next);
+        }
+      } else {
+        console.warn(`[clips] rendering ${clip.id} failed (${error.message}); cutting it fresh`);
+      }
+      setPreparing(true);
+      const fresh = await recutSource(clip);
+      setPreparing(false);
+      return render(fresh);
+    },
+    [project.id, project.durationSeconds, recutSource]
   );
 
   /**
@@ -544,6 +709,10 @@ export function useClipWorkspace(project: ClipProject) {
       );
       const signal = abort.current.signal;
       exportsPending.current += 1;
+      // Every clip's cut is asked for now, in one tick: one read of the source
+      // serves them all, and each clip's cut and face tracking get ready
+      // while the clips ahead of it render, instead of only once its turn comes.
+      for (const clip of targets) void requestSource(clip);
 
       try {
         await runInQueue(async () => {
@@ -555,6 +724,7 @@ export function useClipWorkspace(project: ClipProject) {
             const clipSettings = settingsOf(clip);
             try {
               update({ preparing: true, settings: clipSettings });
+              // Its reads are already retried on fresh links (see sourceFailed).
               const source = await requestSource(clip);
               // A reframe that failed just falls back to a centered Fill.
               const track = usesTracking(clipSettings)
@@ -576,14 +746,10 @@ export function useClipWorkspace(project: ClipProject) {
               try {
                 result = await render(source);
               } catch (error) {
-                if (!(error instanceof ClipAudioError) || signal.aborted) throw error;
-                // The cut came without sound (a bad stored cut, or a provider
-                // stream missing its audio): cut it fresh and render again.
-                console.warn("[clips] render came out without sound; cutting the source again");
-                update({ preparing: true, progress: 0 });
-                const fresh = await recutSource(clip);
-                update({ preparing: false });
-                result = await render(fresh);
+                if (signal.aborted || !(error instanceof ClipRenderError) || error.fatal) throw error;
+                result = await recover(clip, source, error, render, (preparing) =>
+                  update({ preparing, progress: 0 })
+                );
               }
               // The queue owns this URL (the Download step and Your clips both use it).
               const url = URL.createObjectURL(result.blob);
@@ -597,7 +763,7 @@ export function useClipWorkspace(project: ClipProject) {
                 saved: tooLarge ? "too-large" : "saving",
               });
               if (!tooLarge) {
-                saveToLibrary(project.id, clip, clipSettings, result.blob, result.duration)
+                saveWithRetries(project.id, clip, clipSettings, result.blob, result.duration)
                   // Refresh the lists first, so Your clips swaps the live tile for the saved one without a gap.
                   .then(() => Promise.all([mutate(exportsKey(project.id)), mutate("/api/clips/exports")]).catch(() => {}))
                   .then(() => update({ saved: "saved" }))
@@ -621,7 +787,7 @@ export function useClipWorkspace(project: ClipProject) {
         }
       }
     },
-    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, recutSource, defaultsFor]
+    [clips, project.id, project.title, project.thumbnailUrl, project.transcript, requestSource, recover, defaultsFor]
   );
 
   return {
