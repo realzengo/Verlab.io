@@ -12,6 +12,7 @@ import {
   type ClipRenderRequest,
 } from "@/lib/clip-jobs";
 import type { ClipMoment } from "@/lib/clips";
+import type { StoredClipMoment } from "@/lib/server/clips/precut";
 import { isAdminEmail } from "@/lib/server/admin";
 import {
   CLIP_EXPORT_COLUMNS,
@@ -275,4 +276,88 @@ export async function latestRenderJobs(
     if (!latest.has(key)) latest.set(key, row);
   }
   return [...latest.values()];
+}
+
+/* ── Cutting clips on the worker (kind 'prepare') ────────────────────── */
+
+/** A worker's read marks clips "cutting" for this long, renewed as it goes (see precut.ts). */
+export const WORKER_CUT_LIVE_MS = 3 * 60_000;
+/** After a cut job ends, the project's leftovers (clips it couldn't cut) wait this long before another. */
+const PREPARE_RETRY_MS = 10 * 60_000;
+
+/** Whether the worker cuts this user's clips: the render rollout switch, and a worker up. */
+export async function workerCutsFor(admin: SupabaseClient, email: string | null | undefined): Promise<boolean> {
+  return serverRenderEnabledFor(email) && (await workerOnline(admin));
+}
+
+/** The project owner's email, for the rollout switch when there's no signed-in request. */
+export async function ownerEmail(admin: SupabaseClient, userId: string): Promise<string | null> {
+  const { data } = await admin.auth.admin.getUserById(userId);
+  return data.user?.email ?? null;
+}
+
+/**
+ * Has the worker read the source once and cut `clipIds` into Storage, with
+ * no time limit (on Vercel a cut stops ~260s into the stream, so clips deep
+ * in a long video never got cut). Marks those clips "cutting" at once, so
+ * the editor waits for the worker instead of starting its own cut. Returns
+ * false when the project has a cut job already or just had one.
+ */
+export async function enqueuePrepare(
+  admin: SupabaseClient,
+  { userId, projectId, clipIds }: { userId: string; projectId: string; clipIds: string[] }
+): Promise<boolean> {
+  if (!clipIds.length) return false;
+  const { data: previous } = await admin
+    .from("clip_jobs")
+    .select("status, finished_at")
+    .eq("project_id", projectId)
+    .eq("kind", "prepare")
+    .order("created_at", { ascending: false })
+    .limit(20)
+    .returns<{ status: ClipJobStatus; finished_at: string | null }[]>();
+  const latest = previous?.[0];
+  if (latest && (latest.status === "queued" || latest.status === "running")) return false;
+  if (latest?.finished_at && Date.now() - Date.parse(latest.finished_at) < PREPARE_RETRY_MS) return false;
+
+  const { error } = await admin.from("clip_jobs").insert({
+    user_id: userId,
+    project_id: projectId,
+    kind: "prepare",
+    input: { clipIds },
+    // Two requests racing to queue the same next cut collide here.
+    dedupe_key: `prepare:${projectId}:${previous?.length ?? 0}`,
+    stage: "waiting",
+  });
+  if (error) {
+    if (error.code === "23505") return false;
+    throw error;
+  }
+
+  // Waiting for the worker, as far as the editor can tell.
+  const { data: row } = await admin
+    .from("clip_projects")
+    .select("clips")
+    .eq("id", projectId)
+    .eq("status", "ready")
+    .maybeSingle<{ clips: StoredClipMoment[] | null }>();
+  if (row?.clips) {
+    const wanted = new Set(clipIds);
+    const now = new Date();
+    const clips = row.clips.map((clip) =>
+      wanted.has(clip.id) && clip.cut?.state !== "stored"
+        ? {
+            ...clip,
+            cut: {
+              state: "cutting" as const,
+              startedAt: now.toISOString(),
+              reached: 0,
+              until: new Date(now.getTime() + WORKER_CUT_LIVE_MS).toISOString(),
+            },
+          }
+        : clip
+    );
+    await admin.from("clip_projects").update({ clips }).eq("id", projectId).eq("status", "ready");
+  }
+  return true;
 }

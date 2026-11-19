@@ -16,6 +16,7 @@ import {
   type TranscriptWord,
 } from "@/lib/clips";
 import { TRANSCRIPTION_DOWN_MESSAGE, isOutOfCredit, recordOutOfCredit } from "@/lib/server/clips/transcription-status";
+import { enqueuePrepare, ownerEmail, workerCutsFor } from "@/lib/server/clips/jobs";
 
 // A clip project moves queued -> transcribing -> finding -> ready | failed,
 // on the server whether or not anyone has the page open:
@@ -204,9 +205,24 @@ async function findMoments(
       .select(CLIP_PROJECT_COLUMNS)
       .maybeSingle<ClipProjectRow>();
     if (!ready) return row;
-    after(() =>
-      precutClipSources(ready, precutDeadline).catch((error) => console.error("[clips] pre-cut failed:", error))
-    );
+    after(async () => {
+      // The render worker reads the whole video with no time limit; Vercel's
+      // pre-cut stops ~260s into the stream (deep clips of a long video miss).
+      try {
+        const admin = createAdminClient();
+        if (await workerCutsFor(admin, await ownerEmail(admin, ready.user_id))) {
+          const queued = await enqueuePrepare(admin, {
+            userId: ready.user_id,
+            projectId: ready.id,
+            clipIds: (ready.clips ?? []).map((clip) => clip.id),
+          });
+          if (queued) return;
+        }
+      } catch (error) {
+        console.error("[clips] queueing the worker's cut failed; cutting here:", error);
+      }
+      await precutClipSources(ready, precutDeadline).catch((error) => console.error("[clips] pre-cut failed:", error));
+    });
     return ready;
   } catch (error) {
     console.error("[clips] moment finding failed:", error);

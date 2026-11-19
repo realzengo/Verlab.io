@@ -5,13 +5,17 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { RenderBrowser } from "./browser";
 import { errorText, log } from "./log";
 import { JobError, runRenderJob, type RenderJob } from "./jobs/render";
+import { runPrepareJob, type PrepareJob } from "./jobs/prepare";
 import type { ClipJobStage } from "@/lib/clip-jobs";
 
-// The render worker: claims render jobs from clip_jobs (claim_clip_job, SKIP
+// The render worker: claims jobs from clip_jobs (claim_clip_job, SKIP
 // LOCKED), keeps each one's lease alive while it works, and records the
-// outcome. Several renders run side by side (CLIP_WORKER_CONCURRENCY), each
-// in its own Chrome page. On SIGTERM (a redeploy) it stops claiming and hands
-// its running jobs back to the queue.
+// outcome. Two kinds, each with its own slots so a long read never holds up
+// a render:
+//   render   one clip's MP4 (CLIP_WORKER_CONCURRENCY at once, a Chrome page each)
+//   prepare  a project's clips cut from one read of the video
+//            (CLIP_PREPARE_CONCURRENCY at once; network-bound, little CPU)
+// On SIGTERM (a redeploy) it stops claiming and hands its running jobs back.
 //
 // Env: NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY,
 // SAVENOW_API_KEY (reading the source when no stored cut covers a clip),
@@ -39,6 +43,13 @@ const admin: SupabaseClient = createClient(supabaseUrl, serviceKey, {
 const workerId = `${process.env.RAILWAY_REPLICA_ID ?? os.hostname()}:${process.pid}`;
 const version = (process.env.RAILWAY_GIT_COMMIT_SHA ?? "dev").slice(0, 7);
 const concurrency = Math.max(1, Number(process.env.CLIP_WORKER_CONCURRENCY ?? 3));
+const prepareConcurrency = Math.max(0, Number(process.env.CLIP_PREPARE_CONCURRENCY ?? 2));
+
+type ClaimedJob = (RenderJob | (PrepareJob & { user_id: string; clip_id: null; attempts: number })) & {
+  kind: "render" | "prepare";
+  max_attempts: number;
+  created_at: string;
+};
 const here = path.dirname(new URL(import.meta.url).pathname);
 
 let stopping = false;
@@ -56,7 +67,7 @@ const browser = await RenderBrowser.launch({
   log: (event, fields) => log(event, fields, "warn"),
 });
 const probe = await browser.probe();
-log("worker.started", { workerId, version, concurrency, probe });
+log("worker.started", { workerId, version, concurrency, prepareConcurrency, probe });
 if (!probe.avc1080 && !probe.avc720) {
   log("worker.no_h264", { userAgent: probe.userAgent }, "error");
   process.exit(1);
@@ -90,7 +101,7 @@ async function touch(jobId: string, patch: Record<string, unknown> = {}): Promis
   return (data ?? []).length > 0;
 }
 
-async function finish(job: RenderJob & { max_attempts: number }, patch: Record<string, unknown>) {
+async function finish(job: { id: string }, patch: Record<string, unknown>) {
   const { error } = await admin
     .from("clip_jobs")
     .update({ ...patch, locked_by: null, locked_until: null })
@@ -100,11 +111,11 @@ async function finish(job: RenderJob & { max_attempts: number }, patch: Record<s
   if (error) log("job.finish_failed", { job: job.id, error: error.message }, "error");
 }
 
-async function work(job: RenderJob & { max_attempts: number; created_at: string }) {
+async function work(job: ClaimedJob) {
   const abort = new AbortController();
   running.set(job.id, abort);
   const started = Date.now();
-  const fields = { job: job.id, project: job.project_id, clip: job.clip_id, attempt: job.attempts };
+  const fields = { job: job.id, kind: job.kind, project: job.project_id, clip: job.clip_id, attempt: job.attempts };
   log("job.claimed", { ...fields, queuedMs: started - Date.parse(job.created_at) });
 
   let lastWrite = 0;
@@ -130,7 +141,23 @@ async function work(job: RenderJob & { max_attempts: number; created_at: string 
 
   const dir = await mkdtemp(path.join(os.tmpdir(), "verlab-render-"));
   try {
-    const outcome = await runRenderJob({ admin, browser, job, dir, signal: abort.signal, progress });
+    if (job.kind === "prepare") {
+      const cut = await runPrepareJob({ admin, job: job as PrepareJob, signal: abort.signal, progress });
+      clearInterval(heartbeat);
+      const ms = Date.now() - started;
+      await finish(job, {
+        status: "done",
+        stage: null,
+        progress: 1,
+        timings: { readMs: cut.readMs, totalMs: ms },
+        finished_at: new Date().toISOString(),
+        error_code: cut.failed ? "partial" : null,
+        error_message: cut.failed ? `${cut.failed} clip(s) not cut; the editor cuts those itself` : null,
+      });
+      log("job.done", { ...fields, ms, stored: cut.stored, failed: cut.failed, readMs: cut.readMs });
+      return;
+    }
+    const outcome = await runRenderJob({ admin, browser, job: job as RenderJob, dir, signal: abort.signal, progress });
     clearInterval(heartbeat);
     const ms = Date.now() - started;
     await finish(job, {
@@ -185,11 +212,11 @@ async function work(job: RenderJob & { max_attempts: number; created_at: string 
   }
 }
 
-async function slot(index: number) {
+async function slot(index: number, kinds: ClaimedJob["kind"][]) {
   while (!stopping) {
     const { data, error } = await admin.rpc("claim_clip_job", {
       p_worker: workerId,
-      p_kinds: ["render"],
+      p_kinds: kinds,
       p_lease_seconds: LEASE_MS / 1000,
     });
     if (error) {
@@ -197,7 +224,7 @@ async function slot(index: number) {
       await sleep(IDLE_POLL_MS * 2);
       continue;
     }
-    const job = (data as (RenderJob & { max_attempts: number; created_at: string })[] | null)?.[0];
+    const job = (data as ClaimedJob[] | null)?.[0];
     if (!job) {
       await sleep(IDLE_POLL_MS);
       continue;
@@ -244,4 +271,7 @@ setInterval(() => {
   }
 }, 5_000);
 
-await Promise.all(Array.from({ length: concurrency }, (_, index) => slot(index)));
+await Promise.all([
+  ...Array.from({ length: concurrency }, (_, index) => slot(index, ["render"])),
+  ...Array.from({ length: prepareConcurrency }, (_, index) => slot(concurrency + index, ["prepare"])),
+]);

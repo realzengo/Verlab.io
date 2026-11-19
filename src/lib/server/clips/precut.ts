@@ -31,7 +31,8 @@ const RETRY_MIN_MS = 30_000;
 
 /** Where a clip's stored cut stands. */
 export type ClipCutState =
-  | { state: "cutting"; startedAt: string; reached: number }
+  /** `until`: how long "cutting" holds without news (a worker's read renews it); else PRECUT_MAX_MS from startedAt. */
+  | { state: "cutting"; startedAt: string; reached: number; until?: string }
   | { state: "stored"; from: number; to: number; offset: number; parts: number }
   | { state: "failed" };
 
@@ -49,16 +50,38 @@ export const clipSourcePath = (row: Pick<ClipProjectRow, "id" | "user_id">, clip
 
 export const isClipSourcePath = (name: string) => name.startsWith("source-");
 
+/** Whether a clip's "cutting" state is still live (someone is reading towards it). */
+export function cutStillLive(cut: Extract<ClipCutState, { state: "cutting" }>, now = Date.now()): boolean {
+  return now < (cut.until ? Date.parse(cut.until) : Date.parse(cut.startedAt) + PRECUT_MAX_MS);
+}
+
+export interface PrecutOptions {
+  /** Cut only these clips; the others keep their state. Default: every clip. */
+  only?: Set<string>;
+  /** Stops the reads early (the render worker's job was canceled, or it's shutting down). */
+  signal?: AbortSignal;
+  /** How far into the source the read has got (seconds). */
+  onProgress?: (reached: number) => void;
+  /**
+   * Mark clips "cutting" for this long, renewed as the read goes (the render
+   * worker, whose reads run far past PRECUT_MAX_MS). If it dies, the clips
+   * lapse within this and the editor cuts them itself.
+   */
+  liveForMs?: number;
+}
+
 /**
  * Cuts and stores every clip of a project that just became ready, reading
  * until `deadline` (epoch ms, inside the function's own time limit). Clips
- * it doesn't reach are marked failed and the editor cuts them itself.
+ * it doesn't reach are marked failed and the editor cuts them itself. The
+ * render worker runs this too, with no function limit (see PrecutOptions).
  */
 export async function precutClipSources(
   row: Pick<ClipProjectRow, "id" | "user_id" | "source_url" | "duration_seconds" | "media_url"> & {
     clips: StoredClipMoment[] | null;
   },
-  deadline: number
+  deadline: number,
+  options: PrecutOptions = {}
 ): Promise<void> {
   const admin = createAdminClient();
   const storage = admin.storage.from(CLIP_SOURCES_BUCKET);
@@ -76,7 +99,10 @@ export async function precutClipSources(
   };
 
   const startedAt = new Date().toISOString();
-  for (const clip of clips) clip.cut = { state: "cutting", startedAt, reached: 0 };
+  const targets = clips.map((_, index) => index).filter((index) => !options.only || options.only.has(clips[index].id));
+  if (!targets.length) return;
+  const until = () => (options.liveForMs ? new Date(Date.now() + options.liveForMs).toISOString() : undefined);
+  for (const index of targets) clips[index].cut = { state: "cutting", startedAt, reached: 0, until: until() };
   await save();
 
   const ranges = clips.map((clip) => clipSourceRange(clip, row.duration_seconds));
@@ -122,6 +148,8 @@ export async function precutClipSources(
   const read = async (indices: number[], fresh: boolean): Promise<boolean> => {
     const upstream = new AbortController();
     const timer = setTimeout(() => upstream.abort(), Math.max(0, deadline - Date.now()));
+    const stop = () => upstream.abort();
+    options.signal?.addEventListener("abort", stop, { once: true });
     let lastProgress = Date.now();
     // Cut in full this read (storing may still be under way): never read again.
     const ended = new Set<number>();
@@ -135,10 +163,15 @@ export async function precutClipSources(
           if (event.type === "progress") {
             if (Date.now() - lastProgress < PROGRESS_EVERY_MS) return;
             lastProgress = Date.now();
+            const renewed = until();
             for (const index of indices) {
               const cut = clips[index].cut;
-              if (cut?.state === "cutting") cut.reached = event.time;
+              if (cut?.state === "cutting") {
+                cut.reached = event.time;
+                if (renewed) cut.until = renewed;
+              }
             }
+            options.onProgress?.(event.time);
             void save();
             return;
           }
@@ -173,19 +206,20 @@ export async function precutClipSources(
       return outOfTime;
     } finally {
       clearTimeout(timer);
+      options.signal?.removeEventListener("abort", stop);
       upstream.abort();
     }
   };
 
   // A read the provider cut off (or broke) is tried again on a fresh link
   // while there's time; one that simply ran out of time isn't.
-  let indices = clips.map((_, index) => index);
+  let indices = targets;
   for (let attempt = 0; attempt < PRECUT_READS && indices.length; attempt++) {
-    if (attempt > 0 && deadline - Date.now() < RETRY_MIN_MS) break;
+    if (attempt > 0 && (deadline - Date.now() < RETRY_MIN_MS || options.signal?.aborted)) break;
     broken.clear();
     for (const index of indices) {
       chunks[index] = [];
-      clips[index].cut = { state: "cutting", startedAt, reached: 0 };
+      clips[index].cut = { state: "cutting", startedAt, reached: 0, until: until() };
     }
     const outOfTime = await read(indices, attempt > 0);
     if (outOfTime) break;
@@ -195,7 +229,7 @@ export async function precutClipSources(
 
   await Promise.all(finished);
   // Whatever the reads didn't reach: the editor cuts these itself.
-  for (const clip of clips) if (clip.cut?.state === "cutting") clip.cut = { state: "failed" };
+  for (const index of targets) if (clips[index].cut?.state === "cutting") clips[index].cut = { state: "failed" };
   await save();
 }
 

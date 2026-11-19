@@ -284,6 +284,17 @@ export function useClipWorkspace(project: ClipProject) {
   const [sources, setSources] = useState<Record<string, SourceState>>({});
   const [tracks, setTracks] = useState<Record<string, TrackState>>({});
   const [background, setBackgroundState] = useState<BackgroundVideo | null>(null);
+  // Where Export renders: on the render worker (true) or in this tab; null until known.
+  const [serverRenders, setServerRenders] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void serverTakesRenders(project.id).then((available) => {
+      if (live) setServerRenders(available);
+    });
+    return () => {
+      live = false;
+    };
+  }, [project.id]);
 
   // Read by exportClips, which runs across many renders.
   const settingsRef = useRef(settings);
@@ -913,6 +924,7 @@ export function useClipWorkspace(project: ClipProject) {
     setBackground,
     renders,
     exportClips,
+    serverRenders,
   };
 }
 

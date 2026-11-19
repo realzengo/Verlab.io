@@ -5,16 +5,19 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import {
   CLIP_SOURCES_BUCKET,
-  PRECUT_MAX_MS,
   clipSourcePath,
+  cutStillLive,
   type StoredClipMoment,
 } from "@/lib/server/clips/precut";
 import type { ClipStoredSource } from "@/lib/clips";
+import { enqueuePrepare, workerCutsFor } from "@/lib/server/clips/jobs";
 
 // The clips the server has already cut for this project (see precut.ts):
 // signed URLs for the stored ones, how far the read has got for the ones
-// still on their way. The editor cuts anything else itself through
-// POST /api/clips/[id]/segments.
+// still on their way. Clips with no cut go to the render worker when it
+// takes this user's work (it reads the whole video, with no time limit) and
+// are reported as on their way; otherwise the editor cuts them itself
+// through POST /api/clips/[id]/segments.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SIGNED_URL_SECONDS = 60 * 60;
@@ -51,7 +54,7 @@ async function handleGET(
     const cut = clip.cut;
     if (cut?.state === "stored") {
       for (let part = 0; part < cut.parts; part++) paths.push(clipSourcePath(row, clip.id, part));
-    } else if (cut?.state === "cutting" && Date.now() - Date.parse(cut.startedAt) < PRECUT_MAX_MS) {
+    } else if (cut?.state === "cutting" && cutStillLive(cut)) {
       sources[clip.id] = { state: "cutting", reached: cut.reached };
     } else {
       // Never cut, failed, or a pre-cut that died with its function.
@@ -73,6 +76,24 @@ async function handleGET(
       sources[clip.id] = parts.every(Boolean)
         ? { state: "stored", from: cut.from, to: cut.to, offset: cut.offset, urls: parts as string[] }
         : { state: "none" };
+    }
+  }
+
+  const uncut = Object.entries(sources)
+    .filter(([, source]) => source.state === "none")
+    .map(([clipId]) => clipId);
+  if (uncut.length) {
+    try {
+      const admin = createAdminClient();
+      if (
+        (await workerCutsFor(admin, user.email)) &&
+        (await enqueuePrepare(admin, { userId: row.user_id, projectId: row.id, clipIds: uncut }))
+      ) {
+        for (const clipId of uncut) sources[clipId] = { state: "cutting", reached: 0 };
+      }
+    } catch (error) {
+      // The editor cuts them itself, as before.
+      console.error("[clips/sources] queueing the worker's cut failed:", error);
     }
   }
 

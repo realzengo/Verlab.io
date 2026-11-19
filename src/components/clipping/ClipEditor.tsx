@@ -493,7 +493,11 @@ export function ClipEditor({
             trailing={<ArrowRight className="h-4 w-4" strokeWidth={2} />}
             onClick={onExport}
           />
-          <p className="mt-2.5 text-center text-[12px] text-subtle">Rendered in your browser in full HD</p>
+          <p className="mt-2.5 text-center text-[12px] text-subtle">
+            {workspace.serverRenders
+              ? "Rendered on Verlab's servers in full HD"
+              : "Rendered in your browser in full HD"}
+          </p>
         </div>
         {/* Phones: a tab bar at the foot; each tab opens the settings sheet */}
         <nav
