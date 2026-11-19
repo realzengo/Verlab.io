@@ -10,14 +10,13 @@ import {
   type StoredClipMoment,
 } from "@/lib/server/clips/precut";
 import type { ClipStoredSource } from "@/lib/clips";
-import { enqueuePrepare, workerCutsFor } from "@/lib/server/clips/jobs";
+import { enqueuePrepare, workerCuts } from "@/lib/server/clips/jobs";
 
 // The clips the server has already cut for this project (see precut.ts):
 // signed URLs for the stored ones, how far the read has got for the ones
-// still on their way. Clips with no cut go to the render worker when it
-// takes this user's work (it reads the whole video, with no time limit) and
-// are reported as on their way; otherwise the editor cuts them itself
-// through POST /api/clips/[id]/segments.
+// still on their way. Clips with no cut go to the render worker while one is
+// up (no time limit) and are reported as on their way; otherwise the editor
+// cuts them itself through POST /api/clips/[id]/segments.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SIGNED_URL_SECONDS = 60 * 60;
@@ -86,7 +85,7 @@ async function handleGET(
     try {
       const admin = createAdminClient();
       if (
-        (await workerCutsFor(admin, user.email)) &&
+        (await workerCuts(admin)) &&
         (await enqueuePrepare(admin, { userId: row.user_id, projectId: row.id, clipIds: uncut }))
       ) {
         for (const clipId of uncut) sources[clipId] = { state: "cutting", reached: 0 };

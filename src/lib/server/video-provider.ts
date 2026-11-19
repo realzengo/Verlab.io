@@ -517,11 +517,18 @@ interface SavenowProgressResponse {
 // is treated as a retryable provider error instead of a false confirmation.
 const NOT_FOUND_REASON_PATTERN = /not found|private|remov|delet|unavailable|no longer exists|restrict/i;
 
-async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: number) => void): Promise<string> {
-  const deadline = Date.now() + SAVENOW_POLL_TIMEOUT_MS;
+async function savenowPollForDownloadUrl(
+  id: string,
+  onProgress?: (percent: number) => void,
+  { signal, stallMs, timeoutMs = SAVENOW_POLL_TIMEOUT_MS }: DownloadPollOptions = {}
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = "";
+  let lastChange = Date.now();
   while (Date.now() < deadline) {
+    signal?.throwIfAborted();
     const response = await fetchWithRetry(`${SAVENOW_BASE_URL}/ajax/progress.php?id=${encodeURIComponent(id)}`, {
-      signal: AbortSignal.timeout(15_000),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
       throw new VideoProviderError("provider_error", `Video Download API progress returned ${response.status}`);
@@ -554,25 +561,70 @@ async function savenowPollForDownloadUrl(id: string, onProgress?: (percent: numb
     if (data.progress !== undefined) {
       onProgress?.(Math.floor(data.progress / 10));
     }
+    // Some jobs just stop moving (seen 2026-11-19: trimmed mp3s that sat for
+    // the whole poll while the same stretch asked again took 40s).
+    const state = `${data.progress ?? ""}|${data.text ?? ""}`;
+    if (state !== lastState) {
+      lastState = state;
+      lastChange = Date.now();
+    } else if (stallMs && Date.now() - lastChange > stallMs) {
+      throw new VideoProviderError("provider_error", "download_stalled");
+    }
 
     await new Promise((resolve) => setTimeout(resolve, SAVENOW_POLL_INTERVAL_MS));
   }
   throw new VideoProviderError("provider_error", "download_timed_out");
 }
 
+/**
+ * A stretch of the video (whole seconds) for the provider to cut out itself.
+ * Measured 2026-11-19: the result starts on the requested second (video
+ * within 10ms, mp3 within 25ms) and arrives in a minute or two wherever it
+ * sits in the video, where the untrimmed stream can't seek and has to be
+ * read from 0:00 (a clip an hour in was 40+ minutes of reading). Video
+ * comes back re-encoded as a fragmented MP4 starting at 0; audio as a
+ * finished file with a Content-Length. The provider caches a finished job
+ * per request, so asking again for the same range returns the same link.
+ */
+export interface DownloadRange {
+  start: number;
+  end: number;
+}
+
+export interface DownloadPollOptions {
+  /** Stops waiting for the job (it keeps running at the provider). */
+  signal?: AbortSignal;
+  /** Gives up on a job whose progress hasn't moved for this long. */
+  stallMs?: number;
+  /** Gives up on a job that isn't done after this long (default 3 minutes). */
+  timeoutMs?: number;
+}
+
+export interface DownloadLinkOptions extends DownloadPollOptions {
+  /** Just this stretch of the video, cut by the provider (YouTube and Facebook only). */
+  range?: DownloadRange;
+}
+
 async function savenowSubmitAndPoll(
   url: string,
   format: DownloadFormat,
   apiKey: string,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  { range, ...poll }: DownloadLinkOptions = {}
 ): Promise<DownloadResult> {
   const endpoint = new URL("/ajax/download.php", SAVENOW_BASE_URL);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("format", format);
   endpoint.searchParams.set("apikey", apiKey);
   endpoint.searchParams.set("add_info", "1");
+  if (range) {
+    endpoint.searchParams.set("start_time", String(Math.max(0, Math.floor(range.start))));
+    endpoint.searchParams.set("end_time", String(Math.ceil(range.end)));
+  }
 
-  const response = await fetchWithRetry(endpoint, { signal: AbortSignal.timeout(30_000) });
+  const response = await fetchWithRetry(endpoint, {
+    signal: poll.signal ? AbortSignal.any([poll.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
+  });
   if (response.status === 429) {
     throw new VideoProviderError("rate_limited", "Rate limited by provider");
   }
@@ -589,7 +641,7 @@ async function savenowSubmitAndPoll(
     throw new VideoProviderError("provider_error", "Video Download API did not return a job id");
   }
 
-  const directUrl = await savenowPollForDownloadUrl(data.id, onProgress);
+  const directUrl = await savenowPollForDownloadUrl(data.id, onProgress, poll);
   return { title: data.info?.title?.trim() || "Untitled video", directUrl };
 }
 
@@ -599,7 +651,8 @@ const SAVENOW_JOB_RETRY_DELAY_MS = 1_500;
 async function savenowFetchDownloadLink(
   url: string,
   format: DownloadFormat,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  options?: DownloadLinkOptions
 ): Promise<DownloadResult> {
   const apiKey = process.env.SAVENOW_API_KEY;
   if (!apiKey) {
@@ -608,10 +661,14 @@ async function savenowFetchDownloadLink(
 
   for (let attempt = 1; attempt <= SAVENOW_JOB_ATTEMPTS; attempt++) {
     try {
-      return await savenowSubmitAndPoll(url, format, apiKey, onProgress);
+      return await savenowSubmitAndPoll(url, format, apiKey, onProgress, options);
     } catch (error) {
       const isAmbiguousFailure =
-        error instanceof VideoProviderError && error.code === "provider_error" && error.message !== "download_timed_out";
+        error instanceof VideoProviderError &&
+        error.code === "provider_error" &&
+        error.message !== "download_timed_out" &&
+        error.message !== "download_stalled" &&
+        !options?.signal?.aborted;
       // Only retry the whole job for ambiguous, likely-transient provider
       // failures (anti-bot block, scrape hiccup, missing job id) — a
       // confirmed not_found, rate limit, misconfiguration, or a poll that
@@ -652,19 +709,21 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
 export async function fetchDownloadLink(
   url: string,
   format: DownloadFormat,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  options?: DownloadLinkOptions
 ): Promise<DownloadResult> {
   const platform = detectDownloadPlatform(url);
   if (!platform) {
     throw new VideoProviderError("unsupported_url", "Unsupported video URL");
   }
   if (platform === "tiktok") {
+    if (options?.range) throw new VideoProviderError("provider_error", "Trimmed downloads aren't available for TikTok");
     onProgress?.(50);
     const result = await scrapeCreatorsFetchTikTokDownload(url);
     onProgress?.(100);
     return result;
   }
-  return savenowFetchDownloadLink(url, format, onProgress);
+  return savenowFetchDownloadLink(url, format, onProgress, options);
 }
 
 export { humanizeVideoProviderError };

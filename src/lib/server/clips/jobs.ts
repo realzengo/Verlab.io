@@ -285,15 +285,14 @@ export const WORKER_CUT_LIVE_MS = 3 * 60_000;
 /** After a cut job ends, the project's leftovers (clips it couldn't cut) wait this long before another. */
 const PREPARE_RETRY_MS = 10 * 60_000;
 
-/** Whether the worker cuts this user's clips: the render rollout switch, and a worker up. */
-export async function workerCutsFor(admin: SupabaseClient, email: string | null | undefined): Promise<boolean> {
-  return serverRenderEnabledFor(email) && (await workerOnline(admin));
-}
-
-/** The project owner's email, for the rollout switch when there's no signed-in request. */
-export async function ownerEmail(admin: SupabaseClient, userId: string): Promise<string | null> {
-  const { data } = await admin.auth.admin.getUserById(userId);
-  return data.user?.email ?? null;
+/**
+ * Whether the worker cuts clips: whenever one is up, for everyone (cuts only
+ * store the source for the editor; the render rollout switch is about
+ * exports). A cut job the worker doesn't get to lapses (WORKER_CUT_LIVE_MS)
+ * and the editor cuts those clips itself.
+ */
+export async function workerCuts(admin: SupabaseClient): Promise<boolean> {
+  return workerOnline(admin);
 }
 
 /**
@@ -360,4 +359,62 @@ export async function enqueuePrepare(
     await admin.from("clip_projects").update({ clips }).eq("id", projectId).eq("status", "ready");
   }
   return true;
+}
+
+/* ── A new project's audio for WhisperX (kind 'source') ──────────────── */
+// The worker fetches it and stores it in our bucket (worker/src/jobs/source.ts,
+// lib/server/clips/transcribe-audio.ts); projects.ts starts the transcription
+// once the job is done, and falls back to the provider's own link if it fails.
+
+export interface SourceAudioJob {
+  id: string;
+  status: ClipJobStatus;
+  output_path: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The project's latest audio job, if it has one. */
+export async function latestSourceJob(admin: SupabaseClient, projectId: string): Promise<SourceAudioJob | null> {
+  const { data, error } = await admin
+    .from("clip_jobs")
+    .select("id, status, output_path, error_message, created_at, updated_at")
+    .eq("project_id", projectId)
+    .eq("kind", "source")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<SourceAudioJob>();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Queues the worker's fetch of a project's audio; true once it's queued (or
+ * already was, under the same `attempt`).
+ */
+export async function enqueueSourceAudio(
+  admin: SupabaseClient,
+  { userId, projectId, attempt }: { userId: string; projectId: string; attempt: number }
+): Promise<boolean> {
+  const { error } = await admin.from("clip_jobs").insert({
+    user_id: userId,
+    project_id: projectId,
+    kind: "source",
+    input: {},
+    dedupe_key: `source:${projectId}:${attempt}`,
+    stage: "waiting",
+    max_attempts: 2,
+  });
+  if (error && error.code !== "23505") throw error;
+  return true;
+}
+
+/** Stops a project's audio job (it's being done another way now). */
+export async function cancelSourceJob(admin: SupabaseClient, jobId: string): Promise<void> {
+  await admin
+    .from("clip_jobs")
+    .update({ status: "canceled", finished_at: new Date().toISOString(), locked_by: null, locked_until: null })
+    .eq("id", jobId)
+    .in("status", ["queued", "running"]);
 }

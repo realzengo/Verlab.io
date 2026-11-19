@@ -693,8 +693,8 @@ function ProcessingState({ project }: { project: ClipProject }) {
     0,
     STAGES.findIndex((stage) => stage.status === project.status)
   );
-  // WhisperX runs at roughly 30x real time, plus fetching and the LLM pass.
-  const estimateMinutes = Math.max(1, Math.round((project.durationSeconds / 30 + 75) / 60));
+  // Fetching the audio and transcribing take ~1/15 of the video's length (measured 2026-11), plus the LLM pass.
+  const estimateMinutes = Math.max(2, Math.round((project.durationSeconds / 15 + 90) / 60));
 
   return (
     <div className={SPLIT}>

@@ -533,7 +533,12 @@ export function useClipWorkspace(project: ClipProject) {
           group.map(({ from, to }) => ({ start: from, end: to })),
           {
             onReady: (index, source) => void sourceReady(group[index], source),
-            onProgress: (time) => setReached(new Map(group.map(({ clip }) => [clip.id, time]))),
+            onProgress: (time, index) =>
+              setReached(
+                index === undefined
+                  ? new Map(group.map(({ clip }) => [clip.id, time]))
+                  : new Map([[group[index].clip.id, time]])
+              ),
             onError: (index, message) => sourceFailed(group[index], message),
           },
           abort.current.signal,

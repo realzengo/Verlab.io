@@ -5,11 +5,10 @@ import { precutClipSources, type StoredClipMoment } from "@/lib/server/clips/pre
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
 import { JobError } from "./render";
 
-// A project's clips cut from one read of the source, stored where the editor
-// loads them (precut.ts's layout and `cut` states, so nothing else changes).
-// On Vercel the same read stops ~260s into the stream; here it can run for as
-// long as reaching the last clip takes (a 2-hour video's last clip is most of
-// the video away: minutes of reading at the provider's speed).
+// A project's clips cut and stored where the editor loads them (precut.ts's
+// layout and `cut` states, so nothing else changes). Clips near the start
+// come from one read of the stream, the rest from trimmed downloads of their
+// own. On Vercel this stops ~260s in; here it runs until every clip is cut.
 
 /**
  * The longest one read may take. The provider can't seek and some of its
@@ -50,15 +49,13 @@ export async function runPrepareJob({
   const wanted = new Set(job.input.clipIds ?? row.clips.map((clip) => clip.id));
   const only = new Set(row.clips.filter((clip) => wanted.has(clip.id) && clip.cut?.state !== "stored").map((c) => c.id));
   if (!only.size) return { stored: 0, failed: 0, readMs: 0 };
-  const lastEnd = Math.max(...row.clips.filter((clip) => only.has(clip.id)).map((clip) => clip.end)) + 10;
-
   progress("fetching", 0);
   const started = Date.now();
   await precutClipSources(row, started + PREPARE_MAX_MS, {
     only,
     signal,
     liveForMs: WORKER_CUT_LIVE_MS,
-    onProgress: (reached) => progress("fetching", Math.min(0.99, reached / lastEnd)),
+    onProgress: (fraction) => progress("fetching", Math.min(0.99, fraction)),
   });
   const readMs = Date.now() - started;
   if (signal.aborted) throw new DOMException("Aborted", "AbortError");

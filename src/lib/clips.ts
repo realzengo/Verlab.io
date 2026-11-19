@@ -145,6 +145,13 @@ export const CLIP_SOURCE_MAX_SECONDS = 3 * 60 * 60;
 /** Longest single clip the editor will cut. */
 export const CLIP_MAX_SECONDS = 180;
 
+/**
+ * Clips whose cut starts this far into the video are cut from a trimmed
+ * download of their own (a minute or two wherever they are); earlier ones
+ * come from one read of the stream from 0:00. See cut-source.ts.
+ */
+export const TRIM_AFTER_SECONDS = 150;
+
 // Room to stretch a clip in the editor without fetching again.
 const SOURCE_MARGIN_SECONDS = 8;
 

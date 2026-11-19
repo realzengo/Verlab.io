@@ -1,11 +1,18 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cutClipSource, openClipSource, paddedCutRange } from "@/lib/server/clips/cut-source";
+import {
+  TRIM_AFTER_SECONDS,
+  cutClipSource,
+  cutTrimmedRanges,
+  openClipSource,
+  paddedCutRange,
+} from "@/lib/server/clips/cut-source";
 import { clipSourceRange, type ClipMoment } from "@/lib/clips";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
 
 // The moment a project is ready, the server cuts every clip's stretch of the
-// source in one read and stores the cuts, so the editor loads them from
+// source and stores the cuts (clips near the start from one read of the
+// stream, the rest from trimmed downloads of their own, all at once), so the editor loads them from
 // Storage when the user presses Create instead of reading the video then
 // (the provider's stream can't seek: reaching a clip 40 minutes in means
 // reading the 40 minutes before it, a minute or two of waiting). The user is
@@ -60,8 +67,8 @@ export interface PrecutOptions {
   only?: Set<string>;
   /** Stops the reads early (the render worker's job was canceled, or it's shutting down). */
   signal?: AbortSignal;
-  /** How far into the source the read has got (seconds). */
-  onProgress?: (reached: number) => void;
+  /** How far the cutting has got over all the clips (0..1). */
+  onProgress?: (fraction: number) => void;
   /**
    * Mark clips "cutting" for this long, renewed as the read goes (the render
    * worker, whose reads run far past PRECUT_MAX_MS). If it dies, the clips
@@ -111,6 +118,23 @@ export async function precutClipSources(
   const finished: Promise<void>[] = [];
   // Clips whose read broke (the stream ended or errored before them); worth another read.
   const broken = new Set<number>();
+  // How far each clip's cut has got (0..1), for options.onProgress.
+  const done = clips.map(() => 0);
+  let lastReport = Date.now();
+  /** Progress news, at most every PROGRESS_EVERY_MS: renews the "cutting" hold and saves how far each clip got. */
+  const report = () => {
+    if (Date.now() - lastReport < PROGRESS_EVERY_MS) return;
+    lastReport = Date.now();
+    const renewed = until();
+    if (renewed) {
+      for (const index of targets) {
+        const cut = clips[index].cut;
+        if (cut?.state === "cutting") cut.until = renewed;
+      }
+    }
+    options.onProgress?.(targets.reduce((sum, index) => sum + done[index], 0) / targets.length);
+    void save();
+  };
 
   /** Uploads a finished cut (in parts under the bucket's cap) and records it. */
   const store = async (index: number) => {
@@ -137,6 +161,7 @@ export async function precutClipSources(
         })
       );
       clips[index].cut = { ...ranges[index], state: "stored", offset: offsets[index], parts: groups.length };
+      done[index] = 1;
     } catch (error) {
       console.error(`[clips/precut] storing ${clips[index].id} failed:`, error);
       clips[index].cut = { state: "failed" };
@@ -150,7 +175,6 @@ export async function precutClipSources(
     const timer = setTimeout(() => upstream.abort(), Math.max(0, deadline - Date.now()));
     const stop = () => upstream.abort();
     options.signal?.addEventListener("abort", stop, { once: true });
-    let lastProgress = Date.now();
     // Cut in full this read (storing may still be under way): never read again.
     const ended = new Set<number>();
     try {
@@ -161,18 +185,12 @@ export async function precutClipSources(
         indices.map((index) => paddedCutRange({ start: ranges[index].from, end: ranges[index].to })),
         (event) => {
           if (event.type === "progress") {
-            if (Date.now() - lastProgress < PROGRESS_EVERY_MS) return;
-            lastProgress = Date.now();
-            const renewed = until();
             for (const index of indices) {
               const cut = clips[index].cut;
-              if (cut?.state === "cutting") {
-                cut.reached = event.time;
-                if (renewed) cut.until = renewed;
-              }
+              if (cut?.state === "cutting") cut.reached = event.time;
+              done[index] = Math.min(1, event.time / Math.max(1, ranges[index].to));
             }
-            options.onProgress?.(event.time);
-            void save();
+            report();
             return;
           }
           const index = indices[event.index];
@@ -213,20 +231,71 @@ export async function precutClipSources(
 
   // A read the provider cut off (or broke) is tried again on a fresh link
   // while there's time; one that simply ran out of time isn't.
-  let indices = targets;
-  for (let attempt = 0; attempt < PRECUT_READS && indices.length; attempt++) {
-    if (attempt > 0 && (deadline - Date.now() < RETRY_MIN_MS || options.signal?.aborted)) break;
-    broken.clear();
-    for (const index of indices) {
-      chunks[index] = [];
-      clips[index].cut = { state: "cutting", startedAt, reached: 0, until: until() };
+  const readNear = async (near: number[]) => {
+    let indices = near;
+    for (let attempt = 0; attempt < PRECUT_READS && indices.length; attempt++) {
+      if (attempt > 0 && (deadline - Date.now() < RETRY_MIN_MS || options.signal?.aborted)) break;
+      broken.clear();
+      for (const index of indices) {
+        chunks[index] = [];
+        clips[index].cut = { state: "cutting", startedAt, reached: 0, until: until() };
+      }
+      const outOfTime = await read(indices, attempt > 0);
+      if (outOfTime) break;
+      indices = indices.filter((index) => broken.has(index));
+      if (indices.length) console.warn(`[clips/precut] ${row.id}: reading ${indices.length} clip(s) again`);
     }
-    const outOfTime = await read(indices, attempt > 0);
-    if (outOfTime) break;
-    indices = indices.filter((index) => broken.has(index));
-    if (indices.length) console.warn(`[clips/precut] ${row.id}: reading ${indices.length} clip(s) again`);
-  }
+  };
 
+  /** Clips further in, each from a trimmed download of its own (retried inside on fresh links). */
+  const cutDeep = async (deep: number[]) => {
+    if (!deep.length) return;
+    const upstream = new AbortController();
+    const timer = setTimeout(() => upstream.abort(), Math.max(0, deadline - Date.now()));
+    const stop = () => upstream.abort();
+    options.signal?.addEventListener("abort", stop, { once: true });
+    try {
+      await cutTrimmedRanges(
+        row,
+        deep.map((index) => paddedCutRange({ start: ranges[index].from, end: ranges[index].to })),
+        (event) => {
+          const index = deep[event.index];
+          if (event.type === "start") {
+            offsets[index] = event.offset;
+          } else if (event.type === "data") {
+            chunks[index].push(event.bytes);
+          } else if (event.type === "end") {
+            finished.push(store(index));
+          } else {
+            console.warn(`[clips/precut] ${clips[index].id} of ${row.id}: no trimmed download came through`);
+            chunks[index] = [];
+          }
+        },
+        upstream.signal,
+        {
+          onRangeProgress: (position, fraction) => {
+            const index = deep[position];
+            const cut = clips[index].cut;
+            // The editor shows `reached` against the clip's start, so this fills its bar as the trim arrives.
+            if (cut?.state === "cutting") cut.reached = ranges[index].from * fraction;
+            done[index] = fraction;
+            report();
+          },
+        }
+      );
+    } catch (error) {
+      console.error("[clips/precut] trimmed cuts failed:", upstream.signal.aborted ? "out of time" : error);
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", stop);
+      upstream.abort();
+    }
+  };
+
+  await Promise.all([
+    readNear(targets.filter((index) => ranges[index].from < TRIM_AFTER_SECONDS)),
+    cutDeep(targets.filter((index) => ranges[index].from >= TRIM_AFTER_SECONDS)),
+  ]);
   await Promise.all(finished);
   // Whatever the reads didn't reach: the editor cuts these itself.
   for (const index of targets) if (clips[index].cut?.state === "cutting") clips[index].cut = { state: "failed" };

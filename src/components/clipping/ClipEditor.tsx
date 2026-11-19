@@ -71,6 +71,7 @@ import type { ZoomStyle } from "@/lib/client/clip-fill-camera";
 import { cameraPath, centerAt, type CameraMode } from "@/lib/client/clip-reframe";
 import { loadWaveform, type Waveform } from "@/lib/client/clip-waveform";
 import {
+  TRIM_AFTER_SECONDS,
   formatClock,
   isRtlText,
   type ClipAspect,
@@ -2848,7 +2849,8 @@ function ClipPreview({
                         <p className="mt-2.5 text-[13px] font-medium">
                           {narrow ? "Cutting this clip" : "Cutting this clip from the video"}
                         </p>
-                        {/* The server reads the video from the start to reach the clip; show where it is. */}
+                        {/* Near the start the server reads the video up to the clip (show where it is);
+                            further in it downloads just the clip (show how much of it is in). */}
                         {source && source.from > 20 ? (
                           <>
                             <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/15">
@@ -2860,7 +2862,9 @@ function ClipPreview({
                               />
                             </div>
                             <p className="mt-2 font-mono text-[12px] text-white/60">
-                              {formatClock(Math.min(source.reached ?? 0, source.from))} of {formatClock(source.from)}
+                              {source.from >= TRIM_AFTER_SECONDS
+                                ? `${Math.min(99, Math.floor(((source.reached ?? 0) / source.from) * 100))}%`
+                                : `${formatClock(Math.min(source.reached ?? 0, source.from))} of ${formatClock(source.from)}`}
                             </p>
                           </>
                         ) : (
@@ -2868,7 +2872,7 @@ function ClipPreview({
                         )}
                         {!narrow && (
                           <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                            Clips later in the video take longer to reach.
+                            This takes a minute or two.
                           </p>
                         )}
                       </>

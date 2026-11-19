@@ -6,15 +6,18 @@ import { RenderBrowser } from "./browser";
 import { errorText, log } from "./log";
 import { JobError, runRenderJob, type RenderJob } from "./jobs/render";
 import { runPrepareJob, type PrepareJob } from "./jobs/prepare";
+import { runSourceJob, type SourceJob } from "./jobs/source";
 import type { ClipJobStage } from "@/lib/clip-jobs";
 
 // The render worker: claims jobs from clip_jobs (claim_clip_job, SKIP
 // LOCKED), keeps each one's lease alive while it works, and records the
-// outcome. Two kinds, each with its own slots so a long read never holds up
+// outcome. Three kinds, each with its own slots so a long read never holds up
 // a render:
 //   render   one clip's MP4 (CLIP_WORKER_CONCURRENCY at once, a Chrome page each)
-//   prepare  a project's clips cut from one read of the video
+//   prepare  a project's clips cut and stored for the editor
 //            (CLIP_PREPARE_CONCURRENCY at once; network-bound, little CPU)
+//   source   a new project's audio for WhisperX, stored in our bucket
+//            (CLIP_SOURCE_CONCURRENCY at once; network, then a short ffmpeg)
 // On SIGTERM (a redeploy) it stops claiming and hands its running jobs back.
 //
 // Env: NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY,
@@ -43,10 +46,15 @@ const admin: SupabaseClient = createClient(supabaseUrl, serviceKey, {
 const workerId = `${process.env.RAILWAY_REPLICA_ID ?? os.hostname()}:${process.pid}`;
 const version = (process.env.RAILWAY_GIT_COMMIT_SHA ?? "dev").slice(0, 7);
 const concurrency = Math.max(1, Number(process.env.CLIP_WORKER_CONCURRENCY ?? 3));
-const prepareConcurrency = Math.max(0, Number(process.env.CLIP_PREPARE_CONCURRENCY ?? 2));
+const prepareConcurrency = Math.max(0, Number(process.env.CLIP_PREPARE_CONCURRENCY ?? 4));
+const sourceConcurrency = Math.max(0, Number(process.env.CLIP_SOURCE_CONCURRENCY ?? 3));
 
-type ClaimedJob = (RenderJob | (PrepareJob & { user_id: string; clip_id: null; attempts: number })) & {
-  kind: "render" | "prepare";
+type ClaimedJob = (
+  | RenderJob
+  | (PrepareJob & { user_id: string; clip_id: null; attempts: number })
+  | (SourceJob & { clip_id: null; attempts: number })
+) & {
+  kind: "render" | "prepare" | "source";
   max_attempts: number;
   created_at: string;
 };
@@ -67,7 +75,7 @@ const browser = await RenderBrowser.launch({
   log: (event, fields) => log(event, fields, "warn"),
 });
 const probe = await browser.probe();
-log("worker.started", { workerId, version, concurrency, prepareConcurrency, probe });
+log("worker.started", { workerId, version, concurrency, prepareConcurrency, sourceConcurrency, probe });
 if (!probe.avc1080 && !probe.avc720) {
   log("worker.no_h264", { userAgent: probe.userAgent }, "error");
   process.exit(1);
@@ -141,6 +149,25 @@ async function work(job: ClaimedJob) {
 
   const dir = await mkdtemp(path.join(os.tmpdir(), "verlab-render-"));
   try {
+    if (job.kind === "source") {
+      const audio = await runSourceJob({ admin, job: job as SourceJob, dir, signal: abort.signal, progress });
+      clearInterval(heartbeat);
+      const ms = Date.now() - started;
+      await finish(job, {
+        status: "done",
+        stage: null,
+        progress: 1,
+        output_path: audio.path,
+        output_bytes: audio.bytes,
+        encoder: "opus",
+        timings: { ...audio.timings, totalMs: ms },
+        finished_at: new Date().toISOString(),
+        error_code: null,
+        error_message: null,
+      });
+      log("job.done", { ...fields, ms, seconds: audio.seconds, bytes: audio.bytes, ...audio.timings });
+      return;
+    }
     if (job.kind === "prepare") {
       const cut = await runPrepareJob({ admin, job: job as PrepareJob, signal: abort.signal, progress });
       clearInterval(heartbeat);
@@ -274,4 +301,5 @@ setInterval(() => {
 await Promise.all([
   ...Array.from({ length: concurrency }, (_, index) => slot(index, ["render"])),
   ...Array.from({ length: prepareConcurrency }, (_, index) => slot(concurrency + index, ["prepare"])),
+  ...Array.from({ length: sourceConcurrency }, (_, index) => slot(concurrency + prepareConcurrency + index, ["source"])),
 ]);

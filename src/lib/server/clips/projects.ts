@@ -16,11 +16,23 @@ import {
   type TranscriptWord,
 } from "@/lib/clips";
 import { TRANSCRIPTION_DOWN_MESSAGE, isOutOfCredit, recordOutOfCredit } from "@/lib/server/clips/transcription-status";
-import { enqueuePrepare, ownerEmail, workerCutsFor } from "@/lib/server/clips/jobs";
+import {
+  cancelSourceJob,
+  enqueuePrepare,
+  enqueueSourceAudio,
+  latestSourceJob,
+  workerCuts,
+  workerOnline,
+  type SourceAudioJob,
+} from "@/lib/server/clips/jobs";
+import { TRANSCRIBE_AUDIO_BUCKET, transcribeAudioPath } from "@/lib/server/clips/transcribe-audio";
 
 // A clip project moves queued -> transcribing -> finding -> ready | failed,
 // on the server whether or not anyone has the page open:
-// - the create request fetches the audio and starts WhisperX in after();
+// - the create request queues the render worker's fetch of the audio
+//   (transcribe-audio.ts) in after(); once it's stored, whatever advances the
+//   project next starts WhisperX on it. With no worker up, or if its fetch
+//   fails, WhisperX gets the provider's mp3 link instead, as before;
 // - Replicate's webhook (/api/webhooks/replicate) advances the project the
 //   moment the transcript is done, running the moment-finding LLM in after();
 // - /api/cron/clips-poll sweeps every working project as the backstop for a
@@ -82,6 +94,17 @@ export function toClipProject(row: ClipProjectRow): ClipProject {
 }
 
 const QUEUED_STALE_MS = 5 * 60_000;
+// The worker's fetch of the audio (a 2-hour video: a few minutes; its own
+// cap is 35) is given up for the provider's direct link when it fails, or
+// after these.
+const SOURCE_MAX_MS = 40 * 60_000;
+const SOURCE_QUEUED_MAX_MS = 10 * 60_000;
+/** A running job renews its lease every 15s; this long without news, its worker is gone. */
+const SOURCE_SILENT_MS = 2 * 60_000;
+/** One caller starts the transcription from stored audio; another may take over after this. */
+const AUDIO_CLAIM_MS = 2 * 60_000;
+/** How long Replicate gets to download the stored audio. */
+const AUDIO_URL_SECONDS = 6 * 60 * 60;
 // Longer than the poll route's own 300s limit, so a live LLM pass is never re-claimed.
 const FINDING_STALE_MS = 6 * 60_000;
 const TRANSCRIBING_TIMEOUT_MS = 45 * 60_000;
@@ -99,8 +122,8 @@ const GENERIC_ERROR = "Something went wrong while processing that video. Your cr
 // and a new transcription, up to this many tries in all.
 const TRANSCRIBE_ATTEMPTS = 3;
 const DOWNLOAD_FAILURE = /input validation error|connection broken|incompleteread|timed out|connectionpool|connection reset/i;
-// Replicate's callback for a retried transcription (https only; local dev polls).
-const RETRY_WEBHOOK_URL = MCP_PUBLIC_ORIGIN.startsWith("https://")
+// Replicate's callback when a transcription is done (https only; local dev polls).
+const TRANSCRIBE_WEBHOOK_URL = MCP_PUBLIC_ORIGIN.startsWith("https://")
   ? `${MCP_PUBLIC_ORIGIN}/api/webhooks/replicate`
   : undefined;
 
@@ -108,6 +131,18 @@ const transcribeAttempts = (row: Pick<ClipProjectRow, "options">) => {
   const value = (row.options as { transcribeAttempts?: unknown } | null)?.transcribeAttempts;
   return typeof value === "number" ? value : 1;
 };
+
+// Internal bookkeeping on options (like transcribeAttempts; normalizeClipOptions drops it):
+//   audioVia        "direct" once the worker's audio was given up on
+//   audioClaimedAt  when a caller took the stored audio to start WhisperX
+type AudioOptions = { audioVia?: "direct"; audioClaimedAt?: string };
+const audioOptions = (row: Pick<ClipProjectRow, "options">) => (row.options ?? {}) as AudioOptions & Record<string, unknown>;
+
+/** Drops the worker's stored audio (best effort): the transcript is in, or the project is over. */
+async function removeTranscriptionAudio(admin: SupabaseClient, row: Pick<ClipProjectRow, "id" | "user_id">) {
+  const { error } = await admin.storage.from(TRANSCRIBE_AUDIO_BUCKET).remove([transcribeAudioPath(row)]);
+  if (error) console.error(`[clips] removing ${row.id}'s audio failed:`, error);
+}
 
 function describeError(error: unknown): string {
   if (isOutOfCredit(error)) return `${TRANSCRIPTION_DOWN_MESSAGE} Your credits were refunded.`;
@@ -131,6 +166,7 @@ async function failProject(admin: SupabaseClient, row: ClipProjectRow, message: 
   if (failed && failed.credits_charged > 0) {
     await refundUser(failed.user_id, failed.credits_charged, "Clipping refund", "clipping.analyze");
   }
+  if (failed) await removeTranscriptionAudio(admin, failed);
   return failed ?? { ...row, status: "failed", error_message: message };
 }
 
@@ -162,6 +198,22 @@ export async function prepareClipProject(projectId: string, webhookUrl?: string)
         }
       );
 
+  // The worker fetches the audio into our bucket while it's up; the next
+  // advance starts WhisperX on it (advanceQueued).
+  if (audioOptions(row).audioVia !== "direct") {
+    const queued = await queueTranscriptionAudio(admin, row).catch((error) => {
+      console.error("[clips] queueing the worker's audio failed; using the provider's link:", error);
+      return false;
+    });
+    if (queued) {
+      const mediaUrl = await videoLink;
+      if (mediaUrl) {
+        await admin.from("clip_projects").update({ media_url: mediaUrl }).eq("id", row.id).is("media_url", null);
+      }
+      return;
+    }
+  }
+
   try {
     const audio = await fetchDownloadLink(row.source_url, "mp3");
     const predictionId = await startTranscription(audio.directUrl, webhookUrl);
@@ -181,6 +233,92 @@ export async function prepareClipProject(projectId: string, webhookUrl?: string)
   if (mediaUrl) {
     await admin.from("clip_projects").update({ media_url: mediaUrl }).eq("id", row.id).is("media_url", null);
   }
+}
+
+/**
+ * Has the worker fetch a queued project's audio, unless a fetch of it is
+ * already under way or done (a retried transcription reuses stored audio).
+ * False: no worker, or its fetch already failed; use the provider's link.
+ */
+async function queueTranscriptionAudio(admin: SupabaseClient, row: ClipProjectRow): Promise<boolean> {
+  const latest = await latestSourceJob(admin, row.id);
+  if (latest && (latest.status === "queued" || latest.status === "running" || latest.status === "done")) return true;
+  if (latest || !(await workerOnline(admin))) return false;
+  return enqueueSourceAudio(admin, { userId: row.user_id, projectId: row.id, attempt: transcribeAttempts(row) });
+}
+
+/** Whether a worker audio job that isn't done should be given up on. */
+async function sourceJobGivenUp(admin: SupabaseClient, job: SourceAudioJob): Promise<boolean> {
+  if (job.status === "failed" || job.status === "canceled") return true;
+  const now = Date.now();
+  if (now - Date.parse(job.created_at) > SOURCE_MAX_MS) return true;
+  if (job.status === "running") return now - Date.parse(job.updated_at) > SOURCE_SILENT_MS;
+  // Waiting for a slot: fine while a worker is up, for a while.
+  return now - Date.parse(job.created_at) > SOURCE_QUEUED_MAX_MS || !(await workerOnline(admin));
+}
+
+/**
+ * Takes a queued project for one caller (by its updated_at, which every
+ * write bumps), recording `patch` on its options. Null if someone else did.
+ */
+async function claimQueued(
+  admin: SupabaseClient,
+  row: ClipProjectRow,
+  patch: AudioOptions
+): Promise<ClipProjectRow | null> {
+  const { data } = await admin
+    .from("clip_projects")
+    .update({ options: { ...audioOptions(row), ...patch } })
+    .eq("id", row.id)
+    .eq("status", "queued")
+    .eq("updated_at", row.updated_at)
+    .select(CLIP_PROJECT_COLUMNS)
+    .maybeSingle<ClipProjectRow>();
+  return data;
+}
+
+/** A queued project: waiting for its audio, or ready to start WhisperX on it. */
+async function advanceQueued(admin: SupabaseClient, row: ClipProjectRow): Promise<ClipProjectRow> {
+  const job = audioOptions(row).audioVia === "direct" ? null : await latestSourceJob(admin, row.id);
+  if (!job) {
+    // The create request's after() is fetching the provider's link (or died doing it).
+    return ageMs(row) > QUEUED_STALE_MS ? failProject(admin, row, GENERIC_ERROR) : row;
+  }
+
+  if (job.status === "done" && job.output_path) {
+    const claimedAt = audioOptions(row).audioClaimedAt;
+    if (claimedAt && Date.now() - Date.parse(claimedAt) < AUDIO_CLAIM_MS) return row;
+    const claimed = await claimQueued(admin, row, { audioClaimedAt: new Date().toISOString() });
+    if (!claimed) return row;
+    try {
+      const { data: signed, error } = await admin.storage
+        .from(TRANSCRIBE_AUDIO_BUCKET)
+        .createSignedUrl(job.output_path, AUDIO_URL_SECONDS);
+      if (error || !signed) throw error ?? new Error("No signed URL for the stored audio");
+      const predictionId = await startTranscription(signed.signedUrl, TRANSCRIBE_WEBHOOK_URL);
+      const { data: started } = await admin
+        .from("clip_projects")
+        .update({ status: "transcribing", prediction_id: predictionId })
+        .eq("id", row.id)
+        .eq("status", "queued")
+        .select(CLIP_PROJECT_COLUMNS)
+        .maybeSingle<ClipProjectRow>();
+      return started ?? claimed;
+    } catch (error) {
+      console.error("[clips] starting the transcription from stored audio failed:", error);
+      if (isOutOfCredit(error)) await recordOutOfCredit();
+      return failProject(admin, claimed, describeError(error));
+    }
+  }
+
+  if (!(await sourceJobGivenUp(admin, job))) return row;
+  // The worker couldn't get the audio: WhisperX reads the provider's link, as before.
+  const claimed = await claimQueued(admin, row, { audioVia: "direct" });
+  if (!claimed) return row;
+  console.warn(`[clips] ${row.id}: the worker's audio ${job.status} (${job.error_message ?? "no news"}); using the provider's link`);
+  await cancelSourceJob(admin, job.id).catch(() => {});
+  after(() => prepareClipProject(claimed.id, TRANSCRIBE_WEBHOOK_URL));
+  return claimed;
 }
 
 async function findMoments(
@@ -210,7 +348,7 @@ async function findMoments(
       // pre-cut stops ~260s into the stream (deep clips of a long video miss).
       try {
         const admin = createAdminClient();
-        if (await workerCutsFor(admin, await ownerEmail(admin, ready.user_id))) {
+        if (await workerCuts(admin)) {
           const queued = await enqueuePrepare(admin, {
             userId: ready.user_id,
             projectId: ready.id,
@@ -235,9 +373,7 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
   const admin = createAdminClient();
   const precutDeadline = Date.now() + PRECUT_BUDGET_MS;
 
-  if (row.status === "queued") {
-    return ageMs(row) > QUEUED_STALE_MS ? failProject(admin, row, GENERIC_ERROR) : row;
-  }
+  if (row.status === "queued") return advanceQueued(admin, row);
 
   if (row.status === "transcribing" && row.prediction_id) {
     const state = await getTranscription(row.prediction_id);
@@ -246,15 +382,24 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
     }
     if (state.status === "failed") {
       const attempts = transcribeAttempts(row);
+      const download = DOWNLOAD_FAILURE.test(state.error);
+      // WhisperX choking on the worker's stored audio for any other reason gets
+      // the provider's link next, as before there was a worker.
+      const storedAudio = Boolean(audioOptions(row).audioClaimedAt) && audioOptions(row).audioVia !== "direct";
       console.error(`[clips] transcription failed (try ${attempts} of ${TRANSCRIBE_ATTEMPTS}):`, state.error);
-      if (DOWNLOAD_FAILURE.test(state.error) && attempts < TRANSCRIBE_ATTEMPTS) {
+      if ((download || storedAudio) && attempts < TRANSCRIBE_ATTEMPTS) {
         // Back to queued, once (conditional on this prediction), for a fresh audio link.
         const { data: requeued } = await admin
           .from("clip_projects")
           .update({
             status: "queued",
             prediction_id: null,
-            options: { ...((row.options as object | null) ?? {}), transcribeAttempts: attempts + 1 },
+            options: {
+              ...audioOptions(row),
+              audioClaimedAt: undefined,
+              ...(storedAudio && !download ? { audioVia: "direct" } : {}),
+              transcribeAttempts: attempts + 1,
+            },
           })
           .eq("id", row.id)
           .eq("status", "transcribing")
@@ -262,7 +407,7 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
           .select(CLIP_PROJECT_COLUMNS)
           .maybeSingle<ClipProjectRow>();
         if (!requeued) return row;
-        after(() => prepareClipProject(requeued.id, RETRY_WEBHOOK_URL));
+        after(() => prepareClipProject(requeued.id, TRANSCRIBE_WEBHOOK_URL));
         return requeued;
       }
       return failProject(admin, row, GENERIC_ERROR);
@@ -279,6 +424,7 @@ export async function advanceClipProject(row: ClipProjectRow): Promise<ClipProje
       .maybeSingle<ClipProjectRow>();
     // Another poll got there first; it's running the LLM.
     if (!claimed) return { ...row, status: "finding" };
+    after(() => removeTranscriptionAudio(admin, claimed));
     return findMoments(admin, claimed, state.words, precutDeadline);
   }
 

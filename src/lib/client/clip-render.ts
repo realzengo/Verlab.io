@@ -1794,8 +1794,8 @@ export async function loadCaptionFonts(fonts: CaptionFont[] = ["sauce"]): Promis
 export interface SegmentHandlers {
   /** One clip's cut arrived in full. */
   onReady: (index: number, source: ClipSource) => void;
-  /** How far into the source video the server's read has got (seconds). */
-  onProgress: (time: number) => void;
+  /** How far into the source video the server's read has got (seconds): for every clip, or just clip `index`. */
+  onProgress: (time: number, index?: number) => void;
   onError: (index: number, message: string) => void;
 }
 
@@ -1873,7 +1873,8 @@ export async function fetchClipSources(
         const number = () => new DataView(payload.buffer).getFloat64(0);
 
         if (type === SEGMENT_FRAME.progress) {
-          handlers.onProgress(number());
+          if (index === SEGMENT_ALL || index >= ranges.length) handlers.onProgress(number());
+          else if (!settled.has(index)) handlers.onProgress(number(), index);
         } else if (type === SEGMENT_FRAME.error) {
           const message = new TextDecoder().decode(payload) || GENERIC_SEGMENT_ERROR;
           if (index === SEGMENT_ALL) failRest(message);

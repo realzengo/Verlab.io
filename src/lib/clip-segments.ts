@@ -10,7 +10,11 @@ export const SEGMENT_FRAME = {
   data: 2,
   /** The cut is complete. */
   end: 3,
-  /** Payload: float64 seconds into the source the read has reached. Index unused. */
+  /**
+   * Payload: float64 seconds into the source the read has reached; index
+   * 255 for every clip still on its way, else that one clip (a clip cut from
+   * its own trimmed download reports its share done, scaled to its start).
+   */
   progress: 4,
   /** Payload: UTF-8 message. Index 255 means every unfinished clip. */
   error: 5,
