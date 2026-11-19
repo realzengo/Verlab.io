@@ -15,6 +15,7 @@ import {
   type ClipProjectRow,
 } from "@/lib/server/clips/projects";
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
+import { TRANSCRIPTION_DOWN_MESSAGE, transcriptionAvailable } from "@/lib/server/clips/transcription-status";
 import { normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/lib/clips";
 
 // Fetching the audio and starting WhisperX runs in after(), which shares
@@ -101,6 +102,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   const cost = getClippingCost(video.durationSeconds);
+
+  // Transcription is down (Replicate out of credit): say so now, instead of
+  // charging, failing 20 seconds later and refunding.
+  if (!(await transcriptionAvailable())) {
+    return NextResponse.json({ error: TRANSCRIPTION_DOWN_MESSAGE }, { status: 503 });
+  }
 
   // Recorded before charging, so two copies of one request can't both charge:
   // the second's insert collides on (user_id, request_id) and returns the

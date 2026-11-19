@@ -15,6 +15,7 @@ import {
   type ClipProjectStatus,
   type TranscriptWord,
 } from "@/lib/clips";
+import { TRANSCRIPTION_DOWN_MESSAGE, isOutOfCredit, recordOutOfCredit } from "@/lib/server/clips/transcription-status";
 
 // A clip project moves queued -> transcribing -> finding -> ready | failed,
 // on the server whether or not anyone has the page open:
@@ -108,6 +109,7 @@ const transcribeAttempts = (row: Pick<ClipProjectRow, "options">) => {
 };
 
 function describeError(error: unknown): string {
+  if (isOutOfCredit(error)) return `${TRANSCRIPTION_DOWN_MESSAGE} Your credits were refunded.`;
   if (error instanceof ClipMomentsError) return `${error.message} Your credits were refunded.`;
   if (error instanceof VideoProviderError) return `${humanizeVideoProviderError(error)} Your credits were refunded.`;
   return GENERIC_ERROR;
@@ -169,6 +171,7 @@ export async function prepareClipProject(projectId: string, webhookUrl?: string)
       .eq("status", "queued");
   } catch (error) {
     console.error("[clips] prepare failed:", error);
+    if (isOutOfCredit(error)) await recordOutOfCredit();
     await failProject(admin, row, describeError(error));
     return;
   }

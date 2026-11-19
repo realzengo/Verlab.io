@@ -35,6 +35,7 @@ import {
   UUID_PATTERN,
   type McpToolDefinition,
 } from "./shared";
+import { TRANSCRIPTION_DOWN_MESSAGE, transcriptionAvailable } from "@/lib/server/clips/transcription-status";
 
 // Clipping in Claude: the same project pipeline as /clipping (fetch audio ->
 // WhisperX -> moment-finding LLM, with refunds on failure inside
@@ -147,6 +148,7 @@ const createClipsTool: McpToolDefinition = {
     if (problem) return errorResult(problem, "invalid_input");
 
     const cost = getClippingCost(video.durationSeconds);
+    if (!(await transcriptionAvailable())) return errorResult(TRANSCRIPTION_DOWN_MESSAGE);
     const charged = await chargeUpfront(userId, cost, "Clipping", "clipping.analyze");
     if (charged) return charged;
 

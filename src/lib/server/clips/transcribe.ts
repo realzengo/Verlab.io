@@ -8,7 +8,7 @@ import type { TranscriptWord } from "@/lib/clips";
 // It must be fed the provider's mp3, not m4a: the streamed m4a of a long
 // video decodes as corrupt AAC in the model's ffmpeg.
 // Community model, so predictions are created against a pinned version.
-const WHISPERX_VERSION = "655845d6190ef70573c669245f245892cd039df4b880a1e3a65852c09252f5cc";
+export const WHISPERX_VERSION = "655845d6190ef70573c669245f245892cd039df4b880a1e3a65852c09252f5cc";
 
 interface WhisperxWord {
   word?: string;

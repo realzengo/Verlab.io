@@ -10,6 +10,7 @@ import {
   getWeekOverWeekCounts,
 } from "@/lib/server/admin-queries";
 import { getWhopWebhookEnabled } from "@/lib/server/whop-sync";
+import { transcriptionOutage } from "@/lib/server/clips/transcription-status";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { AdminPulse, PulseItem } from "@/lib/types";
 
@@ -69,6 +70,7 @@ export async function getAdminPulse(): Promise<AdminPulse> {
     getLatestHealthCheck(),
     whopWebhookEnabled(),
     getRenderHealth(),
+    transcriptionOutage(),
   ]);
   if (results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
   for (const r of results) if (r.status === "rejected") console.error("[admin/pulse]", r.reason);
@@ -80,8 +82,19 @@ export async function getAdminPulse(): Promise<AdminPulse> {
   const health = ok(results[4]);
   const webhookOn = ok(results[5]);
   const renders = ok(results[6]);
+  const transcriptionDown = ok(results[7]);
   const now = Date.now();
   const problems: PulseItem[] = [];
+
+  if (transcriptionDown) {
+    problems.push({
+      id: "replicate-credit",
+      tone: "critical",
+      title: "Replicate is out of credit",
+      detail: `Clipping can't transcribe · since ${ago(now - new Date(transcriptionDown.since).getTime())}`,
+      href: "/admin/system",
+    });
+  }
 
   if (webhookOn === false) {
     problems.push({ id: "whop-webhook", tone: "critical", title: "Whop webhook is off", detail: "New payments aren't recorded", href: "/admin/revenue" });
