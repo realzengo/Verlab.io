@@ -10,7 +10,7 @@ import {
   enqueueRenders,
   latestRenderJobs,
   readRenderRequest,
-  serverRenderEnabled,
+  serverRenderEnabledFor,
   toRenderJobs,
   workerOnline,
 } from "@/lib/server/clips/jobs";
@@ -18,8 +18,9 @@ import {
 // Server renders of a project's clips (the render worker, worker/).
 //   GET   each clip's latest render, plus whether the server takes renders now
 //   POST  { items: ClipRenderRequest[] } -> the queued (or already finished) renders
-// A POST the server can't take (switched off, or no worker checked in) answers
-// 503 { fallback: true }, and the editor renders those clips itself.
+// A POST the server can't take (switched off or not this user's yet, see
+// serverRenderEnabledFor, or no worker checked in) answers 503
+// { fallback: true }, and the editor renders those clips itself.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ITEMS = 24;
@@ -40,8 +41,8 @@ async function requireProject(id: string) {
   return { user, project };
 }
 
-async function serverAvailable(admin: ReturnType<typeof createAdminClient>) {
-  return serverRenderEnabled() && (await workerOnline(admin));
+async function serverAvailable(admin: ReturnType<typeof createAdminClient>, email: string | undefined) {
+  return serverRenderEnabledFor(email) && (await workerOnline(admin));
 }
 
 async function handleGET(
@@ -56,7 +57,7 @@ async function handleGET(
   try {
     const [rows, available] = await Promise.all([
       latestRenderJobs(admin, { projectId: id, userId: ctx.user.id }),
-      serverAvailable(admin),
+      serverAvailable(admin, ctx.user.email),
     ]);
     return NextResponse.json(
       { jobs: await toRenderJobs(admin, rows), serverAvailable: available },
@@ -92,7 +93,7 @@ async function handlePOST(
   }
 
   const admin = createAdminClient();
-  if (!(await serverAvailable(admin))) {
+  if (!(await serverAvailable(admin, ctx.user.email))) {
     return NextResponse.json({ error: "Rendering on the server is unavailable", fallback: true }, { status: 503 });
   }
 

@@ -12,6 +12,7 @@ import {
   type ClipRenderRequest,
 } from "@/lib/clip-jobs";
 import type { ClipMoment } from "@/lib/clips";
+import { isAdminEmail } from "@/lib/server/admin";
 import {
   CLIP_EXPORT_COLUMNS,
   withClipExportUrls,
@@ -51,8 +52,17 @@ export interface ClipJobRow {
 const JOB_COLUMNS =
   "id, user_id, project_id, clip_id, kind, status, stage, progress, input, dedupe_key, attempts, max_attempts, export_id, error_code, error_message, created_at, finished_at";
 
-/** The CLIP_SERVER_RENDER switch: off sends every export back to the browser. */
-export const serverRenderEnabled = () => process.env.CLIP_SERVER_RENDER === "1";
+/**
+ * Who renders on the server (CLIP_SERVER_RENDER): "1" everyone, "0" no one
+ * (every export renders in the browser), unset (the rollout default) admins
+ * only (ADMIN_EMAILS), so the worker proves itself in production first.
+ */
+export function serverRenderEnabledFor(email: string | null | undefined): boolean {
+  const mode = process.env.CLIP_SERVER_RENDER;
+  if (mode === "1") return true;
+  if (mode === "0") return false;
+  return isAdminEmail(email);
+}
 
 /** Whether any render worker has checked in recently. */
 export async function workerOnline(admin: SupabaseClient): Promise<boolean> {
