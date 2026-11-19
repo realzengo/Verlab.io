@@ -19,7 +19,8 @@ import {
   type ClipEditSettings,
   type ClipSource,
 } from "@/lib/client/clip-render";
-import { analyzeReframe, type ReframeTrack } from "@/lib/client/clip-reframe";
+import { analyzeReframe, warmReframeWorkers, type ReframeTrack } from "@/lib/client/clip-reframe";
+import { makeReframeWorker } from "@/lib/client/clip-reframe-workers";
 import { encodeTrack, sha256Hex } from "@/lib/client/clip-track-io";
 import type { ClipRenderJob, ClipRenderRequest } from "@/lib/clip-jobs";
 import { defaultSettings } from "@/lib/client/clip-defaults";
@@ -343,6 +344,12 @@ export function useClipWorkspace(project: ClipProject) {
     };
   }, []);
 
+  // Face tracking's models load while the first clip's cut is still on its way.
+  const hasClips = (project.clips?.length ?? 0) > 0;
+  useEffect(() => {
+    if (hasClips) warmReframeWorkers(makeReframeWorker);
+  }, [hasClips]);
+
   const allRenders = useClipRenders();
   const renders = useMemo(() => {
     const mine: Record<string, RenderState> = {};
@@ -404,7 +411,7 @@ export function useClipWorkspace(project: ClipProject) {
     });
   }, []);
 
-  /** Face tracking runs one clip at a time; it shares the GPU with the preview. */
+  /** Face tracking runs one clip at a time (spread over a few workers); it shares the GPU with the preview. */
   const startTrack = useCallback((clip: ClipMoment, source: ClipSource, from: number, to: number) => {
     if (trackJobs.current.has(clip.id)) return;
     const job = deferred<ReframeTrack>();
@@ -419,7 +426,8 @@ export function useClipWorkspace(project: ClipProject) {
           from,
           to,
           (progress) => setTracks((current) => ({ ...current, [clip.id]: { status: "running", progress } })),
-          abort.current.signal
+          abort.current.signal,
+          makeReframeWorker
         );
         setTracks((current) => ({ ...current, [clip.id]: { status: "ready", progress: 1, track } }));
         job.resolve(track);

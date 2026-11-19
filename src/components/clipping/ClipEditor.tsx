@@ -11,11 +11,13 @@ import {
   Clapperboard,
   Copy,
   Loader2,
+  Minus,
   Move,
   MoveHorizontal,
   Pause,
   Pencil,
   Play,
+  Plus,
   RotateCcw,
   RotateCw,
   ScanFace,
@@ -146,8 +148,12 @@ const SNAP = 0.025;
 const PAN_SNAP = 0.015;
 // Correcting an AI panel: how far its crop zooms out and in on the AI's, and
 // the least of the source's height it may show (closer only blows up pixels).
-const PANEL_ZOOM_MIN = 0.5;
+// Out goes far enough to undo a cam the AI framed far too tight: until the
+// crop takes in the whole source (zoomWithin), at most 5x what the AI showed.
+const PANEL_ZOOM_MIN = 0.2;
 const PANEL_ZOOM_MAX = 4;
+/** One press of a panel's − or + button. */
+const PANEL_ZOOM_STEP = 1.25;
 const PANEL_MIN_SHOWN = 0.08;
 
 /** The AI panel under a point on the preview (client coordinates), if any. */
@@ -2639,10 +2645,21 @@ function ClipPreview({
                       (!movingPanel && !panning && !moving && (hoveredPanel === panel.index || (touch && !playing)));
                     const name = panel.layout === "fit" ? "" : PANEL_NAMES[panel.layout][panel.index];
                     const single = panels.length === 1;
+                    const adjust = panelAdjust(settings, panel.layout, panel.index);
+                    const zoomBy = (factor: number) =>
+                      onChange({
+                        framing: withPanelAdjust(settings.framing, panel.layout, panel.index, {
+                          ...adjust,
+                          zoom: zoomWithin(panel, adjust.zoom * factor),
+                        }),
+                      });
+                    // Each way it zooms only while that changes the picture (see zoomWithin).
+                    const canOut = zoomWithin(panel, adjust.zoom / PANEL_ZOOM_STEP) < adjust.zoom - 0.001;
+                    const canIn = zoomWithin(panel, adjust.zoom * PANEL_ZOOM_STEP) > adjust.zoom + 0.001;
+                    const what = single ? "the frame" : (name || "panel").toLowerCase();
                     return (
                       <div
                         key={`${panel.layout}${panel.index}`}
-                        aria-hidden
                         className={cn(
                           "pointer-events-none absolute transition-opacity duration-150",
                           single && "rounded-[20px]",
@@ -2669,10 +2686,71 @@ function ClipPreview({
                           )}
                         />
                         {!active && !single && (
-                          <span className="absolute left-2 top-2 inline-flex h-6 items-center gap-1 rounded-full bg-black/60 px-2 text-[10.5px] font-medium text-white backdrop-blur-md">
+                          <span
+                            aria-hidden
+                            className="absolute left-2 top-2 inline-flex h-6 items-center gap-1 rounded-full bg-black/60 px-2 text-[10.5px] font-medium text-white backdrop-blur-md"
+                          >
                             <Move className="h-3 w-3" />
-                            {name}
+                            {!narrow && name}
                           </span>
+                        )}
+                        {/* its zoom, right on it: out when the AI framed it too tight, in when too wide */}
+                        {!active && (
+                          <div
+                            role="group"
+                            aria-label={`Zoom ${what}`}
+                            onPointerEnter={() => setHoveredPanel(panel.index)}
+                            onPointerLeave={() => setHoveredPanel(null)}
+                            onClick={(event) => event.stopPropagation()}
+                            className={cn(
+                              "absolute right-2 top-2 inline-flex h-7 items-center rounded-full bg-black/60 p-0.5 text-white ring-1 ring-white/10 backdrop-blur-md",
+                              shown && "pointer-events-auto"
+                            )}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => zoomBy(1 / PANEL_ZOOM_STEP)}
+                              disabled={!canOut}
+                              tabIndex={shown ? 0 : -1}
+                              aria-label={`Zoom out ${what}`}
+                              title="Zoom out (show more)"
+                              className="flex h-6 w-6 items-center justify-center rounded-full outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-35 disabled:hover:bg-transparent"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            {!narrow && (
+                              <span className="w-9 text-center font-mono text-[10.5px] tabular-nums">
+                                {Math.round(adjust.zoom * 100)}%
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => zoomBy(PANEL_ZOOM_STEP)}
+                              disabled={!canIn}
+                              tabIndex={shown ? 0 : -1}
+                              aria-label={`Zoom in ${what}`}
+                              title="Zoom in (show less)"
+                              className="flex h-6 w-6 items-center justify-center rounded-full outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-35 disabled:hover:bg-transparent"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                            {isAdjusted(adjust) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onChange({
+                                    framing: withPanelAdjust(settings.framing, panel.layout, panel.index, NO_ADJUST),
+                                  })
+                                }
+                                tabIndex={shown ? 0 : -1}
+                                aria-label={`Put ${what} back to the AI's framing`}
+                                title="Back to the AI's framing"
+                                className="flex h-6 w-6 items-center justify-center rounded-full outline-none transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white/60"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
@@ -2786,7 +2864,13 @@ function ClipPreview({
                       )}
                     >
                       {panels.length > 0 ? <Move className="h-3.5 w-3.5" /> : <MoveHorizontal className="h-3.5 w-3.5" />}{" "}
-                      {narrow ? "Drag" : panels.length > 1 ? "Drag a panel to reframe it" : "Drag to reframe"}
+                      {narrow
+                        ? "Drag"
+                        : panels.length > 1
+                          ? "Drag a panel to move it, − + to zoom"
+                          : panels.length
+                            ? "Drag to move, − + to zoom"
+                            : "Drag to reframe"}
                     </span>
                   )}
                   <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5">

@@ -5,7 +5,11 @@
 // Analysis runs once per clip. Frames are sampled every SAMPLE_EVERY seconds.
 // BlazeFace runs on the whole frame and, when the faces it finds are small,
 // again on three overlapping square tiles at nearly twice the zoom, so wide
-// shots still find people. Detections are linked into identities from one
+// shots still find people. That full search runs now and then; in between,
+// the faces already found are followed with a tile on each, a fraction of the
+// detector calls. A pool of workers reads the clip in pieces at once (see
+// readFrames), so a minute of video tracks in seconds, off the editor's
+// thread. Detections are linked into identities from one
 // sample to the next. When two or more people share a shot, the face
 // landmarker reads each mouth, and the person whose jaw is moving (talking)
 // is followed. A new speaker has to lead for a moment, and the switch is
@@ -79,6 +83,15 @@ const MIN_SHOT = 0.6;
 const TINY_FACE = 0.1;
 const DEEP_EVERY = 3;
 const TILE_SIZE = 512;
+// That full search runs at a clip's first sample, at anything that may be a
+// cut, and every RESCAN_EVERY samples (for people walking in). In between,
+// the faces already seen are followed: the whole frame, plus a tile zoomed
+// to each one it misses, FOLLOW_ZOOM times the face's height wide (between
+// the two tile sizes above). A face not found is looked for KEEP_LOOKING more
+// samples before the next full search has to find it again.
+const RESCAN_EVERY = 6;
+const FOLLOW_ZOOM = 4;
+const KEEP_LOOKING = 2;
 // Identity matching: the next sample's face must sit this close (fraction of width).
 const MATCH_DISTANCE = 0.1;
 const FORGET_AFTER = 4;
@@ -111,7 +124,7 @@ type Landmarker = {
 };
 
 /** A face in one sample, in 0-1 frame coordinates. */
-interface Face {
+export interface Face {
   x: number;
   y: number;
   w: number;
@@ -119,7 +132,7 @@ interface Face {
   score: number;
 }
 
-interface SeenFace extends Face {
+export interface SeenFace extends Face {
   /** Jaw openness, when read. */
   mouth: number | null;
 }
@@ -136,11 +149,31 @@ interface Sample {
 
 let visionPromise: Promise<{ detector: Detector; landmarker: Landmarker | null }> | null = null;
 
-async function getVision() {
+/** In a module worker importScripts() throws; in a classic one, called with nothing, it does nothing. */
+function isModuleWorker(): boolean {
+  try {
+    (globalThis as unknown as { importScripts: () => void }).importScripts();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+export async function getVision() {
   visionPromise ??= (async () => {
     const { FaceDetector, FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
-    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    // A module worker can't load MediaPipe's classic script; it takes the ES
+    // module build. (Turbopack starts its workers classic, esbuild's are modules.)
+    const inWorker = typeof document === "undefined";
+    const files = await FilesetResolver.forVisionTasks(WASM_URL, inWorker && isModuleWorker());
+    // MediaPipe drops its loader's global once a model is made from it, and a
+    // module worker imports a URL only once: each model there gets its own URL.
+    let loads = 0;
+    const fileset = () => (inWorker ? { ...files, wasmLoaderPath: `${files.wasmLoaderPath}?load=${++loads}` } : files);
+    // Workers run on the CPU: several of them share one GPU, which they'd only
+    // queue on, while on the CPU each gets a core (measured: ~3x faster with 4).
     const withDelegate = async <T>(make: (delegate: "GPU" | "CPU") => Promise<T>): Promise<T> => {
+      if (inWorker) return make("CPU");
       try {
         return await make("GPU");
       } catch {
@@ -148,7 +181,7 @@ async function getVision() {
       }
     };
     const detector = await withDelegate((delegate) =>
-      FaceDetector.createFromOptions(fileset, {
+      FaceDetector.createFromOptions(fileset(), {
         baseOptions: { modelAssetPath: DETECTOR_URL, delegate },
         runningMode: "IMAGE",
         minDetectionConfidence: 0.4,
@@ -156,7 +189,7 @@ async function getVision() {
     );
     // Speaker detection is a bonus: without it, the biggest face leads.
     const landmarker = await withDelegate((delegate) =>
-      FaceLandmarker.createFromOptions(fileset, {
+      FaceLandmarker.createFromOptions(fileset(), {
         baseOptions: { modelAssetPath: LANDMARKER_URL, delegate },
         runningMode: "IMAGE",
         numFaces: 1,
@@ -221,8 +254,21 @@ function overlap(a: Face, b: Face): number {
   return shared / (a.w * a.h + b.w * b.h - shared || 1);
 }
 
-/** Faces in a frame: the whole frame, then zoomed tiles while the faces found are small. */
-function findFaces(detector: Detector, frame: Canvas, tile: Canvas, deep: boolean): Face[] {
+/** The same face seen twice (by two passes, or a sample apart): overlapping, or centers within half a face. */
+function sameFace(a: Face, b: Face, W: number, H: number): boolean {
+  return (
+    overlap(a, b) >= 0.3 ||
+    Math.hypot((a.x + a.w / 2 - b.x - b.w / 2) * W, (a.y + a.h / 2 - b.y - b.h / 2) * H) < 0.5 * Math.max(a.h, b.h) * H
+  );
+}
+
+/**
+ * Faces in a frame. A full search (`follow` null) looks at the whole frame,
+ * then zoomed tiles while the faces found are small. Following the faces seen
+ * just before, it looks at the whole frame and, zoomed, around each of those
+ * it misses there: the same faces for a fraction of the detector calls.
+ */
+function findFaces(detector: Detector, frame: Canvas, tile: Canvas, deep: boolean, follow: Face[] | null): Face[] {
   const W = frame.width;
   const H = frame.height;
   const ctx = context(tile);
@@ -239,29 +285,48 @@ function findFaces(detector: Detector, frame: Canvas, tile: Canvas, deep: boolea
           score: d.categories?.[0]?.score ?? 0,
         };
       });
+  const look = (side: number, x: number, y: number, minScore: number) => {
+    ctx.drawImage(frame, x, y, side, side, 0, 0, TILE_SIZE, TILE_SIZE);
+    faces.push(...read(detector.detect(tile).detections, x, y, side / TILE_SIZE, minScore));
+  };
   const scan = (side: number, xs: number[], ys: number[], minScore: number) => {
-    for (const y of ys) {
-      for (const x of xs) {
-        ctx.drawImage(frame, x, y, side, side, 0, 0, TILE_SIZE, TILE_SIZE);
-        faces.push(...read(detector.detect(tile).detections, x, y, side / TILE_SIZE, minScore));
-      }
-    }
+    for (const y of ys) for (const x of xs) look(side, x, y, minScore);
   };
   const steps = (span: number, side: number, count: number) =>
     Array.from({ length: count }, (_, i) => (count === 1 ? 0 : (i * (span - side)) / (count - 1)));
 
   const faces = read(detector.detect(frame).detections, 0, 0, 1, 0.42);
-  if (W > H) scan(H, steps(W, H, 3), [0], 0.5);
-  if (W > H && (deep || faces.every((face) => face.h < TINY_FACE))) {
-    scan(H / 2, steps(W, H / 2, 4), steps(H, H / 2, 3), 0.55);
+  if (W > H && follow) {
+    // Biggest first; a tile already planned covers a face it holds at enough zoom.
+    const tiles: { x: number; y: number; side: number }[] = [];
+    for (const face of [...follow].sort((a, b) => b.h - a.h)) {
+      if (faces.some((found) => sameFace(found, face, W, H))) continue;
+      const [fx, fy, fw, fh] = [face.x * W, face.y * H, face.w * W, face.h * H];
+      const side = Math.min(H, Math.max(H / 2, fh * FOLLOW_ZOOM));
+      const holds = (t: { x: number; y: number; side: number }) =>
+        t.side <= side * 1.5 &&
+        fx - fw * 0.25 >= t.x &&
+        fy - fh * 0.25 >= t.y &&
+        fx + fw * 1.25 <= t.x + t.side &&
+        fy + fh * 1.25 <= t.y + t.side;
+      if (tiles.some(holds)) continue;
+      tiles.push({
+        side,
+        x: Math.min(W - side, Math.max(0, fx + fw / 2 - side / 2)),
+        y: Math.min(H - side, Math.max(0, fy + fh / 2 - side / 2)),
+      });
+    }
+    for (const t of tiles) look(t.side, t.x, t.y, t.side > H * 0.75 ? 0.5 : 0.55);
+  } else {
+    if (W > H) scan(H, steps(W, H, 3), [0], 0.5);
+    if (W > H && (deep || faces.every((face) => face.h < TINY_FACE))) {
+      scan(H / 2, steps(W, H / 2, 4), steps(H, H / 2, 3), 0.55);
+    }
   }
   // The same face seen by two passes (boxes differ a little by scale): keep the surer one.
-  const same = (a: Face, b: Face) =>
-    overlap(a, b) >= 0.3 ||
-    Math.hypot((a.x + a.w / 2 - b.x - b.w / 2) * W, (a.y + a.h / 2 - b.y - b.h / 2) * H) < 0.5 * Math.max(a.h, b.h) * H;
   faces.sort((a, b) => b.score - a.score);
   const kept: Face[] = [];
-  for (const face of faces) if (face.h > 0.025 && !kept.some((k) => same(k, face))) kept.push(face);
+  for (const face of faces) if (face.h > 0.025 && !kept.some((k) => sameFace(k, face, W, H))) kept.push(face);
   return kept;
 }
 
@@ -283,74 +348,96 @@ function readMouth(
   return { found: Boolean(shapes), jaw: shapes?.find((c) => c.categoryName === "jawOpen")?.score ?? null };
 }
 
+/** One sample as read from its frame. */
+export interface FrameRead {
+  /** A 16x9 color thumbnail, for spotting cuts; null when the frame couldn't be decoded. */
+  sig: number[] | null;
+  luma: Uint8Array | null;
+  faces: SeenFace[];
+}
+
+export interface FramesRead {
+  reads: FrameRead[];
+  /** The analysed frames' width / height, when any decoded. */
+  aspect: number | null;
+  height: number;
+}
+
+/** Where a cut lands: the frames between the samples on either side of it, and both samples' thumbnails. */
+export interface CutPin {
+  between: number[];
+  before: number[];
+  after: number[];
+}
+
+const aborted = () => new DOMException("Aborted", "AbortError");
+
+async function openVideo(blob: Blob) {
+  const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
+  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  const track = await input.getPrimaryVideoTrack().catch((error) => {
+    input.dispose();
+    throw error;
+  });
+  return {
+    input,
+    track,
+    sink: track ? new CanvasSink(track, { width: ANALYSIS_WIDTH, poolSize: 2 }) : null,
+  };
+}
+
 /**
- * Samples the clip's frames, finds and identifies the faces in each, reads
- * who is talking, and returns the subject to follow. Reports 0..1 progress.
+ * Reads the frames at `stamps` (the video's own time): each one's thumbnail,
+ * grayscale copy and faces, with who is talking where people share a shot.
+ * `firstIndex` is the first stamp's place in the whole clip. Runs in this
+ * thread or in a face tracking worker; null when the video has no picture.
  */
-export async function analyzeReframe(
-  source: ClipSource,
-  start: number,
-  end: number,
-  onProgress?: (progress: number) => void,
+export async function readFrames(
+  blob: Blob,
+  stamps: number[],
+  firstIndex: number,
+  onFrame?: () => void,
   signal?: AbortSignal
-): Promise<ReframeTrack> {
-  const [{ ALL_FORMATS, BlobSource, CanvasSink, Input }, vision] = await Promise.all([
-    import("mediabunny"),
-    getVision(),
-  ]);
-  const input = new Input({ source: new BlobSource(source.blob), formats: ALL_FORMATS });
+): Promise<FramesRead | null> {
+  const [{ input, track, sink }, vision] = await Promise.all([openVideo(blob), getVision()]);
   try {
-    const track = await input.getPrimaryVideoTrack();
-    if (!track) {
-      return {
-        aspect: 16 / 9,
-        times: [],
-        subject: [],
-        breaks: [],
-        faces: 0,
-        switches: 0,
-        frames: [],
-        cuts: [],
-        motion: [],
-        luma: [],
-      };
-    }
-    const sink = new CanvasSink(track, { width: ANALYSIS_WIDTH, poolSize: 2 });
+    if (!track || !sink) return null;
     const scratch = makeCanvas(16, 9);
     const small = makeCanvas(LUMA_W, LUMA_H);
     const tile = makeCanvas(TILE_SIZE, TILE_SIZE);
-    const luma: (Uint8Array | null)[] = [];
     const crop = makeCanvas(256, 256);
-
-    const localStart = Math.max(0, start - source.offset);
-    const localEnd = Math.max(localStart, end - source.offset);
-    const stamps: number[] = [];
-    for (let t = localStart; t <= localEnd + 1e-6; t += SAMPLE_EVERY) stamps.push(t);
-
-    const seen: { time: number; change: number; faces: SeenFace[] }[] = [];
-    const signatures: (number[] | null)[] = [];
-    let aspect = 16 / 9;
+    const reads: FrameRead[] = [];
+    let aspect: number | null = null;
+    // The faces being followed, and for how many samples each has gone unseen.
+    let following: { face: Face; missed: number }[] = [];
     let previous: number[] | null = null;
-    let index = 0;
+    let sinceSearch = Infinity;
     for await (const wrapped of sink.canvasesAtTimestamps(stamps)) {
-      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      const time = stamps[index++] + source.offset;
-      onProgress?.(index / stamps.length);
+      if (signal?.aborted) throw aborted();
+      const index = firstIndex + reads.length;
+      onFrame?.();
       if (!wrapped) {
-        seen.push({ time, change: 0, faces: [] });
-        signatures.push(null);
-        luma.push(null);
+        reads.push({ sig: null, luma: null, faces: [] });
         continue;
       }
       const frame = wrapped.canvas;
       aspect = frame.width / frame.height;
       const sig = signature(frame, scratch);
-      const change = previous ? difference(previous, sig) : 0;
+      const luma = grayscale(frame, small);
+      // Maybe a cut (findCuts decides later, from more than this): search the new shot afresh.
+      const newShot = !previous || difference(previous, sig) > SHOT_CHANGE;
       previous = sig;
-      signatures.push(sig);
-      luma.push(grayscale(frame, small));
+      if (newShot) following = [];
+      const search = newShot || ++sinceSearch >= RESCAN_EVERY;
+      if (search) sinceSearch = 0;
 
-      let faces: SeenFace[] = findFaces(vision.detector, frame, tile, index % DEEP_EVERY === 1)
+      let faces: SeenFace[] = findFaces(
+        vision.detector,
+        frame,
+        tile,
+        index % DEEP_EVERY === 0 || search,
+        search ? null : following.map(({ face }) => face)
+      )
         .sort((a, b) => b.w * b.h - a.w * a.h)
         .map((face) => ({ ...face, mouth: null }));
       // Only shared shots need to know who is talking; the same read weeds out false faces.
@@ -365,44 +452,369 @@ export async function analyzeReframe(
           ...faces.slice(4).filter((face) => face.score >= SURE_FACE),
         ];
       }
-      seen.push({ time, change, faces });
+      reads.push({ sig, luma, faces });
+      const W = frame.width;
+      const H = frame.height;
+      following = [
+        ...faces.map((face) => ({ face: face as Face, missed: 0 })),
+        ...following
+          .filter(({ face, missed }) => missed < KEEP_LOOKING && !faces.some((f) => sameFace(f, face, W, H)))
+          .map(({ face, missed }) => ({ face, missed: missed + 1 })),
+      ];
     }
+    return { reads, aspect, height: track.displayHeight };
+  } finally {
+    input.dispose();
+  }
+}
+
+/** Each cut's frame: the first one between its two samples that looks like the new shot (video time), or null. */
+export async function pinCuts(blob: Blob, pins: CutPin[], signal?: AbortSignal): Promise<(number | null)[]> {
+  const { input, sink } = await openVideo(blob);
+  try {
+    const scratch = makeCanvas(16, 9);
+    const out: (number | null)[] = [];
+    for (const { between, before, after } of pins) {
+      if (signal?.aborted) throw aborted();
+      let found: number | null = null;
+      let k = 0;
+      if (sink) {
+        for await (const wrapped of sink.canvasesAtTimestamps(between)) {
+          const t = between[k++];
+          if (!wrapped) continue;
+          const sig = signature(wrapped.canvas, scratch);
+          if (difference(sig, after) < difference(sig, before)) {
+            found = t;
+            break;
+          }
+        }
+      }
+      out.push(found);
+    }
+    return out;
+  } finally {
+    input.dispose();
+  }
+}
+
+// ---- Face tracking workers ----
+//
+// Each worker loads its own detector and decodes its own part of the clip, so
+// a clip is read by several at once (a detector call mostly waits on the GPU,
+// so they overlap well), and the editor's thread stays free for the preview.
+// The pool lives on between clips, so the models load once per editor visit.
+
+export type ReframeWorkerRequest =
+  | { id: 0; kind: "warm" }
+  | { id: number; kind: "read"; blob: Blob; stamps: number[]; firstIndex: number }
+  | { id: number; kind: "pin"; blob: Blob; pins: CutPin[] };
+
+export type ReframeWorkerReply =
+  | { id: 0; kind: "ready" }
+  | { id: number; kind: "frame" }
+  | { id: number; kind: "done"; result: FramesRead | null | (number | null)[] }
+  | { id: number; kind: "error"; message: string };
+
+/** Makes one face tracking worker (the bundler resolves its script, so the app supplies this). */
+export type ReframeWorkerFactory = () => Worker;
+
+// Samples per piece of work: small enough that the workers finish together,
+// big enough that each piece's seek to its first frame stays a small cost.
+const CHUNK_MIN = 24;
+// Workers end this long after the last clip, freeing their memory.
+const POOL_IDLE_MS = 90_000;
+
+// A worker that hasn't loaded by then counts as failed (tracking moves to the page).
+const READY_TIMEOUT_MS = 20_000;
+
+let pool: Worker[] = [];
+let poolReady: Promise<Worker[]> | null = null;
+// Clips (and warm-ups) using the pool: it ends only when none are.
+let poolUsers = 0;
+let poolTimer: ReturnType<typeof setTimeout> | null = null;
+let poolBroken = false;
+let nextJob = 1;
+// Requests in flight, failed at once if the pool ends under them.
+const inFlight = new Set<(error: Error) => void>();
+
+function poolSize(): number {
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = (navigator as { deviceMemory?: number }).deviceMemory ?? 8;
+  return Math.max(1, Math.min(4, Math.floor(cores / 2), memory <= 4 ? 2 : 4));
+}
+
+function endPool() {
+  for (const worker of pool) worker.terminate();
+  pool = [];
+  poolReady = null;
+  if (poolTimer) clearTimeout(poolTimer);
+  poolTimer = null;
+  for (const fail of [...inFlight]) fail(new Error("Face tracking workers stopped"));
+}
+
+/** Waits for a worker's "ready": its script loaded (a bundler may load it in pieces) and it's listening. */
+function whenReady(worker: Worker): Promise<Worker> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => finish(new Error("A face tracking worker didn't start")), READY_TIMEOUT_MS);
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      worker.onmessage = null;
+      worker.onerror = null;
+      if (error) reject(error);
+      else resolve(worker);
+    };
+    worker.onmessage = ({ data }: MessageEvent<ReframeWorkerReply>) => {
+      if (data.kind === "ready") finish();
+    };
+    worker.onerror = (event) => finish(new Error(event.message || "A face tracking worker failed to load"));
+  });
+}
+
+/** The pool, started if need be. Every take is paired with a releasePool(). */
+function takePool(make: ReframeWorkerFactory): Promise<Worker[]> {
+  poolUsers++;
+  if (poolTimer) clearTimeout(poolTimer);
+  poolTimer = null;
+  if (!poolReady) {
+    pool = Array.from({ length: poolSize() }, make);
+    poolReady = Promise.all(pool.map(whenReady));
+  }
+  return poolReady;
+}
+
+function releasePool() {
+  poolUsers = Math.max(0, poolUsers - 1);
+  if (poolUsers > 0) return;
+  if (poolTimer) clearTimeout(poolTimer);
+  poolTimer = setTimeout(endPool, POOL_IDLE_MS);
+}
+
+/**
+ * Starts the workers and loads their models ahead of the first clip (its cut
+ * usually takes longer than this), so tracking starts at full speed.
+ */
+export function warmReframeWorkers(make: ReframeWorkerFactory) {
+  if (poolBroken || typeof Worker === "undefined") return;
+  takePool(make)
+    .then((workers) => {
+      for (const worker of workers) worker.postMessage({ id: 0, kind: "warm" } satisfies ReframeWorkerRequest);
+    })
+    .catch((error) => {
+      // A worker script that won't load won't load for a clip either.
+      console.warn("[clips] face tracking workers unavailable; tracking on the page:", error);
+      poolBroken = true;
+      endPool();
+    })
+    .finally(releasePool);
+}
+
+/** One request on one worker, which runs one at a time. */
+function ask<T>(
+  worker: Worker,
+  request: ReframeWorkerRequest,
+  onFrame: (() => void) | undefined,
+  signal: AbortSignal | undefined
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const fail = (error: Error) => {
+      done();
+      reject(error);
+    };
+    const stop = () => fail(aborted());
+    const done = () => {
+      inFlight.delete(fail);
+      signal?.removeEventListener("abort", stop);
+      worker.onmessage = null;
+      worker.onerror = null;
+    };
+    if (signal?.aborted) return stop();
+    signal?.addEventListener("abort", stop, { once: true });
+    inFlight.add(fail);
+    worker.onmessage = ({ data }: MessageEvent<ReframeWorkerReply>) => {
+      if (data.id !== request.id) return;
+      if (data.kind === "frame") return onFrame?.();
+      if (data.kind === "done") {
+        done();
+        resolve(data.result as T);
+      } else if (data.kind === "error") fail(new Error(data.message));
+    };
+    worker.onerror = (event) => fail(new Error(event.message || "A face tracking worker failed"));
+    worker.postMessage(request);
+  });
+}
+
+/** Hands `tasks` to the workers, each taking the next as it finishes one. */
+async function shareOut<T>(
+  workers: Worker[],
+  tasks: ((worker: Worker) => Promise<T>)[]
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let next = 0;
+  await Promise.all(
+    workers.map(async (worker) => {
+      while (next < tasks.length) {
+        const i = next++;
+        results[i] = await tasks[i](worker);
+      }
+    })
+  );
+  return results;
+}
+
+/** The whole clip's frames, read by the workers in pieces. */
+async function readFramesInWorkers(
+  workers: Worker[],
+  blob: Blob,
+  stamps: number[],
+  onFrame: () => void,
+  signal?: AbortSignal
+): Promise<FramesRead | null> {
+  const size = Math.max(CHUNK_MIN, Math.ceil(stamps.length / (workers.length * 2)));
+  const tasks: ((worker: Worker) => Promise<FramesRead | null>)[] = [];
+  for (let from = 0; from < stamps.length; from += size) {
+    const chunk = stamps.slice(from, from + size);
+    tasks.push((worker) =>
+      ask<FramesRead | null>(
+        worker,
+        { id: nextJob++, kind: "read", blob, stamps: chunk, firstIndex: from },
+        onFrame,
+        signal
+      )
+    );
+  }
+  const parts = await shareOut(workers, tasks);
+  if (parts.some((part) => !part)) return null;
+  return {
+    reads: parts.flatMap((part) => part!.reads),
+    aspect: parts.find((part) => part!.aspect !== null)?.aspect ?? null,
+    height: parts[0]!.height,
+  };
+}
+
+async function pinCutsInWorkers(
+  workers: Worker[],
+  blob: Blob,
+  pins: CutPin[],
+  signal?: AbortSignal
+): Promise<(number | null)[]> {
+  const per = Math.ceil(pins.length / workers.length);
+  const groups: CutPin[][] = [];
+  for (let i = 0; i < pins.length; i += per) groups.push(pins.slice(i, i + per));
+  const parts = await shareOut(
+    workers,
+    groups.map((group) => (worker: Worker) =>
+      ask<(number | null)[]>(worker, { id: nextJob++, kind: "pin", blob, pins: group }, undefined, signal)
+    )
+  );
+  return parts.flat();
+}
+
+/**
+ * Samples the clip's frames, finds and identifies the faces in each, reads
+ * who is talking, and returns the subject to follow. Reports 0..1 progress.
+ * With `makeWorker`, the frames are read by a pool of workers in parallel
+ * (falling back to this thread if they can't run).
+ */
+export async function analyzeReframe(
+  source: ClipSource,
+  start: number,
+  end: number,
+  onProgress?: (progress: number) => void,
+  signal?: AbortSignal,
+  makeWorker?: ReframeWorkerFactory
+): Promise<ReframeTrack> {
+  const localStart = Math.max(0, start - source.offset);
+  const localEnd = Math.max(localStart, end - source.offset);
+  const stamps: number[] = [];
+  for (let t = localStart; t <= localEnd + 1e-6; t += SAMPLE_EVERY) stamps.push(t);
+
+  let done = 0;
+  const onFrame = () => onProgress?.(Math.min(1, ++done / stamps.length));
+  let workers: Worker[] | null = null;
+  let read: FramesRead | null = null;
+  if (makeWorker && !poolBroken && typeof Worker !== "undefined") {
+    const ready = takePool(makeWorker);
+    try {
+      workers = await ready;
+      read = await readFramesInWorkers(workers, source.blob, stamps, onFrame, signal);
+    } catch (error) {
+      workers = null;
+      releasePool();
+      endPool();
+      if (signal?.aborted) throw aborted();
+      // Workers that can't run here (an old browser, no OffscreenCanvas): this thread, from now on.
+      console.warn("[clips] face tracking workers failed; tracking on the page:", error);
+      poolBroken = true;
+      done = 0;
+    }
+  }
+  if (!workers) read = await readFrames(source.blob, stamps, 0, onFrame, signal);
+
+  try {
+    if (!read) {
+      return {
+        aspect: 16 / 9,
+        times: [],
+        subject: [],
+        breaks: [],
+        faces: 0,
+        switches: 0,
+        frames: [],
+        cuts: [],
+        motion: [],
+        luma: [],
+      };
+    }
+    const aspect = read.aspect ?? 16 / 9;
+    let previous: number[] | null = null;
+    const seen = read.reads.map(({ sig, faces }, i) => {
+      const time = stamps[i] + source.offset;
+      if (!sig) return { time, change: 0, faces };
+      const change = previous ? difference(previous, sig) : 0;
+      previous = sig;
+      return { time, change, faces };
+    });
     const cuts = findCuts(seen);
-    const height = track.displayHeight;
 
     // Pin each cut to its frame: the first frame between the two samples that
     // looks like the new shot. Layouts and the camera switch there.
+    const pinned: number[] = [];
+    const pins: CutPin[] = [];
     for (let i = 1; i < seen.length; i++) {
-      const before = signatures[i - 1];
-      const after = signatures[i];
+      const before = read.reads[i - 1].sig;
+      const after = read.reads[i].sig;
       if (!cuts[i] || !before || !after) continue;
       const between: number[] = [];
       for (let t = stamps[i - 1] + 1 / 30; t < stamps[i] - 1e-3; t += 1 / 30) between.push(t);
-      let k = 0;
-      for await (const wrapped of sink.canvasesAtTimestamps(between)) {
-        const t = between[k++];
-        if (!wrapped) continue;
-        const sig = signature(wrapped.canvas, scratch);
-        if (difference(sig, after) < difference(sig, before)) {
-          seen[i].time = t + source.offset;
-          break;
-        }
-      }
+      pinned.push(i);
+      pins.push({ between, before, after });
+    }
+    if (pins.length) {
+      const times = workers
+        ? await pinCutsInWorkers(workers, source.blob, pins, signal).catch((error) => {
+            if (signal?.aborted) throw aborted();
+            console.warn("[clips] pinning cuts in the workers failed; pinning on the page:", error);
+            return pinCuts(source.blob, pins, signal);
+          })
+        : await pinCuts(source.blob, pins, signal);
+      times.forEach((t, k) => {
+        if (t !== null) seen[pinned[k]].time = t + source.offset;
+      });
     }
 
     const samples = linkIdentities(seen, cuts, aspect);
     return {
       ...chooseSubject(samples, aspect),
-      height,
+      height: read.height,
       frames: samples.map((sample) =>
         sample.faces.map((f) => ({ id: f.id, x: f.x + f.w / 2, y: f.y + f.h / 2, w: f.w, h: f.h, score: f.score }))
       ),
       cuts,
       motion: seen.map((sample) => sample.change),
-      luma,
+      luma: read.reads.map((r) => r.luma),
     };
   } finally {
-    input.dispose();
+    if (workers) releasePool();
   }
 }
 
