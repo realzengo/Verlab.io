@@ -73,7 +73,6 @@ import type { ZoomStyle } from "@/lib/client/clip-fill-camera";
 import { cameraPath, centerAt, type CameraMode } from "@/lib/client/clip-reframe";
 import { loadWaveform, type Waveform } from "@/lib/client/clip-waveform";
 import {
-  TRIM_AFTER_SECONDS,
   formatClock,
   isRtlText,
   type ClipAspect,
@@ -1437,7 +1436,7 @@ function ClipSettingsPanel({
   );
   const layoutHint =
     track?.status === "running" || track?.status === "waiting"
-      ? `Reading the video ${Math.round((track.progress ?? 0) * 100)}%`
+      ? "Reading the video…"
       : track?.status === "error"
         ? "Face tracking unavailable"
         : plan?.style
@@ -1946,16 +1945,6 @@ function ClipSettingsPanel({
   );
 }
 
-function useElapsed(since: number | undefined, running: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [running]);
-  return since ? Math.max(0, Math.floor((now - since) / 1000)) : 0;
-}
-
 /** Seconds of kept footage before source time `t` (the output timeline). */
 function outputTimeAt(ranges: [number, number][], t: number): number {
   let total = 0;
@@ -2010,6 +1999,11 @@ function ClipPreview({
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(settings.start);
   const ready = source?.status === "ready" && Boolean(source.url);
+  const reframing = usesTracking(settings) && !settings.bottomVideo;
+  // The AI frames this clip from its face track: the picture waits behind the
+  // loader until it's in, so it never shows a plain crop that then jumps.
+  const tracking = ready && reframing && (track?.status === "waiting" || track?.status === "running");
+  const playable = ready && !tracking;
   const offset = source?.source?.offset ?? 0;
   const size = PREVIEW_SIZES[settings.aspect];
   const {
@@ -2035,7 +2029,6 @@ function ClipPreview({
     [words, start, end, removePauses, waveform]
   );
   const outputLength = rangesDuration(ranges);
-  const elapsed = useElapsed(source?.startedAt, source?.status === "loading");
   const subject = track?.track;
   const path = useMemo(
     () => (subject ? cameraPath(subject, cropAspectFor({ aspect, bottomVideo }), camera) : null),
@@ -2233,9 +2226,14 @@ function ClipPreview({
     return () => cancelAnimationFrame(frame);
   }, [playing, paint]);
 
+  // Nothing plays behind the loader.
+  useEffect(() => {
+    if (tracking) videoRef.current?.pause();
+  }, [tracking]);
+
   const toggle = () => {
     const video = videoRef.current;
-    if (!video || !ready) return;
+    if (!video || !playable) return;
     if (video.paused) {
       void video
         .play()
@@ -2536,12 +2534,28 @@ function ClipPreview({
   /** Each handle: always outlined while placed, on stage hover when it's the tab's, else on its own hover. */
   const handleVisibility = (what: Movable) =>
     placing === what || (touch && focus === what && !playing) ? "shown" : focus === what ? "stage" : "self";
-  const reframing = usesTracking(settings) && !settings.bottomVideo;
   const clamped = Math.min(end, Math.max(start, time));
   const areaRef = useRef<HTMLDivElement>(null);
   const box = useFitBox(areaRef, size.width / size.height);
   // A small preview (a phone with the settings sheet up) gets a shorter status card.
   const narrow = box !== null && box.width < 240;
+  // What the loader is waiting on: the cut (how far its read is, when
+  // there's a measure), then the face tracking (queued, then running).
+  const reached = Math.min(source?.reached ?? 0, source?.from ?? 0);
+  const loaderState: StageLoaderState =
+    source?.status === "error"
+      ? { phase: "error", real: null, label: "", idle: true }
+      : !ready
+        ? {
+            phase: "cut",
+            real: source && source.from > 20 ? reached / source.from : null,
+            label: "Preparing your clip",
+          }
+        : {
+            phase: "track",
+            real: track?.status === "running" ? track.progress : null,
+            label: narrow ? "Finding faces" : "Finding the faces to follow",
+          };
   // The stretch of source the timeline shows: the fetched cut, or the clip itself until it arrives.
   const from = Math.min(source?.from ?? start, start);
   const to = Math.max(source?.to ?? end, end);
@@ -2886,84 +2900,38 @@ function ClipPreview({
                         {!narrow && "Reset framing"}
                       </button>
                     )}
-                    {reframing && track && track.status !== "error" && (
+                    {reframing && track?.status === "ready" && (
                       <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-black/55 px-2.5 text-[11px] font-medium text-white backdrop-blur-md">
-                        {track.status === "ready" ? (
-                          <ScanFace className="h-3.5 w-3.5" />
-                        ) : (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        )}
-                        {track.status === "ready"
-                          ? `AI · ${LAYOUTS.find((l) => l.id === (liveLayout ?? "fill"))?.label}`
-                          : `Tracking ${Math.round(track.progress * 100)}%`}
+                        <ScanFace className="h-3.5 w-3.5" />
+                        {`AI · ${LAYOUTS.find((l) => l.id === (liveLayout ?? "fill"))?.label}`}
                       </span>
                     )}
                   </div>
                 </>
-              ) : (
-                <>
-                  {thumbnailUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
-                    <img
-                      src={thumbnailUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover opacity-50 blur-[2px]"
-                    />
-                  )}
-                  <div
-                    className={cn(
-                      "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/60 text-center text-white backdrop-blur-xl",
-                      narrow ? "w-[calc(100%-1.5rem)] p-3" : "w-[min(320px,calc(100%-2.5rem))] p-4"
-                    )}
-                  >
-                    {source?.status === "error" ? (
-                      <>
-                        <p className="text-[13px] leading-relaxed">{source.error}</p>
-                        <button
-                          type="button"
-                          onClick={onRetry}
-                          className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13px] font-medium text-[#0B0D12]"
-                        >
-                          <RotateCw className="h-3.5 w-3.5" /> Try again
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                        <p className="mt-2.5 text-[13px] font-medium">
-                          {narrow ? "Cutting this clip" : "Cutting this clip from the video"}
-                        </p>
-                        {/* Near the start the server reads the video up to the clip (show where it is);
-                            further in it downloads just the clip (show how much of it is in). */}
-                        {source && source.from > 20 ? (
-                          <>
-                            <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/15">
-                              <div
-                                className="h-full rounded-full bg-white transition-[width] duration-500"
-                                style={{
-                                  width: `${Math.min(100, ((source.reached ?? 0) / source.from) * 100)}%`,
-                                }}
-                              />
-                            </div>
-                            <p className="mt-2 font-mono text-[12px] text-white/60">
-                              {source.from >= TRIM_AFTER_SECONDS
-                                ? `${Math.min(99, Math.floor(((source.reached ?? 0) / source.from) * 100))}%`
-                                : `${formatClock(Math.min(source.reached ?? 0, source.from))} of ${formatClock(source.from)}`}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="mt-1 font-mono text-[12px] text-white/60">{formatClock(elapsed)}</p>
-                        )}
-                        {!narrow && (
-                          <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                            This takes a minute or two.
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
+              ) : null}
+              {/* until the cut is in and (for the AI layouts) its faces are tracked: the loader, then the picture fades in framed */}
+              <StageLoader
+                key={clip.id}
+                shown={!ready || tracking}
+                box={box}
+                thumbnailUrl={thumbnailUrl}
+                tracks={reframing}
+                trackSeconds={Math.max(3, (end - start) * TRACK_SECONDS_PER_SECOND)}
+                {...loaderState}
+              >
+                {source?.status === "error" && (
+                  <>
+                    <p className="text-[13px] leading-relaxed">{source.error}</p>
+                    <button
+                      type="button"
+                      onClick={onRetry}
+                      className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[13px] font-medium text-[#0B0D12]"
+                    >
+                      <RotateCw className="h-3.5 w-3.5" /> Try again
+                    </button>
+                  </>
+                )}
+              </StageLoader>
             </div>
           </div>
         </div>
@@ -2978,7 +2946,7 @@ function ClipPreview({
         <button
           type="button"
           onClick={toggle}
-          disabled={!ready}
+          disabled={!playable}
           aria-label={playing ? "Pause" : "Play"}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-heading text-surface outline-none transition-[transform,opacity] active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-40 dark:bg-white dark:text-[#0B0D12]"
         >
@@ -2997,10 +2965,212 @@ function ClipPreview({
           words={words}
           waveform={waveform}
           kept={removePauses ? ranges : null}
-          disabled={!ready}
+          disabled={!playable}
           onSeek={seek}
           onTrim={trim}
         />
+      </div>
+    </div>
+  );
+}
+
+/** What the stage loader is waiting on (see StageLoader). */
+interface StageLoaderState {
+  phase: "cut" | "track" | "error";
+  /** The step's real progress (0-1), or null while it has none to give. */
+  real: number | null;
+  label: string;
+  /** Nothing running (an error): no beam, no progress. */
+  idle?: boolean;
+}
+
+// The stage's corner radius (rounded-[20px]) and the loader's stroke width.
+const STAGE_RADIUS = 20;
+const LOADER_STROKE = 3;
+// One lap of the beam round the frame.
+const BEAM_LAP = "2.6s";
+// How long the steps usually take, for the loader's pace: a cut, and face
+// tracking per second of clip.
+const CUT_SECONDS = 60;
+const TRACK_SECONDS_PER_SECOND = 0.15;
+// Where the cut ends on the stroke when face tracking follows it.
+const CUT_SHARE = 0.7;
+// The most a step shows before it's really done.
+const STEP_CAP = 0.97;
+// Short of that, it always creeps on (this share of the way left, per
+// second), so it never sits still while a step runs long.
+const CREEP = 0.06;
+
+/**
+ * The loader's progress, paced to feel quick: it races ahead at first and
+ * slows the longer it runs. Per step it shows whichever is ahead of the real
+ * progress (eased the same way) and a guess (a third in the first couple of
+ * seconds, then the rest at the step's usual pace), never goes back, never
+ * stops while the step runs, and only fills up when it's done. The cut fills
+ * the first CUT_SHARE of the stroke and tracking the rest (all of it, when
+ * the cut was already in), so it's one run, never starting over.
+ */
+function usePacedProgress(
+  shown: boolean,
+  phase: StageLoaderState["phase"],
+  real: number | null,
+  tracks: boolean,
+  trackSeconds: number
+): number {
+  const [progress, setProgress] = useState(0);
+  const live = useRef({ phase, real, tracks, trackSeconds });
+  useEffect(() => {
+    live.current = { phase, real, tracks, trackSeconds };
+  }, [phase, real, tracks, trackSeconds]);
+
+  useEffect(() => {
+    if (!shown) return;
+    const began = new Map<string, number>();
+    let sawCut = false;
+    let value = 0;
+    let last = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const step = live.current;
+      if (!began.has(step.phase)) began.set(step.phase, now);
+      if (step.phase === "cut") sawCut = true;
+      const seconds = (now - began.get(step.phase)!) / 1000;
+      const usual = step.phase === "cut" ? CUT_SECONDS : step.trackSeconds;
+      const guess = 0.35 * (1 - Math.exp(-seconds / 1.2)) + 0.57 * (1 - Math.exp((-2.3 * seconds) / usual));
+      // Eased so it's quick early and only reaches the cap as the step ends.
+      const measured = step.real === null ? 0 : STEP_CAP * (1 - (1 - Math.min(1, step.real)) ** 2);
+      const finished = step.real !== null && step.real >= 1;
+      const [from, to] =
+        step.phase === "cut" ? [0, step.tracks ? CUT_SHARE : 1] : [sawCut ? CUT_SHARE : 0, 1];
+      const ceiling = finished ? to : from + (to - from) * STEP_CAP;
+      const target = Math.min(ceiling, from + (to - from) * (finished ? 1 : Math.max(guess, measured)));
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (step.phase !== "error") {
+        const chase = (target - value) * Math.min(1, dt * 5);
+        const creep = (ceiling - value) * CREEP * dt;
+        value = Math.min(Math.max(value, ceiling), value + Math.max(chase, creep, 0));
+      }
+      setProgress(value);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [shown]);
+
+  // Done: full, as the picture fades in.
+  return shown ? progress : 1;
+}
+
+/**
+ * The stage while its clip loads (the cut, then face tracking): the video's
+ * thumbnail, dimmed and soft, with the progress as a stroke drawn round the
+ * frame from the top middle, and a beam lapping it so it always reads as
+ * working. It fades out onto the picture, already framed. No beam for
+ * reduced motion.
+ */
+function StageLoader({
+  shown,
+  box,
+  thumbnailUrl,
+  tracks,
+  trackSeconds,
+  phase,
+  real,
+  label,
+  idle,
+  children,
+}: StageLoaderState & {
+  shown: boolean;
+  box: { width: number; height: number } | null;
+  thumbnailUrl: string | null;
+  /** Face tracking follows the cut. */
+  tracks: boolean;
+  /** How long tracking this clip usually takes. */
+  trackSeconds: number;
+  /** In place of the readout (an error and its retry). */
+  children?: ReactNode;
+}) {
+  const still = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const done = usePacedProgress(shown, phase, real, tracks, trackSeconds);
+  const inset = LOADER_STROKE / 2;
+  const w = Math.max(0, (box?.width ?? 0) - LOADER_STROKE);
+  const h = Math.max(0, (box?.height ?? 0) - LOADER_STROKE);
+  const r = STAGE_RADIUS - inset;
+  const length = 2 * (w + h) - (8 - 2 * Math.PI) * r;
+  // A rect's stroke starts just past its top-left corner: this moves it to the top middle.
+  const top = w / 2 - r;
+  const tail = length * 0.2;
+  const head = length * 0.05;
+  const small = box !== null && box.width < 240;
+  const frame = { x: inset, y: inset, width: w, height: h, rx: r, ry: r, fill: "none", strokeWidth: LOADER_STROKE };
+  const lap = (from: number) => (
+    <animate attributeName="stroke-dashoffset" from={-from} to={-from - length} dur={BEAM_LAP} repeatCount="indefinite" />
+  );
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-hidden={!shown}
+      className={cn(
+        "absolute inset-0 z-30 overflow-hidden rounded-[inherit] bg-black transition-opacity duration-500",
+        shown ? "opacity-100" : "pointer-events-none opacity-0"
+      )}
+    >
+      {thumbnailUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail
+        <img
+          src={thumbnailUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-[10px]"
+        />
+      )}
+      <div className="absolute inset-0 bg-black/35" />
+      {box && length > 0 && (
+        <svg aria-hidden className="pointer-events-none absolute inset-0" width={box.width} height={box.height}>
+          <rect {...frame} stroke="rgba(255,255,255,0.12)" />
+          {!idle && done > 0.003 && (
+            <rect
+              {...frame}
+              stroke="var(--color-primary)"
+              strokeLinecap="round"
+              strokeDasharray={`${done * length} ${length}`}
+              strokeDashoffset={-top}
+            />
+          )}
+          {shown && !idle && !still && (
+            <>
+              <rect {...frame} stroke="rgba(255,255,255,0.2)" strokeDasharray={`${tail} ${length - tail}`}>
+                {lap(top)}
+              </rect>
+              <rect
+                {...frame}
+                stroke="rgba(255,255,255,0.9)"
+                strokeLinecap="round"
+                strokeDasharray={`${head} ${length - head}`}
+              >
+                {lap(top + tail - head)}
+              </rect>
+            </>
+          )}
+        </svg>
+      )}
+      <div className="absolute left-1/2 top-1/2 w-[min(280px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 text-center text-white">
+        {children ? (
+          <div className="rounded-2xl bg-black/60 p-4 backdrop-blur-xl">{children}</div>
+        ) : (
+          <>
+            <p
+              className={cn(
+                "font-mono font-semibold leading-none tracking-tight tabular-nums",
+                small ? "text-[22px]" : "text-[30px]"
+              )}
+            >
+              {Math.floor(done * 100)}%
+            </p>
+            <p className="mt-2.5 text-[13px] font-medium text-white/85">{label}</p>
+          </>
+        )}
       </div>
     </div>
   );
