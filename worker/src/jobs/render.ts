@@ -3,6 +3,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RenderBrowser } from "../browser";
+import { probeStreams, remuxAudioToAac } from "../media";
 import type { PageStage } from "../page-api";
 import type { ClipJobStage, ClipRenderInput } from "@/lib/clip-jobs";
 import { CLIP_EXPORT_MAX_BYTES, clipSourceRange, type ClipMoment, type TranscriptWord } from "@/lib/clips";
@@ -105,7 +106,13 @@ export async function runRenderJob({
   const clipSeconds = Math.max(1, settings.end - settings.start);
   const result = await timed("renderMs", () =>
     browser.render(
-      { offset: source.offset, settings, words, clip: { keywords: clip.keywords, emojis: clip.emojis } },
+      {
+        offset: source.offset,
+        settings,
+        words,
+        clip: { keywords: clip.keywords, emojis: clip.emojis },
+        preciseAudio: true,
+      },
       { sourcePath: source.file, backgroundPath, trackPath, outputPath },
       {
         signal,
@@ -119,14 +126,23 @@ export async function runRenderJob({
     throw new JobError(result.fatal ? "fatal" : "render", result.message, !result.fatal);
   }
 
+  // Linux Chrome can't encode AAC: precise jump cuts come out as Opus, which
+  // QuickTime and iPhone Photos play silent. Re-encode just the audio.
+  let finalPath = outputPath;
+  const audio = (await probeStreams(outputPath)).streams.find((stream) => stream.codec_type === "audio");
+  if (audio && audio.codec_name !== "aac") {
+    finalPath = path.join(dir, "clip-aac.mp4");
+    await timed("audioMs", () => remuxAudioToAac(outputPath, finalPath));
+  }
+
   progress("uploading", 0);
-  const { size } = await stat(outputPath);
+  const { size } = await stat(finalPath);
   if (size > CLIP_EXPORT_MAX_BYTES) throw new JobError("too_large", "This clip came out too large to save.", false);
   const storagePath = `${job.user_id}/${job.project_id}/${job.id}.mp4`;
   const exportId = await timed("saveMs", async () => {
     const { error: uploadError } = await admin.storage
       .from(BUCKET)
-      .upload(storagePath, await readFile(outputPath), { contentType: "video/mp4", upsert: true });
+      .upload(storagePath, await readFile(finalPath), { contentType: "video/mp4", upsert: true });
     if (uploadError) throw new JobError("upload", `Saving the clip failed: ${uploadError.message}`, true);
     return saveExport(admin, job, clip, storagePath, size, result.duration);
   });

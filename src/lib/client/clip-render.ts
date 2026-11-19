@@ -2075,6 +2075,13 @@ export interface ExportOptions {
   /** Receives 0..1. */
   onProgress?: (progress: number) => void;
   signal?: AbortSignal;
+  /**
+   * Jump cuts re-encode the audio, so every cut is exact and faded, even
+   * where AAC can't be encoded (Opus then, which the caller converts to AAC).
+   * Otherwise such a browser copies the source's packets, cutting on ~21ms
+   * packet edges with no fades. The render worker sets this.
+   */
+  preciseAudio?: boolean;
 }
 
 export interface ExportResult {
@@ -2097,6 +2104,7 @@ export async function exportClip({
   background,
   onProgress,
   signal,
+  preciseAudio = false,
 }: ExportOptions): Promise<ExportResult> {
   const mb = await import("mediabunny");
   if (typeof VideoEncoder === "undefined") {
@@ -2141,7 +2149,7 @@ export async function exportClip({
       throw new ClipRenderError("This clip can't be decoded in your browser.");
     }
     const audioTrack = await input.getPrimaryAudioTrack().catch(() => null);
-    const audioPlan = await planAudio(mb, audioTrack, copyAudio);
+    const audioPlan = await planAudio(mb, audioTrack, copyAudio, preciseAudio && ranges.length > 1);
 
     const output = new mb.Output({
       format: new mb.Mp4OutputFormat({ fastStart: "in-memory" }),
@@ -2376,7 +2384,9 @@ type AudioPlan =
 async function planAudio(
   mb: Mediabunny,
   track: InputAudioTrackType | null,
-  copyOnly: boolean
+  copyOnly: boolean,
+  /** Encode (Opus if not AAC) before copying, for exact, faded jump cuts. */
+  preferEncode = false
 ): Promise<AudioPlan> {
   if (!track) return null;
   const canDecode = await track.canDecode().catch(() => false);
@@ -2392,6 +2402,9 @@ async function planAudio(
       .catch(() => false))
   ) {
     return { kind: "encode", codec: "aac" };
+  }
+  if (preferEncode && !copyOnly && canDecode && (await mb.canEncodeAudio("opus").catch(() => false))) {
+    return { kind: "encode", codec: "opus" };
   }
   const codec = track.codec;
   const decoderConfig = await track.getDecoderConfig().catch(() => null);

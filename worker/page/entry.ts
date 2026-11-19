@@ -116,6 +116,7 @@ async function renderClip(input: PageRenderInput): Promise<PageRenderResult> {
     track,
     background,
     onProgress: (p) => report("encoding", p),
+    preciseAudio: input.preciseAudio,
   });
   const encodeMs = performance.now() - encodeStarted;
 

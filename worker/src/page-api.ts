@@ -36,6 +36,8 @@ export interface PageRenderInput {
   backgroundUrl: string | null;
   /** Where the page PUTs the finished MP4. */
   outputUrl: string;
+  /** Exact, faded jump cuts (Opus audio here; the worker converts it to AAC). */
+  preciseAudio?: boolean;
 }
 
 export interface PageRenderResult {
