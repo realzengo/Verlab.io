@@ -512,7 +512,9 @@ export async function getAdminUsers(): Promise<{ users: AdminUser[]; nowIso: str
 
 function mapJobStatus(status: string): SystemJobStatus {
   if (status === "failed") return "failed";
-  if (status === "ready" || status === "sop_ready" || status === "complete" || status === "completed") return "success";
+  if (status === "ready" || status === "sop_ready" || status === "complete" || status === "completed" || status === "done") {
+    return "success";
+  }
   if (status === "queued" || status === "opening_channel") return "queued";
   return "running";
 }
@@ -531,11 +533,17 @@ const JOB_SOURCES: {
   columns: string;
   error: string[];
   source?: string;
+  /** Rows in this status aren't jobs anyone waited on (a superseded render). */
+  hideStatus?: string;
+  /** Sooner than STUCK_AFTER_MS for jobs that should be quick. */
+  stuckAfterMs?: number;
 }[] = [
   { table: "niche_bend_jobs", type: "niche-bend", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
   { table: "transcripts", type: "transcript", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
   { table: "downloads", type: "download", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
   { table: "clip_projects", type: "clipping", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
+  // Server renders (worker/): the raw failure is in error_message, the code the app maps in error_code.
+  { table: "clip_jobs", type: "clip-render", columns: "kind, clip_id, error_code, error_message, updated_at", error: ["error_message", "error_code"], source: "clip_id", hideStatus: "canceled", stuckAfterMs: 15 * 60 * 1000 },
   { table: "creator_analyses", type: "creator-analysis", columns: "source_url, error_message, updated_at", error: ["error_message"], source: "source_url" },
   { table: "niche_reports", type: "niche-report", columns: "platform, error_message, updated_at", error: ["error_message"] },
   { table: "video_generations", type: "video-generation", columns: "prompt, error_message, raw_error_message, updated_at", error: ["raw_error_message", "error_message"], source: "prompt" },
@@ -548,17 +556,17 @@ const JOB_SOURCES: {
 export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
   const admin = createAdminClient();
   const results = await Promise.all(
-    JOB_SOURCES.map((src) =>
-      admin
-        .from(src.table)
-        .select(`id, status, user_id, created_at, ${src.columns}`)
+    JOB_SOURCES.map((src) => {
+      let query = admin.from(src.table).select(`id, status, user_id, created_at, ${src.columns}`);
+      if (src.hideStatus) query = query.neq("status", src.hideStatus);
+      return query
         .order("created_at", { ascending: false })
         .limit(limit)
         .then(({ data, error }) => {
           if (error) console.error(`[admin] job queue: ${src.table}`, error.message);
           return (data ?? []) as unknown as Record<string, string | null>[];
-        })
-    )
+        });
+    })
   );
 
   // Cut to the newest `limit` first, then label only those rows' owners.
@@ -571,7 +579,8 @@ export async function getSystemJobs(limit = 20): Promise<SystemJob[]> {
   return newest.map(({ src, row }): SystemJob => {
     const createdAt = row.created_at as string;
     let status = mapJobStatus(row.status ?? "");
-    if ((status === "running" || status === "queued") && now - new Date(createdAt).getTime() > STUCK_AFTER_MS) status = "stuck";
+    const stuckAfter = src.stuckAfterMs ?? STUCK_AFTER_MS;
+    if ((status === "running" || status === "queued") && now - new Date(createdAt).getTime() > stuckAfter) status = "stuck";
     const settled = status === "success" || status === "failed";
     const errorMessage = src.error.map((col) => row[col]).find((v) => v && v.trim()) ?? null;
     return {

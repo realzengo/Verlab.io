@@ -584,6 +584,7 @@ export type SystemJobType =
   | "transcript"
   | "download"
   | "clipping"
+  | "clip-render"
   | "creator-analysis"
   | "niche-report"
   | "video-generation"

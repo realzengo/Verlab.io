@@ -1,0 +1,15 @@
+{
+  "name": "verlab-clip-worker",
+  "private": true,
+  "type": "module",
+  "description": "Renders Verlab clips off the browser: headless Chrome runs the editor's own renderer (src/lib/client/clip-render.ts).",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node dist/worker.mjs",
+    "spike": "node dist/spike.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "playwright-core": "1.65.1"
+  }
+}

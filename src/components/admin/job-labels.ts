@@ -9,6 +9,7 @@ export const JOB_TYPE_LABEL: Record<SystemJob["type"], string> = {
   transcript: "Transcript",
   download: "Download",
   clipping: "Clipping",
+  "clip-render": "Clip render",
   "creator-analysis": "Creator analysis",
   "niche-report": "Niche report",
   "video-generation": "Video generation",

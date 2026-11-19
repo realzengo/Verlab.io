@@ -374,7 +374,7 @@ function RenderTile({
         <ScoreChip score={entry.clip.score} className="pointer-events-none absolute left-2.5 top-2.5" />
         {done && entry.saved !== "saving" && (
           <a
-            href={entry.url}
+            href={entry.downloadUrl ?? entry.url}
             download={`${title}.mp4`}
             aria-label={`Download ${title}`}
             className={cn(ON_VIDEO_BUTTON, "absolute right-2 top-2")}

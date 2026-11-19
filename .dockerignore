@@ -1,0 +1,16 @@
+# Docker builds (the render worker, worker/Dockerfile) use the repo root as
+# context; keep it to what the image needs.
+.git
+.next
+node_modules
+backups
+docs
+supabase
+scripts
+.env*
+**/* 2
+**/* 2.*
+worker/node_modules
+worker/dist
+worker/spike/out
+worker/spike/fixture
