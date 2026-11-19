@@ -4,6 +4,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { RenderBrowser } from "../src/browser";
 import { execFileAsync, probeStreams, remuxAudioToAac, ssim } from "../src/media";
+import { cgroupMemory, oomKills, sampleMemoryPeak } from "../src/memory";
 import { defaultSettings } from "@/lib/client/clip-defaults";
 import type { ClipEditSettings } from "@/lib/client/clip-render";
 import type { ClipMoment, TranscriptWord } from "@/lib/clips";
@@ -72,7 +73,21 @@ const browser = await RenderBrowser.launch({
   executablePath: values.chrome || undefined,
   channel: "chrome",
   noSandbox: process.env.CHROME_NO_SANDBOX === "1",
+  extraArgs: (process.env.CHROME_EXTRA_ARGS ?? "").split(/\s+/).filter(Boolean),
   log: (event, fields) => console.log(JSON.stringify({ event, ...fields })),
+});
+
+const mb = (bytes: number | null | undefined) => (bytes == null ? null : Math.round(bytes / 1048576));
+const memoryBase = await cgroupMemory();
+const oomBefore = await oomKills();
+const memory = sampleMemoryPeak();
+/** Container memory and OOM kills over the run, for the report (success or not). */
+const memoryReport = async () => ({
+  chromeArgs: process.env.CHROME_EXTRA_ARGS ?? "",
+  memoryLimitMb: mb(memoryBase?.max),
+  memoryBeforeMb: mb(memoryBase?.current),
+  memoryPeakMb: mb(memory.stop()),
+  oomKills: oomBefore == null ? null : ((await oomKills()) ?? 0) - oomBefore,
 });
 
 try {
@@ -81,26 +96,32 @@ try {
 
   let last = -1;
   const started = Date.now();
-  const result = await browser.render(
-    {
-      offset: 0,
-      settings,
-      words,
-      clip: { keywords: clip.keywords, emojis: clip.emojis },
-      track: values.track ? { from: 0, to: 60 } : null,
-    },
-    { sourcePath, backgroundPath: null, outputPath },
-    {
-      timeoutMs: 10 * 60_000,
-      onProgress: (stage, progress) => {
-        const step = Math.floor(progress * 10);
-        if (step !== last) {
-          last = step;
-          console.log(JSON.stringify({ event: "progress", stage, progress: Number(progress.toFixed(2)) }));
-        }
+  const result = await browser
+    .render(
+      {
+        offset: 0,
+        settings,
+        words,
+        clip: { keywords: clip.keywords, emojis: clip.emojis },
+        track: values.track ? { from: 0, to: 60 } : null,
       },
-    }
-  );
+      { sourcePath, backgroundPath: null, outputPath },
+      {
+        timeoutMs: 10 * 60_000,
+        onProgress: (stage, progress) => {
+          const step = Math.floor(progress * 10);
+          if (step !== last) {
+            last = step;
+            console.log(JSON.stringify({ event: "progress", stage, progress: Number(progress.toFixed(2)) }));
+          }
+        },
+      }
+    )
+    .catch(async (error: unknown) => {
+      const report = { label: values.label, error: String(error).split("\n")[0], ...(await memoryReport()) };
+      console.log(`REPORT ${JSON.stringify(report)}`);
+      throw error;
+    });
   const wallMs = Date.now() - started;
 
   const media = await probeStreams(outputPath);
@@ -135,11 +156,12 @@ try {
     audioRemuxed: playable !== outputPath,
     playable,
     ssim: similarity,
+    ...(await memoryReport()),
     cpus: os.cpus().length,
     cpuModel: os.cpus()[0]?.model,
   };
   await writeFile(path.join(outDir, `${values.label}.json`), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify({ event: "report", ...report }, null, 2));
+  console.log(`REPORT ${JSON.stringify(report)}`);
 } finally {
   await browser.close();
 }

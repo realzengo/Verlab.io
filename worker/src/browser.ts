@@ -42,6 +42,8 @@ export interface BrowserOptions {
   channel?: string;
   /** Containers without user namespaces can't run Chrome's sandbox. */
   noSandbox?: boolean;
+  /** More Chrome switches (e.g. --disable-gpu on machines without one). */
+  extraArgs?: string[];
   log?: (event: string, fields: Record<string, unknown>) => void;
 }
 
@@ -154,6 +156,7 @@ export class RenderBrowser {
         // Docker's /dev/shm is tiny; video frames would crash the renderer.
         "--disable-dev-shm-usage",
         ...(options.noSandbox ? ["--no-sandbox"] : []),
+        ...(options.extraArgs ?? []),
       ],
     });
     return new RenderBrowser(browser, files, options.log ?? (() => {}));
