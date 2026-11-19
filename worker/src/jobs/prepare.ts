@@ -11,8 +11,12 @@ import { JobError } from "./render";
 // long as reaching the last clip takes (a 2-hour video's last clip is most of
 // the video away: minutes of reading at the provider's speed).
 
-/** The longest one read may take (the provider streams at ~2-10 MB/s). */
-const PREPARE_MAX_MS = 60 * 60_000;
+/**
+ * The longest one read may take. The provider can't seek and some of its
+ * servers stream at only ~1.5x realtime (a 1:52:52 video, 2026-11-19), so a
+ * clip near the end of a 2-hour video is ~70 minutes of reading away.
+ */
+const PREPARE_MAX_MS = 150 * 60_000;
 
 export interface PrepareJob {
   id: string;
