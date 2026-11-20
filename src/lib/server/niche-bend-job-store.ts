@@ -124,7 +124,7 @@ function sleep(ms: number): Promise<void> {
 
 function humanizeError(error: unknown): string {
   if (error instanceof NicheBendAiError) {
-    return "We couldn't read that channel. Try again or paste your videos manually.";
+    return error.userMessage ?? "We couldn't read that channel. Try again or paste your videos manually.";
   }
   return "Something went wrong while analyzing this channel. Try again or paste your videos manually.";
 }
@@ -260,6 +260,8 @@ async function runPipeline(supabase: SupabaseClient, job: NicheBendJobRow): Prom
     }
     await updateJob(supabase, job.id, {
       status: "ready",
+      // Can differ from what was picked when the channel had none of that type.
+      video_type: outcome.videoType,
       analysis: outcome.analysis,
       candidates: outcome.candidates,
       conversation: outcome.conversation,

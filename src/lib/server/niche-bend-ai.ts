@@ -4,9 +4,10 @@ import {
   ApifyScraperError,
   fetchTranscriptsBounded,
   scrapeChannelVideos,
-  scrapeChannelVideosWithUrls,
+  type ScrapedChannel,
   type ScrapedChannelVideo,
 } from "./apify-client";
+import { VideoProviderError } from "./video-provider";
 import { OPENROUTER_MAX_OUTPUT_TOKENS, openrouterInstructModel } from "./openrouter-client";
 import type {
   NicheBendCandidate,
@@ -17,7 +18,18 @@ import type {
   NicheBendVideoType,
 } from "@/lib/types";
 
-export class NicheBendAiError extends Error {}
+export class NicheBendAiError extends Error {
+  // Shown to the user as-is when set; otherwise job-store's generic copy.
+  userMessage?: string;
+
+  constructor(message: string, userMessage?: string) {
+    super(message);
+    this.userMessage = userMessage;
+  }
+}
+
+const NO_VIDEOS_MESSAGE =
+  "We couldn't find any public videos on that channel. Check the link, or paste your videos manually.";
 
 const SYSTEM_PROMPT = `You are Verlab's niche-bending strategist: an expert short-form video (YouTube/TikTok) scripting analyst. You reverse-engineer what makes a channel's videos work, hooks, structure, pacing, retention devices, and you write precise, actionable playbooks other creators can execute from. You are terse, concrete, and evidence-based: every claim you make must be grounded in real videos from the channel you're analyzing, and you cite which specific videos support it. No hype, no vague advice, no generic content-creator platitudes.`;
 
@@ -275,21 +287,17 @@ const MAX_TRANSCRIPT_CHARS = 6000;
 
 // Best-effort: pulls real spoken-script transcripts for the channel's
 // highest-viewed videos so the SOP can be grounded in what creators actually
-// say, not just inferred from titles. Runs as a second, independent scrape
-// (ScrapeCreators-only, URL-preserving) alongside the primary Apify/
-// ScrapeCreators title+views scrape in researchChannel -- if this fails
-// entirely (ScrapeCreators not configured, rate limited, no captions on any
-// of the top videos), the pipeline falls back to the pre-existing title-only
-// flow rather than failing the whole job over a nice-to-have.
+// say, not just inferred from titles. Reuses the main scrape's listing (its
+// videos carry URLs) rather than listing the channel a second time -- if this
+// fails entirely (rate limited, no captions on any of the top videos), the
+// pipeline falls back to the title-only flow rather than failing the whole
+// job over a nice-to-have.
 async function fetchTopVideoTranscripts(
-  url: string,
-  platform: NicheBendPlatform,
-  videoType: NicheBendVideoType
+  videos: ScrapedChannelVideo[]
 ): Promise<{ video: ScrapedChannelVideo; text: string }[]> {
   try {
-    const channel = await scrapeChannelVideosWithUrls(url, platform, videoType, TRANSCRIPT_VIDEO_COUNT);
     const transcribed = await fetchTranscriptsBounded(
-      channel.videos,
+      videos.filter((video) => video.url).slice(0, TRANSCRIPT_VIDEO_COUNT),
       TRANSCRIPT_CONCURRENCY,
       TRANSCRIPT_FETCH_BUDGET_MS
     );
@@ -331,21 +339,15 @@ export async function researchChannel(
   url: string,
   platform: NicheBendPlatform,
   videoType: NicheBendVideoType
-): Promise<ResearchOutcome & { transcriptCount: number }> {
+): Promise<ResearchOutcome & { transcriptCount: number; videoType: NicheBendVideoType }> {
   const platformLabel = platform === "youtube" ? "YouTube" : "TikTok";
-  const formatLabel = videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
 
-  // Run concurrently: the transcript fetch is best-effort and independent of
-  // the primary scrape, so it shouldn't add to this function's latency in
-  // the common case.
-  const transcriptsPromise = fetchTopVideoTranscripts(url, platform, videoType);
-
-  let scraped;
+  let scraped: ScrapedChannel;
   try {
     scraped = await scrapeChannelVideos(url, platform, videoType);
   } catch (error) {
-    if (error instanceof ApifyScraperError) {
-      throw new NicheBendAiError(error.message);
+    if (error instanceof ApifyScraperError || error instanceof VideoProviderError) {
+      throw new NicheBendAiError(error.message, error.code === "not_found" ? NO_VIDEOS_MESSAGE : undefined);
     }
     // Anything else (a bug, an unexpected throw from a dependency) still has
     // to cross this boundary as a NicheBendAiError — it's the only error type
@@ -355,7 +357,10 @@ export async function researchChannel(
     throw new NicheBendAiError(`Could not scrape that channel: ${message}`);
   }
 
-  const transcripts = await transcriptsPromise;
+  // The scrape may have switched type (e.g. Long-form picked on a Shorts-only
+  // channel), so the prompt describes what was actually scraped.
+  const formatLabel = scraped.videoType === "shorts" ? "Shorts / short-form vertical videos" : "long-form videos";
+  const transcripts = await fetchTopVideoTranscripts(scraped.videos);
   const videoList = scraped.videos.map((video) => `- ${video.title}, ${video.views} views`).join("\n");
 
   const extractionPrompt = `We scraped the real top ${formatLabel} from the ${platformLabel} channel "${scraped.channelName}" (${url}), sorted by view count:
@@ -370,7 +375,7 @@ From this real data, produce:
 Respond only in the required structured format.`;
 
   const outcome = await extractAnalysisAndCandidates([], platform, extractionPrompt, scraped.avatarUrl);
-  return { ...outcome, transcriptCount: transcripts.length };
+  return { ...outcome, transcriptCount: transcripts.length, videoType: scraped.videoType };
 }
 
 export async function researchFromManualVideos(
