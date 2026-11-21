@@ -3,33 +3,93 @@ import {
   BarChart3,
   Coins,
   DollarSign,
+  Folder,
+  Image as ImageIcon,
   LayoutDashboard,
   Settings,
   Wallet,
   Tag,
   Ticket,
   Users,
-  Home,
-  Library,
   Telescope,
-  Wand2,
-  Wrench,
-  Scissors,
-  Key,
   Megaphone,
 } from "lucide-react";
+import {
+  BinocularsIcon,
+  ClosedCaptioningIcon,
+  DownloadSimpleIcon,
+  FilmSlateIcon,
+  ImageIcon as ImageFillIcon,
+  MagicWandIcon,
+  MicrophoneIcon,
+  PencilLineIcon,
+  ScissorsIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import { DiscordIcon } from "@/components/icons/DiscordIcon";
-import type { NavItem } from "@/lib/types";
+import { McpIcon } from "@/components/icons/McpIcon";
+import { RailClipIcon, RailHomeIcon, RailToolsIcon, RailVideoIcon, RailWizardIcon } from "@/components/icons/RailIcons";
+import type { NavItem, NavMenuItem, NavMenuSection } from "@/lib/types";
 
+// Every tool, grouped the way the sidebar's Tools hover menu shows them:
+// one array per column, each a list of titled sections.
+export const TOOLS_MENU: NavMenuSection[][] = [
+  [
+    {
+      title: "Video and images",
+      items: [
+        { title: "Video Generator", description: "AI video from a prompt or image", href: "/video-generator", icon: FilmSlateIcon, tone: "purple" },
+        { title: "Image Generator", description: "Thumbnails and covers with AI", href: "/image-generator", icon: ImageFillIcon, tone: "orange" },
+        { title: "Clipping", description: "Viral clips from a long video", href: "/clipping", icon: ScissorsIcon, tone: "red", badge: "Beta" },
+      ],
+    },
+    {
+      title: "Voice and text",
+      items: [
+        { title: "Scriptwriter", description: "Write a script for your video", href: "/scripts", icon: PencilLineIcon, tone: "blue" },
+        { title: "Voiceover", description: "Turn a script into a voice", href: "/voiceover-generator", icon: MicrophoneIcon, tone: "pink" },
+      ],
+    },
+  ],
+  [
+    {
+      title: "Niche research",
+      items: [
+        { title: "Niche Finder", description: "Trending videos, by niche", href: "/niches", icon: BinocularsIcon, tone: "green" },
+        { title: "Niche Bending", description: "Remix a winning channel's format", href: "/bend", icon: MagicWandIcon, tone: "purple" },
+      ],
+    },
+    {
+      title: "Downloads and transcripts",
+      items: [
+        { title: "Downloader", description: "Save a video, no watermark", href: "/downloads", icon: DownloadSimpleIcon, tone: "green" },
+        { title: "Transcript Extractor", description: "Pull the script from any video", href: "/transcripts", icon: ClosedCaptioningIcon, tone: "blue" },
+      ],
+    },
+  ],
+];
+
+/** A tool's TOOLS_MENU entry by its page, so other screens draw it with the
+ * same icon and tone (see ToolTile). */
+export function toolMenuItem(href: string): NavMenuItem | undefined {
+  return TOOLS_MENU.flat()
+    .flatMap((section) => section.items)
+    .find((entry) => entry.href === href);
+}
+
+// Order and grouping are the app sidebar's: rows without a `section` form the
+// top group, then each `section` gets a small heading. Tools links to /tools
+// and shows TOOLS_MENU beside the rail on hover.
 export const SIDEBAR_NAV: NavItem[] = [
-  { label: "Home", href: "/", icon: Home },
-  { label: "Library", href: "/library", icon: Library },
+  { label: "Home", href: "/", icon: RailHomeIcon },
   { label: "Niche Finder", href: "/niches", icon: Telescope },
-  { label: "Niche Bending", href: "/bend", icon: Wand2 },
-  { label: "Clipping", href: "/clipping", icon: Scissors },
-  { label: "Tools", href: "/tools", icon: Wrench },
-  { label: "MCP", href: "/mcp", icon: Key },
-  { label: "Discord", href: "/discord", icon: DiscordIcon },
+  { label: "Niche Bending", href: "/bend", icon: RailWizardIcon },
+  { label: "Clipping", href: "/clipping", icon: RailClipIcon, badge: "Beta" },
+  { label: "Video Generator", href: "/video-generator", icon: RailVideoIcon },
+  { label: "Image Generator", href: "/image-generator", icon: ImageIcon },
+  { label: "Tools", href: "/tools", icon: RailToolsIcon, menu: TOOLS_MENU },
+  { label: "MCP", href: "/mcp", icon: McpIcon },
+  { label: "My library", href: "/library", icon: Folder, section: "Library" },
+  { label: "Discord", href: "/discord", icon: DiscordIcon, section: "Library" },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

@@ -72,7 +72,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const tabs = checked && hasAccess ? ALL_TABS : RESTRICTED_TABS;
 
   return (
-    <div className="bg-white text-heading dark:bg-[#000000]">
+    <div className="text-heading">
       <div className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
         <h1 className="text-2xl font-semibold tracking-[-0.02em] text-heading sm:text-[28px]">Settings</h1>
 

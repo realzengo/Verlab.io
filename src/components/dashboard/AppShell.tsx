@@ -65,7 +65,7 @@ export function AppShell({
       <SidebarCollapsedProvider>
         <NicheSidebarProvider>
           {/* `app-theme` turns on the sidebar's fill tokens (globals.css). */}
-          <div className="app-theme flex min-h-screen w-full bg-app">
+          <div className="app-theme flex min-h-screen w-full bg-(--app-canvas)">
             <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
             {showBackdrop && (

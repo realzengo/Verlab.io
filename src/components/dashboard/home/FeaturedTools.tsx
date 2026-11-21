@@ -10,130 +10,119 @@ const SEEDANCE_ICON = "/logos/ai/seedance.webp";
 const SORA_ICON = "/logos/ai/sora.svg";
 
 interface FeaturedModel {
-  id: string;
+  name: string;
   description: string;
-  badges: string[];
+  kind: "Video" | "Image";
   href: string;
   logo: string;
+  /** Shows the blue "New" pill beside the kind. */
+  isNew?: boolean;
+  /** The highlighted card (blue edge + soft halo); others take that look on hover. */
   featured?: boolean;
 }
 
 const MODELS: FeaturedModel[] = [
   {
-    id: "Seedance 2.5",
+    name: "Seedance 2.5",
     description: "Up to 30s in 1080p",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: SEEDANCE_ICON,
     featured: true,
   },
   {
-    id: "Kling 3.0",
+    name: "Kling 3.0",
     description: "Best for cinematic shots",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: KLING_ICON,
   },
   {
-    id: "Veo 3 Quality",
+    name: "Veo 3 Quality",
     description: "Native audio, premium realism",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: GOOGLE_ICON,
   },
   {
-    id: "Sora 2",
+    name: "Sora 2",
     description: "Strong physics & realism",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: SORA_ICON,
   },
   {
-    id: "Nano Banana Pro",
+    name: "Nano Banana Pro",
     description: "Highest quality photoreal stills",
-    badges: ["Image"],
+    kind: "Image",
     href: "/image-generator",
     logo: GOOGLE_ICON,
   },
   {
-    id: "GPT Image 2",
+    name: "GPT Image 2",
     description: "Sharp detail, follows a long prompt",
-    badges: ["Image"],
+    kind: "Image",
     href: "/image-generator",
     logo: GPT_ICON,
   },
   {
-    id: "Grok Imagine",
+    name: "Grok Imagine",
     description: "Fast, expressive motion",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: GROK_ICON,
   },
   {
-    id: "Veo 3 Fast",
+    name: "Veo 3 Fast",
     description: "Faster & cheaper native audio",
-    badges: ["Video"],
+    kind: "Video",
     href: "/video-generator",
     logo: GOOGLE_ICON,
   },
 ];
+
+// Card chrome measured off the reference grid: white 24px-radius cards with a
+// 1px rail-line border, 28px mono logo top left, stadium tags top right
+// (same pill as the sidebar badge), then a 15.5px semibold name and a
+// 13.4px description, in the rail's Open Sauce One.
+const CARD =
+  "group flex flex-col rounded-3xl border bg-white p-4 outline-none transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-primary/40 dark:bg-[#101115]";
+const CARD_LIT =
+  "border-[#c5d6f8] shadow-[0_2px_10px_-2px_rgba(43,96,189,0.16),0_0_0_3px_rgba(197,214,248,0.28)] dark:border-[#2d4170] dark:shadow-[0_0_0_3px_rgba(64,110,220,0.12)]";
+const CARD_IDLE =
+  "border-(--rail-line) hover:border-[#c5d6f8] hover:shadow-[0_2px_10px_-2px_rgba(43,96,189,0.16),0_0_0_3px_rgba(197,214,248,0.28)] dark:hover:border-[#2d4170] dark:hover:shadow-[0_0_0_3px_rgba(64,110,220,0.12)]";
+const PILL = "inline-flex h-4 items-center rounded-full px-[6.5px] text-[10.6px] leading-4";
 
 export function FeaturedTools() {
   return (
     <section>
       <h2 className="text-xl font-bold tracking-tight text-heading">Top models</h2>
 
-      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-4 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-3 font-['Open_Sauce_One',ui-sans-serif,system-ui,sans-serif] sm:mt-5 sm:grid-cols-4">
         {MODELS.map((model) => (
-          <Link
-            key={model.id}
-            href={model.href}
-            className={cn(
-              "group flex flex-col rounded-xl p-3 transition-shadow duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] sm:rounded-2xl sm:p-5",
-              model.featured
-                ? "bg-gradient-to-br from-[#5CA5FF] to-[#2563EB] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),inset_0_-1px_0_0_rgba(0,0,0,0.22),inset_0_0_14px_1px_#98CCFB] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.28),inset_0_0_32px_6px_#98CCFB]"
-                : "bg-[#F5F5F5] text-heading shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.14)] hover:shadow-[inset_0_1px_0_0_#ffffff,inset_0_-1px_0_0_rgba(16,24,40,0.2)] dark:border-0 dark:bg-surface dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09),inset_0_-1px_0_0_rgba(0,0,0,0.55)] dark:hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),inset_0_-1px_0_0_rgba(0,0,0,0.65)]"
-            )}
-          >
-            <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          <Link key={model.name} href={model.href} className={cn(CARD, model.featured ? CARD_LIT : CARD_IDLE)}>
+            <div className="flex items-start justify-between gap-2">
               <Image
                 src={model.logo}
                 alt=""
                 width={28}
                 height={28}
-                className={cn(
-                  "h-5 w-5 object-contain transition-transform duration-300 [transition-timing-function:cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-0.5 group-hover:scale-110 sm:h-7 sm:w-7",
-                  model.featured ? "brightness-0 invert" : "brightness-0 dark:brightness-0 dark:invert"
-                )}
+                className="h-7 w-7 shrink-0 object-contain brightness-0 dark:invert"
               />
-              <div className="flex items-center gap-1">
-                {model.badges.map((badge) => (
-                  <span
-                    key={badge}
-                    className={cn(
-                      "inline-flex -skew-x-12 items-center rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1",
-                      model.featured
-                        ? "bg-white/90"
-                        : "bg-heading bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),rgba(255,255,255,0)_65%)]"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "inline-block skew-x-12 text-[9px] font-extrabold italic uppercase tracking-wide sm:text-[11px]",
-                        model.featured ? "text-primary" : "text-app"
-                      )}
-                    >
-                      {badge}
-                    </span>
+              <div className="mt-px flex items-center gap-1.5">
+                {model.isNew && (
+                  <span className={cn(PILL, "bg-[#e6edfc] text-[#2b60bd] dark:bg-[#2b60bd]/20 dark:text-[#8fb0f0]")}>
+                    New
                   </span>
-                ))}
+                )}
+                <span className={cn(PILL, "bg-[#f0f1f2] text-(--rail-text) dark:bg-(--rail-badge)")}>{model.kind}</span>
               </div>
             </div>
 
-            <h3 className={cn("mt-2.5 text-[13px] font-bold sm:mt-4 sm:text-[15px]", model.featured ? "text-white" : "text-heading")}>
-              {model.id}
+            <h3 className="mt-6 truncate text-[15.5px] font-semibold leading-5 tracking-[-0.03em] text-(--rail-ink)">
+              {model.name}
             </h3>
-            <p className={cn("mt-0.5 text-[11px] leading-snug sm:mt-1 sm:text-sm", model.featured ? "text-white/75" : "text-subtle")}>
+            <p className="mt-[5px] truncate text-[13.4px] leading-5 tracking-[-0.01em] text-(--rail-text)">
               {model.description}
             </p>
           </Link>

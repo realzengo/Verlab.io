@@ -24,15 +24,15 @@ export function HomeSkeleton() {
       {/* Top models */}
       <section>
         <Skeleton className="h-6 w-32 rounded-full" />
-        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:grid-cols-4 sm:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="flex flex-col rounded-xl bg-(--app-fill) p-3 sm:rounded-2xl sm:p-5">
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-5 w-5 rounded-md sm:h-7 sm:w-7" />
-                <Skeleton className="h-4 w-10 rounded-md sm:h-5 sm:w-12" />
+            <div key={i} className="flex flex-col rounded-3xl border border-(--rail-line) bg-white p-4 dark:bg-[#101115]">
+              <div className="flex items-start justify-between gap-2">
+                <Skeleton className="h-7 w-7 rounded-lg" />
+                <Skeleton className="mt-px h-4 w-11 rounded-full" />
               </div>
-              <Skeleton className="mt-3 h-3.5 w-20 rounded-full sm:mt-4 sm:h-4 sm:w-28" />
-              <Skeleton className="mt-2 h-3 w-full rounded-full sm:h-3.5 sm:w-4/5" />
+              <Skeleton className="mt-7 h-3.5 w-28 rounded-full" />
+              <Skeleton className="mt-2.5 mb-1 h-3 w-40 max-w-full rounded-full" />
             </div>
           ))}
         </div>
@@ -50,7 +50,7 @@ export function HomeSkeleton() {
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, i) => (
             <div key={i} className="flex flex-col rounded-2xl border border-hairline bg-surface p-5">
-              <Skeleton className="h-12 w-12 rounded-[22%]" />
+              <Skeleton className="h-12 w-12 rounded-[14px]" />
               <Skeleton className="mt-4 h-4 w-28 rounded-full" />
               <Skeleton className="mt-2.5 h-3 w-full rounded-full" />
               <Skeleton className="mt-1.5 h-3 w-3/4 rounded-full" />
@@ -63,11 +63,18 @@ export function HomeSkeleton() {
   );
 }
 
+// The /tools card grid: as many 320px+ columns as fit, but never more than
+// four. Each track's minimum is at least a quarter of the row (less the
+// three gaps, minus 1px of rounding slack), so extra width -- a collapsed
+// sidebar, a big screen -- widens the cards instead of adding a fifth column.
+export const TOOLS_GRID =
+  "grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(320px,calc((100%_-_3_*_1.25rem)/4_-_1px))),1fr))] gap-4 sm:gap-5";
+
 export function ToolsSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="w-full pt-2">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4 sm:gap-5">
-        {Array.from({ length: 7 }, (_, i) => (
+      <div className={TOOLS_GRID}>
+        {Array.from({ length: 8 }, (_, i) => (
           <div
             key={i}
             className="flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card dark:border-zinc-800 dark:bg-zinc-900"

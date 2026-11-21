@@ -2658,6 +2658,74 @@ html[data-scrolling="true"] *::after {
   --app-fill-strong: rgba(255, 255, 255, 0.08);
 }
 
+/* App canvas + sidebar (rail) palette. Light values are sampled from the
+   reference rail the sidebar copies. Dark is the same system in a cool
+   near-black: one canvas shared by the pages and the rail, cool-tinted greys
+   in the same roles (deliberately not the admin's lighter graphite). */
+:root:not(.dark):has(.app-theme) {
+  --app-canvas: #fcfcfd; /* page background, behind every app screen */
+  --rail-bg: #fcfcfd;
+  --rail-line: #e9eaed;
+  --rail-active: #e9eaed;
+  --rail-hover: #f1f2f4;
+  --rail-ink: #0c0c0c; /* active label + icon */
+  --rail-text: #40434a; /* labels, badge text */
+  --rail-icon: #53565e;
+  --rail-muted: #71747d; /* section headings */
+  --rail-faint: #8c8f99; /* header icons, chevrons */
+  --rail-badge: #edeef0;
+}
+
+:root.dark:has(.app-theme) {
+  --app-canvas: #0a0b0e;
+  --rail-bg: #0a0b0e;
+  --rail-line: #1b1d22;
+  --rail-active: #1c1e24;
+  --rail-hover: #14161a;
+  --rail-ink: #f3f4f6;
+  --rail-text: #b3b6be;
+  --rail-icon: #8f939d;
+  --rail-muted: #787c86;
+  --rail-faint: #646873;
+  --rail-badge: #1e2026;
+}
+
+/* The sidebar's Tools hover menu slides in from the rail. */
+@keyframes rail-menu-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.rail-menu {
+  animation: rail-menu-in 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-menu {
+    animation: none;
+  }
+}
+
+/* The clipping page's video preview card settles in under the link field. */
+@keyframes clip-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+
+.clip-preview-in {
+  animation: clip-preview-in 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-preview-in {
+    animation: none;
+  }
+}
+
 /* =========================================================================
    Voiceover generator sliders -- a thin neutral track filled in ink up to
    the thumb (`--fill`, set inline from the value), a white thumb. Neutral so

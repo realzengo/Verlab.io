@@ -1,62 +1,55 @@
-import Image from "next/image";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
-import { Captions, ChevronRight, Compass, Plug } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { ToolTile } from "@/components/dashboard/ToolTile";
+import { toolMenuItem } from "@/lib/mock-data";
 
-const TOOLS: { title: string; description: string; href: string; icon: LucideIcon | string }[] = [
+// Each card's icon + tile colour is the tool's entry in the sidebar's Tools
+// menu (TOOLS_MENU, matched by href), so a tool looks the same everywhere.
+const TOOLS: { title: string; description: string; href: string }[] = [
   {
     title: "Downloader",
     description: "Save TikTok, Reels, and Shorts videos without the watermark.",
     href: "/downloads",
-    icon: "/icons/tools/downloader.png",
   },
   {
     title: "Video Generator",
     description: "Create, edit, and animate watermark-free AI videos from a prompt or image.",
     href: "/video-generator",
-    icon: "/icons/tools/video-generator.png",
   },
   {
     title: "Image Generator",
     description: "Generate scroll-stopping thumbnails and cover images with AI.",
     href: "/image-generator",
-    icon: "/icons/tools/image-generator.png",
   },
   {
     title: "Scriptwriter",
     description: "Write engaging video scripts with AI-powered writing assistance.",
     href: "/scripts",
-    icon: "/icons/tools/scriptwriter.png",
   },
   {
     title: "Voiceover",
     description: "Turn scripts into natural-sounding AI voiceovers in seconds.",
     href: "/voiceover-generator",
-    icon: "/icons/tools/voiceover.png",
   },
   {
     title: "Transcript Extractor",
     description: "Pull clean, timestamped transcripts from any TikTok, Reels, or Shorts video.",
     href: "/transcripts",
-    icon: Captions,
   },
   {
     title: "Niche Bender",
     description: "Reverse-engineer a winning format and bend it into a fresh, non-competing niche.",
     href: "/bend",
-    icon: "/icons/tools/niche-bender.png",
   },
   {
     title: "Niche Finder",
     description: "Explore trending TikTok niches and creators with real performance data.",
     href: "/niches",
-    icon: Compass,
   },
   {
     title: "MCP",
     description: "Connect Verlab to Claude or ChatGPT and create from inside your AI chat.",
     href: "/mcp",
-    icon: Plug,
   },
 ];
 
@@ -80,32 +73,22 @@ export function ToolsGrid() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {featured.map((tool) => (
-          <div
-            key={tool.title}
-            className="group flex flex-col rounded-2xl border border-hairline bg-surface p-5"
-          >
-            <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[22%] bg-gradient-to-b from-[#6EA8FF] to-[#2258E8] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-8px_12px_-2px_rgba(10,30,120,0.45)]">
-              <span
-                aria-hidden
-                className="absolute inset-x-0 top-0 h-1/2 rounded-t-[22%] bg-gradient-to-b from-white/45 to-transparent"
-              />
-              {typeof tool.icon === "string" ? (
-                <Image src={tool.icon} alt="" width={40} height={40} className="relative h-10 w-10 object-contain" />
-              ) : (
-                <tool.icon className="relative h-5 w-5 text-white" strokeWidth={1.8} />
-              )}
-            </span>
-            <h3 className="mt-4 text-sm font-bold text-heading">{tool.title}</h3>
-            <p className="mt-1 flex-1 text-xs leading-relaxed text-subtle">{tool.description}</p>
-            <Link
-              href={tool.href}
-              className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:border-subtle/30 group-hover:bg-app"
-            >
-              Try this out
-            </Link>
-          </div>
-        ))}
+        {featured.map((tool) => {
+          const menuEntry = toolMenuItem(tool.href);
+          return (
+            <div key={tool.title} className="group flex flex-col rounded-2xl border border-hairline bg-surface p-5">
+              {menuEntry && <ToolTile icon={menuEntry.icon} tone={menuEntry.tone} size="lg" />}
+              <h3 className="mt-4 text-sm font-bold text-heading">{tool.title}</h3>
+              <p className="mt-1 flex-1 text-xs leading-relaxed text-subtle">{tool.description}</p>
+              <Link
+                href={tool.href}
+                className="mt-4 flex w-full items-center justify-center rounded-xl border border-hairline py-2.5 text-sm font-bold text-heading transition-colors duration-200 group-hover:border-subtle/30 group-hover:bg-app"
+              >
+                Try this out
+              </Link>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

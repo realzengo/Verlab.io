@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Link2, Loader2, X } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Link2, Loader2, X, Zap } from "lucide-react";
 import { BEZEL_FIELD, BEZEL_FIELD_ROW, INK_TITLE } from "@/components/brand/BrandKit";
 import { PlasticButton } from "@/components/ui/plastic-button";
-import { CreditCost } from "@/components/ui/CreditCost";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { YouTubeIcon } from "@/components/landing/PlatformIcons";
 import { LinkFieldNote } from "@/components/transcripts/LinkFieldNote";
 import { DiscoverGrid } from "@/components/clipping/DiscoverGrid";
@@ -15,6 +15,7 @@ import {
   CLIP_LENGTHS,
   DEFAULT_CLIP_OPTIONS,
   formatClock,
+  formatCompactNumber,
   isClipProjectWorking,
   parseYoutubeVideoId,
   youtubeWatchUrl,
@@ -203,39 +204,28 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
           </div>
         </form>
 
-        {/* One line under the field: what's wrong, the video it found, or what works. */}
-        <div className="mt-4 flex min-h-6 items-center justify-center text-sm">
-          {error ? (
-            <p className="text-center text-danger">{error}</p>
-          ) : showPreview && preview ? (
-            <div className="flex min-w-0 max-w-full items-center gap-2.5">
-              {/* eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail */}
-              <img
-                src={preview.video.thumbnailUrl}
-                alt=""
-                className="h-6 w-[42px] shrink-0 rounded-[5px] object-cover"
-              />
-              <span className="min-w-0 truncate font-medium text-heading">{preview.video.title}</span>
-              {preview.problem ? (
-                <span className="shrink-0 text-danger">{preview.problem}</span>
-              ) : (
-                <span className="flex shrink-0 items-center gap-1.5 text-subtle">
-                  <span className="font-mono text-[13px]">{formatClock(preview.video.durationSeconds)}</span>
-                  <CreditCost amount={preview.credits} />
-                </span>
-              )}
-            </div>
-          ) : showPreview && previewError ? (
-            <p className="text-center text-danger">{previewError.message}</p>
-          ) : showPreview && previewLoading ? (
-            <span className="text-subtle">Looking up the video…</span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-subtle">
-              <YouTubeIcon className="h-4 w-4" />
-              Any YouTube video from 2 minutes to 3 hours
-            </span>
-          )}
-        </div>
+        {/* Under the field: what's wrong, or (with no video yet) what works... */}
+        {(error || !showPreview || (previewError && !preview)) && (
+          <div className="mt-4 flex min-h-6 items-center justify-center text-sm">
+            {error ? (
+              <p className="text-center text-danger">{error}</p>
+            ) : showPreview && previewError ? (
+              <p className="text-center text-danger">{previewError.message}</p>
+            ) : (
+              <span className="flex items-center gap-1.5 text-subtle">
+                <YouTubeIcon className="h-4 w-4" />
+                Any YouTube video from 2 minutes to 3 hours
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ...and the video the link points at, big, once it's looked up. */}
+        {showPreview && preview ? (
+          <VideoPreviewCard video={preview.video} credits={preview.credits} problem={preview.problem} />
+        ) : showPreview && previewLoading ? (
+          <VideoPreviewSkeleton />
+        ) : null}
 
         {/* How long the clips should be */}
         <div className="mt-6 flex justify-center">
@@ -297,6 +287,122 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
       )}
 
       <DiscoverGrid onPick={pickVideo} />
+    </div>
+  );
+}
+
+// The preview card sits in the same double bezel as the link field above it
+// (gray rim, white sheet), so the two read as one piece: thumbnail left and
+// title right on wider screens, stacked on phones.
+const PREVIEW_RIM =
+  "clip-preview-in mt-4 rounded-[22px] border border-[#EBEDF0] bg-[#F5F6F8] p-1.5 text-left dark:border-white/[0.06] dark:bg-white/[0.025]";
+const PREVIEW_SHEET =
+  "flex flex-col gap-4 rounded-2xl border border-[#E6E8EC] bg-white p-2 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_24px_48px_-32px_rgba(16,24,40,0.18)] sm:flex-row sm:items-stretch sm:gap-5 sm:p-2.5 dark:border-white/[0.07] dark:bg-[#0E0E10]";
+const PREVIEW_THUMB_BOX = "relative aspect-video w-full shrink-0 overflow-hidden rounded-xl sm:w-[288px]";
+const PREVIEW_THUMB = cn(
+  PREVIEW_THUMB_BOX,
+  "bg-(--app-fill-strong) ring-1 ring-inset ring-black/[0.06] dark:ring-white/[0.06]"
+);
+
+function VideoPreviewCard({
+  video,
+  credits,
+  problem,
+}: {
+  video: ClipSourceVideo;
+  credits: number;
+  problem: string | null;
+}) {
+  const views = formatCompactNumber(video.views);
+  return (
+    <div className={PREVIEW_RIM}>
+      <div className={PREVIEW_SHEET}>
+        <div className={PREVIEW_THUMB}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail */}
+          <img
+            src={video.thumbnailUrl}
+            alt=""
+            className={cn("h-full w-full object-cover", problem && "opacity-60 grayscale")}
+          />
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/75 px-1.5 py-0.5 font-mono text-[12px] font-medium tabular-nums text-white">
+            {formatClock(video.durationSeconds)}
+          </span>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col px-1.5 pb-1.5 sm:px-0 sm:py-1.5 sm:pr-2">
+          <p
+            dir="auto"
+            className="line-clamp-3 text-[17px] font-semibold leading-[1.35] tracking-[-0.012em] text-heading sm:text-[18px]"
+          >
+            {video.title}
+          </p>
+
+          <div className="mt-2.5 flex min-w-0 items-center gap-2 text-[13px] text-subtle">
+            {video.channelAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- remote YouTube avatar
+              <img
+                src={video.channelAvatarUrl}
+                alt=""
+                className="h-5 w-5 shrink-0 rounded-full bg-(--app-fill-strong) object-cover"
+              />
+            ) : (
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-(--app-fill-strong) text-[10px] font-semibold uppercase text-body">
+                {video.channelTitle.charAt(0)}
+              </span>
+            )}
+            <span dir="auto" className="min-w-0 truncate font-medium text-body">
+              {video.channelTitle}
+            </span>
+            {views && (
+              <span className="shrink-0 tabular-nums">
+                <span aria-hidden="true">· </span>
+                {views} views
+              </span>
+            )}
+          </div>
+
+          {/* What clipping it costs -- or why it can't be clipped. */}
+          <div className="mt-4 flex items-center gap-2 border-t border-hairline pt-3 text-[13px] sm:mt-auto">
+            {problem ? (
+              <span className="text-danger">{problem}</span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 font-medium text-heading">
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2.5} />
+                  Ready to clip
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-(--app-fill) px-2.5 py-1 font-medium tabular-nums text-body">
+                  <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+                  {credits} credits
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Holds the card's exact shape while the video is looked up, so nothing jumps. */
+function VideoPreviewSkeleton() {
+  return (
+    <div role="status" aria-label="Looking up the video" className={PREVIEW_RIM}>
+      <div className={PREVIEW_SHEET}>
+        <Skeleton className={PREVIEW_THUMB_BOX} />
+        <div className="flex min-w-0 flex-1 flex-col px-1.5 pb-1.5 sm:px-0 sm:py-1.5 sm:pr-2">
+          <Skeleton className="h-[18px] w-11/12 rounded-full" />
+          <Skeleton className="mt-2 h-[18px] w-2/3 rounded-full" />
+          <div className="mt-3.5 flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded-full" />
+            <Skeleton className="h-3 w-28 rounded-full" />
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3 sm:mt-auto">
+            <Skeleton className="h-3 w-24 rounded-full" />
+            <Skeleton className="h-[26px] w-24 rounded-full" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

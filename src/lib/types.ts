@@ -1,3 +1,4 @@
+import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import type { LucideIcon } from "lucide-react";
 
 export type StreakDayStatus = "hit" | "missed" | "today" | "future";
@@ -255,17 +256,35 @@ export interface FaqItem {
   answer: string;
 }
 
-export interface NavSubItem {
+/** Tile colour of an entry in the sidebar's hover menu (gradients live in Sidebar). */
+export type NavMenuTone = "red" | "orange" | "green" | "purple" | "blue" | "pink";
+
+export interface NavMenuItem {
   title: string;
+  /** One short line under the title. */
+  description: string;
   href: string;
-  icon: LucideIcon;
+  /** Drawn white, filled, on the tone's gradient tile. */
+  icon: PhosphorIcon;
+  tone: NavMenuTone;
+  badge?: string;
+}
+
+export interface NavMenuSection {
+  title: string;
+  items: NavMenuItem[];
 }
 
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
-  subItems?: NavSubItem[];
+  /** Hover menu beside this row in the app sidebar: columns of sections. */
+  menu?: NavMenuSection[][];
+  /** Small grey pill beside the label in the app sidebar. */
+  badge?: string;
+  /** App sidebar section heading this row sits under; none = the top group. */
+  section?: string;
 }
 
 export type ToolTone = "blue" | "violet" | "amber" | "green" | "rose" | "sky" | "orange";

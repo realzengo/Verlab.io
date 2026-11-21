@@ -6,28 +6,29 @@ import { Search, CornerDownLeft, X } from "lucide-react";
 import { SIDEBAR_NAV } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { Portal } from "@/components/ui/Portal";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 
 interface SearchResult {
   key: string;
   title: string;
   group: string;
   href: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string }>;
 }
 
-const RESULTS: SearchResult[] = SIDEBAR_NAV.flatMap((item) => {
-  if (!item.subItems) {
-    return [{ key: item.href, title: item.label, group: "Navigate", icon: item.icon, href: item.href }];
-  }
-  return item.subItems.map((subItem) => ({
-    key: subItem.href,
-    title: subItem.title,
-    group: item.label,
-    icon: subItem.icon,
-    href: subItem.href,
-  }));
-});
+// Every sidebar row, then the tools in each row's hover menu that don't
+// already have a row of their own (hrefs are the keys, so no repeats).
+const NAV_HREFS = new Set(SIDEBAR_NAV.map((item) => item.href));
+const RESULTS: SearchResult[] = [
+  ...SIDEBAR_NAV.map((item) => ({ key: item.href, title: item.label, group: "Navigate", icon: item.icon, href: item.href })),
+  ...SIDEBAR_NAV.flatMap((item) =>
+    (item.menu ?? [])
+      .flat()
+      .flatMap((section) => section.items)
+      .filter((entry) => !NAV_HREFS.has(entry.href))
+      .map((entry) => ({ key: entry.href, title: entry.title, group: item.label, icon: entry.icon, href: entry.href }))
+  ),
+];
 
 export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");

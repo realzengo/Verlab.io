@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Scissors, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
+import { TOOLS_GRID } from "@/components/skeletons/DashboardSkeletons";
 import {
   ClippingArt,
   DownloaderArt,
@@ -100,7 +101,7 @@ export default function ToolsPage() {
   return (
     <div className="flex w-full flex-col items-center gap-2 pt-2">
       <div className="w-full">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4 sm:gap-5">
+        <div className={TOOLS_GRID}>
           {TOOLS.map((tool, index) => (
             <ToolGridCard
               key={tool.title}
