@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 import { EMAIL_MAX, isValidEmail } from "@/lib/validation";
 import { markPendingSignup, trackWhopEvent } from "@/lib/analytics/whop";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 
 const FADE_TRANSITION = { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
 
@@ -37,6 +38,7 @@ function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const turnstile = useTurnstile();
   const posthog = usePostHog();
 
   useResetOnPageRestore(() => {
@@ -72,6 +74,10 @@ function SignupForm() {
       setError("Please enter a valid email address.");
       return;
     }
+    if (!turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -87,6 +93,9 @@ function SignupForm() {
       password,
       options: {
         emailRedirectTo: redirectUrl.toString(),
+        // Supabase checks this when CAPTCHA protection is on (undefined when
+        // Turnstile is off).
+        captchaToken: turnstile.consume(),
       },
     });
 
@@ -218,6 +227,8 @@ function SignupForm() {
             {error}
           </div>
         )}
+
+        <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} />
 
         <button type="submit" disabled={isSubmitting} className={`${AUTH_SIGNIN_BUTTON_CLASSES} mt-1`}>
           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign Up"}

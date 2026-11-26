@@ -13,6 +13,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 import { GoogleIcon } from "@/components/auth/GoogleIcon";
 import {
   AUTH_INPUT_CLASSES,
@@ -40,6 +41,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(searchParams.get("error"));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const turnstile = useTurnstile();
   const posthog = usePostHog();
 
   useResetOnPageRestore(() => {
@@ -56,12 +58,18 @@ function LoginForm() {
       return;
     }
 
+    if (!turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken: turnstile.consume() },
     });
 
     if (signInError) {
@@ -103,11 +111,17 @@ function LoginForm() {
       return;
     }
 
+    if (!turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const supabase = createClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/update-password")}`,
+      captchaToken: turnstile.consume(),
     });
 
     if (resetError) {
@@ -203,6 +217,8 @@ function LoginForm() {
               {error}
             </div>
           )}
+
+          <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} />
 
           <button
             type="submit"
@@ -308,6 +324,8 @@ function LoginForm() {
               {error}
             </div>
           )}
+
+          <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} />
 
           <button
             type="submit"

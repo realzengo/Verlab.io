@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { checkPasswordStrength } from "@/lib/validation";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SettingsRow, SettingsSection, settingsButton, settingsInput } from "@/components/settings/SettingsSection";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 
 type StrengthLevel = "empty" | "weak" | "fair" | "strong";
 
@@ -89,6 +90,9 @@ export function PasswordSecurityTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // Checking the current password is a Supabase password sign-in, which
+  // needs a CAPTCHA token once Supabase CAPTCHA protection is on.
+  const turnstile = useTurnstile();
 
   useEffect(() => {
     const supabase = createClient();
@@ -124,13 +128,17 @@ export function PasswordSecurityTab() {
       setError(strength.issues[0]);
       return;
     }
+    if (hasPassword && !turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
 
     setIsSaving(true);
     try {
       const response = await fetch("/api/account/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword, captchaToken: hasPassword ? turnstile.consume() : undefined }),
       });
       const body = await response.json().catch(() => ({}));
 
@@ -239,6 +247,8 @@ export function PasswordSecurityTab() {
               onChange={setConfirmPassword}
               autoComplete="new-password"
             />
+
+            {hasPassword && <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} />}
 
             {error && <p className="text-sm text-danger">{error}</p>}
 

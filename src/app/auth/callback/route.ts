@@ -18,5 +18,11 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.redirect(`${origin}/login?error=Could not authenticate with Google`);
+  // Supabase sends the reason back when it refused the sign-in -- e.g. the
+  // sign-up guard hook rejecting a disposable address or too many sign-ups
+  // from one network -- so show that instead of a generic message.
+  const reason = searchParams.get("error_description")?.slice(0, 300);
+  return NextResponse.redirect(
+    `${origin}/login?error=${encodeURIComponent(reason || "Could not authenticate with Google")}`
+  );
 }

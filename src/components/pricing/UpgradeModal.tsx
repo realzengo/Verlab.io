@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFinePrint } from "@/components/pricing/PricingFinePrint";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTopupToggle";
 import { CreditTopupPanel } from "@/components/pricing/CreditTopupPanel";
@@ -55,6 +56,7 @@ export function UpgradeModal({
   const [planError, setPlanError] = useState<string | null>(null);
   const [checkingOutTopupId, setCheckingOutTopupId] = useState<PackId | null>(null);
   const [packError, setPackError] = useState<string | null>(null);
+  const turnstile = useTurnstile();
 
   useResetOnPageRestore(() => {
     setCheckingOutPlanId(null);
@@ -146,12 +148,16 @@ export function UpgradeModal({
 
   async function handleSelectPlan(plan: PricingPlan) {
     setPlanError(null);
+    if (!turnstile.ready) {
+      setPlanError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
     setCheckingOutPlanId(plan.id);
     try {
       const res = await fetch("/api/checkout/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, period: frequency }),
+        body: JSON.stringify({ planId: plan.id, period: frequency, turnstileToken: turnstile.consume() }),
       });
       const data = await res.json();
 
@@ -170,12 +176,16 @@ export function UpgradeModal({
 
   async function handleCheckoutPack(packId: PackId) {
     setPackError(null);
+    if (!turnstile.ready) {
+      setPackError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
     setCheckingOutTopupId(packId);
     try {
       const res = await fetch("/api/checkout/credits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId }),
+        body: JSON.stringify({ packId, turnstileToken: turnstile.consume() }),
       });
       const data = await res.json();
 
@@ -283,6 +293,7 @@ export function UpgradeModal({
                   </div>
                 ))}
               </div>
+              <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} className="mt-6" />
               <PricingFinePrint className="mt-6 sm:mt-8" />
             </>
           ) : (
@@ -290,6 +301,7 @@ export function UpgradeModal({
               {packError && <p className="mt-4 text-center text-sm text-danger">{packError}</p>}
 
               <CreditTopupPanel onCheckoutPack={handleCheckoutPack} checkingOutId={checkingOutTopupId} />
+              <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} className="mt-6" />
             </>
           )}
           </div>

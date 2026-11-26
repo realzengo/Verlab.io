@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 import type { FormEvent } from "react";
 import { ChevronDown, CircleCheck, Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [requiresSubscription, setRequiresSubscription] = useState(false);
+  const turnstile = useTurnstile();
 
   const titleId = useId();
 
@@ -76,14 +78,18 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
   const activePack = PACKS.find((pack) => pack.id === selectedPack) ?? PACKS[0];
 
   async function handleCheckout() {
-    setIsCheckingOut(true);
     setCheckoutError(null);
     setRequiresSubscription(false);
+    if (!turnstile.ready) {
+      setCheckoutError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
+    setIsCheckingOut(true);
     try {
       const res = await fetch("/api/checkout/credits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId: selectedPack }),
+        body: JSON.stringify({ packId: selectedPack, turnstileToken: turnstile.consume() }),
       });
       const data = await res.json();
 
@@ -287,6 +293,8 @@ export function TopUpModal({ isOpen, onClose, onRedeemed }: TopUpModalProps) {
               {activePack.price}
             </span>
           </div>
+
+          <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} className="mt-4" />
 
           {checkoutError && (
             <p className="mt-4 text-sm leading-5 text-danger">

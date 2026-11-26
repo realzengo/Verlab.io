@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCreditPacks, getWhopClient, type CreditPackId } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
 import { hasActiveSubscription } from "@/lib/subscription-status";
+import { guardCheckout } from "@/lib/server/abuse-guards";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "An active subscription is required to top up credits.", code: "no_active_subscription" }, { status: 403 });
   }
 
-  let body: { packId?: string };
+  let body: { packId?: string; turnstileToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -40,6 +41,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!packId || !(packId in packs)) {
     return NextResponse.json({ error: "Invalid packId" }, { status: 400 });
   }
+
+  // Confirmed email, rate limits and the Turnstile check (abuse-guards.ts).
+  const blocked = await guardCheckout({ request, user, turnstileToken: body.turnstileToken });
+  if (blocked) return blocked;
 
   const redirectUrl = process.env.WHOP_CHECKOUT_SUCCESS_URL;
   if (!redirectUrl) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PricingFrequency, PricingPlan } from "@/lib/types";
 import { PricingCard } from "@/components/pricing/PricingCard";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { useResetOnPageRestore } from "@/lib/hooks/useResetOnPageRestore";
 
@@ -42,17 +43,26 @@ export function PricingTable({
   const [frequency, setFrequency] = useState<PricingFrequency>(() => subscriptionPeriod ?? "monthly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const turnstile = useTurnstile();
 
   useResetOnPageRestore(() => setCheckingOutPlanId(null));
 
   async function handleSelect(plan: PricingPlan) {
     setError(null);
+    if (!turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
     setCheckingOutPlanId(plan.id);
     try {
       const res = await fetch("/api/checkout/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, period: frequency === "yearly" ? "yearly" : "monthly" }),
+        body: JSON.stringify({
+          planId: plan.id,
+          period: frequency === "yearly" ? "yearly" : "monthly",
+          turnstileToken: turnstile.consume(),
+        }),
       });
       const data = await res.json();
 
@@ -90,6 +100,7 @@ export function PricingTable({
           )
         )}
       </div>
+      {authenticated && <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} className="mt-6" />}
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );

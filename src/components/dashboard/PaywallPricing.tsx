@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PricingCard } from "@/components/pricing/PricingCard";
 import { PricingFinePrint } from "@/components/pricing/PricingFinePrint";
+import { TURNSTILE_PENDING_MESSAGE, TurnstileWidget, useTurnstile } from "@/components/security/Turnstile";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import { fetchPricingPlans } from "@/lib/pricing-plans";
@@ -29,6 +30,7 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
   const [frequency, setFrequency] = useState<PricingFrequency>("monthly");
   const [checkingOutPlanId, setCheckingOutPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const turnstile = useTurnstile();
 
   useResetOnPageRestore(() => setCheckingOutPlanId(null));
 
@@ -45,12 +47,16 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
 
   async function handleSelect(plan: PricingPlan) {
     setError(null);
+    if (!turnstile.ready) {
+      setError(TURNSTILE_PENDING_MESSAGE);
+      return;
+    }
     setCheckingOutPlanId(plan.id);
     try {
       const res = await fetch("/api/checkout/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, period: frequency }),
+        body: JSON.stringify({ planId: plan.id, period: frequency, turnstileToken: turnstile.consume() }),
       });
       const data = await res.json();
 
@@ -103,6 +109,7 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
           />
         ))}
       </div>
+      <TurnstileWidget onToken={turnstile.setToken} resetKey={turnstile.resetKey} className="mt-6" />
       <PricingFinePrint className="mt-8" />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   type BillingPeriod,
 } from "@/lib/config/whop";
 import { capturePostHogEvent } from "@/lib/server/posthog";
+import { guardCheckout } from "@/lib/server/abuse-guards";
 
 const PLAN_IDS: SubscriptionPlanId[] = ["core", "pro", "scale"];
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { planId?: string; period?: string };
+  let body: { planId?: string; period?: string; turnstileToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (period !== "monthly" && period !== "yearly") {
     return NextResponse.json({ error: "Invalid period" }, { status: 400 });
   }
+
+  // Confirmed email, rate limits and the Turnstile check (abuse-guards.ts).
+  const blocked = await guardCheckout({ request, user, turnstileToken: body.turnstileToken });
+  if (blocked) return blocked;
 
   const redirectUrl = process.env.WHOP_CHECKOUT_SUCCESS_URL;
   if (!redirectUrl) {

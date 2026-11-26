@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return rateLimitedResponse();
   }
 
-  let body: { currentPassword?: string; newPassword?: string };
+  let body: { currentPassword?: string; newPassword?: string; captchaToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -57,11 +57,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
+    // With Supabase CAPTCHA protection on, a password sign-in needs the
+    // browser's Turnstile token (sent by Settings > Security).
     const { error: verifyError } = await verifyClient.auth.signInWithPassword({
       email: user.email,
       password: currentPassword,
+      options: { captchaToken: typeof body.captchaToken === "string" ? body.captchaToken : undefined },
     });
     if (verifyError) {
+      if (/captcha/i.test(verifyError.message)) {
+        return NextResponse.json({ error: "The security check didn't go through. Please try again." }, { status: 400 });
+      }
       return NextResponse.json({ error: "Current password is incorrect." }, { status: 400 });
     }
 

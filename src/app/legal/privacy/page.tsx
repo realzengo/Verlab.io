@@ -33,7 +33,7 @@ const SERVICE_PROVIDERS: { name: string; purpose: string }[] = [
   { name: "Replicate", purpose: "AI video models, voice cloning (with MiniMax models) and speech-to-text for clipping." },
   { name: "fal", purpose: "AI image and video models, and AI voiceovers." },
   { name: "ElevenLabs", purpose: "Searching the voice library used for voiceovers." },
-  { name: "Cloudflare", purpose: "AI image generation." },
+  { name: "Cloudflare", purpose: "AI image generation, and Turnstile bot checks when you sign up, sign in or check out." },
   { name: "ScrapeCreators, SociaVault and Apify", purpose: "Public video, transcript and channel data from TikTok, Instagram and YouTube." },
   { name: "Google (YouTube Data API)", purpose: "Public information about YouTube videos and channels." },
   { name: "video-download-api.com", purpose: "Fetching the YouTube video you link to, so AI clipping can cut and caption it." },
