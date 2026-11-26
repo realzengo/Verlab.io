@@ -1,92 +1,147 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileText, RefreshCw, ShieldCheck } from "lucide-react";
+import { Ban, CreditCard, ShieldCheck } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { LEGAL_LAST_UPDATED } from "@/components/legal/legalDocs";
 import { LEGAL_LINK, LEGAL_LIST, LegalSubheading } from "@/components/legal/prose";
-import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/constants";
+import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO, OPERATOR_NAME, OPERATOR_STATEMENT } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Terms of Service, Verlab AI",
-  description: "The terms and conditions that govern your use of Verlab's niche research and script-generation tools.",
+  title: "Terms of Service | Verlab",
+  description:
+    "The terms for using Verlab's AI tools: who runs Verlab, paid plans and credits, acceptable use, your content, copyright complaints and Moroccan governing law.",
 };
+
+const Email = () => (
+  <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
+    {CONTACT_EMAIL}
+  </a>
+);
+
+const RefundPolicyLink = () => (
+  <Link href="/legal/refunds" className={LEGAL_LINK}>
+    Refund Policy
+  </Link>
+);
 
 const SECTIONS: LegalSection[] = [
   {
-    id: "acceptance",
-    title: "Acceptance of Terms",
+    id: "who-we-are",
+    title: "Who we are",
+    body: (
+      <p>
+        {OPERATOR_STATEMENT} Contact: <Email />. In these Terms, &quot;Verlab&quot;, &quot;we&quot;, &quot;us&quot;
+        and &quot;our&quot; mean {OPERATOR_NAME}, operating Verlab.
+      </p>
+    ),
+  },
+  {
+    id: "agreement",
+    title: "Agreeing to these Terms",
     body: (
       <>
         <p>
-          These Terms of Service (&quot;Terms&quot;) form a binding agreement between you and Verlab (&quot;Verlab,&quot;
-          &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) governing your access to and use of verlab.io, the Verlab
-          dashboard, and any related tools (together, the &quot;Service&quot;).
+          These Terms apply to verlab.io, app.verlab.io, the Verlab MCP connector and everything else we offer under
+          the Verlab name (together, &quot;the Service&quot;). By creating an account or using the Service, you agree
+          to them. If you don&apos;t agree, please don&apos;t use the Service.
         </p>
         <p>
-          By creating an account or otherwise using the Service, you agree to these Terms. If you do not agree, do
-          not use the Service.
+          Our{" "}
+          <Link href="/legal/privacy" className={LEGAL_LINK}>
+            Privacy Policy
+          </Link>{" "}
+          and <RefundPolicyLink /> are part of these Terms.
         </p>
       </>
     ),
   },
   {
     id: "the-service",
-    title: "Description of the Service",
+    title: "What Verlab does",
     body: (
       <>
+        <p>Verlab is a set of AI tools for short-form video creators, including:</p>
+        <ul className={LEGAL_LIST}>
+          <li>AI clipping, which turns a long video into short vertical clips with captions;</li>
+          <li>niche research: Niche Finder, Niche Bend, SOP playbooks and creator &amp; channel analysis;</li>
+          <li>transcripts of TikTok, Instagram Reels and YouTube videos;</li>
+          <li>an AI script writer;</li>
+          <li>AI image and video generation;</li>
+          <li>AI voiceovers and voice cloning; and</li>
+          <li>the Verlab MCP connector, which lets assistants such as Claude and ChatGPT use these tools for you.</li>
+        </ul>
         <p>
-          Verlab helps creators discover trending niches on TikTok, Instagram Reels, and YouTube Shorts, and uses AI to
-          reverse-engineer that content into scripts, hooks, and SOPs for the user&apos;s own channel.
-        </p>
-        <p>
-          Features, usage limits, and available plans may change over time and vary by subscription tier as described
-          on our{" "}
+          Which tools each plan includes is shown on our{" "}
           <Link href="/pricing" className={LEGAL_LINK}>
             Pricing
           </Link>{" "}
-          page.
+          page. Tools and AI models change over time: we may add, change or retire them.
         </p>
       </>
     ),
   },
   {
     id: "accounts",
-    title: "Accounts & eligibility",
+    title: "Your account",
     body: (
       <ul className={LEGAL_LIST}>
-        <li>You must be at least 16 years old to create a Verlab account.</li>
-        <li>You are responsible for the accuracy of the information you provide and for maintaining the security of your login credentials.</li>
-        <li>You are responsible for all activity that occurs under your account, whether or not you authorized it.</li>
-        <li>We may suspend or terminate accounts that provide false information or violate these Terms.</li>
+        <li>You must be at least 16 years old to use Verlab.</li>
+        <li>Give accurate details, confirm your email address, and keep your login secure.</li>
+        <li>An account is for one person. Don&apos;t share it or sell access to it.</li>
+        <li>You are responsible for everything done through your account, including through tools you connect to it.</li>
       </ul>
     ),
   },
   {
-    id: "billing",
-    title: "Subscriptions & billing",
+    id: "plans-and-billing",
+    title: "Plans, billing and renewal",
     body: (
       <>
-        <LegalSubheading n="4.1">Plans & payment</LegalSubheading>
+        <ul className={LEGAL_LIST}>
+          <li>Verlab is a paid service. There is no free plan, and every tool needs an active paid plan.</li>
+          <li>
+            Plans are billed in advance, monthly or yearly, and renew automatically at the end of each period until
+            you cancel.
+          </li>
+          <li>
+            Prices are the ones shown on our{" "}
+            <Link href="/pricing" className={LEGAL_LINK}>
+              Pricing
+            </Link>{" "}
+            page when you pay, in US dollars. Taxes may be added depending on the country you live in.
+          </li>
+          <li>Payments are processed by our payment provider. We never see or store your full card number.</li>
+          <li>If we change the price of your plan, we&apos;ll tell you before the new price applies to a renewal.</li>
+        </ul>
         <p>
-          Paid plans are billed in advance on a recurring basis (monthly or annually, depending on the plan you
-          select) via our third-party payment processor. Prices are shown in USD unless stated otherwise.
-        </p>
-        <LegalSubheading n="4.2">Automatic renewal</LegalSubheading>
-        <p>
-          Subscriptions renew automatically at the end of each billing cycle unless cancelled beforehand from your{" "}
-          <Link href={`${APP_URL}/settings/subscription`} className={LEGAL_LINK}>
-            subscription settings
-          </Link>
-          .
-        </p>
-        <LegalSubheading n="4.3">Refunds</LegalSubheading>
-        <p>
-          All payments are non-refundable except where required by law. See our{" "}
-          <Link href="/legal/refunds" className={LEGAL_LINK}>
-            Refund Policy
-          </Link>{" "}
-          for full details on cancellation and billing.
+          You can cancel at any time, and you can get a refund within 14 days of any payment. Both are explained in
+          our <RefundPolicyLink />.
         </p>
       </>
+    ),
+  },
+  {
+    id: "credits",
+    title: "Credits",
+    body: (
+      <ul className={LEGAL_LIST}>
+        <li>
+          Credits are how Verlab&apos;s AI tools are paid for. Each job uses credits from your balance, and different
+          tools and settings use different amounts.
+        </li>
+        <li>
+          Your plan adds credits each billing period. A yearly plan adds the whole year&apos;s credits at the start of
+          the year. You can also buy extra credits as a top-up.
+        </li>
+        <li>Unused credits stay in your balance. You can spend them while you have an active plan.</li>
+        <li>
+          Credits have no cash value. They can&apos;t be exchanged for money, transferred to another account or sold.
+        </li>
+        <li>
+          If a job fails, you don&apos;t pay for it: most tools only take credits once the result is ready, and the
+          rest give the credits back automatically.
+        </li>
+      </ul>
     ),
   },
   {
@@ -94,256 +149,175 @@ const SECTIONS: LegalSection[] = [
     title: "Acceptable use",
     body: (
       <>
-        <p>You agree not to use the Service to:</p>
+        <p>You agree not to use Verlab to create, upload or share:</p>
         <ul className={LEGAL_LIST}>
-          <li>Violate any applicable law, or the terms of service of TikTok, Instagram, YouTube, or any other platform you connect or publish to.</li>
-          <li>Scrape, resell, or redistribute Verlab&apos;s underlying niche data or datasets outside the Service.</li>
-          <li>Reverse engineer, decompile, or attempt to extract the source code of the Service.</li>
-          <li>Upload content that is unlawful, infringing, defamatory, or that you do not have the rights to use.</li>
-          <li>Interfere with or disrupt the integrity or performance of the Service, including via automated scraping or abuse of API rate limits.</li>
+          <li>anything illegal;</li>
+          <li>any sexual content involving minors, of any kind;</li>
+          <li>intimate or sexual content of a real person without their consent;</li>
+          <li>harassment, threats or bullying;</li>
+          <li>hate speech, or content that promotes violent extremism or terrorism.</li>
         </ul>
-      </>
-    ),
-  },
-  {
-    id: "content-ip",
-    title: "Content & intellectual property",
-    body: (
-      <>
-        <LegalSubheading n="6.1">Your content</LegalSubheading>
-        <p>
-          You retain ownership of any content you submit to Verlab (topics, transcripts, uploads) and of the scripts,
-          hooks, and outputs generated for your account. You grant Verlab a limited license to process that content
-          solely to operate and improve the Service.
-        </p>
-        <LegalSubheading n="6.2">Our platform</LegalSubheading>
-        <p>
-          The Service, including its design, software, models, and underlying niche-analysis data, is owned by Verlab
-          and protected by intellectual property laws. These Terms do not grant you any rights to our trademarks,
-          branding, or proprietary technology beyond what is necessary to use the Service.
-        </p>
-        <LegalSubheading n="6.3">AI-generated output</LegalSubheading>
-        <p>
-          Scripts and other outputs are generated with the assistance of AI models and may be inspired by, or
-          structurally similar to, publicly available content. You are responsible for reviewing generated output and
-          ensuring your own use of it complies with applicable law and third-party rights before you publish it.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: "dmca",
-    title: "DMCA / copyright policy",
-    body: (
-      <>
-        <p>
-          Verlab respects the intellectual property rights of others and expects users of the Service to do the
-          same. We respond to notices of alleged copyright infringement that comply with the Digital Millennium
-          Copyright Act (17 U.S.C. § 512) (&quot;DMCA&quot;).
-        </p>
 
-        <LegalSubheading>Filing a takedown notice</LegalSubheading>
-        <p>
-          If you believe that content available on or through the Service infringes a copyright you own or control,
-          you (or your authorized agent) may submit a written notice to our Designated Agent, below. To be effective
-          under the DMCA, your notice must be in writing and include all of the following:
-        </p>
+        <LegalSubheading>Real people, likenesses and voices</LegalSubheading>
         <ul className={LEGAL_LIST}>
-          <li>A physical or electronic signature of the copyright owner or a person authorized to act on the owner&apos;s behalf.</li>
-          <li>Identification of the copyrighted work claimed to have been infringed, or, if multiple works at a single online location are covered by one notice, a representative list of those works.</li>
-          <li>Identification of the material claimed to be infringing and information reasonably sufficient to let us locate it, typically the specific URL(s) or in-app location of the content.</li>
-          <li>Your name, mailing address, telephone number, and email address, so we can contact you about the notice.</li>
-          <li>A statement that you have a good faith belief that the disputed use is not authorized by the copyright owner, its agent, or the law.</li>
-          <li>A statement, made under penalty of perjury, that the information in the notice is accurate and that you are the copyright owner or authorized to act on the owner&apos;s behalf.</li>
-        </ul>
-        <p>
-          Notices that do not substantially comply with these requirements may not receive a response. Under Section
-          512(f) of the DMCA, anyone who knowingly and materially misrepresents that content is infringing may be
-          liable for damages, including costs and attorneys&apos; fees, incurred by us or the affected user as a
-          result of that misrepresentation.
-        </p>
-
-        <LegalSubheading>Designated Agent</LegalSubheading>
-        <p>
-          Notices should be sent to our Designated Agent for copyright matters:
-        </p>
-        <ul className={LEGAL_LIST}>
-          <li>Name: [DESIGNATED AGENT NAME]</li>
-          <li>Company: Verlab</li>
-          <li>Address: [STREET ADDRESS, CITY, STATE, ZIP]</li>
+          <li>No deepfakes, face swaps or impersonation of real people.</li>
           <li>
-            Email:{" "}
-            <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
-              {CONTACT_EMAIL}
-            </a>
+            Don&apos;t create content that uses a real person&apos;s face, likeness or voice without their explicit
+            consent.
           </li>
-          <li>Phone: [PHONE NUMBER]</li>
+          <li>
+            Voice cloning is only for your own voice, or a voice you have explicit written permission to use.
+          </li>
+          <li>Don&apos;t use anything made with Verlab to deceive, scam or defraud anyone.</li>
         </ul>
-        <p>
-          This information is also on file with the U.S. Copyright Office&apos;s Designated Agent Directory. Notices
-          sent to any other address or contact may not be processed and do not constitute effective notice under the
-          DMCA.
-        </p>
 
-        <LegalSubheading>Our response to a valid notice</LegalSubheading>
-        <p>
-          Upon receipt of a notice that substantially complies with the requirements above, we will remove or
-          disable access to the identified material, notify the user who posted it, and provide that user with a
-          copy of the notice.
-        </p>
+        <LegalSubheading>Content you submit</LegalSubheading>
+        <ul className={LEGAL_LIST}>
+          <li>
+            Only submit videos, links, audio, images and text that you own or have the rights to use.
+          </li>
+          <li>
+            Respect copyright, and the terms of the platforms your content comes from (such as YouTube, TikTok and
+            Instagram).
+          </li>
+        </ul>
 
-        <LegalSubheading>Counter-notification</LegalSubheading>
+        <LegalSubheading>Platforms and audiences</LegalSubheading>
+        <ul className={LEGAL_LIST}>
+          <li>No spam, fake engagement, or fake accounts.</li>
+          <li>Don&apos;t present AI-generated content as real news or as a real event.</li>
+        </ul>
+
+        <LegalSubheading>The Service itself</LegalSubheading>
+        <ul className={LEGAL_LIST}>
+          <li>Don&apos;t try to break, overload, scrape or get around the limits of the Service.</li>
+          <li>Don&apos;t copy, resell or redistribute Verlab&apos;s data, or reverse engineer its software.</li>
+        </ul>
+
         <p>
-          If you believe material you posted was removed or disabled by mistake or misidentification, you may submit
-          a written counter-notice to our Designated Agent that includes:
+          We may remove content, stop a job, or suspend or close an account that breaks these rules. Where the law
+          requires it, we may also report illegal content to the authorities.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "your-content",
+    title: "Your content and AI output",
+    body: (
+      <>
+        <LegalSubheading>What you submit</LegalSubheading>
+        <p>
+          You keep ownership of what you submit. You let us store and process it, and send it to the AI providers that
+          power our tools, only so we can produce the results you ask for and run the Service. The{" "}
+          <Link href="/legal/privacy" className={LEGAL_LINK}>
+            Privacy Policy
+          </Link>{" "}
+          explains this in detail.
+        </p>
+        <LegalSubheading>What you create</LegalSubheading>
+        <p>
+          You can use, publish and monetize the scripts, images, videos, voiceovers and clips you make with Verlab,
+          subject to other people&apos;s rights and to these Terms. AI output can be wrong, can look like existing
+          work, or can be similar to what other users get. Check it before you publish it. You are responsible for
+          how you use it.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "our-service",
+    title: "Our service and brand",
+    body: (
+      <p>
+        Verlab&apos;s software, design, data and brand belong to us and are protected by intellectual property laws.
+        These Terms don&apos;t give you any right to them beyond using the Service as intended.
+      </p>
+    ),
+  },
+  {
+    id: "copyright",
+    title: "Copyright complaints",
+    body: (
+      <>
+        <p>
+          If you believe something on Verlab infringes your copyright, send a notice (including a DMCA notice) to{" "}
+          {OPERATOR_NAME} at <Email />. Please include:
         </p>
         <ul className={LEGAL_LIST}>
-          <li>Your physical or electronic signature.</li>
-          <li>Identification of the material that was removed or disabled and its location before removal.</li>
-          <li>A statement, under penalty of perjury, that you have a good faith belief the material was removed or disabled as a result of mistake or misidentification.</li>
-          <li>Your name, address, and telephone number, and a statement that you consent to the jurisdiction of the federal district court for the judicial district in which your address is located (or, if outside the United States, any judicial district in which Verlab may be found), and that you will accept service of process from the person who filed the original notice or their agent.</li>
+          <li>your full name and how to contact you;</li>
+          <li>the work you believe is being infringed;</li>
+          <li>the material you want removed, with a link or enough detail for us to find it;</li>
+          <li>a statement that you believe in good faith the use isn&apos;t authorized by you, your agent or the law;</li>
+          <li>
+            a statement that the information in your notice is accurate and that you own the copyright or are allowed
+            to act for the owner; and
+          </li>
+          <li>your signature (a typed full name is fine).</li>
         </ul>
         <p>
-          If we receive a valid counter-notice, we will forward it to the original complaining party. Unless that
-          party informs us within 10 business days that they have filed a lawsuit seeking a court order to restrain
-          the user from engaging in the infringing activity, we may restore the removed material within 10 to 14
-          business days of receiving the counter-notice, at our discretion and as required by the DMCA.
-        </p>
-
-        <LegalSubheading>Repeat infringer policy</LegalSubheading>
-        <p>
-          In appropriate circumstances and at our sole discretion, Verlab will terminate the accounts of users who
-          are determined to be repeat infringers. A user may be treated as a repeat infringer if we receive two or
-          more valid, unretracted DMCA takedown notices against content associated with that user&apos;s account, or
-          if a court has found the user liable for copyright infringement. We maintain and reasonably enforce this
-          policy in accordance with 17 U.S.C. § 512(i), and we may terminate or suspend access at any stage of this
-          process where we reasonably believe termination is warranted, independent of the notice count above.
+          When we receive a complete notice, we remove or disable the material and tell the user who posted it. If
+          you think your material was removed by mistake, reply to us at the same address and explain why. We may
+          then restore it, unless the person who complained tells us they&apos;ve taken legal action. We close the
+          accounts of people who repeatedly infringe copyright.
         </p>
       </>
     ),
   },
   {
     id: "third-party-platforms",
-    title: "Third-party platforms",
+    title: "Other platforms",
     body: (
       <p>
-        Verlab analyzes publicly available content and metadata from third-party platforms such as TikTok, Instagram,
-        and YouTube. We are not affiliated with, endorsed by, or sponsored by any of these platforms, and we do not
-        control their availability, terms, or data. Changes to a third-party platform&apos;s API or policies may
-        affect the accuracy or availability of related Verlab features without notice.
+        Some tools work with public content and data from platforms such as TikTok, Instagram and YouTube. Verlab
+        isn&apos;t affiliated with, endorsed by or sponsored by any of them. Changes they make to their services can
+        affect our tools without notice.
       </p>
     ),
   },
   {
-    id: "termination",
-    title: "Termination",
+    id: "ending",
+    title: "Suspension and closing your account",
     body: (
       <p>
-        You may stop using the Service and cancel your subscription at any time. We may suspend or terminate your
-        access to the Service, with or without notice, if we reasonably believe you have violated these Terms, pose a
-        risk to the Service or other users, or if required by law.
+        You can stop using Verlab and cancel at any time, and you can delete your account from Settings. We may
+        suspend or close your account if you break these Terms, if your use puts the Service or other people at
+        risk, or if the law requires it. Where it&apos;s reasonable to do so, we&apos;ll tell you first and explain
+        why.
       </p>
     ),
   },
   {
     id: "disclaimers",
-    title: "Disclaimers & limitation of liability",
+    title: "Disclaimers and liability",
     body: (
       <>
         <p>
-          The Service is provided &quot;as is&quot; and &quot;as available,&quot; without warranties of any kind.
-          Verlab does not guarantee that any niche, script, or strategy suggested by the Service will result in
-          particular views, followers, or revenue.
+          We work hard to keep Verlab running well, but the Service is provided &quot;as is&quot;. We don&apos;t
+          promise it will always be available or error-free, or that any niche, script or video will reach a certain
+          number of views, followers or earnings.
         </p>
         <p>
-          To the fullest extent permitted by law, Verlab will not be liable for any indirect, incidental, or
-          consequential damages arising from your use of the Service, and our total liability for any claim will not
-          exceed the amount you paid us in the twelve months preceding the claim.
+          As far as the law allows, we aren&apos;t liable for indirect or consequential losses, such as lost profits,
+          lost revenue or lost data, and our total liability for any claim is limited to what you paid us in the 12
+          months before the claim. Nothing in these Terms limits any liability that can&apos;t be limited by law.
         </p>
       </>
     ),
   },
   {
-    id: "dispute-resolution",
-    title: "Dispute resolution: binding arbitration & class action waiver",
+    id: "governing-law",
+    title: "Governing law and disputes",
     body: (
       <>
-        <LegalSubheading>Agreement to arbitrate</LegalSubheading>
         <p>
-          You and Verlab agree that any dispute, claim, or controversy arising out of or relating to these Terms, the
-          Service, or your relationship with Verlab (whether based in contract, tort, statute, fraud,
-          misrepresentation, or any other legal theory, and whether arising before or after you agreed to these
-          Terms) will be resolved exclusively through final and binding individual arbitration, rather than in court,
-          except that either party may bring an individual claim in small claims court as described below, or seek
-          injunctive relief in court for infringement or misuse of intellectual property.
+          These Terms are governed by the laws of Morocco. If you have a problem, please email us first at <Email />
+          {" "}and we&apos;ll try to sort it out with you directly.
         </p>
         <p>
-          This arbitration provision is governed by the Federal Arbitration Act (FAA) and survives termination of
-          your account or these Terms.
-        </p>
-
-        <LegalSubheading>Arbitration procedures</LegalSubheading>
-        <p>
-          The arbitration will be administered by the American Arbitration Association (AAA) under its Consumer
-          Arbitration Rules, or, if the parties mutually agree, by JAMS under its Streamlined Arbitration Rules and
-          Procedures. The applicable rules are available at{" "}
-          <span className="whitespace-nowrap">adr.org</span> or <span className="whitespace-nowrap">jams-endispute.com</span>.
-          The arbitrator, not any court, has exclusive authority to resolve any dispute over the interpretation,
-          applicability, enforceability, or formation of these Terms, including any claim that all or part of this
-          arbitration provision is void or voidable, except that the question of whether the Class Action Waiver
-          below is enforceable is reserved for a court of competent jurisdiction, not the arbitrator.
-        </p>
-        <p>
-          Arbitration will be conducted in English, before a single arbitrator, and may be conducted by video
-          conference, telephone, or based on written submissions where permitted by the applicable rules. The
-          arbitrator&apos;s award is final and binding and may be entered as a judgment in any court of competent
-          jurisdiction.
-        </p>
-
-        <LegalSubheading>Class action, collective action & representative proceeding waiver</LegalSubheading>
-        <p>
-          You and Verlab agree that each may bring claims against the other only in an individual capacity, and not
-          as a plaintiff or class member in any purported class, collective, consolidated, or representative
-          proceeding. Unless both you and Verlab agree otherwise in writing:
-        </p>
-        <ul className={LEGAL_LIST}>
-          <li>No arbitrator or court may consolidate more than one party&apos;s claims, or otherwise preside over any form of a class, collective, representative, or multi-plaintiff proceeding.</li>
-          <li>The arbitrator may award relief (including injunctive and declaratory relief) only in favor of the individual party seeking relief, and only to the extent necessary to provide relief warranted by that party&apos;s individual claim.</li>
-          <li>You waive any right to participate as a plaintiff, claimant, or class member in any class, collective, or representative action against Verlab, whether filed in arbitration or in court, and whether brought by you, on your behalf, or by a third party purporting to act on your behalf.</li>
-        </ul>
-        <p>
-          If this Class Action Waiver is found to be unenforceable as to a particular claim or request for relief
-          (such as a request for public injunctive relief), that claim or request must be severed and brought in a
-          court of competent jurisdiction, and the remainder of this arbitration provision will still apply to all
-          other claims and disputes on an individual basis.
-        </p>
-
-        <LegalSubheading>Jury trial waiver</LegalSubheading>
-        <p>
-          You and Verlab each waive any constitutional and statutory right to sue in court and have a trial in front
-          of a judge or jury. You and Verlab are instead electing that all covered claims be resolved exclusively
-          through arbitration under this provision, except as expressly provided above. Arbitration procedures are
-          typically more limited, more efficient, and less costly than court proceedings, and any arbitration award
-          is subject to very limited review by a court.
-        </p>
-
-        <LegalSubheading>Small claims court exception</LegalSubheading>
-        <p>
-          Either party may bring an individual claim in small claims court instead of arbitration if the claim
-          qualifies for that court&apos;s jurisdiction and remains in that court on an individual, non-class basis.
-        </p>
-
-        <LegalSubheading>30-day right to opt out</LegalSubheading>
-        <p>
-          You may opt out of this arbitration provision and Class Action Waiver by sending written notice to{" "}
-          <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
-            {CONTACT_EMAIL}
-          </a>{" "}
-          within 30 days of the date you first agree to these Terms. Your notice must include your name, the email
-          address associated with your account, and a clear statement that you wish to opt out of arbitration. If
-          you opt out, neither you nor Verlab will be required to arbitrate, but all other provisions of these Terms,
-          including the Class Action Waiver and Jury Trial Waiver, will remain in effect to the fullest extent
-          enforceable by law.
+          If a dispute can&apos;t be resolved that way, it will be handled by the competent courts of Morocco. If you
+          use Verlab as a consumer, you keep any mandatory consumer protection rights given to you by the laws of the
+          country where you live, including any right to bring a claim in your local courts.
         </p>
       </>
     ),
@@ -353,42 +327,32 @@ const SECTIONS: LegalSection[] = [
     title: "Changes to these Terms",
     body: (
       <p>
-        We may update these Terms from time to time. Material changes will be reflected by an updated &quot;Last
-        updated&quot; date above, and continued use of the Service after changes take effect constitutes acceptance
-        of the revised Terms.
-      </p>
-    ),
-  },
-  {
-    id: "governing-law",
-    title: "Governing law",
-    body: (
-      <p>
-        These Terms are governed by and construed in accordance with the laws of the jurisdiction in which Verlab is
-        registered, without regard to its conflict of law provisions.
+        We may update these Terms from time to time. When we do, we change the &quot;Last updated&quot; date at the top
+        of this page, and for important changes we&apos;ll also let you know in the app or by email. If you keep using
+        Verlab after a change takes effect, the new Terms apply.
       </p>
     ),
   },
   {
     id: "contact",
-    title: "Contact information",
+    title: "Contact",
     body: (
-      <ul className={LEGAL_LIST}>
-        <li>
-          Email:{" "}
-          <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
-            {CONTACT_EMAIL}
-          </a>
-        </li>
-      </ul>
+      <p>
+        Questions about these Terms, copyright notices and everything else: <Email />. You can also manage your plan
+        any time from your{" "}
+        <Link href={`${APP_URL}/settings/subscription`} className={LEGAL_LINK}>
+          subscription settings
+        </Link>
+        .
+      </p>
     ),
   },
 ];
 
 const HIGHLIGHTS = [
-  { icon: RefreshCw, text: "Cancel your subscription anytime, no questions asked" },
-  { icon: ShieldCheck, text: "You own every script and hook Verlab generates for you" },
-  { icon: FileText, text: "You're responsible for how you publish generated content" },
+  { icon: CreditCard, text: "Paid plans only. Cancel anytime, 14-day refunds" },
+  { icon: ShieldCheck, text: "You own what you make. Only submit content you have the rights to" },
+  { icon: Ban, text: "No deepfakes, impersonation, or cloning someone else's voice" },
 ];
 
 export default function TermsOfServicePage() {
@@ -396,9 +360,9 @@ export default function TermsOfServicePage() {
     <LegalPageLayout
       activeHref="/legal/terms"
       title="Terms of Service"
-      description="The rules and conditions that govern your use of Verlab"
-      effectiveDate="July 16, 2026"
-      updatedDate="August 17, 2026"
+      description="The rules for using Verlab, in plain language"
+      effectiveDate={LEGAL_LAST_UPDATED}
+      updatedDate={LEGAL_LAST_UPDATED}
       highlights={HIGHLIGHTS}
       sections={SECTIONS}
     />
