@@ -213,7 +213,7 @@ function renderText(payment: FailedPaymentLike, manageUrl: string): string {
     "Hi,",
     "",
     `We couldn't renew ${planName(payment)}${amount ? ` (${amount})` : ""}${card ? ` on your ${card}` : ""}.`,
-    "Whop will retry the charge over the next few days.",
+    "We'll try the charge again over the next few days.",
     "",
     "To keep everything running, update your payment method here:",
     manageUrl,
@@ -239,7 +239,7 @@ function renderHtml(payment: FailedPaymentLike, manageUrl: string): string {
 </td></tr>
 <tr><td style="padding:12px 28px 0">
 <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-0.01em">Your payment didn't go through</h1>
-<p style="margin:12px 0 0;font-size:15px;line-height:24px;color:#3f3f46">We couldn't renew your subscription. Whop will retry the charge over the next few days; updating your card now keeps your plan from lapsing.</p>
+<p style="margin:12px 0 0;font-size:15px;line-height:24px;color:#3f3f46">We couldn't renew your subscription. We'll try the charge again over the next few days; updating your card now keeps your plan from lapsing.</p>
 </td></tr>
 <tr><td style="padding:20px 28px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #f0f0f1;border-radius:10px">
