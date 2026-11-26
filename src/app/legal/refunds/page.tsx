@@ -107,7 +107,7 @@ const SECTIONS: LegalSection[] = [
             </Link>
             .
           </li>
-          <li>Click your profile picture and name in the top-right corner.</li>
+          <li>Click your profile picture in the top-right corner.</li>
           <li>
             Choose <strong className="text-heading">Settings</strong>.
           </li>
