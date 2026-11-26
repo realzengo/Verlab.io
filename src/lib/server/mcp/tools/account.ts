@@ -1,4 +1,5 @@
 import "server-only";
+import { hasActiveSubscription } from "@/lib/subscription-status";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserCredits } from "@/lib/server/credits";
@@ -19,10 +20,20 @@ const getCreditBalanceTool: McpToolDefinition = {
   handler: async (userId) => {
     const [credits, { data: profile }] = await Promise.all([
       getUserCredits(userId),
-      createAdminClient().from("profiles").select("plan").eq("id", userId).maybeSingle(),
+      createAdminClient()
+        .from("profiles")
+        .select("plan, subscription_status, subscription_current_period_end")
+        .eq("id", userId)
+        .maybeSingle(),
     ]);
-    const plan = typeof profile?.plan === "string" ? (PLAN_LABELS[profile.plan] ?? profile.plan) : null;
-    return appResult(`The Verlab account has ${credits.toLocaleString()} credits${plan ? ` on the ${plan} plan` : ""}.`, {
+    // profiles.plan defaults to "core" and keeps its last value after a plan
+    // lapses, so only name a plan when there's an active subscription.
+    const plan =
+      hasActiveSubscription(profile) && typeof profile?.plan === "string" ? (PLAN_LABELS[profile.plan] ?? profile.plan) : null;
+    const text = plan
+      ? `The Verlab account has ${credits.toLocaleString()} credits on the ${plan} plan.`
+      : `The Verlab account has ${credits.toLocaleString()} credits and no active plan. Every tool needs a plan: https://verlab.io/pricing`;
+    return appResult(text, {
       credits,
       plan,
       topUpUrl: APP_LINKS.credits,
