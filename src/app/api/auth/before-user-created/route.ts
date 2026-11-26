@@ -13,7 +13,7 @@ import { logBlockedAttempt, SIGNUPS_PER_IP_PER_HOUR } from "@/lib/server/abuse-g
 // and logs every block to public.blocked_attempts.
 //
 // Set up in the Supabase dashboard: Authentication > Hooks > Before User
-// Created > HTTPS, URL https://verlab.io/api/auth/before-user-created, and
+// Created > HTTPS, URL https://app.verlab.io/api/auth/before-user-created, and
 // copy the generated secret into SUPABASE_AUTH_HOOK_SECRET.
 //
 // Off switches: SIGNUP_GUARD_DISABLED=1 allows everything, or disable the
