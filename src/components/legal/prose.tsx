@@ -11,12 +11,11 @@ export const LEGAL_LINK =
 
 export const LEGAL_LIST = "list-disc space-y-2 pl-5 marker:text-subtle/50";
 
-/** A sub-clause heading such as "2.1 Account information". */
-export function LegalSubheading({ n, children }: { n?: string; children: ReactNode }) {
-  return (
-    <h3 className="mb-2 flex items-baseline gap-2.5 text-base font-semibold text-heading not-first:mt-8">
-      {n && <span className="font-mono text-[13px] font-normal tabular-nums text-subtle">{n}</span>}
-      {children}
-    </h3>
-  );
+/**
+ * A sub-clause heading inside a section. Deliberately unnumbered: sections
+ * are numbered automatically by LegalPageLayout, and hand-typed sub-numbers
+ * ("4.1") drifted out of step whenever a section was added or moved.
+ */
+export function LegalSubheading({ children }: { children: ReactNode }) {
+  return <h3 className="mb-2 text-base font-semibold text-heading not-first:mt-8">{children}</h3>;
 }

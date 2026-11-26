@@ -7,11 +7,11 @@ import { BezelPanel, INK_TITLE } from "@/components/brand/BrandKit";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
 import { LEGAL_LINK } from "@/components/legal/prose";
 import { cn } from "@/lib/utils";
-import { CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/constants";
+import { CONTACT_EMAIL, CONTACT_MAILTO, OPERATOR_STATEMENT } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Legal, Verlab AI",
-  description: "Verlab's Terms of Service, Privacy Policy, and Refund Policy.",
+  title: "Legal | Verlab",
+  description: "Verlab's Terms of Service, Privacy Policy and Refund Policy, written in plain language.",
 };
 
 export default function LegalHubPage() {
@@ -28,7 +28,8 @@ export default function LegalHubPage() {
             <p className="mt-4 text-lg leading-7 text-subtle">
               Everything about how Verlab works, what we do with your data, and how billing works, in one place.
             </p>
-            <p className="mt-8 text-sm text-subtle">
+            <p className="mt-8 text-sm text-subtle">{OPERATOR_STATEMENT}</p>
+            <p className="mt-2 text-sm text-subtle">
               Questions about any of these?{" "}
               <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
                 {CONTACT_EMAIL}
