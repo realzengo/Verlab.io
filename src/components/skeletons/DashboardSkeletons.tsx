@@ -74,7 +74,7 @@ export function ToolsSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="w-full pt-2">
       <div className={TOOLS_GRID}>
-        {Array.from({ length: 8 }, (_, i) => (
+        {Array.from({ length: 7 }, (_, i) => (
           <div
             key={i}
             className="flex flex-col overflow-hidden rounded-card border border-hairline bg-surface shadow-card dark:border-zinc-800 dark:bg-zinc-900"

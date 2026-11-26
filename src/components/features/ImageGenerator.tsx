@@ -726,7 +726,7 @@ export function ImageGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   // Set when Generate is pressed with no prompt: the button never greys
-  // out, it points at the field instead (same as /bend and /downloads).
+  // out, it points at the field instead (same as /bend).
   const [promptHint, setPromptHint] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");

@@ -19,7 +19,6 @@ export async function GET(): Promise<NextResponse> {
       Promise.all([
         supabase.from("image_generations").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase.from("niche_bend_jobs").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("downloads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase.from("transcripts").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       ]),
     ]);
@@ -32,7 +31,7 @@ export async function GET(): Promise<NextResponse> {
   const allocated = (transactions ?? []).filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
   const used = (transactions ?? []).filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
-  const [images, bends, downloads, transcripts] = counts;
+  const [images, bends, transcripts] = counts;
 
   return NextResponse.json({
     allocated,
@@ -40,7 +39,6 @@ export async function GET(): Promise<NextResponse> {
     balance,
     images: images.count ?? 0,
     bends: bends.count ?? 0,
-    downloads: downloads.count ?? 0,
     transcripts: transcripts.count ?? 0,
   });
 }

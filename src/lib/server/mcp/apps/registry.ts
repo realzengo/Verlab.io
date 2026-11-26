@@ -5,7 +5,6 @@ import { videoGridCardHtml } from "./generated/video-grid-card";
 import { scriptCardHtml } from "./generated/script-card";
 import { imageGalleryCardHtml } from "./generated/image-gallery-card";
 import { transcriptCardHtml } from "./generated/transcript-card";
-import { downloadCardHtml } from "./generated/download-card";
 import { creatorProfileCardHtml } from "./generated/creator-profile-card";
 import { nicheFinderCardHtml } from "./generated/niche-finder-card";
 import { voiceoverCardHtml } from "./generated/voiceover-card";
@@ -20,7 +19,6 @@ import {
   ScriptCardSchema,
   ImageGalleryCardSchema,
   TranscriptCardSchema,
-  DownloadCardSchema,
   CreatorProfileCardSchema,
   FindNicheCardSchema,
   VoiceoverCardSchema,
@@ -52,7 +50,6 @@ const WIDGETS = {
   scriptCard: { resourceUri: "ui://verlab/script-card-v9.html", html: scriptCardHtml, outputSchema: ScriptCardSchema, permissions: CLIPBOARD },
   imageGalleryCard: { resourceUri: "ui://verlab/image-gallery-card-v10.html", html: imageGalleryCardHtml, outputSchema: ImageGalleryCardSchema, permissions: CLIPBOARD },
   transcriptCard: { resourceUri: "ui://verlab/transcript-card-v9.html", html: transcriptCardHtml, outputSchema: TranscriptCardSchema, permissions: CLIPBOARD },
-  downloadCard: { resourceUri: "ui://verlab/download-card-v8.html", html: downloadCardHtml, outputSchema: DownloadCardSchema, permissions: CLIPBOARD },
   creatorProfileCard: { resourceUri: "ui://verlab/creator-profile-card-v10.html", html: creatorProfileCardHtml, outputSchema: CreatorProfileCardSchema, permissions: CLIPBOARD },
   nicheFinderCard: { resourceUri: "ui://verlab/niche-finder-card-v9.html", html: nicheFinderCardHtml, outputSchema: FindNicheCardSchema },
   voiceoverCard: { resourceUri: "ui://verlab/voiceover-card-v4.html", html: voiceoverCardHtml, outputSchema: VoiceoverCardSchema, permissions: CLIPBOARD },
@@ -89,8 +86,6 @@ export const TOOL_WIDGETS: Record<string, WidgetDefinition> = {
   check_clips_status: WIDGETS.clipsCard,
   extract_transcript: WIDGETS.transcriptCard,
   check_transcript_status: WIDGETS.transcriptCard,
-  download_video: WIDGETS.downloadCard,
-  check_download_status: WIDGETS.downloadCard,
 };
 
 // Resources are registered once per unique URI (not once per tool) --

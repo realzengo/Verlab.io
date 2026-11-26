@@ -1,5 +1,5 @@
 import "server-only";
-import type { DownloadFormat, DownloadPlatform } from "@/lib/types";
+import type { ClipSourceFormat } from "@/lib/types";
 import { detectTranscriptPlatform, type TranscriptPlatform } from "@/lib/transcript-platform";
 import { pickBrowserImageUrl } from "@/lib/video-covers";
 
@@ -221,7 +221,9 @@ async function scrapeCreatorsFetchTikTokTranscript(url: string): Promise<Transcr
     title: videoRes.aweme_detail?.desc?.trim() || "Untitled video",
     coverUrl: pickBrowserImageUrl(video?.cover?.url_list) ?? pickBrowserImageUrl(video?.origin_cover?.url_list) ?? "",
     durationSeconds: video?.duration ? Math.round(video.duration / 1000) : 0,
-    videoUrl: video?.download_no_watermark_addr?.url_list?.[0] ?? video?.play_addr?.url_list?.[0] ?? null,
+    // Never the video file itself (no-watermark or not): Verlab doesn't
+    // hand out videos from other platforms. The reader links to the post.
+    videoUrl: null,
     embedUrl: null,
     lines,
   };
@@ -340,155 +342,23 @@ async function scrapeCreatorsFetchInstagramTranscript(url: string): Promise<Tran
     title: caption?.slice(0, 120) || "Untitled video",
     coverUrl: media?.thumbnail_src ?? media?.display_url ?? "",
     durationSeconds: media?.video_duration ? Math.ceil(media.video_duration) : 0,
-    videoUrl: media?.video_url ?? null,
+    // See the TikTok note above: no direct video file.
+    videoUrl: null,
     embedUrl: null,
     lines: [{ timestamp: "0:00", text }],
   };
 }
 
-// --- Lightweight preview — real title/thumbnail/author/stats, no transcript
-// call and no download job started. Reuses the same Scrape Creators video/post
-// metadata endpoints the transcript fetchers above call, minus the transcript
-// request.
-
-export type VideoPreviewPlatform = "tiktok" | "youtube" | "instagram";
-
-export interface VideoPreviewResult {
-  platform: VideoPreviewPlatform;
-  title: string;
-  author: string | null;
-  thumbnailUrl: string;
-  likes: string | null;
-  comments: string | null;
-}
-
-function detectPreviewPlatform(rawUrl: string): VideoPreviewPlatform | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return null;
-  if (/tiktok\.com/i.test(trimmed)) return "tiktok";
-  if (/(youtube\.com|youtu\.be)/i.test(trimmed)) return "youtube";
-  if (/instagram\.com/i.test(trimmed)) return "instagram";
-  return null;
-}
-
-function formatCompactCount(count: number | undefined): string | null {
-  if (count === undefined || count === null) return null;
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(count);
-}
-
-async function scrapeCreatorsPreviewTikTok(url: string): Promise<VideoPreviewResult> {
-  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url });
-  const detail = videoRes.aweme_detail;
-  const video = detail?.video;
-  if (!video) {
-    throw new VideoProviderError("not_found", "Video not found");
-  }
-
-  return {
-    platform: "tiktok",
-    title: detail?.desc?.trim() || "Untitled video",
-    author: detail?.author?.nickname || (detail?.author?.unique_id ? `@${detail.author.unique_id}` : null),
-    thumbnailUrl: pickBrowserImageUrl(video.cover?.url_list) ?? pickBrowserImageUrl(video.origin_cover?.url_list) ?? "",
-    likes: formatCompactCount(detail?.statistics?.digg_count),
-    comments: formatCompactCount(detail?.statistics?.comment_count),
-  };
-}
-
-async function scrapeCreatorsPreviewYoutube(url: string): Promise<VideoPreviewResult> {
-  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsYoutubeVideo>("/v1/youtube/video", { url });
-  if (!videoRes.title && !videoRes.thumbnail) {
-    throw new VideoProviderError("not_found", "Video not found");
-  }
-
-  return {
-    platform: "youtube",
-    title: videoRes.title?.trim() || "Untitled video",
-    author: null,
-    thumbnailUrl: videoRes.thumbnail ?? "",
-    likes: null,
-    comments: null,
-  };
-}
-
-async function scrapeCreatorsPreviewInstagram(url: string): Promise<VideoPreviewResult> {
-  const postRes = await scrapeCreatorsGet<ScrapeCreatorsInstagramPost>("/v1/instagram/post", { url });
-  const media = postRes.data?.xdt_shortcode_media;
-  if (!media) {
-    throw new VideoProviderError("not_found", "Video not found");
-  }
-
-  const caption = media.edge_media_to_caption?.edges?.[0]?.node?.text?.trim();
-
-  return {
-    platform: "instagram",
-    title: caption?.slice(0, 120) || "Untitled video",
-    author: media.owner?.username ? `@${media.owner.username}` : null,
-    thumbnailUrl: media.thumbnail_src ?? media.display_url ?? "",
-    likes: formatCompactCount(media.edge_media_preview_like?.count),
-    comments: formatCompactCount(
-      media.edge_media_to_comment?.count ?? media.edge_media_to_parent_comment?.count
-    ),
-  };
-}
-
-export async function fetchVideoPreview(url: string): Promise<VideoPreviewResult> {
-  const platform = detectPreviewPlatform(url);
-  switch (platform) {
-    case "tiktok":
-      return scrapeCreatorsPreviewTikTok(url);
-    case "youtube":
-      return scrapeCreatorsPreviewYoutube(url);
-    case "instagram":
-      return scrapeCreatorsPreviewInstagram(url);
-    default:
-      throw new VideoProviderError("unsupported_url", "Unsupported video URL");
-  }
-}
-
-// --- Scrape Creators — TikTok file downloads. video-download-api.com's
-// TikTok scraping has been observed failing on every TikTok video (real and
-// nonexistent alike) while working fine for YouTube, so TikTok downloads are
-// routed here instead — the same endpoint (and API key) already used for
-// TikTok previews/transcripts above, which reliably returns a direct
-// no-watermark file URL per video.
-// TikTok share links (vm.tiktok.com/XXXX, vt.tiktok.com/XXXX) are short
-// redirect links, not the canonical video URL — resolving them here, before
-// handing off to the provider, avoids depending on the provider to follow
-// TikTok's own redirect/anti-bot chain correctly.
-async function resolveTikTokShortLink(url: string): Promise<string> {
-  if (!/^https?:\/\/(vm|vt)\.tiktok\.com\//i.test(url.trim())) {
-    return url;
-  }
-  try {
-    const response = await fetchWithRetry(url, { method: "HEAD", signal: AbortSignal.timeout(10_000) });
-    return response.url || url;
-  } catch {
-    return url;
-  }
-}
-
-async function scrapeCreatorsFetchTikTokDownload(url: string): Promise<DownloadResult> {
-  const resolvedUrl = await resolveTikTokShortLink(url);
-  const videoRes = await scrapeCreatorsGet<ScrapeCreatorsTikTokVideo>("/v2/tiktok/video", { url: resolvedUrl });
-  const detail = videoRes.aweme_detail;
-  const video = detail?.video;
-  const directUrl = video?.download_no_watermark_addr?.url_list?.[0] ?? video?.play_addr?.url_list?.[0];
-  if (!directUrl) {
-    throw new VideoProviderError("not_found", "That video couldn't be found. It may be private or deleted.");
-  }
-  return { title: detail?.desc?.trim() || "Untitled video", directUrl };
-}
-
-// --- video-download-api.com (p.savenow.to) — file downloads for YouTube and
-// Facebook. Async job API: submit to /ajax/download.php, then poll
-// /ajax/progress.php (progress is in thousandths, 1000 = done) until
-// download_url appears. See https://video-download-api.com/api/docs.
+// --- video-download-api.com (p.savenow.to) -- fetches the YouTube source of
+// an AI clipping project, server-side only. Async job API: submit to
+// /ajax/download.php, then poll /ajax/progress.php (progress is in
+// thousandths, 1000 = done) until download_url appears. See
+// https://video-download-api.com/api/docs.
 //
-// Neither Instagram nor TikTok is routed here — verified against this
-// provider directly and both consistently fail ("text":"Failed") for real
-// URLs, unlike YouTube/Facebook which return working files. TikTok goes
-// through Scrape Creators instead (above); Instagram downloads aren't
-// currently supported.
+// This is NOT a user-facing downloader -- that feature was removed
+// (2026-11-26). The link this returns is only ever read by Verlab's own
+// servers and render worker to cut and caption clips; it must never be sent
+// to a browser or an MCP client.
 
 const SAVENOW_BASE_URL = "https://p.savenow.to";
 const SAVENOW_POLL_INTERVAL_MS = 2_000;
@@ -607,7 +477,7 @@ export interface DownloadLinkOptions extends DownloadPollOptions {
 
 async function savenowSubmitAndPoll(
   url: string,
-  format: DownloadFormat,
+  format: ClipSourceFormat,
   apiKey: string,
   onProgress?: (percent: number) => void,
   { range, ...poll }: DownloadLinkOptions = {}
@@ -650,7 +520,7 @@ const SAVENOW_JOB_RETRY_DELAY_MS = 1_500;
 
 async function savenowFetchDownloadLink(
   url: string,
-  format: DownloadFormat,
+  format: ClipSourceFormat,
   onProgress?: (percent: number) => void,
   options?: DownloadLinkOptions
 ): Promise<DownloadResult> {
@@ -683,13 +553,9 @@ async function savenowFetchDownloadLink(
 }
 
 
-export function detectDownloadPlatform(rawUrl: string): DownloadPlatform | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return null;
-  if (/tiktok\.com/i.test(trimmed)) return "tiktok";
-  if (/(youtube\.com|youtu\.be)/i.test(trimmed)) return "youtube";
-  if (/(facebook\.com|fb\.watch)/i.test(trimmed)) return "facebook";
-  return null;
+/** Whether a link is a YouTube video -- the only source AI clipping fetches. */
+function isYoutubeUrl(rawUrl: string): boolean {
+  return /(youtube\.com|youtu\.be)/i.test(rawUrl.trim());
 }
 
 export async function fetchTranscript(url: string): Promise<TranscriptResult> {
@@ -706,22 +572,19 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
   }
 }
 
+/**
+ * The direct media link for a YouTube video's source, for AI clipping's
+ * server-side cutting and transcription only (see the note on the savenow
+ * section above). Throws for anything that isn't YouTube.
+ */
 export async function fetchDownloadLink(
   url: string,
-  format: DownloadFormat,
+  format: ClipSourceFormat,
   onProgress?: (percent: number) => void,
   options?: DownloadLinkOptions
 ): Promise<DownloadResult> {
-  const platform = detectDownloadPlatform(url);
-  if (!platform) {
-    throw new VideoProviderError("unsupported_url", "Unsupported video URL");
-  }
-  if (platform === "tiktok") {
-    if (options?.range) throw new VideoProviderError("provider_error", "Trimmed downloads aren't available for TikTok");
-    onProgress?.(50);
-    const result = await scrapeCreatorsFetchTikTokDownload(url);
-    onProgress?.(100);
-    return result;
+  if (!isYoutubeUrl(url)) {
+    throw new VideoProviderError("unsupported_url", "Only YouTube videos can be clipped");
   }
   return savenowFetchDownloadLink(url, format, onProgress, options);
 }

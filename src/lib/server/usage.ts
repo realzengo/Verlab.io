@@ -10,8 +10,8 @@ import type { AdminToolKey } from "@/lib/types";
  * throws — a logging failure shouldn't break the calling request.
  *
  * Also mirrors every call to PostHog as a "tool_used" event -- every tool
- * run in the product (bend, transcripts, image, video, voiceover,
- * downloader, mcp) already funnels through here, so this is the one place
+ * run in the product (bend, transcripts, image, video, voiceover, clipping,
+ * mcp) already funnels through here, so this is the one place
  * that needs to know about product analytics rather than sprinkling
  * capture() calls across each tool's route handler.
  */

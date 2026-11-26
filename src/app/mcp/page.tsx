@@ -56,8 +56,8 @@ const CAPABILITIES = [
   },
   {
     icon: Subtitles,
-    title: "Transcripts & downloads",
-    description: "Pull a timestamped transcript or a watermark-free download from any video link.",
+    title: "Transcripts",
+    description: "Pull a timestamped transcript from any TikTok, Reels or YouTube video link.",
   },
 ];
 

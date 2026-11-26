@@ -4,7 +4,6 @@ export * from "./mock/sops";
 export * from "./mock/bend-results";
 export * from "./mock/scripts";
 export * from "./mock/transcripts";
-export * from "./mock/downloads";
 export * from "./mock/pricing";
 export * from "./mock/faq";
 export * from "./mock/nav";

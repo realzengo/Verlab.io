@@ -5,7 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/600.css";
 import {
-  DownloaderArt,
+  ClippingArt,
   ImageGeneratorArt,
   NicheBendingArt,
   NicheFinderArt,
@@ -44,9 +44,9 @@ const ROW_1: ToolCardData[] = [
 
 const ROW_2: ToolCardData[] = [
   {
-    title: "Download Any Video",
-    description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
-    art: <DownloaderArt />,
+    title: "AI Clipping",
+    description: "Turn a long YouTube video into viral vertical clips with captions, ready to post.",
+    art: <ClippingArt />,
   },
   {
     title: "Niche Bend",

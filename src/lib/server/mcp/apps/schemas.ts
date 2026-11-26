@@ -69,15 +69,6 @@ export const TranscriptCardSchema = {
   lines: rows.optional(),
 };
 
-export const DownloadCardSchema = {
-  id: z.string(),
-  status: z.string(),
-  progress: num,
-  title: text,
-  url: text,
-  format: text,
-};
-
 export const VoiceoverCardSchema = {
   id: z.string(),
   status: z.string(),

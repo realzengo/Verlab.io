@@ -1428,7 +1428,7 @@ export function VideoGenerator() {
 
   // Generate never greys out on desktop: pressed with nothing to send, it
   // says what's missing next to the button and puts the cursor in the
-  // prompt (same as /bend, /downloads and the image generator).
+  // prompt (same as /bend and the image generator).
   function focusPrompt(box: HTMLDivElement | null) {
     box?.querySelector<HTMLElement>("[contenteditable]")?.focus();
   }

@@ -14,14 +14,7 @@ import {
   type ClipProjectRow,
 } from "@/lib/server/clips/projects";
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
-import {
-  CLIP_LENGTHS,
-  isClipProjectWorking,
-  normalizeClipOptions,
-  parseYoutubeVideoId,
-  youtubeWatchUrl,
-  type ClipMoment,
-} from "@/lib/clips";
+import { CLIP_RIGHTS_REQUIRED_MESSAGE, CLIP_LENGTHS, isClipProjectWorking, normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl, type ClipMoment } from "@/lib/clips";
 import { APP_LINKS, MCP_PUBLIC_ORIGIN } from "../links";
 import { signThumbUrl } from "../thumb-proxy";
 import {
@@ -117,9 +110,13 @@ const createClipsTool: McpToolDefinition = {
     "Turns a long YouTube video (podcast, stream, interview; 2 minutes to 3 hours) into viral short-form clip candidates: transcribes every word, finds the " +
     "strongest self-contained moments and scores each one on hook, flow, value and trend, with a hook title, ready-to-post caption and hashtags. Takes 1-3 " +
     "minutes; the card updates itself and links to the Verlab editor for captioned 9:16 export. Cost scales with length (about 37 credits for 10 minutes, " +
-    "106 for an hour), refunded automatically if it fails.",
+    "106 for an hour), refunded automatically if it fails. Only for videos the user owns or has permission to use: ask them to confirm that before " +
+    "calling this, and pass rightsConfirmed: true only once they have.",
   inputSchema: {
     url: z.string().describe("A YouTube video link."),
+    rightsConfirmed: z
+      .boolean()
+      .describe("True only after the user has confirmed they own this video or have permission to clip it."),
     length: z.enum(CLIP_LENGTHS.map((option) => option.value) as [string, ...string[]]).optional().describe("Clip length: auto (default), short (<30s), medium (30-60s), long (60-90s)."),
     focus: z.string().max(200).optional().describe("Optional: what to look for, e.g. 'the funniest moments' or 'anything about money'."),
   },
@@ -127,6 +124,9 @@ const createClipsTool: McpToolDefinition = {
   handler: async (userId, args) => {
     const videoId = parseYoutubeVideoId(String(args.url ?? ""));
     if (!videoId) return errorResult("Send a YouTube video link (youtube.com/watch, youtu.be or a Shorts/live link).", "invalid_input");
+    if (args.rightsConfirmed !== true) {
+      return errorResult(`${CLIP_RIGHTS_REQUIRED_MESSAGE} Ask the user, then call again with rightsConfirmed: true.`, "invalid_input");
+    }
 
     if (!(await checkRateLimit(`clips-create:${userId}`, 5, 60))) {
       return errorResult("Too many clip projects started in the last minute. Wait a moment and try again.");

@@ -68,29 +68,6 @@ export function BendSkeleton() {
   );
 }
 
-export function DownloaderSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="flex w-full flex-col pb-16">
-      {/* Hero: ink title, one-line subtitle */}
-      <div className="flex flex-col items-center pt-10 sm:pt-16">
-        <Skeleton className="h-10 w-72 max-w-full rounded-xl sm:h-16 sm:w-[30rem]" />
-        <Skeleton className="mt-5 h-4 w-80 max-w-full rounded-full" />
-        <Skeleton className="mt-2 h-4 w-56 max-w-full rounded-full" />
-      </div>
-
-      {/* Bezel link field and the status line under it */}
-      <div className="mx-auto mt-10 w-full max-w-2xl sm:mt-12">
-        <div className="rounded-[22px] border border-hairline p-1.5">
-          <Skeleton className="h-[66px] w-full rounded-2xl" />
-        </div>
-        <div className="mt-4 flex h-6 justify-center">
-          <Skeleton className="h-4 w-72 max-w-full rounded-full" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ImageGeneratorSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="pt-2">

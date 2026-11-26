@@ -44,7 +44,7 @@ function useModKey() {
 /**
  * Sits left of Generate: the ⌘↵ keycaps, or a short hint when Generate was
  * pressed with nothing to send. Generate itself never greys out -- it
- * points at what's missing instead (same as /bend and /downloads).
+ * points at what's missing instead (same as /bend).
  */
 export function SubmitHint({ hint }: { hint: string | null }) {
   const modKey = useModKey();

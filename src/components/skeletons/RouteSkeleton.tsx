@@ -22,7 +22,6 @@ import {
 import {
   BendSkeleton,
   ClippingSkeleton,
-  DownloaderSkeleton,
   ImageGeneratorSkeleton,
   ScriptsSkeleton,
   TranscriptsSkeleton,
@@ -39,7 +38,6 @@ const PAGE_SKELETONS: Record<string, ReactNode> = {
   "/library": <LibrarySkeleton />,
   "/mcp": <McpSkeleton />,
   "/bend": <BendSkeleton />,
-  "/downloads": <DownloaderSkeleton />,
   "/image-generator": <ImageGeneratorSkeleton />,
   "/video-generator": <VideoGeneratorSkeleton />,
   "/voiceover-generator": <VoiceoverSkeleton />,

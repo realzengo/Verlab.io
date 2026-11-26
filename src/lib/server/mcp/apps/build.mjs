@@ -23,7 +23,6 @@ const WIDGETS = [
   "script-card",
   "image-gallery-card",
   "transcript-card",
-  "download-card",
   "creator-profile-card",
   "niche-finder-card",
   "voiceover-card",

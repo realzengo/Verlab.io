@@ -16,7 +16,7 @@ import {
 } from "@/lib/server/clips/projects";
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
 import { TRANSCRIPTION_DOWN_MESSAGE, transcriptionAvailable } from "@/lib/server/clips/transcription-status";
-import { normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/lib/clips";
+import { CLIP_RIGHTS_REQUIRED_MESSAGE, normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/lib/clips";
 import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Fetching the audio and starting WhisperX runs in after(), which shares
@@ -66,11 +66,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return rateLimitedResponse();
   }
 
-  let body: { url?: string; options?: unknown; requestId?: unknown };
+  let body: { url?: string; options?: unknown; requestId?: unknown; rightsConfirmed?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (body.rightsConfirmed !== true) {
+    return NextResponse.json({ error: CLIP_RIGHTS_REQUIRED_MESSAGE, code: "rights_not_confirmed" }, { status: 400 });
   }
 
   // One id per Create the user means: a repeat of it (a double click, a

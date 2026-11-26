@@ -3,7 +3,7 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUp, Check, Flame, Link, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Flame, Play, RectangleVertical, Timer, Wand2 } from "lucide-react";
 import { Short, Stage, rise } from "@/components/illustration/stage";
 import { cn } from "@/lib/utils";
 
@@ -610,114 +610,6 @@ export function TranscriptArt() {
           </motion.div>
         ))}
       </div>
-    </ToolStage>
-  );
-}
-
-/* ─── Downloader ──────────────────────────────────────────────────────── */
-
-// The platform grid and the downloader card, set in motion: one platform at a
-// time lights its link badge, lands in the downloader, the hand taps Download,
-// the button fills, and the link badge turns into a check. Five 2.4s beats
-// make one 12s loop (tool-art-dl-* in globals.css); with reduced motion it
-// rests on YouTube. Tiles and hand are cut from the original still.
-const DL = "/tools/art/downloader";
-const BEAT = 2.4;
-const CYCLE = ["youtube", "tiktok", "instagram", "facebook", "snapchat"];
-const LOOP = BEAT * CYCLE.length;
-const GRID = [
-  { name: "tiktok", left: 48, top: 52, badge: { left: 40, top: -3 } },
-  { name: "instagram", left: 112, top: 52, badge: { left: 41.5, top: -3.5 } },
-  { name: "facebook", left: 48, top: 117, badge: { left: 40, top: -3.5 } },
-  { name: "snapchat", left: 112, top: 117, badge: { left: 44, top: -6 } },
-];
-
-/** Negative delay that lines a 12s animation's window up with this platform's beat. */
-function beatDelay(name: string) {
-  return `${-((LOOP - CYCLE.indexOf(name) * BEAT) % LOOP)}s`;
-}
-
-function LinkBadge({ left, top, pickDelay }: { left: number; top: number; pickDelay?: string }) {
-  return (
-    <span className="absolute h-[18.5px] w-[18.5px]" style={{ left, top }}>
-      <span className="absolute inset-0 grid place-items-center rounded-[5px] border border-[#e2e2e2] bg-white dark:border-zinc-600 dark:bg-zinc-700">
-        <Link className="h-[11px] w-[11px] text-[#9d9d9d]" strokeWidth={2.75} />
-      </span>
-      {pickDelay && (
-        <span
-          className="tool-art-dl-pick-badge absolute inset-0 grid place-items-center rounded-[5px] bg-[#335cff]"
-          style={{ animationDelay: pickDelay }}
-        >
-          <Link className="h-[11px] w-[11px] text-white" strokeWidth={2.75} />
-        </span>
-      )}
-    </span>
-  );
-}
-
-// The tiles were cut from a light still, so their edges carry a white fringe and
-// the badge corner is squared off. On dark that reads as a halo, so there each
-// tile is scaled a touch past a clean rounded clip.
-function PlatformTile({ name, sizes, radius }: { name: string; sizes: string; radius: string }) {
-  return (
-    <span className={cn("absolute inset-0 dark:overflow-hidden", radius)}>
-      <Image src={`${DL}/${name}.png`} alt="" fill sizes={sizes} className="object-contain dark:scale-[1.06] dark:object-cover" />
-    </span>
-  );
-}
-
-const DL_CARD = "absolute rounded-[18px] border border-[#dedede] bg-white dark:border-zinc-700 dark:bg-zinc-800";
-
-export function DownloaderArt() {
-  return (
-    <ToolStage>
-      <motion.div variants={rise(0, 8)} className={DL_CARD} style={{ left: 35, top: 38, width: 148, height: 148 }} />
-      {GRID.map((t, i) => (
-        <motion.div key={t.name} variants={rise(0.1 + i * 0.06, 6)} className="absolute" style={{ left: t.left, top: t.top, width: 57, height: 57 }}>
-          <span className="tool-art-dl-pick absolute inset-0" style={{ animationDelay: beatDelay(t.name) }}>
-            <PlatformTile name={t.name} sizes="160px" radius="dark:rounded-[9px]" />
-            <LinkBadge left={t.badge.left} top={t.badge.top} pickDelay={beatDelay(t.name)} />
-          </span>
-        </motion.div>
-      ))}
-
-      <motion.div variants={rise(0.15, 8)} className={DL_CARD} style={{ left: 216, top: 38, width: 149, height: 148 }} />
-      <motion.div variants={rise(0.3, 6)} className="absolute" style={{ left: 260, top: 68, width: 62, height: 59.5 }}>
-        {CYCLE.map((name, i) => (
-          <span
-            key={name}
-            className="tool-art-dl-tile absolute inset-0"
-            style={{ animationDelay: beatDelay(name), opacity: i === 0 ? 1 : 0 }}
-          >
-            <PlatformTile name={name} sizes="170px" radius="dark:rounded-[10px]" />
-          </span>
-        ))}
-        {/* the downloader's own badge: link while it fetches, check once saved */}
-        <span className="tool-art-dl-linkout absolute" style={{ left: 50, top: -8.5 }}>
-          <LinkBadge left={0} top={0} />
-        </span>
-        <span
-          className="tool-art-dl-check absolute grid h-[18.5px] w-[18.5px] place-items-center rounded-[5px] bg-[#335cff]"
-          style={{ left: 50, top: -8.5 }}
-        >
-          <Check className="h-[11px] w-[11px] text-white" strokeWidth={3.5} />
-        </span>
-      </motion.div>
-
-      <motion.div variants={rise(0.4, 6)} className="absolute" style={{ left: 229, top: 143.5, width: 124, height: 30.5 }}>
-        <span className="tool-art-dl-press relative grid h-full w-full place-items-center overflow-hidden rounded-[8px] bg-[#1e5cfd] text-[18px] font-bold tracking-[-0.01em] text-white">
-          <span className="tool-art-dl-fill absolute inset-0 origin-left bg-white/25" />
-          <span className="relative">Download</span>
-        </span>
-      </motion.div>
-
-      {/* the tap: ripple under the fingertip, then the hand itself */}
-      <span className="tool-art-dl-ripple absolute h-6 w-6 rounded-full border-2 border-[#335cff]" style={{ left: 321, top: 152 }} />
-      <motion.div variants={rise(0.55, 8)} className="absolute" style={{ left: 331, top: 160.5, width: 48.5, height: 40.5 }}>
-        <span className="tool-art-dl-hand absolute inset-0 origin-[4px_3px]">
-          <Image src={`${DL}/hand.png`} alt="" fill sizes="140px" className="object-contain" />
-        </span>
-      </motion.div>
     </ToolStage>
   );
 }

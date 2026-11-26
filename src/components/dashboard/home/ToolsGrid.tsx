@@ -7,9 +7,9 @@ import { toolMenuItem } from "@/lib/mock-data";
 // menu (TOOLS_MENU, matched by href), so a tool looks the same everywhere.
 const TOOLS: { title: string; description: string; href: string }[] = [
   {
-    title: "Downloader",
-    description: "Save TikTok, Reels, and Shorts videos without the watermark.",
-    href: "/downloads",
+    title: "Clipping",
+    description: "Turn a long YouTube video into viral vertical clips with captions.",
+    href: "/clipping",
   },
   {
     title: "Video Generator",

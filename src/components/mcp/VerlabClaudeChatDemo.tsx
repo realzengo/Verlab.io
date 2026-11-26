@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Captions,
   Compass,
-  Download,
   Image as ImageIcon,
   PenLine,
   type LucideIcon,
@@ -89,17 +88,6 @@ const SCENARIOS: Scenario[] = [
     resultMeta: "38 lines",
     icon: Captions,
     tone: "cat-5",
-  },
-  {
-    prompt: "Download this Reel with no watermark.",
-    tool: "download_video",
-    params: ["Reel", "1080p", "No watermark"],
-    resultTitle: "Video is ready",
-    resultFile: "reel-download.mp4",
-    resultMeta: "1080p",
-    icon: Download,
-    tone: "cat-1",
-    resultImage: "/videos/einstein-poster.jpg",
   },
   {
     prompt: "Generate a thumbnail of a surprised cat for my shorts channel.",

@@ -8,7 +8,7 @@ import { withApiLogging } from "@/lib/server/api-logging";
 // public URL to hand the <video> tag directly. This route is the only way
 // a video's bytes become reachable: it checks row ownership via the
 // session-scoped client (RLS on video_generations enforces auth.uid() =
-// user_id, same as /api/downloads/file/[id] relies on for `downloads`),
+// user_id),
 // then mints a short-lived signed URL with the service-role client (the
 // only client that can read a private bucket).
 //

@@ -1,22 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { refundUser } from "@/lib/server/credits";
 import { recordUsageEvent } from "@/lib/server/usage";
-import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
-import {
-  fetchTranscript,
-  fetchDownloadLink,
-  detectTranscriptPlatform,
-  detectDownloadPlatform,
-  humanizeVideoProviderError,
-} from "@/lib/server/video-provider";
-import { DOWNLOAD_FORMAT_OPTIONS, getDownloadFormatOption, type DownloadFormat } from "@/lib/types";
+import { fetchTranscript, detectTranscriptPlatform, humanizeVideoProviderError } from "@/lib/server/video-provider";
 import { signThumbUrl } from "../thumb-proxy";
 import {
   appResult,
   capText,
-  chargeUpfront,
   CREATES,
   errorResult,
   POLLING_NOTE,
@@ -27,7 +17,7 @@ import {
 } from "./shared";
 
 // Rows still "processing" past this were cut off mid-job and will never
-// finish; the status check fails and refunds them once.
+// finish; the status check marks them failed.
 const STALE_PROCESSING_MS = 8 * 60 * 1000;
 const TRANSCRIPT_TEXT_MAX = 40_000;
 
@@ -45,17 +35,17 @@ function transcriptText(id: string, title: string | null, lines: TranscriptLine[
   );
 }
 
-/** Fails a row that's been "processing" too long, refunding it exactly once when it was charged. */
-async function failStaleRow(table: "transcripts" | "downloads", id: string, userId: string, refund?: () => Promise<void>): Promise<string> {
-  const message = refund ? "This took too long and was stopped. Your credits were refunded." : "This took too long and was stopped. Please try again.";
+/** Fails a transcript that's been "processing" too long. Transcripts use no credits, so there's nothing to refund. */
+async function failStaleTranscript(id: string, userId: string): Promise<string> {
+  const message = "This took too long and was stopped. Please try again.";
   const { data: claimed } = await createAdminClient()
-    .from(table)
+    .from("transcripts")
     .update({ status: "failed", error_message: message })
     .eq("id", id)
     .eq("user_id", userId)
     .eq("status", "processing")
     .select("id");
-  if (claimed?.length && refund) await refund();
+  if (!claimed?.length) console.warn(`[mcp:transcripts] stale transcript ${id} was already settled`);
   return message;
 }
 
@@ -125,7 +115,8 @@ const extractTranscriptTool: McpToolDefinition = {
       status: "complete",
       title: value.title,
       coverUrl: signThumbUrl(value.coverUrl),
-      videoUrl: value.videoUrl,
+      // The card's Watch button opens this: the original post, never a file.
+      videoUrl: url,
       embedUrl: value.embedUrl,
       lines: value.lines,
     });
@@ -143,7 +134,7 @@ const checkTranscriptStatusTool: McpToolDefinition = {
     if (!UUID_PATTERN.test(id)) return errorResult("That isn't a valid transcript id.", "invalid_input");
     const { data } = await createAdminClient()
       .from("transcripts")
-      .select("id, status, title, cover_url, video_url, embed_url, lines, error_message, created_at")
+      .select("id, status, title, cover_url, source_url, embed_url, lines, error_message, created_at")
       .eq("id", id)
       .eq("user_id", userId)
       .maybeSingle();
@@ -152,7 +143,7 @@ const checkTranscriptStatusTool: McpToolDefinition = {
     if (data.status === "failed") return errorResult(data.error_message ?? "The extraction failed. Please try again.");
     if (data.status !== "complete") {
       if (Date.now() - new Date(data.created_at).getTime() > STALE_PROCESSING_MS) {
-        return errorResult(await failStaleRow("transcripts", id, userId));
+        return errorResult(await failStaleTranscript(id, userId));
       }
       return appResult(`Still extracting. ${POLLING_NOTE}`, { id, status: "processing" });
     }
@@ -163,131 +154,13 @@ const checkTranscriptStatusTool: McpToolDefinition = {
       status: "complete",
       title: data.title,
       coverUrl: signThumbUrl(data.cover_url),
-      videoUrl: data.video_url,
+      videoUrl: data.source_url,
       embedUrl: data.embed_url,
       lines,
     });
   },
 };
 
-const DOWNLOAD_FORMATS = DOWNLOAD_FORMAT_OPTIONS.map((option) => option.value) as [DownloadFormat, ...DownloadFormat[]];
-
-const downloadVideoTool: McpToolDefinition = {
-  name: "download_video",
-  title: "Download a video",
-  description:
-    "Downloads a TikTok, YouTube or Facebook video without a watermark (or extracts its audio) and returns a direct file link. Charges credits (refunded if it fails). Formats: " +
-    DOWNLOAD_FORMAT_OPTIONS.map((option) => `${option.value} (${option.label})`).join(", "),
-  inputSchema: {
-    url: z.string().describe("A TikTok, YouTube or Facebook URL."),
-    format: z.enum(DOWNLOAD_FORMATS).optional().describe("Defaults to 720 (MP4 720p)."),
-  },
-  annotations: CREATES,
-  handler: async (userId, args) => {
-    const url = String(args.url ?? "").trim();
-    if (!url) return errorResult("Send a TikTok, YouTube or Facebook link.", "invalid_input");
-    const formatOption = getDownloadFormatOption(String(args.format ?? "720"));
-    if (!formatOption) return errorResult(`Unsupported format. Use one of: ${DOWNLOAD_FORMATS.join(", ")}.`, "invalid_input");
-    const format: DownloadFormat = formatOption.value;
-    const platform = detectDownloadPlatform(url);
-    if (!platform) return errorResult("Only TikTok, YouTube and Facebook links are supported.", "invalid_input");
-
-    const cost = TOOL_CREDIT_COSTS.downloads.create;
-    const refund = () => refundUser(userId, cost, "Video Download refund", "downloads.create");
-    const charged = await chargeUpfront(userId, cost, "Video Download", "downloads.create");
-    if (charged) return charged;
-
-    const admin = createAdminClient();
-    const { data: row, error: insertError } = await admin
-      .from("downloads")
-      .insert({ user_id: userId, source_url: url, platform, format, status: "processing" })
-      .select("id")
-      .single();
-    if (insertError || !row) {
-      await refund();
-      return errorResult("Couldn't start the download. Your credits were refunded.");
-    }
-
-    let failureMessage = "Couldn't download that video.";
-    const outcome = await runJob(
-      async () => {
-        const result = await fetchDownloadLink(url, format, (percent) => {
-          void admin.from("downloads").update({ progress: percent }).eq("id", row.id);
-        });
-        await admin
-          .from("downloads")
-          .update({ status: "complete", progress: 100, title: result.title, file_path: result.directUrl })
-          .eq("id", row.id);
-        recordUsageEvent("downloader", userId, { downloadId: row.id, source: "mcp" });
-        return result;
-      },
-      async (error) => {
-        failureMessage = `${humanizeVideoProviderError(error)} Your credits were refunded.`;
-        const { data: claimed } = await admin
-          .from("downloads")
-          .update({ status: "failed", error_message: failureMessage })
-          .eq("id", row.id)
-          .eq("status", "processing")
-          .select("id");
-        if (claimed?.length) await refund();
-      }
-    );
-
-    if (outcome.state === "running") {
-      return appResult(`Downloading now (id ${row.id}). ${POLLING_NOTE}`, { id: row.id, status: "processing", progress: 0, format: formatOption.label });
-    }
-    if (outcome.state === "failed") return errorResult(failureMessage);
-    return appResult(`"${outcome.value.title}" is ready to download (${formatOption.label}): ${outcome.value.directUrl}`, {
-      id: row.id,
-      status: "complete",
-      progress: 100,
-      title: outcome.value.title,
-      url: outcome.value.directUrl,
-      format: formatOption.label,
-    });
-  },
-};
-
-const checkDownloadStatusTool: McpToolDefinition = {
-  name: "check_download_status",
-  title: "Check download status",
-  description: "Checks a download_video job by its id. The download card polls this itself.",
-  inputSchema: { id: z.string() },
-  annotations: STATUS_CHECK,
-  handler: async (userId, args) => {
-    const id = String(args.id ?? "").trim();
-    if (!UUID_PATTERN.test(id)) return errorResult("That isn't a valid download id.", "invalid_input");
-    const { data } = await createAdminClient()
-      .from("downloads")
-      .select("id, status, progress, title, file_path, format, error_message, created_at")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!data) return errorResult("That download wasn't found.", "not_found");
-
-    const format = getDownloadFormatOption(String(data.format ?? ""))?.label ?? null;
-    if (data.status === "failed") return errorResult(data.error_message ?? "The download failed. Your credits were refunded.");
-    if (data.status !== "complete" || !data.file_path) {
-      if (Date.now() - new Date(data.created_at).getTime() > STALE_PROCESSING_MS) {
-        const cost = TOOL_CREDIT_COSTS.downloads.create;
-        return errorResult(await failStaleRow("downloads", id, userId, () => refundUser(userId, cost, "Video Download refund", "downloads.create")));
-      }
-      return appResult(`Still downloading${typeof data.progress === "number" ? ` (${data.progress}%)` : ""}. ${POLLING_NOTE}`, {
-        id,
-        status: "processing",
-        progress: data.progress,
-        format,
-      });
-    }
-    return appResult(`"${data.title ?? "Video"}" is ready to download: ${data.file_path}`, {
-      id,
-      status: "complete",
-      progress: 100,
-      title: data.title,
-      url: data.file_path,
-      format,
-    });
-  },
-};
-
-export const MEDIA_TOOLS: McpToolDefinition[] = [extractTranscriptTool, checkTranscriptStatusTool, downloadVideoTool, checkDownloadStatusTool];
+// download_video / check_download_status were removed with the video
+// downloader (2026-11-26).
+export const MEDIA_TOOLS: McpToolDefinition[] = [extractTranscriptTool, checkTranscriptStatusTool];

@@ -1,32 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { withApiLogging } from "@/lib/server/api-logging";
+// The video downloader was removed; see src/lib/server/removed-features.ts.
+import { downloaderRemoved } from "@/lib/server/removed-features";
 
-async function handleGET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const { data } = await supabase
-    .from("downloads")
-    .select("id, source_url, platform, format, status, progress, title, file_path, error_message, created_at")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (!data) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ download: data });
-}
-
-export const GET = withApiLogging("/api/downloads/status/[id]", handleGET);
+export const GET = downloaderRemoved;

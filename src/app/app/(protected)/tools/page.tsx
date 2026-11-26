@@ -2,12 +2,11 @@
 
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Captions, Clapperboard, Download, Image as ImageIcon, Mic2, PenLine, Scissors, Wand2 } from "lucide-react";
+import { Captions, Clapperboard, Image as ImageIcon, Mic2, PenLine, Scissors, Wand2 } from "lucide-react";
 import { ToolGridCard, type ToolTone } from "@/components/dashboard/ToolGridCard";
 import { TOOLS_GRID } from "@/components/skeletons/DashboardSkeletons";
 import {
   ClippingArt,
-  DownloaderArt,
   ImageGeneratorArt,
   NicheBendingArt,
   ScriptwriterArt,
@@ -78,14 +77,6 @@ const TOOLS: {
     icon: Captions,
     tone: "cat-5",
     art: <TranscriptArt />,
-  },
-  {
-    title: "Downloader",
-    description: "Save TikTok, Reels, and Shorts videos to your device without the watermark.",
-    href: "/downloads",
-    icon: Download,
-    tone: "cat-1",
-    art: <DownloaderArt />,
   },
   {
     title: "Voiceover",

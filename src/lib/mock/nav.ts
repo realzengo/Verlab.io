@@ -17,7 +17,6 @@ import {
 import {
   BinocularsIcon,
   ClosedCaptioningIcon,
-  DownloadSimpleIcon,
   FilmSlateIcon,
   ImageIcon as ImageFillIcon,
   MagicWandIcon,
@@ -59,9 +58,8 @@ export const TOOLS_MENU: NavMenuSection[][] = [
       ],
     },
     {
-      title: "Downloads and transcripts",
+      title: "Transcripts",
       items: [
-        { title: "Downloader", description: "Save a video, no watermark", href: "/downloads", icon: DownloadSimpleIcon, tone: "green" },
         { title: "Transcript Extractor", description: "Pull the script from any video", href: "/transcripts", icon: ClosedCaptioningIcon, tone: "blue" },
       ],
     },

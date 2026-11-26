@@ -63,8 +63,6 @@ const SCRIPT_EDIT_COST_USD = (2000 / 1e6) * 3 + (2000 / 1e6) * 15;
 const TRANSCRIPTS_EXTRACT_COST_USD = 0.015 * 2;
 // Cloudflare mistral-small, batched 20 lines/call; ~3 batches average.
 const TRANSCRIPTS_TRANSLATE_COST_USD = 0.0005 * 3;
-// video-download-api.com / savenow.to per-download charge.
-const DOWNLOADS_CREATE_COST_USD = 0.01;
 // One ScrapeCreators channel-listing call for video URLs+views (see
 // scrapeChannelVideosWithUrls in apify-client.ts). Priced for the YouTube
 // worst case (2 parallel calls: channel info + shorts list); TikTok is a
@@ -113,9 +111,6 @@ export const TOOL_CREDIT_COSTS = {
   transcripts: {
     extract: creditsForCost(TRANSCRIPTS_EXTRACT_COST_USD),
     translate: creditsForCost(TRANSCRIPTS_TRANSLATE_COST_USD),
-  },
-  downloads: {
-    create: creditsForCost(DOWNLOADS_CREATE_COST_USD),
   },
   creatorAnalysis: {
     // 5 real transcript extractions (transcripts.extract cost each) + one
@@ -374,7 +369,7 @@ export function getVoiceCloneCost(): number {
 //   * video-download-api.com jobs: the mp3 that gets transcribed, the video
 //     stream the clip cutter reads, and up to 2 fresh stream links when the
 //     cutter finds the stored one expired (refreshClipMediaUrl). Priced at
-//     the downloader's $0.01 a job; the published rate is $0.0002.
+//     $0.01 a job (a safe margin); the published rate is $0.0002.
 //   * WhisperX on Replicate: the pinned version runs on an A100 80GB at
 //     $0.0014/s. Real runs took 1.75-2.5 GPU seconds per source minute plus
 //     ~20-30s of model load; priced at 30s + 3s/min, above every finished run.

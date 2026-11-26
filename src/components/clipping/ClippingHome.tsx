@@ -12,6 +12,8 @@ import { LinkFieldNote } from "@/components/transcripts/LinkFieldNote";
 import { DiscoverGrid } from "@/components/clipping/DiscoverGrid";
 import { fetchJson } from "@/components/clipping/parts";
 import {
+  CLIP_RIGHTS_STATEMENT,
+  CLIP_RIGHTS_REQUIRED_MESSAGE,
   CLIP_LENGTHS,
   DEFAULT_CLIP_OPTIONS,
   formatClock,
@@ -39,6 +41,7 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [options, setOptions] = useState<ClipOptions>(DEFAULT_CLIP_OPTIONS);
+  const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   // One request id per video + options the user means to clip: a double
@@ -83,6 +86,10 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
       setError(preview.problem);
       return;
     }
+    if (!rightsConfirmed) {
+      setError(CLIP_RIGHTS_REQUIRED_MESSAGE);
+      return;
+    }
 
     if (inFlight.current) return;
     inFlight.current = true;
@@ -94,7 +101,7 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
       const { project } = await fetchJson<{ project: ClipProject }>("/api/clips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: youtubeWatchUrl(videoId), options, requestId: request.current.id }),
+        body: JSON.stringify({ url: youtubeWatchUrl(videoId), options, requestId: request.current.id, rightsConfirmed }),
       });
       request.current = null;
       mutateProjects(
@@ -256,6 +263,20 @@ export function ClippingHome({ onOpenProject }: { onOpenProject: (id: string) =>
             })}
           </div>
         </div>
+
+        {/* Clipping reads the linked video, so it's only for videos the user may use. */}
+        <label className="mx-auto mt-4 flex w-fit max-w-full cursor-pointer items-start gap-2.5 text-left text-[13px] leading-5 text-body">
+          <input
+            type="checkbox"
+            checked={rightsConfirmed}
+            onChange={(event) => {
+              setRightsConfirmed(event.target.checked);
+              if (event.target.checked && error === CLIP_RIGHTS_REQUIRED_MESSAGE) setError(null);
+            }}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+          />
+          <span>{CLIP_RIGHTS_STATEMENT}</span>
+        </label>
       </div>
 
       {projects.length > 0 && (

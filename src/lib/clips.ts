@@ -72,6 +72,12 @@ export interface ClipOptions {
 
 export const CLIP_FOCUS_MAX = 200;
 
+// Clipping fetches the YouTube video you link to, so it's only for videos the
+// user owns or may use (Terms > Acceptable use). The clipping form, POST
+// /api/clips and the MCP create_clips tool all require this confirmation.
+export const CLIP_RIGHTS_STATEMENT = "I own this video or have permission to clip it.";
+export const CLIP_RIGHTS_REQUIRED_MESSAGE = "Confirm that you own this video or have permission to clip it.";
+
 export const DEFAULT_CLIP_OPTIONS: ClipOptions = { length: "auto", focus: "" };
 
 export function normalizeClipOptions(raw: unknown): ClipOptions {
