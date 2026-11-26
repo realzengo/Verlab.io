@@ -23,7 +23,7 @@ const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var path = window.location.pathname;
-    var unthemed = ["/login","/signup","/checkout","/oauth","/auth","/api","/legal","/pricing","/affiliates","/script-bending","/dev-preview-script-modal","/.well-known"];
+    var unthemed = ["/login","/signup","/checkout","/oauth","/auth","/api","/legal","/contact","/pricing","/affiliates","/script-bending","/dev-preview-script-modal","/.well-known"];
     var host = window.location.hostname;
     var isAppRoute = path.indexOf("/app") === 0 || path.indexOf("/admin") === 0 ||
       ((host === "app.verlab.io" || host === "app.localhost") && !unthemed.some(function (p) { return path === p || path.indexOf(p + "/") === 0; }));

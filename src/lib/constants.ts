@@ -28,6 +28,7 @@ export const UNTHEMED_APP_HOST_PREFIXES = [
   "/auth",
   "/api",
   "/legal",
+  "/contact",
   "/pricing",
   "/affiliates",
   "/script-bending",

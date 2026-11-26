@@ -51,6 +51,7 @@ const APP_HOST_PASSTHROUGH_PREFIXES = [
   "/signup",
   "/update-password",
   "/legal",
+  "/contact",
   "/pricing",
   "/affiliates",
   "/script-bending",
