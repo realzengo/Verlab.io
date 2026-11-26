@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { europaGrotesk } from "@/lib/fonts";
-import { APP_URL } from "@/lib/constants";
+import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO, OPERATOR_COUNTRY, OPERATOR_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 type LinkGroup = { heading: string; links: { label: string; href: string; external?: boolean }[] };
@@ -20,17 +20,15 @@ const LINK_GROUPS: LinkGroup[] = [
   },
   {
     heading: "Socials",
-    links: [
-      { label: "Instagram", href: "https://www.instagram.com/verlab.io/", external: true },
-      { label: "YouTube", href: "#", external: true },
-    ],
+    links: [{ label: "Instagram", href: "https://www.instagram.com/verlab.io/", external: true }],
   },
   {
     heading: "Pages",
     links: [
-      { label: "Privacy Policy", href: "/legal/privacy" },
       { label: "Terms of Service", href: "/legal/terms" },
+      { label: "Privacy Policy", href: "/legal/privacy" },
       { label: "Refund Policy", href: "/legal/refunds" },
+      { label: "Contact", href: "/contact" },
       { label: "Affiliates", href: "/affiliates" },
     ],
   },
@@ -74,10 +72,16 @@ export function Footer({ backgroundClassName = "bg-white" }: { backgroundClassNa
               <p className="text-[15px] leading-snug tracking-[-0.01em] text-slate-600">
                 Generate videos, images, voiceovers, and scripts, all in one place.
               </p>
+              <p className="text-[14px] leading-snug tracking-[-0.01em] text-slate-600">
+                Contact:{" "}
+                <a href={CONTACT_MAILTO} className="font-medium text-black underline decoration-black/20 underline-offset-[3px] transition-colors hover:decoration-black">
+                  {CONTACT_EMAIL}
+                </a>
+              </p>
 
               <div className="flex items-center gap-2.5">
                 <Link
-                  href={APP_URL}
+                  href="/pricing"
                   className={cn("group inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold tracking-[-0.02em] text-white", BUTTON_3D_MOTION)}
                   style={button3d(3)}
                 >
@@ -158,8 +162,10 @@ export function Footer({ backgroundClassName = "bg-white" }: { backgroundClassNa
           </span>
         </div>
 
-        <div className={`relative flex items-center justify-between border-t border-white/15 py-5 text-xs tracking-[-0.01em] text-white ${CONTAINER}`}>
-          <span>Verlab &copy; {new Date().getFullYear()}</span>
+        <div className={`relative flex flex-col items-center gap-1 border-t border-white/15 py-5 text-center text-xs tracking-[-0.01em] text-white sm:flex-row sm:justify-between sm:text-left ${CONTAINER}`}>
+          <span>
+            &copy; {new Date().getFullYear()} Verlab &mdash; operated by {OPERATOR_NAME}, {OPERATOR_COUNTRY}
+          </span>
           <span>All rights reserved.</span>
         </div>
       </div>
