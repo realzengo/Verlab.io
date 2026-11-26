@@ -3949,13 +3949,18 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* Announcement bar (components/dashboard/AnnouncementBanner.tsx): a soft
-   light glow drifting slowly across the Verlab blue, a white sweep through the
-   label, and light travelling along the white hairline at the bottom. Motion only when the
-   visitor hasn't asked for less; the static bar looks finished without it. */
+/* Announcement bar (components/dashboard/AnnouncementBanner.tsx), white with
+   Verlab-blue light:
+   - .announce-flow: ribbons of blue light flowing diagonally across the bar,
+     masked so they glow from the top centre and fade out downwards.
+   - .announce-shimmer: a light sweep through the label; .announce-line: light
+     travelling along the blue hairline at the bottom.
+   - .announce-in: an After Effects-style entrance -- each piece of text
+     resolves from a soft blur while rising into place, one after another.
+   All motion is off for prefers-reduced-motion; the still bar is finished. */
 @media (prefers-reduced-motion: no-preference) {
-  .announce-glow {
-    animation: announce-glow 9s ease-in-out infinite alternate;
+  .announce-flow {
+    animation: announce-flow 20s linear infinite;
   }
   .announce-shimmer {
     animation: announce-shimmer 4s linear infinite;
@@ -3963,14 +3968,15 @@ html[data-scrolling="true"] *::after {
   .announce-line {
     animation: announce-shimmer 6s linear infinite;
   }
-  @keyframes announce-glow {
+  .announce-in {
+    animation: announce-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes announce-flow {
     from {
-      transform: translateX(-8%);
-      opacity: 0.85;
+      background-position: 0% 0;
     }
     to {
-      transform: translateX(14%);
-      opacity: 1;
+      background-position: 100% 0;
     }
   }
   @keyframes announce-shimmer {
@@ -3979,6 +3985,18 @@ html[data-scrolling="true"] *::after {
     }
     to {
       background-position: 0% 0;
+    }
+  }
+  @keyframes announce-in {
+    from {
+      opacity: 0;
+      filter: blur(8px);
+      transform: translateY(6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: none;
     }
   }
 }

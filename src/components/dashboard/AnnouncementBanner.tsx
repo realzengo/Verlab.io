@@ -137,17 +137,30 @@ function AnnouncementSlot({ announcements }: { announcements: Announcement[] }) 
   );
 }
 
-// Verlab's announcement bar, blue and white: the brand blue (the 3D button
-// face, landing/button3d.ts) with a soft light glow drifting across it, a
-// spaced uppercase label with a white sweep through it, the message, a live
-// countdown in a white chip when the announcement has an end date, and a
-// white hairline with light travelling along the bottom. The animations live
-// in globals.css (.announce-*) and stop for prefers-reduced-motion. Same in
-// light and dark mode.
-const BAR = "linear-gradient(90deg, #2448e8 0%, #335cff 50%, #2448e8 100%)";
-const GLOW = "radial-gradient(50% 160% at 50% 50%, rgba(182, 202, 255, 0.7) 0%, rgba(115, 154, 255, 0.35) 45%, rgba(115, 154, 255, 0) 78%)";
-const LABEL_SWEEP = "linear-gradient(90deg, #c7d6ff 0%, #c7d6ff 35%, #ffffff 50%, #c7d6ff 65%, #c7d6ff 100%)";
-const HAIRLINE = "linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.45) 30%, #ffffff 50%, rgba(255, 255, 255, 0.45) 70%, rgba(255, 255, 255, 0.1) 100%)";
+// Verlab's announcement bar: white, with ribbons of Verlab-blue light flowing
+// diagonally across it (the flowing-banner technique: a repeating 70deg
+// gradient twice the bar's width, slid along over 20s, masked to glow from
+// the top centre and fade downwards). The label, message and link resolve in
+// one after another like a motion-graphics title; a light sweep runs through
+// the label and along the blue hairline at the bottom. Animations live in
+// globals.css (.announce-*) and stop for prefers-reduced-motion. White in
+// light and dark mode alike.
+const LIGHT_COLORS = [
+  "rgba(51, 92, 255, 0.7)", // Verlab blue
+  "rgba(182, 202, 255, 0.9)", // pale blue
+  "rgba(0, 149, 255, 0.55)", // sky
+  "rgba(115, 154, 255, 0.75)", // light Verlab blue
+];
+const FLOW = `repeating-linear-gradient(70deg, ${[...LIGHT_COLORS, LIGHT_COLORS[0]]
+  .map((color, i) => `${color} ${(i * 50) / LIGHT_COLORS.length}%`)
+  .join(", ")})`;
+const FLOW_MASK = "linear-gradient(to bottom, #fff, transparent), radial-gradient(circle at top center, #fff, transparent)";
+const LABEL_SWEEP = "linear-gradient(90deg, #335cff 0%, #335cff 35%, #8fb0ff 50%, #335cff 65%, #335cff 100%)";
+const HAIRLINE =
+  "linear-gradient(90deg, rgba(51, 92, 255, 0) 0%, rgba(51, 92, 255, 0.45) 30%, #9db8ff 50%, rgba(51, 92, 255, 0.45) 70%, rgba(51, 92, 255, 0) 100%)";
+
+/** Delay for the nth piece of the entrance, so they arrive one after another. */
+const stagger = (index: number) => ({ animationDelay: `${120 + index * 110}ms` });
 
 /** "4d 04:51:46" / "04:51:46" until `expiresAt`; null with no end date or once it has passed. */
 export function formatCountdown(msLeft: number): string | null {
@@ -186,47 +199,59 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
   return (
     <aside
       aria-label={isPromo ? "Offer" : "Product update"}
-      className="relative isolate w-full overflow-hidden text-white"
-      style={{ backgroundColor: "#335cff", backgroundImage: BAR }}
+      className="relative isolate w-full overflow-hidden bg-white text-[#0b1020]"
     >
-      {/* The drifting glow, wider than the bar so its edges never show. */}
+      {/* Flowing blue light, glowing from the top centre. */}
       <div
         aria-hidden="true"
-        className="announce-glow pointer-events-none absolute inset-y-0 -left-[10%] -z-10 w-[70%] sm:w-[55%]"
-        style={{ backgroundImage: GLOW }}
+        className="announce-flow pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage: FLOW,
+          backgroundSize: "200% 100%",
+          filter: "saturate(2)",
+          maskImage: FLOW_MASK,
+          maskComposite: "intersect",
+          WebkitMaskImage: FLOW_MASK,
+          WebkitMaskComposite: "source-in",
+        }}
       />
 
-      <div className="flex min-h-11 flex-wrap items-center justify-center gap-x-3 gap-y-0.5 px-10 py-2 text-center sm:gap-x-4 sm:px-12">
+      <div className="flex min-h-12 flex-wrap items-center justify-center gap-x-3 gap-y-0.5 px-10 py-2.5 text-center sm:gap-x-4 sm:px-14">
         <span
-          className="announce-shimmer text-[10.5px] font-semibold uppercase tracking-[0.32em] text-transparent sm:text-[11.5px]"
-          style={{ backgroundImage: LABEL_SWEEP, backgroundSize: "200% 100%", WebkitBackgroundClip: "text", backgroundClip: "text" }}
+          className="announce-in announce-shimmer text-[10.5px] font-bold uppercase tracking-[0.32em] text-transparent sm:text-[11.5px]"
+          style={{ ...stagger(0), backgroundImage: LABEL_SWEEP, backgroundSize: "200% 100%", WebkitBackgroundClip: "text", backgroundClip: "text" }}
         >
           {isPromo ? "Special offer" : "Product update"}
         </span>
-        <span className="text-[13px] font-medium leading-5 text-white sm:text-[14px]">{announcement.message}</span>
+        <span className="announce-in text-[13px] font-semibold leading-5 tracking-[-0.01em] text-[#0b1020] sm:text-[14px]" style={stagger(1)}>
+          {announcement.message}
+        </span>
         {countdown && (
           <span
-            className="rounded-md bg-white px-1.5 py-0.5 font-mono text-[12.5px] font-bold tabular-nums tracking-tight text-[#2448e8] sm:text-[13.5px]"
+            className="announce-in rounded-md bg-[#335cff] px-1.5 py-0.5 font-mono text-[12.5px] font-bold tabular-nums tracking-tight text-white shadow-[0_1px_0_#1a35b8,0_4px_12px_-4px_rgba(51,92,255,0.6)] sm:text-[13.5px]"
+            style={stagger(2)}
             aria-label={`Ends in ${countdown}`}
           >
             {countdown}
           </span>
         )}
         {href && (
-          <CtaLink
-            href={href}
-            className="group inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold text-white underline decoration-white/40 underline-offset-[3px] transition-colors hover:decoration-white sm:text-[14px]"
-          >
-            {label}
-            <ArrowRight
-              className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
-              aria-hidden="true"
-            />
-          </CtaLink>
+          <span className="announce-in" style={stagger(countdown ? 3 : 2)}>
+            <CtaLink
+              href={href}
+              className="group inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold text-[#335cff] transition-colors hover:text-[#1f45e6] sm:text-[14px]"
+            >
+              {label}
+              <ArrowRight
+                className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                aria-hidden="true"
+              />
+            </CtaLink>
+          </span>
         )}
       </div>
 
-      {/* Bright hairline along the bottom, with light travelling through it. */}
+      {/* Blue hairline along the bottom, with light travelling through it. */}
       <div
         aria-hidden="true"
         className="announce-line pointer-events-none absolute inset-x-0 bottom-0 h-px"
@@ -238,7 +263,7 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss announcement"
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:right-3"
+          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#0b1020]/45 transition-colors hover:bg-[#335cff]/10 hover:text-[#0b1020] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#335cff]/40 sm:right-3"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
