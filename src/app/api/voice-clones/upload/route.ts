@@ -6,6 +6,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { SAMPLE_BUCKET } from "@/lib/server/voice-clones";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Step 1 of cloning: a one-time signed upload URL so the browser sends the
 // sample straight to Storage. A sample can be up to 20MB, well past
@@ -31,6 +32,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`voice-clone-upload:${user.id}`, 10, 300))) return rateLimitedResponse();
 

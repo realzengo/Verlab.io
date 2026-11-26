@@ -11,6 +11,7 @@ import {
   withClipExportUrls as withUrls,
   type ClipExportRow as ExportRow,
 } from "@/lib/server/clips/exports";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Finished clips, saved to the user's library. The browser renders the MP4,
 // then: POST here for a signed upload URL, uploads straight to Storage (the
@@ -80,6 +81,9 @@ async function handlePOST(
   const { id } = await params;
   const ctx = await requireProject(id);
   if ("error" in ctx) return ctx.error!;
+
+  const planRequired = await requirePaidPlan(ctx.user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`clips-export:${ctx.user.id}`, 30, 60))) {
     return rateLimitedResponse();

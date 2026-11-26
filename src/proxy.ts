@@ -200,7 +200,7 @@ export async function proxy(request: NextRequest) {
       ? withTimeout(
           supabase
             .from("profiles")
-            .select("subscription_status, subscription_current_period_end, credits")
+            .select("subscription_status, subscription_current_period_end")
             .eq("id", sessionUserId)
             .single(),
           SUPABASE_CALL_TIMEOUT_MS
@@ -281,18 +281,18 @@ export async function proxy(request: NextRequest) {
         !profileSettled.value ||
         !!profileSettled.value.error;
 
-      const profile: { subscription_status: string | null; subscription_current_period_end: string | null; credits: number | null } | null =
+      const profile: { subscription_status: string | null; subscription_current_period_end: string | null } | null =
         !profileFetchFailed && profileSettled.status === "fulfilled" && profileSettled.value
           ? profileSettled.value.data
           : null;
 
+      // Paid-only: an active plan is the one thing that unlocks the tools.
+      // A credit balance on its own (a promo code, an admin grant, credits
+      // left after a plan lapsed) no longer does -- the credits stay in the
+      // balance until the account has a plan again. Tool API routes and MCP
+      // enforce the same rule (requirePaidPlan / hasPaidAccess in
+      // src/lib/server/subscription.ts), since this gate only covers pages.
       const userHasActiveSubscription = hasActiveSubscription(profile);
-
-      // Any leftover credit balance (subscription credits, a one-time
-      // top-up, an admin grant) keeps the dashboard usable on its own,
-      // independent of subscription state -- the paywall is about having
-      // something to spend, not about the subscription row specifically.
-      const hasCredits = (profile?.credits ?? 0) > 0;
 
       // No redirect: the dashboard itself still renders, sidebar and all,
       // with the main content area swapped for an inline pricing view (see
@@ -301,11 +301,11 @@ export async function proxy(request: NextRequest) {
       // finds out, since middleware and the layout run in separate contexts.
       //
       // Gated on !profileFetchFailed -- see the comment above profile's
-      // declaration. Without it, hasActiveSubscription/hasCredits are both
-      // false whenever the fetch failed (profile is null), which paywalls a
+      // declaration. Without it, hasActiveSubscription is false whenever the
+      // fetch failed (profile is null), which paywalls a
       // paying subscriber on every Supabase hiccup instead of leaving them
       // alone.
-      if (!profileFetchFailed && !userHasActiveSubscription && !hasCredits) {
+      if (!profileFetchFailed && !userHasActiveSubscription) {
         requestHeaders.set("x-paywalled", "1");
 
         // subscription_status is only ever written by a subscription

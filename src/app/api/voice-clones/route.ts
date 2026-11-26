@@ -21,6 +21,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSafeFreeText, isValidName } from "@/lib/validation";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Cloned voices: GET lists the caller's, POST creates one from a sample the
 // browser already uploaded via /api/voice-clones/upload.
@@ -113,6 +114,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return badRequest("Not authenticated", 401);
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`voice-clones:${user.id}`, 5, 300))) return rateLimitedResponse();
 

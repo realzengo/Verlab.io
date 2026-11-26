@@ -7,6 +7,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { renderInputPath } from "@/lib/clip-jobs";
 import { CLIP_EXPORT_MAX_BYTES } from "@/lib/clips";
 import { CLIP_EXPORTS_BUCKET as BUCKET } from "@/lib/server/clips/exports";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Where the editor uploads a server render's inputs: a clip's face track and
 // the split layout's bottom video. Files are named by their content's hash,
@@ -37,6 +38,9 @@ async function handlePOST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
   const { data: project } = await supabase
     .from("clip_projects")
     .select("id")

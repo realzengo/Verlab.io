@@ -7,6 +7,7 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { isSafeFreeText } from "@/lib/validation";
 import { parseScriptOutput, splitIntoSegments, stripChangeSummary } from "@/lib/script-format";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 300;
 
@@ -34,6 +35,9 @@ async function handlePOST(request: NextRequest): Promise<Response> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: EditChatRequestBody;
   try {

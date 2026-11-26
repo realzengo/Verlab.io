@@ -8,6 +8,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Resolves an ElevenLabs voice id a user pasted into the voice picker into a
 // selectable voice with a sample clip, and confirms fal can actually speak
@@ -41,6 +42,9 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   const voiceId = (request.nextUrl.searchParams.get("voiceId") ?? "").trim();
   if (!isElevenLabsVoiceId(voiceId)) {

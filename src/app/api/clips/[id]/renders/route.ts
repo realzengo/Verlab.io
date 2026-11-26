@@ -15,6 +15,7 @@ import {
   toRenderJobs,
   workerOnline,
 } from "@/lib/server/clips/jobs";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Server renders of a project's clips (the render worker, worker/).
 //   GET   each clip's latest render, plus whether the server takes renders now
@@ -77,6 +78,9 @@ async function handlePOST(
   const { id } = await params;
   const ctx = await requireProject(id);
   if ("error" in ctx) return ctx.error!;
+
+  const planRequired = await requirePaidPlan(ctx.user);
+  if (planRequired) return planRequired;
   if (ctx.project.status !== "ready") return NextResponse.json({ error: "This video isn't ready yet" }, { status: 409 });
 
   if (!(await checkRateLimit(`clips-render:${ctx.user.id}`, 30, 60))) {

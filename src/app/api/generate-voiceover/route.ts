@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
 import { isValidName } from "@/lib/validation";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 300;
 
@@ -214,6 +215,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`generate-voiceover:${user.id}`, 10, 60))) {
     return rateLimitedResponse();

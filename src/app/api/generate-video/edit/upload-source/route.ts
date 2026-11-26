@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 30;
 
@@ -50,6 +51,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: { durationSeconds?: number; mode?: string; normalized?: boolean; width?: number; height?: number };
   try {
@@ -125,6 +129,9 @@ async function handlePATCH(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: { id?: string };
   try {

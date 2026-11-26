@@ -6,6 +6,7 @@ import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { YoutubeError } from "@/lib/server/youtube-client";
 import { discoverClipSources, searchClipSources } from "@/lib/server/clips/youtube";
 import { isDiscoverCategory } from "@/lib/clips";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 const QUERY_MAX = 100;
 
@@ -18,6 +19,9 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   const params = request.nextUrl.searchParams;
   // Normalized so "Joe Rogan" and "joe  rogan" share one cached search.

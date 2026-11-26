@@ -12,6 +12,7 @@ import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { describeGenerationFailure } from "@/lib/server/generation-error";
 import { isSafeFreeText } from "@/lib/validation";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 const PROMPT_MAX = 4000;
 
@@ -118,6 +119,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`generate-image:${user.id}`, 10, 60))) {
     return rateLimitedResponse();

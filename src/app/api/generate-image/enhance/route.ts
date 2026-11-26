@@ -6,6 +6,7 @@ import { serverError } from "@/lib/server/api-error";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { promptEnhanceModel } from "@/lib/server/openrouter-client";
 import { isSafeFreeText } from "@/lib/validation";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 const PROMPT_MAX = 4000;
 const PURPOSES = ["character", "frame", "reference"] as const;
@@ -39,6 +40,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`enhance-prompt:${user.id}`, 20, 60))) {
     return rateLimitedResponse();

@@ -5,6 +5,10 @@ import { recordApiRequestLog } from "@/lib/server/api-logging";
 import { MCP_TOOLS, errorResult, type McpToolDefinition } from "./tools";
 import { TOOL_WIDGETS, UNIQUE_WIDGETS } from "./apps/registry";
 import { MCP_PUBLIC_ORIGIN } from "./links";
+import { hasPaidAccess, PLAN_REQUIRED_MESSAGE } from "@/lib/server/subscription";
+
+/** Tools that work without an active plan. Everything else is paid-only. */
+const PLAN_FREE_TOOLS = new Set(["get_credit_balance"]);
 
 /**
  * Times and logs one MCP tool call for the admin dashboard's endpoint-health
@@ -23,6 +27,12 @@ function loggedToolHandler(
     const log = (status: number) =>
       after(() => recordApiRequestLog({ endpoint: `mcp:${toolName}`, method: "TOOL_CALL", status, durationMs: Date.now() - start }));
     try {
+      // Paid-only: every tool needs an active plan, except the balance check,
+      // which lets an assistant explain why nothing else will run.
+      if (!PLAN_FREE_TOOLS.has(toolName) && !(await hasPaidAccess({ id: userId }))) {
+        log(402);
+        return errorResult(PLAN_REQUIRED_MESSAGE, "plan_required");
+      }
       const result = await handler(userId, args);
       log("isError" in result && result.isError ? 500 : 200);
       return result;

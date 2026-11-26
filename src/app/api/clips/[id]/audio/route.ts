@@ -8,6 +8,7 @@ import { UPSTREAM_HEADERS } from "@/lib/server/clips/cut-source";
 import { Mp3CutError, cutMp3Range } from "@/lib/server/clips/mp3-cut";
 import type { ClipProjectRow } from "@/lib/server/clips/projects";
 import { CLIP_MAX_SECONDS, TRIM_AFTER_SECONDS } from "@/lib/clips";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // The sound for one clip, from the project's mp3 (see mp3-cut.ts). The
 // editor asks for it when a clip's video cut came without (all of) its
@@ -118,6 +119,9 @@ async function handleGET(request: NextRequest, { params }: { params: Promise<{ i
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`clips-audio:${user.id}`, 20, 60))) {
     return rateLimitedResponse();

@@ -5,6 +5,7 @@ import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/c
 import { createClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 300;
 
@@ -22,6 +23,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: RegenerateCandidateRequestBody;
   try {

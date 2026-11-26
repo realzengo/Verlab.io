@@ -14,6 +14,7 @@ import {
 } from "@/lib/server/clips/cut-source";
 import { CLIP_MAX_SECONDS } from "@/lib/clips";
 import { SEGMENT_ALL, SEGMENT_FRAME, SEGMENT_MAX_RANGES, encodeSegmentFrame, float64 } from "@/lib/clip-segments";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Cuts several clips out of the source video (see fmp4-cut.ts) and streams
 // them back as they're done, with progress, in the frame format of
@@ -59,6 +60,9 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`clips-segments:${user.id}`, 20, 60))) {
     return rateLimitedResponse();

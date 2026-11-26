@@ -9,6 +9,7 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 60;
 
@@ -33,6 +34,9 @@ async function handlePOST(request: NextRequest, { params }: { params: Promise<{ 
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: AddSegmentRequestBody;
   try {

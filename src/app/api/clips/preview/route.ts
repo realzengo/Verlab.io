@@ -7,6 +7,7 @@ import { YoutubeError } from "@/lib/server/youtube-client";
 import { getClipSourceVideo } from "@/lib/server/clips/youtube";
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
 import { parseYoutubeVideoId } from "@/lib/clips";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // What a pasted link would cost before anything is charged: title, length,
 // credits, or why it can't be clipped. One cached videos.list unit.
@@ -18,6 +19,9 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   const videoId = parseYoutubeVideoId(request.nextUrl.searchParams.get("url") ?? "");
   if (!videoId) {

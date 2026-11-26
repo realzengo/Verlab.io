@@ -16,6 +16,7 @@ import { sweepStaleRows } from "@/lib/server/generation-sweep";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/server/admin";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 30; // this route only submits to Replicate and returns -- it never waits for a render (see replicate-video.ts / video-jobs.ts)
 
@@ -118,6 +119,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`generate-video:${user.id}`, 10, 60))) {
     return rateLimitedResponse();

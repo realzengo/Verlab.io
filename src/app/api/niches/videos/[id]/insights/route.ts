@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeVideoOutlierInsights } from "@/lib/server/video-outlier";
 import { withApiLogging } from "@/lib/server/api-logging";
+import { requireNicheFinderAccess } from "@/lib/server/subscription";
 
 async function routeGET(request: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   const { id } = await params;
@@ -13,6 +14,10 @@ async function routeGET(request: NextRequest, { params }: { params: Promise<{ id
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (!(await requireNicheFinderAccess(supabase, user))) {
+    return NextResponse.json({ error: "Niche Finder requires the Pro plan or higher." }, { status: 403 });
   }
 
   try {

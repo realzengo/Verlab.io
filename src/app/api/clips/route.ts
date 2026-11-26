@@ -17,6 +17,7 @@ import {
 import { clipSourceProblem } from "@/lib/server/clips/source-rules";
 import { TRANSCRIPTION_DOWN_MESSAGE, transcriptionAvailable } from "@/lib/server/clips/transcription-status";
 import { normalizeClipOptions, parseYoutubeVideoId, youtubeWatchUrl } from "@/lib/clips";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Fetching the audio and starting WhisperX runs in after(), which shares
 // this budget; the provider job alone can take a couple of minutes.
@@ -57,6 +58,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`clips-create:${user.id}`, 5, 60))) {
     return rateLimitedResponse();

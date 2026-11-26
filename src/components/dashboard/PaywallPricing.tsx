@@ -79,11 +79,11 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
         </span>
       )}
       <h1 className="max-w-2xl text-center text-3xl font-bold tracking-tight text-heading sm:text-4xl">
-        {hasNeverPaid ? "You Need a Plan to Go Viral" : "Pick up where you left off"}
+        {hasNeverPaid ? "Choose a plan" : "Pick up where you left off"}
       </h1>
       <p className="mt-3 max-w-lg text-center text-sm text-body sm:text-base">
         {hasNeverPaid
-          ? "From your first upload to millions of views, we've got you covered. Cancel anytime, no questions asked."
+          ? "Every Verlab tool needs an active plan. Pick the one that fits, and cancel anytime."
           : "Your subscription has ended -- resubscribe to get back into your dashboard."}
       </p>
 

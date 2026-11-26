@@ -7,6 +7,7 @@ import { InsufficientCreditsError, chargeUser, refundUser } from "@/lib/server/c
 import { TOOL_CREDIT_COSTS } from "@/lib/config/pricing";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 60;
 
@@ -27,6 +28,9 @@ async function routePOST(request: NextRequest, { params }: { params: Promise<{ i
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   const admin = createAdminClient();
   const insights = await computeVideoOutlierInsights(admin, id);

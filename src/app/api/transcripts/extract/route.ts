@@ -11,6 +11,7 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { isValidUrl } from "@/lib/validation";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 async function runExtraction(supabase: SupabaseClient, id: string, url: string): Promise<void> {
   try {
@@ -46,6 +47,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!(await checkRateLimit(`transcripts-extract:${user.id}`, 10, 60))) {
     return rateLimitedResponse();

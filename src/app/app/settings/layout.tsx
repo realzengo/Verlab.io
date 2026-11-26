@@ -20,13 +20,14 @@ const ALL_TABS: NavEntry[] = [
   { label: "Connected apps", href: "/settings/mcp" },
 ];
 
-// A paywalled account (no active subscription and no spendable credits) has
-// nothing to manage on Subscription/Credits/MCP -- those all assume a plan
-// or balance that doesn't exist yet. Account and Password & Security stay
-// reachable regardless. Tabs start restricted (fail closed) so a paywalled
-// account never gets a flash of tabs it shouldn't see while the profile loads.
+// An account without an active plan has nothing to manage on Credits or
+// Connected apps (tools need a plan). Account, Subscription (which offers
+// "View plans" when there's no plan) and Security stay reachable regardless.
+// Tabs start restricted (fail closed) so a paywalled account never gets a
+// flash of tabs it shouldn't see while the profile loads.
 const RESTRICTED_TABS: NavEntry[] = [
   { label: "Account", href: "/settings" },
+  { label: "Subscription", href: "/settings/subscription" },
   { label: "Security", href: "/settings/security" },
 ];
 const RESTRICTED_PATHS = new Set(RESTRICTED_TABS.map((tab) => tab.href));
@@ -49,12 +50,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("subscription_status, subscription_current_period_end, credits")
+        .select("subscription_status, subscription_current_period_end")
         .eq("id", user.id)
         .single();
 
       if (cancelled) return;
-      setHasAccess(hasActiveSubscription(profile) || (profile?.credits ?? 0) > 0);
+      setHasAccess(hasActiveSubscription(profile));
       setChecked(true);
     })();
 

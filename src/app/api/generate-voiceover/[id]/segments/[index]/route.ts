@@ -10,6 +10,7 @@ import { createAdminClient, ensureBucket } from "@/lib/supabase/admin";
 import { withApiLogging } from "@/lib/server/api-logging";
 import { serverError } from "@/lib/server/api-error";
 import { GENERIC_GENERATION_ERROR } from "@/lib/server/generation-error";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Signed-URL playback, same pattern as /api/library/video/[id]: the
 // voiceovers Storage bucket is private, so this is the only way a segment's
@@ -124,6 +125,9 @@ async function handlePATCH(
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: RegenerateSegmentRequestBody;
   try {

@@ -3,6 +3,7 @@ import { isVoiceLibraryConfigured, searchVoiceLibrary } from "@/lib/server/eleve
 import { withApiLogging } from "@/lib/server/api-logging";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/server/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 // Searches ElevenLabs' public Voice Library for the voice picker. Returns
 // `configured: false` (and no voices) when ELEVENLABS_API_KEY isn't set --
@@ -19,6 +20,9 @@ async function handleGET(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   if (!isVoiceLibraryConfigured()) {
     return NextResponse.json({ configured: false, voices: [], hasMore: false });

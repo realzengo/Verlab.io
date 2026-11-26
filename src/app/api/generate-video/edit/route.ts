@@ -10,6 +10,7 @@ import { withApiLogging } from "@/lib/server/api-logging";
 import { isSafeFreeText, FREE_TEXT_MAX } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requirePaidPlan } from "@/lib/server/subscription";
 
 export const maxDuration = 30;
 
@@ -35,6 +36,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const planRequired = await requirePaidPlan(user);
+  if (planRequired) return planRequired;
 
   let body: GenerateVideoEditRequestBody;
   try {

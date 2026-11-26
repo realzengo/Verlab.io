@@ -45,9 +45,9 @@ function transcriptText(id: string, title: string | null, lines: TranscriptLine[
   );
 }
 
-/** Fails a row that's been "processing" too long, refunding it exactly once. */
-async function failStaleRow(table: "transcripts" | "downloads", id: string, userId: string, refund: () => Promise<void>): Promise<string> {
-  const message = "This took too long and was stopped. Your credits were refunded.";
+/** Fails a row that's been "processing" too long, refunding it exactly once when it was charged. */
+async function failStaleRow(table: "transcripts" | "downloads", id: string, userId: string, refund?: () => Promise<void>): Promise<string> {
+  const message = refund ? "This took too long and was stopped. Your credits were refunded." : "This took too long and was stopped. Please try again.";
   const { data: claimed } = await createAdminClient()
     .from(table)
     .update({ status: "failed", error_message: message })
@@ -55,7 +55,7 @@ async function failStaleRow(table: "transcripts" | "downloads", id: string, user
     .eq("user_id", userId)
     .eq("status", "processing")
     .select("id");
-  if (claimed?.length) await refund();
+  if (claimed?.length && refund) await refund();
   return message;
 }
 
@@ -64,7 +64,7 @@ const extractTranscriptTool: McpToolDefinition = {
   title: "Extract a video transcript",
   description:
     "Extracts the full timestamped transcript from a TikTok, Instagram Reel or YouTube video (Shorts or long-form). The transcript text comes back to you, " +
-    "and the id can be passed to generate_script as a style example. Charges credits (refunded if it fails).",
+    "and the id can be passed to generate_script as a style example. Included in every plan: uses no credits.",
   inputSchema: { url: z.string().describe("A TikTok, Instagram Reels or YouTube URL.") },
   annotations: CREATES,
   handler: async (userId, args) => {
@@ -73,11 +73,9 @@ const extractTranscriptTool: McpToolDefinition = {
     const platform = detectTranscriptPlatform(url);
     if (!platform) return errorResult("Only TikTok, Instagram Reels and YouTube links are supported.", "invalid_input");
 
-    const cost = TOOL_CREDIT_COSTS.transcripts.extract;
-    const refund = () => refundUser(userId, cost, "Transcript Extraction refund", "transcripts.extract");
-    const charged = await chargeUpfront(userId, cost, "Transcript Extraction", "transcripts.extract");
-    if (charged) return charged;
-
+    // Transcripts are included in every plan and use no credits, the same
+    // as in the app (POST /api/transcripts/extract) -- the plan check itself
+    // happens for every tool in mcp/server.ts.
     const admin = createAdminClient();
     const { data: row, error: insertError } = await admin
       .from("transcripts")
@@ -85,8 +83,7 @@ const extractTranscriptTool: McpToolDefinition = {
       .select("id")
       .single();
     if (insertError || !row) {
-      await refund();
-      return errorResult("Couldn't start the extraction. Your credits were refunded.");
+      return errorResult("Couldn't start the extraction. Please try again.");
     }
 
     let failureMessage = "Couldn't extract that transcript.";
@@ -109,14 +106,12 @@ const extractTranscriptTool: McpToolDefinition = {
         return result;
       },
       async (error) => {
-        failureMessage = `${humanizeVideoProviderError(error)} Your credits were refunded.`;
-        const { data: claimed } = await admin
+        failureMessage = humanizeVideoProviderError(error);
+        await admin
           .from("transcripts")
           .update({ status: "failed", error_message: failureMessage })
           .eq("id", row.id)
-          .eq("status", "processing")
-          .select("id");
-        if (claimed?.length) await refund();
+          .eq("status", "processing");
       }
     );
 
@@ -154,11 +149,10 @@ const checkTranscriptStatusTool: McpToolDefinition = {
       .maybeSingle();
     if (!data) return errorResult("That transcript wasn't found.", "not_found");
 
-    if (data.status === "failed") return errorResult(data.error_message ?? "The extraction failed. Your credits were refunded.");
+    if (data.status === "failed") return errorResult(data.error_message ?? "The extraction failed. Please try again.");
     if (data.status !== "complete") {
       if (Date.now() - new Date(data.created_at).getTime() > STALE_PROCESSING_MS) {
-        const cost = TOOL_CREDIT_COSTS.transcripts.extract;
-        return errorResult(await failStaleRow("transcripts", id, userId, () => refundUser(userId, cost, "Transcript Extraction refund", "transcripts.extract")));
+        return errorResult(await failStaleRow("transcripts", id, userId));
       }
       return appResult(`Still extracting. ${POLLING_NOTE}`, { id, status: "processing" });
     }
