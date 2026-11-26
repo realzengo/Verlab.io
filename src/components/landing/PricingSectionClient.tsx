@@ -66,9 +66,9 @@ export function PricingSectionClient({
           customVariants={revealVariants}
           className="mt-3.5 font-display text-[28px] font-bold tracking-tight text-heading sm:text-3xl md:text-5xl"
         >
-          Pricing that pays for
+          Simple, transparent pricing
           <br />
-          <span className="text-primary">itself in 24 hours.</span>
+          <span className="text-primary">for creators.</span>
         </TimelineContent>
         <TimelineContent
           as="p"
