@@ -137,47 +137,105 @@ function AnnouncementSlot({ announcements }: { announcements: Announcement[] }) 
   );
 }
 
-// Verlab blue, the same face as the brand's 3D buttons (landing/button3d.ts)
-// laid out flat across the full width: deeper at the edges, lighter in the
-// middle, with a darker hairline underneath. Same in light and dark mode.
-const BAR_BACKGROUND = "linear-gradient(90deg, #2f56f5 0%, #4d76ff 50%, #2f56f5 100%)";
+// Verlab's dark announcement bar: near-black, a Verlab-blue glow drifting
+// behind the text, a spaced uppercase label with a light sweep through it,
+// the message, a live countdown when the announcement has an end date, and a
+// bright blue hairline travelling along the bottom. The animations live in
+// globals.css (.announce-*) and stop for prefers-reduced-motion. Same in
+// light and dark mode.
+const GLOW = "radial-gradient(50% 160% at 50% 50%, rgba(51, 92, 255, 0.85) 0%, rgba(51, 92, 255, 0.35) 45%, rgba(51, 92, 255, 0) 78%)";
+const LABEL_SWEEP = "linear-gradient(90deg, #9fb6ff 0%, #9fb6ff 35%, #ffffff 50%, #9fb6ff 65%, #9fb6ff 100%)";
+const HAIRLINE = "linear-gradient(90deg, rgba(77, 118, 255, 0.15) 0%, #4d76ff 30%, #c9d7ff 50%, #4d76ff 70%, rgba(77, 118, 255, 0.15) 100%)";
+
+/** "4d 04:51:46" / "04:51:46" until `expiresAt`; null with no end date or once it has passed. */
+export function formatCountdown(msLeft: number): string | null {
+  if (!(msLeft > 0)) return null;
+  const total = Math.floor(msLeft / 1000);
+  const days = Math.floor(total / 86_400);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const clock = `${pad(Math.floor((total % 86_400) / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+  return days > 0 ? `${days}d ${clock}` : clock;
+}
+
+/** Ticks once a second while there's an end date. Starts empty, so server and first client render agree. */
+function useCountdown(expiresAt: string | null): string | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!expiresAt) return;
+    const tick = () => setNow(Date.now());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [expiresAt]);
+  if (!expiresAt || now === null) return null;
+  return formatCountdown(Date.parse(expiresAt) - now);
+}
 
 /** The bar itself, without any state. Also the admin page's preview. */
 export function AnnouncementBar({ announcement, onDismiss }: { announcement: Announcement; onDismiss?: () => void }) {
   const isPromo = announcement.kind === "promo";
   const href = safeCtaHref(announcement.ctaHref);
   const label = announcement.ctaLabel?.trim() || DEFAULT_CTA_LABEL;
+  const countdown = useCountdown(announcement.expiresAt);
 
   return (
     <aside
       aria-label={isPromo ? "Offer" : "Product update"}
-      className="relative w-full border-b border-[#1a35b8] px-10 py-2.5 text-center text-[13px] leading-5 text-white sm:px-12 sm:text-[14px]"
-      style={{ backgroundColor: "#335cff", backgroundImage: BAR_BACKGROUND }}
+      className="relative isolate w-full overflow-hidden bg-[#07080d] text-white"
     >
-      <p>
-        <span className="mr-2 inline-flex h-[18px] -translate-y-px items-center rounded-full bg-white px-1.5 align-middle text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#2f56f5]">
-          {isPromo ? "Offer" : "New"}
+      {/* The drifting glow, wider than the bar so its edges never show. */}
+      <div
+        aria-hidden="true"
+        className="announce-glow pointer-events-none absolute inset-y-0 -left-[10%] -z-10 w-[70%] sm:w-[55%]"
+        style={{ backgroundImage: GLOW }}
+      />
+
+      <div className="flex min-h-11 flex-wrap items-center justify-center gap-x-3 gap-y-0.5 px-10 py-2 text-center sm:gap-x-4 sm:px-12">
+        <span
+          className="announce-shimmer text-[10.5px] font-semibold uppercase tracking-[0.32em] text-transparent sm:text-[11.5px]"
+          style={{ backgroundImage: LABEL_SWEEP, backgroundSize: "200% 100%", WebkitBackgroundClip: "text", backgroundClip: "text" }}
+        >
+          {isPromo ? "Special offer" : "Product update"}
         </span>
-        <span className="font-medium text-white">{announcement.message}</span>
+        <span className="text-[13px] font-medium leading-5 text-white sm:text-[14px]">{announcement.message}</span>
+        {countdown && (
+          <span
+            className="rounded-md bg-white/[0.08] px-1.5 py-0.5 font-mono text-[12.5px] font-semibold tabular-nums tracking-tight text-white ring-1 ring-inset ring-white/10 sm:text-[13.5px]"
+            aria-label={`Ends in ${countdown}`}
+          >
+            {countdown}
+          </span>
+        )}
         {href && (
           <CtaLink
             href={href}
-            className="group ml-2 inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-white underline decoration-white/40 underline-offset-[3px] transition-colors hover:decoration-white"
+            className="group inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-medium text-white/75 transition-colors hover:text-white sm:text-[14px]"
           >
             {label}
             <ArrowRight
-              className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+              className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
               aria-hidden="true"
             />
           </CtaLink>
         )}
-      </p>
+      </div>
+
+      {/* Bright hairline along the bottom, with light travelling through it. */}
+      <div
+        aria-hidden="true"
+        className="announce-line pointer-events-none absolute inset-x-0 bottom-0 h-px"
+        style={{ backgroundImage: HAIRLINE, backgroundSize: "200% 100%" }}
+      />
+
       {onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss announcement"
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:right-3"
+          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-3"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

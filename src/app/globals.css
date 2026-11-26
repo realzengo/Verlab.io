@@ -3948,3 +3948,37 @@ html[data-scrolling="true"] *::after {
     animation: none !important;
   }
 }
+
+/* Announcement bar (components/dashboard/AnnouncementBanner.tsx): a Verlab-blue
+   glow drifting slowly behind the text, a light sweep through the label, and
+   a bright hairline travelling along the bottom edge. Motion only when the
+   visitor hasn't asked for less; the static bar looks finished without it. */
+@media (prefers-reduced-motion: no-preference) {
+  .announce-glow {
+    animation: announce-glow 9s ease-in-out infinite alternate;
+  }
+  .announce-shimmer {
+    animation: announce-shimmer 4s linear infinite;
+  }
+  .announce-line {
+    animation: announce-shimmer 6s linear infinite;
+  }
+  @keyframes announce-glow {
+    from {
+      transform: translateX(-8%);
+      opacity: 0.85;
+    }
+    to {
+      transform: translateX(14%);
+      opacity: 1;
+    }
+  }
+  @keyframes announce-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: 0% 0;
+    }
+  }
+}
