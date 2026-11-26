@@ -53,6 +53,24 @@ function FireIcon(props: { className?: string }) {
 // The reference always shows a per-month figure -- in yearly mode that's the
 // discounted monthly-equivalent (annual total / 12), with the real annual
 // total moved into the subtext ("per month, billed at $X per year").
+// The plan's first feature is its credit line ("1,250 Credits (Across every
+// AI tool)"), written per month. A yearly plan grants the whole year's
+// credits at once (12x, see findSubscriptionPlanByPlanId in config/whop.ts),
+// so the yearly toggle shows that real amount instead of the monthly figure.
+const CREDITS_FEATURE = /^[\d,]+\s+Credits\b/i;
+
+function featuresFor(plan: PricingPlan, isYearly: boolean): PricingPlan["features"] {
+  if (!isYearly || !plan.creditsPerPeriod) return plan.features;
+  return plan.features.map((feature) =>
+    CREDITS_FEATURE.test(feature.text)
+      ? {
+          ...feature,
+          text: `${(plan.creditsPerPeriod! * 12).toLocaleString("en-US")} Credits per year (Added up front, ${plan.creditsPerPeriod!.toLocaleString("en-US")}/month)`,
+        }
+      : feature
+  );
+}
+
 function yearlySavePercent(plan: PricingPlan): number {
   if (plan.monthlyOnly || plan.price.monthly === 0) return 0;
   return Math.round(((plan.price.monthly * 12 - plan.price.yearly) / (plan.price.monthly * 12)) * 100);
@@ -82,6 +100,7 @@ export function PricingCard({
   const isYearly = frequency === "yearly";
   const price = isYearly ? Math.round(plan.price.yearly / 12) : plan.price.monthly;
   const savePercent = isYearly ? yearlySavePercent(plan) : 0;
+  const features = featuresFor(plan, isYearly);
 
   const ctaClassName = cn(
     "mb-5 w-full rounded-xl py-2.5 text-center text-[13px] font-semibold transition-all disabled:pointer-events-none disabled:opacity-50",
@@ -150,7 +169,7 @@ export function PricingCard({
       )}
 
       <ul className="mt-1 flex w-full flex-col gap-2.5">
-        {plan.features.map((feature) =>
+        {features.map((feature) =>
           plan.recommended ? (
             <li key={feature.text} className="flex items-start gap-2">
               <Image src="/icons/tick-blue-glass.svg" alt="" width={20} height={20} className="mt-0.5 h-4 w-4 shrink-0" />

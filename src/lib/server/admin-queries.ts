@@ -784,6 +784,7 @@ interface PlanDefinitionRow {
   features: { text: string; tooltip?: string }[];
   limits: string | null;
   sort_order: number;
+  credits_per_period: number | null;
 }
 
 function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
@@ -797,6 +798,7 @@ function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
     cta: row.cta,
     features: row.features,
     limits: row.limits ?? undefined,
+    creditsPerPeriod: row.credits_per_period ?? undefined,
   };
 }
 
@@ -809,7 +811,7 @@ function planRowToPricingPlan(row: PlanDefinitionRow): PricingPlan {
  * migration is applied and payment (Whop) is wired up.
  */
 const PLAN_DEFINITION_SELECT =
-  "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order";
+  "id, name, info, price_monthly, price_yearly, recommended, monthly_only, cta, features, limits, sort_order, credits_per_period";
 
 export async function getPlanDefinitions(supabase: SupabaseClient): Promise<PricingPlan[]> {
   const { data } = await supabase.from("plan_definitions").select(PLAN_DEFINITION_SELECT).order("sort_order");

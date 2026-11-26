@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PricingCard } from "@/components/pricing/PricingCard";
+import { PricingFinePrint } from "@/components/pricing/PricingFinePrint";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { PRICING_PLANS } from "@/lib/mock/pricing";
 import { fetchPricingPlans } from "@/lib/pricing-plans";
@@ -102,6 +103,7 @@ export function PaywallPricing({ hasNeverPaid }: { hasNeverPaid: boolean }) {
           />
         ))}
       </div>
+      <PricingFinePrint className="mt-8" />
     </div>
   );
 }

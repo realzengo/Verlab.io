@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { PricingCard } from "@/components/pricing/PricingCard";
+import { PricingFinePrint } from "@/components/pricing/PricingFinePrint";
 import { PricingFrequencyToggle } from "@/components/pricing/PricingFrequencyToggle";
 import { PlanTopupToggle, type PlanTopupTab } from "@/components/pricing/PlanTopupToggle";
 import { CreditTopupPanel } from "@/components/pricing/CreditTopupPanel";
@@ -282,6 +283,7 @@ export function UpgradeModal({
                   </div>
                 ))}
               </div>
+              <PricingFinePrint className="mt-6 sm:mt-8" />
             </>
           ) : (
             <>

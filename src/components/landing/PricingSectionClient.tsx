@@ -6,6 +6,7 @@ import type { ComparisonRow, PricingFrequency, PricingPlan } from "@/lib/types";
 import { TimelineContent } from "@/components/ui/timeline-animation";
 import { PricingTable } from "@/components/pricing/PricingTable";
 import { PricingComparisonTable } from "@/components/pricing/PricingComparisonTable";
+import { PricingFinePrint } from "@/components/pricing/PricingFinePrint";
 import { APP_URL } from "@/lib/constants";
 
 const revealVariants: Variants = {
@@ -89,6 +90,7 @@ export function PricingSectionClient({
           subscriptionStatus={subscriptionStatus}
           subscriptionPeriod={subscriptionPeriod}
         />
+        <PricingFinePrint className="mt-8 sm:mt-10" />
       </TimelineContent>
 
       {showComparison && (

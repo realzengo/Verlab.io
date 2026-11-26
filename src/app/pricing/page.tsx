@@ -6,8 +6,9 @@ import { Faq } from "@/components/landing/Faq";
 import { PRICING_FAQ_ITEMS } from "@/lib/mock/faq";
 
 export const metadata: Metadata = {
-  title: "Pricing, Verlab AI",
-  description: "Simple pricing that pays for itself in 24 hours. Reverse-engineer viral videos into your own scripts.",
+  title: "Pricing | Verlab",
+  description:
+    "Verlab plans and prices: Core, Pro and Scale, billed monthly or yearly in USD. Cancel anytime, with a 14-day refund policy.",
 };
 
 export default function PricingPage() {

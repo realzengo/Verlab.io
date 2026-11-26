@@ -241,6 +241,8 @@ export interface PricingPlan {
   cta: string;
   features: { text: string; tooltip?: string }[];
   limits?: string;
+  /** Credits the plan adds per month. A yearly plan adds 12x this up front. */
+  creditsPerPeriod?: number;
 }
 
 export interface ComparisonRow {
