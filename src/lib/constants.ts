@@ -34,3 +34,15 @@ export const UNTHEMED_APP_HOST_PREFIXES = [
   "/dev-preview-script-modal",
   "/.well-known",
 ];
+
+// The one contact address for everything customer-facing: support, refunds,
+// privacy requests and copyright notices. Legal pages, the footer, the
+// contact page and the FAQ all read it from here.
+export const CONTACT_EMAIL = "verlabcontact@gmail.com";
+export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
+
+// Who runs Verlab, exactly as it must appear in legal text. Verlab is run by
+// an individual, not a registered company -- never call it Inc./LLC/Ltd.
+export const OPERATOR_NAME = "Saad El Aslaoui";
+export const OPERATOR_COUNTRY = "Morocco";
+export const OPERATOR_STATEMENT = `Verlab (verlab.io) is operated by ${OPERATOR_NAME}, an individual based in ${OPERATOR_COUNTRY}.`;

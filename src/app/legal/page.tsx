@@ -7,6 +7,7 @@ import { BezelPanel, INK_TITLE } from "@/components/brand/BrandKit";
 import { LEGAL_DOCS } from "@/components/legal/legalDocs";
 import { LEGAL_LINK } from "@/components/legal/prose";
 import { cn } from "@/lib/utils";
+import { CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Legal, Verlab AI",
@@ -29,8 +30,8 @@ export default function LegalHubPage() {
             </p>
             <p className="mt-8 text-sm text-subtle">
               Questions about any of these?{" "}
-              <a href="mailto:support@verlab.io" className={LEGAL_LINK}>
-                support@verlab.io
+              <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
+                {CONTACT_EMAIL}
               </a>
             </p>
           </div>

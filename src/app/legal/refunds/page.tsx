@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CreditCard, RefreshCw, XCircle } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
 import { LEGAL_LINK, LEGAL_LIST, LegalSubheading } from "@/components/legal/prose";
-import { APP_URL } from "@/lib/constants";
+import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Refund Policy, Verlab AI",
@@ -85,8 +85,8 @@ const SECTIONS: LegalSection[] = [
         <ul className={LEGAL_LIST}>
           <li>
             Email:{" "}
-            <a href="mailto:support@verlab.io" className={LEGAL_LINK}>
-              support@verlab.io
+            <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
+              {CONTACT_EMAIL}
             </a>
           </li>
         </ul>

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findSubscriptionPlanByPlanId } from "@/lib/config/whop";
 import { reportBillingError } from "@/lib/server/billing-alerts";
+import { CONTACT_EMAIL } from "@/lib/constants";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -96,7 +97,11 @@ export async function notifyPaymentFailed(admin: AdminClient, payment: FailedPay
         "Idempotency-Key": `payment-failed/${payment.id}`,
       },
       body: JSON.stringify({
+        // The sender has to stay on a domain verified in Resend (verlab.io) --
+        // Resend can't send *from* a gmail.com address. Replies go to the one
+        // contact inbox instead.
         from: process.env.RESEND_FROM_EMAIL ?? "Verlab <billing@verlab.io>",
+        reply_to: CONTACT_EMAIL,
         to: [email],
         subject: "Your Verlab payment didn't go through",
         html: renderHtml(payment, manageUrl),
