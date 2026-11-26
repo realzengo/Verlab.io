@@ -3949,53 +3949,19 @@ html[data-scrolling="true"] *::after {
   }
 }
 
-/* Announcement bar (components/dashboard/AnnouncementBanner.tsx), white with
-   Verlab-blue light:
-   - .announce-flow: ribbons of blue light flowing diagonally across the bar,
-     masked so they glow from the top centre and fade out downwards.
-   - .announce-shimmer: a light sweep through the label; .announce-line: light
-     travelling along the blue hairline at the bottom.
-   - .announce-in: an After Effects-style entrance -- each piece of text
-     resolves from a soft blur while rising into place, one after another.
-   All motion is off for prefers-reduced-motion; the still bar is finished. */
+/* Announcement bar (components/dashboard/AnnouncementBanner.tsx): one short
+   fade-and-rise as it appears, nothing else moves. Off for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
-  .announce-flow {
-    animation: announce-flow 20s linear infinite;
-  }
-  .announce-shimmer {
-    animation: announce-shimmer 4s linear infinite;
-  }
-  .announce-line {
-    animation: announce-shimmer 6s linear infinite;
-  }
   .announce-in {
-    animation: announce-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  @keyframes announce-flow {
-    from {
-      background-position: 0% 0;
-    }
-    to {
-      background-position: 100% 0;
-    }
-  }
-  @keyframes announce-shimmer {
-    from {
-      background-position: 200% 0;
-    }
-    to {
-      background-position: 0% 0;
-    }
+    animation: announce-in 240ms cubic-bezier(0.2, 0, 0, 1) both;
   }
   @keyframes announce-in {
     from {
       opacity: 0;
-      filter: blur(8px);
-      transform: translateY(6px) scale(0.98);
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
-      filter: blur(0);
       transform: none;
     }
   }
