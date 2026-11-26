@@ -15,7 +15,6 @@ import {
   VoiceoverArt,
 } from "@/components/dashboard/ToolArt";
 import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
-import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface ToolCardData {
@@ -105,11 +104,11 @@ export function ShowcaseGridSection() {
             </p>
           </div>
           <a
-            href={APP_URL}
+            href="/pricing"
             className={cn("inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl px-9 py-3.5 text-lg font-bold text-white", BUTTON_3D_MOTION)}
             style={button3d(4)}
           >
-            Try Verlab Now
+            Get Started
             <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </a>
         </div>

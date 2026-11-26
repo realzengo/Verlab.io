@@ -2,7 +2,6 @@ import { ArrowUpRight, Zap } from "lucide-react";
 import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
-import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface Testimonial {
@@ -80,12 +79,12 @@ export function TestimonialsGridSection() {
 
         <div className="mt-8 flex justify-center sm:mt-10">
           <a
-            href={APP_URL}
+            href="/pricing"
             className={cn("inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-bold text-white", BUTTON_3D_MOTION)}
             style={button3d(4)}
           >
             <Zap className="h-4 w-4 fill-white" />
-            Make an account
+            See Plans
             <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
           </a>
         </div>

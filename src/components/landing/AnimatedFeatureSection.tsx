@@ -6,7 +6,6 @@ import { useEffect, type ReactNode } from "react";
 import { useAnimationGate } from "@/lib/hooks/useAnimationGate";
 import { ArrowDown, ArrowRight, BadgeCheck, Check, Images, Play, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { APP_URL } from "@/lib/constants";
 
 function GlassCard({
   position,
@@ -239,10 +238,10 @@ export function AnimatedFeatureSection() {
               The all-in-one studio for reverse-engineering and cloning winning video niches.
             </p>
             <Link
-              href={APP_URL}
+              href="/pricing"
               className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white py-2 pl-6 pr-2 text-sm font-semibold text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_8px_24px_rgba(0,0,0,0.5)] sm:mt-2 sm:gap-3 sm:pl-7 sm:text-base md:mt-3 md:gap-4 md:pl-8 md:pr-2.5 md:text-lg"
             >
-              Try Verlab Studio
+              Get Started
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-500 text-white sm:h-9 sm:w-9 md:h-10 md:w-10">
                 <ArrowRight className="h-4 w-4 md:h-5 md:w-5" />
               </span>

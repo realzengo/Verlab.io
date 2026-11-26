@@ -151,7 +151,7 @@ function HeroToolCard({ title, description, href, video, poster }: HeroTool) {
       </div>
       <div className="mt-auto px-2.5 pb-2.5">
         <span className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#1E5CFE] py-2 text-sm font-semibold text-white transition-colors lg:py-2.5">
-          <span className="transition-transform duration-200 sm:group-hover:-translate-x-0.5">Try Now</span>
+          <span className="transition-transform duration-200 sm:group-hover:-translate-x-0.5">Get Started</span>
           <ArrowRight className="h-3 w-3 translate-x-0 opacity-100 transition-all duration-200 sm:-translate-x-1 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100" />
         </span>
       </div>

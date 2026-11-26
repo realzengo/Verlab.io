@@ -3,7 +3,6 @@
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
-import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 // Dotted world-map fragments flanking the heading. One character per grid cell,
@@ -147,7 +146,7 @@ export function Hero() {
                 glow sitting a little left of center. Proportions are keyed off
                 the font size: face height ~2.85em, side padding ~1.45em, ring ~0.2em. */}
             <a
-              href={APP_URL}
+              href="/pricing"
               className="group inline-flex rounded-full bg-[#dbe5ff] p-1 shadow-[0_2px_5px_rgba(0,0,0,0.05)] transition-transform duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3771ff]/40 focus-visible:ring-offset-2 sm:p-[5px]"
             >
               <span
@@ -157,7 +156,7 @@ export function Hero() {
                     "radial-gradient(ellipse 39% 69% at 39% 100%, #7cd3ff 0%, rgba(124,211,255,0.58) 50%, rgba(124,211,255,0) 100%)",
                 }}
               >
-                Try Verlab Now
+                Get Started
               </span>
             </a>
           </div>

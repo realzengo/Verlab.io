@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { FAQ_ITEMS } from "@/lib/mock/faq";
@@ -75,7 +76,20 @@ export function Faq({
                   )}
                 >
                   <div className="overflow-hidden">
-                    <div className="px-5 pb-4 text-sm leading-[1.65] text-body sm:px-6 sm:pb-5 sm:text-[15px]">{item.answer}</div>
+                    <div className="px-5 pb-4 text-sm leading-[1.65] text-body sm:px-6 sm:pb-5 sm:text-[15px]">
+                      {item.answer}
+                      {item.link && (
+                        <>
+                          {" "}
+                          <Link
+                            href={item.link.href}
+                            className="font-medium text-heading underline decoration-heading/25 underline-offset-[3px] transition-colors hover:decoration-heading"
+                          >
+                            {item.link.label}
+                          </Link>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

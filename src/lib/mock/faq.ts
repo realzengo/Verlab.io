@@ -1,4 +1,19 @@
 import type { FaqItem } from "@/lib/types";
+import { CONTACT_EMAIL } from "@/lib/constants";
+
+// Every billing answer here must match the Terms and Refund Policy, and the
+// code: credits are only ever added (they carry over), yearly plans get the
+// whole year's credits up front, and every tool needs an active plan.
+
+const REFUND_POLICY_LINK = { label: "Read the Refund Policy.", href: "/legal/refunds" };
+
+const CANCEL_ANSWER =
+  "Anytime, with no reason or approval needed. Sign in at app.verlab.io, click your profile picture in the top right, then Settings → Subscription → Cancel subscription, and confirm. You keep full access until the end of the period you've already paid for, and you won't be charged again.";
+
+const REFUND_ANSWER = `Yes. You can get a full refund within 14 days of any payment, including renewals and top-ups. Email ${CONTACT_EMAIL} with your account email and the payment date, and we'll reply within 24 hours.`;
+
+const ROLLOVER_ANSWER =
+  "Yes. Unused credits stay in your balance from one billing period to the next, and you can spend them as long as you have an active plan.";
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
@@ -15,15 +30,15 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     id: "faq-cancel",
-    question: "Can I cancel my plan?",
-    answer:
-      "Yes. Cancel anytime from Settings → Subscription, no approval needed. You'll keep full access to your plan until the end of the current billing cycle.",
+    question: "How do I cancel?",
+    answer: CANCEL_ANSWER,
+    link: REFUND_POLICY_LINK,
   },
   {
     id: "faq-credit",
     question: "What is a credit?",
     answer:
-      "Credits are Verlab's usage unit. Niche Bending, SOP Builder, and Script Maker each spend credits when you generate something, based on length and complexity.",
+      "Credits are what Verlab's AI tools run on. Clipping, scripts, Niche Bending, images, videos, voiceovers and creator analysis each use credits from your balance, depending on the job. Your plan adds credits every billing period, and a job that fails doesn't cost you anything.",
   },
   {
     id: "faq-usage",
@@ -33,13 +48,14 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     id: "faq-refund",
     question: "Do you have a refund policy?",
-    answer:
-      "No. All plans, credits, and add-ons are billed in advance and are non-refundable, including unused credits. See our Refund Policy for the full details.",
+    answer: REFUND_ANSWER,
+    link: REFUND_POLICY_LINK,
   },
   {
     id: "faq-paid-actions",
-    question: "What counts as a paid action?",
-    answer: "Niche Bending, SOP Builder, and Script Maker all draw from your credit balance. Transcripts are free, 5 a day on any plan.",
+    question: "Is there a free plan?",
+    answer:
+      "No. Every Verlab tool needs an active paid plan. Most tools also use credits from your balance. Transcripts are included in every plan and don't use credits.",
   },
   {
     id: "faq-monetize",
@@ -56,7 +72,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     id: "faq-rollover",
     question: "Do unused credits roll over?",
-    answer: "No. Credits are tied to your current billing cycle and don't carry over, in line with our no-refund policy.",
+    answer: ROLLOVER_ANSWER,
   },
 ];
 
@@ -76,7 +92,7 @@ export const MCP_FAQ_ITEMS: FaqItem[] = [
     id: "mcp-faq-credits",
     question: "Do actions through my assistant use my credits?",
     answer:
-      "Yes. Generating scripts, images, or creator analyses through your assistant spends credits the same way it would in the app. Free actions like transcripts stay free.",
+      "Yes. Tools you run through your assistant use credits the same way they do in the app, and transcripts are included in your plan without using credits. Your account needs an active plan for any tool to run.",
   },
   {
     id: "mcp-faq-security",
@@ -96,34 +112,40 @@ export const PRICING_FAQ_ITEMS: FaqItem[] = [
     id: "pricing-faq-credits",
     question: "How do credits work?",
     answer:
-      "Credits are Verlab's currency across every AI tool — Niche Bending, the Script Writer, Image Generator, Video Generator, AI Voiceover, and Creator Analysis all spend credits when you generate something. Your plan refills a fixed number of credits every month.",
+      "Credits are Verlab's currency across every AI tool: clipping, Niche Bending, the Script Writer, Image Generator, Video Generator, AI Voiceover and Creator Analysis all use credits when you generate something. Monthly plans add your plan's credits every month. Yearly plans add the whole year's credits (12 months' worth) at the start of the year.",
   },
   {
     id: "pricing-faq-rollover",
     question: "Do unused credits roll over?",
-    answer: "No. Credits are tied to your current billing cycle and don't carry over, in line with our no-refund policy.",
+    answer: ROLLOVER_ANSWER,
   },
   {
     id: "pricing-faq-run-out",
     question: "What if I run out of credits mid-month?",
-    answer: "Top up any time from Settings → Credits — top-up credits are added straight to your balance and work on every plan.",
+    answer: "Top up any time from Settings → Credits. Top-up credits are added straight to your balance and work on every plan.",
   },
   {
-    id: "pricing-faq-change-plan",
-    question: "Can I change or cancel my plan later?",
-    answer:
-      "Yes. Upgrade, downgrade, or cancel anytime from Settings → Subscription, no approval needed. You'll keep full access to your current plan until the end of the billing cycle.",
+    id: "pricing-faq-cancel",
+    question: "How do I cancel?",
+    answer: CANCEL_ANSWER,
+    link: REFUND_POLICY_LINK,
+  },
+  {
+    id: "pricing-faq-refund",
+    question: "Can I get a refund?",
+    answer: REFUND_ANSWER,
+    link: REFUND_POLICY_LINK,
   },
   {
     id: "pricing-faq-annual",
     question: "How does annual billing work?",
     answer:
-      "Annual plans are billed once a year at a discounted monthly rate — that's the \"Save X%\" badge on each card above. Monthly plans bill month to month and can be canceled anytime.",
+      "Annual plans are billed once a year at a discounted monthly rate (the \"Save X%\" badge on each card above), and you get the whole year's credits at the start. Monthly plans bill month to month. Both renew automatically until you cancel, and both are covered by the 14-day refund policy.",
   },
   {
     id: "pricing-faq-monetize",
     question: "Can I monetize content made with Verlab?",
     answer:
-      "Yes. Every script, image, video, and voiceover generated on your account is yours to publish, monetize, and run ads against — no attribution required and no revenue share.",
+      "Yes. Every script, image, video, and voiceover generated on your account is yours to publish, monetize, and run ads against. No attribution required and no revenue share.",
   },
 ];

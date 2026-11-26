@@ -238,10 +238,10 @@ export function ScriptBendingPage() {
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button href={`${APP_URL}/bend`} icon={ArrowRight} iconPosition="right" size="lg">
-            Try Niche Bending
+            Open Niche Bending
           </Button>
           <Button href={`${APP_URL}/scripts`} variant="secondary" size="lg">
-            Try the Script Generator
+            Open the Script Generator
           </Button>
         </div>
       </section>
@@ -282,7 +282,7 @@ export function ScriptBendingPage() {
               different niche entirely.
             </p>
             <Button href={`${APP_URL}/bend`} variant="text" icon={ArrowRight} iconPosition="right">
-              Try Niche Bending
+              Open Niche Bending
             </Button>
           </Card>
         </div>
@@ -299,7 +299,7 @@ export function ScriptBendingPage() {
         <Card className="mx-auto mt-10 flex flex-col items-center gap-6 p-8 text-center sm:mt-12 sm:p-10">
           <FormulaCard result="Viral Script" operands={["Unique Idea", "Proven Storytelling Framework"]} />
           <Button href={`${APP_URL}/scripts`} variant="text" icon={ArrowRight} iconPosition="right">
-            Try the Script Generator
+            Open the Script Generator
           </Button>
         </Card>
 
@@ -547,8 +547,8 @@ export function ScriptBendingPage() {
             scripts bent from proven frameworks in minutes.
           </p>
           <div className="mt-6 flex justify-center">
-            <Button href={APP_URL} icon={ArrowRight} iconPosition="right" size="lg" variant="white">
-              Try Verlab
+            <Button href="/pricing" icon={ArrowRight} iconPosition="right" size="lg" variant="white">
+              Get Started
             </Button>
           </div>
         </div>

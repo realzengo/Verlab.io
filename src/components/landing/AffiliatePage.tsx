@@ -89,7 +89,7 @@ const FAQ_ITEMS = [
   {
     id: "affiliate-cost",
     trigger: "Is there a cost to join?",
-    content: "No, joining the Verlab affiliate program is completely free.",
+    content: "No. There's no fee to join the Verlab affiliate program.",
   },
 ];
 

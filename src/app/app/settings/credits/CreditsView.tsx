@@ -11,7 +11,7 @@ export interface CreditTransaction {
   created_at: string;
 }
 
-const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale", free: "Free" };
+const PLAN_LABELS: Record<string, string> = { core: "Core", pro: "Pro", scale: "Scale", free: "No plan" };
 
 function formatTransactionDate(iso: string): string {
   const date = new Date(iso);

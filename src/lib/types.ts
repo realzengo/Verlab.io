@@ -254,6 +254,8 @@ export interface FaqItem {
   id: string;
   question: string;
   answer: string;
+  /** Optional follow-up link shown under the answer, e.g. the Refund Policy. */
+  link?: { label: string; href: string };
 }
 
 /** Tile colour of an entry in the sidebar's hover menu (gradients live in Sidebar). */

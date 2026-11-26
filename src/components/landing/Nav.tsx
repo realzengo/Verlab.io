@@ -7,7 +7,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, ArrowUpRight, Menu, Sparkle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { APP_URL } from "@/lib/constants";
 import { GlassCtaButton } from "@/components/landing/GlassCtaButton";
 import { button3d } from "@/components/landing/button3d";
 
@@ -132,13 +131,12 @@ export function Nav() {
                 below the box, so the button sits 1.5px high to centre face + lip
                 in the bar. */}
             <GlassCtaButton
-              href={APP_URL}
+              href="/pricing"
               radius={14}
               className="-top-[1.5px] -mr-2 hidden! shrink-0 whitespace-nowrap font-semibold! text-white! sm:flex!"
               style={{ ...button3d(3), backgroundBlendMode: "normal" }}
             >
-              <span className="sm:hidden">Get Started</span>
-              <span className="hidden sm:inline">Try Verlab Now</span>
+              Get Started
               <ArrowUpRight size={16} strokeWidth={2.25} className="relative ml-1.5 inline shrink-0" />
             </GlassCtaButton>
 
@@ -215,7 +213,7 @@ export function Nav() {
               className="relative shrink-0 border-t border-slate-100 p-4"
             >
               <GlassCtaButton
-                href={APP_URL}
+                href="/pricing"
                 onClick={() => setMobileOpen(false)}
                 radius={12}
                 icon={<Sparkle size={14} className="shrink-0 fill-current" />}

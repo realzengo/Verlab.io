@@ -182,7 +182,7 @@ const findNicheTool: McpToolDefinition = {
   title: "Find a content niche",
   description:
     "THE tool for 'find me a niche', 'what niche should I start', 'help me pick a niche', or any open-ended request to find/pick/suggest a content niche -- " +
-    "call this immediately for those, even a bare one-line request. Called with no arguments it opens an interactive form (free) asking what they could talk " +
+    "call this immediately for those, even a bare one-line request. Called with no arguments it opens an interactive form (uses no credits) asking what they could talk " +
     "about for hours, channels they watch, YouTube or TikTok, long-form vs Shorts, how they want videos made, their background and budget. The form calls " +
     "this tool again with the answers, which researches what's going viral right now and returns 5-7 niches with real example videos, a momentum score and " +
     "a personalized starter angle (charges credits). If the user already described themselves in chat, call it directly with the answers filled in. " +

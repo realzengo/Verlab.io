@@ -64,7 +64,7 @@ export function RedeemCodeRow() {
   return (
     <SettingsRow
       label="Promo code"
-      description="Redeem a code for free credits or a discount"
+      description="Redeem a promo code for credits or a discount"
       control={
         <form onSubmit={handleRedeem} className="flex w-full items-center gap-2 sm:w-auto">
           <input

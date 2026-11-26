@@ -6,7 +6,6 @@ import { ArrowUpRight } from "lucide-react";
 import { VerifiedBadge } from "@/components/landing/VerifiedBadge";
 import { BendIllustration, FormulaIllustration, NicheIllustration } from "@/components/landing/ProcessIllustrations";
 import { BUTTON_3D_MOTION, button3d } from "@/components/landing/button3d";
-import { APP_URL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const TRUST_AVATARS = [
@@ -155,11 +154,11 @@ export function VerlabProcess() {
 
         <div className="mt-8 flex flex-col items-center text-center sm:mt-10">
           <a
-            href={APP_URL}
+            href="/pricing"
             className={cn("inline-flex items-center justify-center gap-2 rounded-2xl px-11 py-3.5 text-lg font-bold text-white sm:px-14 sm:py-4", BUTTON_3D_MOTION)}
             style={button3d(4)}
           >
-            Try Verlab Now
+            Get Started
             <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </a>
 
