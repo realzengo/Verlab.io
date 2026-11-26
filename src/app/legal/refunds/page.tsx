@@ -1,106 +1,179 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CreditCard, RefreshCw, XCircle } from "lucide-react";
+import { CalendarCheck, RefreshCw, RotateCcw } from "lucide-react";
 import { LegalPageLayout, type LegalSection } from "@/components/legal/LegalPageLayout";
+import { LEGAL_LAST_UPDATED } from "@/components/legal/legalDocs";
 import { LEGAL_LINK, LEGAL_LIST, LegalSubheading } from "@/components/legal/prose";
-import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO } from "@/lib/constants";
+import { CANCEL_BUTTON_LABEL, CANCEL_CONFIRM_LABEL } from "@/lib/cancellation";
+import { APP_URL, CONTACT_EMAIL, CONTACT_MAILTO, OPERATOR_STATEMENT } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Refund Policy, Verlab AI",
-  description: "Verlab's refund and cancellation policy: how billing works, how to cancel, and what happens to your data.",
+  title: "Refund Policy | Verlab",
+  description:
+    "Full refunds within 14 days of any Verlab payment, how to cancel your subscription at any time, and what happens to your plan and data afterwards.",
 };
+
+const Email = () => (
+  <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
+    {CONTACT_EMAIL}
+  </a>
+);
 
 const SECTIONS: LegalSection[] = [
   {
-    id: "no-refunds",
-    title: "No refunds",
+    id: "who-we-are",
+    title: "Who we are",
     body: (
       <>
-        <ul className={LEGAL_LIST}>
-          <li>All sales are final. We do not offer refunds for any subscription, credits, or add-on once a payment has been successfully processed.</li>
-          <li>By subscribing to Verlab, you acknowledge and agree that you have read, understood, and accepted this no-refund policy.</li>
-          <li>No exceptions are made to this policy, including for unused credits, partial-month usage, accidental purchases, or a change of mind.</li>
-        </ul>
+        <p>{OPERATOR_STATEMENT}</p>
         <p>
-          We encourage you to use the free tier or review our{" "}
-          <Link href="/pricing" className={LEGAL_LINK}>
-            plan details
-          </Link>{" "}
-          carefully before upgrading, since every plan is billed in advance and is non-refundable.
+          This policy explains when you can get your money back and how to cancel a Verlab subscription. Questions
+          about it go to <Email />.
         </p>
       </>
     ),
   },
   {
-    id: "cancellation-policy",
-    title: "Cancellation policy",
+    id: "refunds",
+    title: "14-day refunds",
     body: (
       <>
-        <LegalSubheading n="2.1">Eligibility</LegalSubheading>
-        <p>All subscribers may cancel at any time, for any reason, with no approval required from Verlab.</p>
-
-        <LegalSubheading n="2.2">Cancellation process</LegalSubheading>
-        <p>To cancel your subscription:</p>
-        <ul className={LEGAL_LIST}>
-          <li>
-            Go to{" "}
-            <Link href={`${APP_URL}/settings/subscription`} className={LEGAL_LINK}>
-              app.verlab.io/settings/subscription
-            </Link>
-          </li>
-          <li>Open the <strong className="text-heading">Subscription</strong> tab in your account settings</li>
-          <li>Press <strong className="text-heading">&quot;Cancel subscription&quot;</strong></li>
-          <li>Confirm the cancellation when prompted</li>
-        </ul>
-
-        <LegalSubheading n="2.3">Service continuation</LegalSubheading>
         <p>
-          Once cancelled, your plan remains active until the end of your current billing cycle. You will keep full
-          access to your plan&apos;s features until that date.
+          You can ask for a full refund within 14 days of any payment you make to Verlab. That covers your first
+          subscription payment, every renewal (monthly or yearly), and credit top-ups. The 14 days start on the day
+          the payment is taken.
         </p>
-
-        <LegalSubheading n="2.4">No additional charges</LegalSubheading>
-        <p>No further payments will be collected once your cancellation has been processed.</p>
-
-        <LegalSubheading n="2.5">Data retention</LegalSubheading>
+        <p>You don&apos;t need to give a reason.</p>
+      </>
+    ),
+  },
+  {
+    id: "requesting-a-refund",
+    title: "How to request a refund",
+    body: (
+      <>
         <p>
-          We generally retain your account data in case you choose to reactivate. Verlab reserves the right to delete
-          data associated with a cancelled account after a reasonable retention period. If you would like your data
-          removed sooner, contact us using the details below and we will act in accordance with applicable privacy
-          laws and our{" "}
-          <Link href="/legal/privacy" className={LEGAL_LINK}>
-            Privacy Policy
-          </Link>
-          .
+          Email <Email /> and include:
+        </p>
+        <ul className={LEGAL_LIST}>
+          <li>the email address you use to sign in to Verlab, and</li>
+          <li>the date of the payment you want refunded.</li>
+        </ul>
+        <p>
+          We reply within 24 hours. Approved refunds are sent back to the payment method you originally paid with,
+          through our payment provider. How quickly the money shows up after that depends on your bank or card issuer.
         </p>
       </>
     ),
   },
   {
-    id: "contact",
-    title: "Contact information",
-    body: (
-      <>
-        <p>For any questions or concerns regarding this Refund Policy, please contact us:</p>
-        <ul className={LEGAL_LIST}>
-          <li>
-            Email:{" "}
-            <a href={CONTACT_MAILTO} className={LEGAL_LINK}>
-              {CONTACT_EMAIL}
-            </a>
-          </li>
-        </ul>
-      </>
-    ),
-  },
-  {
-    id: "amendments",
-    title: "Amendments",
+    id: "credits",
+    title: "Credits and refunds",
     body: (
       <ul className={LEGAL_LIST}>
-        <li>Verlab reserves the right to modify this Policy at any time, effective upon posting of an updated version on our website.</li>
-        <li>You are responsible for periodically reviewing this Policy. The &quot;Last updated&quot; date above indicates when it was last revised.</li>
+        <li>When a payment is refunded, we may remove the credits that payment added from your balance.</li>
+        <li>Unused credits stay in your balance. You can spend them while you have an active plan.</li>
+        <li>Credits have no cash value and are never paid out or exchanged for money.</li>
       </ul>
+    ),
+  },
+  {
+    id: "fair-use",
+    title: "Fair use",
+    body: (
+      <>
+        <p>
+          We may refuse a refund where there is clear abuse of this policy. For example:
+        </p>
+        <ul className={LEGAL_LIST}>
+          <li>spending a large part of a payment&apos;s credits and then asking for that payment back, or</li>
+          <li>asking for refunds again and again, such as repeatedly subscribing, refunding and subscribing again.</li>
+        </ul>
+        <p>If we refuse a refund, we&apos;ll tell you why. You can still cancel at any time.</p>
+      </>
+    ),
+  },
+  {
+    id: "cancelling",
+    title: "How to cancel",
+    body: (
+      <>
+        <p>You can cancel at any time. You don&apos;t need to give a reason, and nobody has to approve it.</p>
+        <ol className="list-decimal space-y-2 pl-5 marker:text-subtle">
+          <li>
+            Sign in at{" "}
+            <Link href={APP_URL} className={LEGAL_LINK}>
+              app.verlab.io
+            </Link>
+            .
+          </li>
+          <li>Click your profile picture and name in the top-right corner.</li>
+          <li>
+            Choose <strong className="text-heading">Settings</strong>.
+          </li>
+          <li>
+            Open the <strong className="text-heading">Subscription</strong> tab.
+          </li>
+          <li>
+            Click <strong className="text-heading">{CANCEL_BUTTON_LABEL}</strong>.
+          </li>
+          <li>
+            Click <strong className="text-heading">{CANCEL_CONFIRM_LABEL}</strong> to confirm.
+          </li>
+        </ol>
+        <p>
+          If you can&apos;t sign in, email <Email /> from your account&apos;s email address and we&apos;ll cancel it
+          for you.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "after-cancelling",
+    title: "What happens after you cancel",
+    body: (
+      <ul className={LEGAL_LIST}>
+        <li>
+          Your plan stays active, with full access, until the end of the period you&apos;ve already paid for (the
+          month or the year).
+        </li>
+        <li>Your subscription won&apos;t renew, and no further payments are taken.</li>
+        <li>
+          Cancelling doesn&apos;t refund the current period by itself. If you&apos;re within 14 days of the payment
+          and want your money back, request a refund as described above.
+        </li>
+      </ul>
+    ),
+  },
+  {
+    id: "your-data",
+    title: "Your data after cancelling",
+    body: (
+      <>
+        <p>
+          We keep your account and your work after you cancel, so everything is still there if you come back.
+        </p>
+        <LegalSubheading>Deleting your data</LegalSubheading>
+        <p>
+          You can delete your account and its data yourself at any time from Settings → Account → Delete account, or
+          ask us to do it by emailing <Email />. See our{" "}
+          <Link href="/legal/privacy" className={LEGAL_LINK}>
+            Privacy Policy
+          </Link>{" "}
+          for more on how we handle your data.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "changes",
+    title: "Changes to this policy",
+    body: (
+      <p>
+        We may update this policy from time to time. When we do, we change the &quot;Last updated&quot; date at the
+        top of this page. Changes apply to payments made after the new version is posted. A refund request is
+        handled under the version that was in place when you made the payment.
+      </p>
     ),
   },
   {
@@ -108,17 +181,26 @@ const SECTIONS: LegalSection[] = [
     title: "Governing law",
     body: (
       <p>
-        This Policy is governed by and construed in accordance with the laws of the jurisdiction in which Verlab is
-        registered, without regard to its conflict of law provisions.
+        This policy is governed by the laws of Morocco. Nothing in it takes away rights you have under the consumer
+        protection laws of the country where you live.
+      </p>
+    ),
+  },
+  {
+    id: "contact",
+    title: "Contact",
+    body: (
+      <p>
+        Refunds, cancellations and any question about this policy: <Email />. We reply within 24 hours.
       </p>
     ),
   },
 ];
 
 const HIGHLIGHTS = [
-  { icon: XCircle, text: "All sales are final, with no exceptions" },
-  { icon: RefreshCw, text: "Cancel anytime, no questions asked" },
-  { icon: CreditCard, text: "No further charges once you've cancelled" },
+  { icon: RotateCcw, text: "Full refund within 14 days of any payment" },
+  { icon: RefreshCw, text: "Cancel anytime from Settings, no reason needed" },
+  { icon: CalendarCheck, text: "Keep full access until the end of your paid period" },
 ];
 
 export default function RefundPolicyPage() {
@@ -126,9 +208,9 @@ export default function RefundPolicyPage() {
     <LegalPageLayout
       activeHref="/legal/refunds"
       title="Refund Policy"
-      description="Billing, cancellation, and our no-refund policy, explained plainly"
-      effectiveDate="July 16, 2026"
-      updatedDate="July 16, 2026"
+      description="Refunds, cancellation, and what happens afterwards"
+      effectiveDate={LEGAL_LAST_UPDATED}
+      updatedDate={LEGAL_LAST_UPDATED}
       highlights={HIGHLIGHTS}
       sections={SECTIONS}
     />

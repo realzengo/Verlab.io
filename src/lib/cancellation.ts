@@ -21,3 +21,8 @@ export function isCancellationReason(value: unknown): value is CancellationReaso
 }
 
 export const RETENTION_OFFER_FREE_DAYS = 7;
+
+// The in-app cancel flow's labels, quoted word for word in the Refund
+// Policy's cancellation steps -- one definition so the two can't drift.
+export const CANCEL_BUTTON_LABEL = "Cancel subscription";
+export const CANCEL_CONFIRM_LABEL = "Yes, cancel subscription";

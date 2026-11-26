@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { submitCancellation, isCancellationReason, NoActiveSubscriptionError } from "@/lib/server/cancellation";
+import type { CancellationReason } from "@/lib/cancellation";
 
 /**
  * Finalizes an in-app cancellation (Settings > Subscription > Cancel
- * subscription) after the exit-survey flow. Schedules the Whop membership
- * to cancel at the end of the current billing period -- access is kept
- * through the period already paid for, same as canceling from Whop's own
- * hosted portal.
+ * subscription > "Yes, cancel subscription"). Schedules the membership to
+ * cancel at the end of the current billing period -- access is kept through
+ * the period already paid for, and no further payment is taken.
+ *
+ * A reason is optional: cancelling must never depend on answering a survey.
+ * An unanswered survey is stored as "other" with a "Not given" detail,
+ * since cancellation_feedback.reason is NOT NULL.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -19,21 +23,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  let body: { reason?: string; reasonDetail?: string; additionalFeedback?: string; offerShown?: boolean };
+  let body: { reason?: string; reasonDetail?: string; additionalFeedback?: string; offerShown?: boolean } = {};
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    // An empty body is fine -- every field is optional.
   }
 
-  if (!isCancellationReason(body.reason)) {
+  if (body.reason !== undefined && body.reason !== null && body.reason !== "" && !isCancellationReason(body.reason)) {
     return NextResponse.json({ error: "Invalid reason" }, { status: 400 });
   }
+  const reason: CancellationReason | null = isCancellationReason(body.reason) ? body.reason : null;
 
   try {
     const result = await submitCancellation(user.id, {
-      reason: body.reason,
-      reasonDetail: body.reasonDetail,
+      reason: reason ?? "other",
+      reasonDetail: reason ? body.reasonDetail : "Not given",
       additionalFeedback: body.additionalFeedback,
       offerShown: body.offerShown === true,
     });

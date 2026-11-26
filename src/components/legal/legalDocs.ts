@@ -1,5 +1,8 @@
 import { FileText, RefreshCw, ShieldCheck, type LucideIcon } from "lucide-react";
 
+/** The date every legal document was last revised, shown as "Last updated". */
+export const LEGAL_LAST_UPDATED = "November 26, 2026";
+
 export type LegalDoc = {
   href: string;
   label: string;
@@ -24,6 +27,6 @@ export const LEGAL_DOCS: LegalDoc[] = [
     href: "/legal/refunds",
     label: "Refund Policy",
     icon: RefreshCw,
-    description: "Billing, cancellation, and our no-refund policy",
+    description: "14-day refunds, cancelling, and what happens after",
   },
 ];
