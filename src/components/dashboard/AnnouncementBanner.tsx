@@ -137,15 +137,17 @@ function AnnouncementSlot({ announcements }: { announcements: Announcement[] }) 
   );
 }
 
-// Verlab's dark announcement bar: near-black, a Verlab-blue glow drifting
-// behind the text, a spaced uppercase label with a light sweep through it,
-// the message, a live countdown when the announcement has an end date, and a
-// bright blue hairline travelling along the bottom. The animations live in
-// globals.css (.announce-*) and stop for prefers-reduced-motion. Same in
+// Verlab's announcement bar, blue and white: the brand blue (the 3D button
+// face, landing/button3d.ts) with a soft light glow drifting across it, a
+// spaced uppercase label with a white sweep through it, the message, a live
+// countdown in a white chip when the announcement has an end date, and a
+// white hairline with light travelling along the bottom. The animations live
+// in globals.css (.announce-*) and stop for prefers-reduced-motion. Same in
 // light and dark mode.
-const GLOW = "radial-gradient(50% 160% at 50% 50%, rgba(51, 92, 255, 0.85) 0%, rgba(51, 92, 255, 0.35) 45%, rgba(51, 92, 255, 0) 78%)";
-const LABEL_SWEEP = "linear-gradient(90deg, #9fb6ff 0%, #9fb6ff 35%, #ffffff 50%, #9fb6ff 65%, #9fb6ff 100%)";
-const HAIRLINE = "linear-gradient(90deg, rgba(77, 118, 255, 0.15) 0%, #4d76ff 30%, #c9d7ff 50%, #4d76ff 70%, rgba(77, 118, 255, 0.15) 100%)";
+const BAR = "linear-gradient(90deg, #2448e8 0%, #335cff 50%, #2448e8 100%)";
+const GLOW = "radial-gradient(50% 160% at 50% 50%, rgba(182, 202, 255, 0.7) 0%, rgba(115, 154, 255, 0.35) 45%, rgba(115, 154, 255, 0) 78%)";
+const LABEL_SWEEP = "linear-gradient(90deg, #c7d6ff 0%, #c7d6ff 35%, #ffffff 50%, #c7d6ff 65%, #c7d6ff 100%)";
+const HAIRLINE = "linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.45) 30%, #ffffff 50%, rgba(255, 255, 255, 0.45) 70%, rgba(255, 255, 255, 0.1) 100%)";
 
 /** "4d 04:51:46" / "04:51:46" until `expiresAt`; null with no end date or once it has passed. */
 export function formatCountdown(msLeft: number): string | null {
@@ -184,7 +186,8 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
   return (
     <aside
       aria-label={isPromo ? "Offer" : "Product update"}
-      className="relative isolate w-full overflow-hidden bg-[#07080d] text-white"
+      className="relative isolate w-full overflow-hidden text-white"
+      style={{ backgroundColor: "#335cff", backgroundImage: BAR }}
     >
       {/* The drifting glow, wider than the bar so its edges never show. */}
       <div
@@ -203,7 +206,7 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
         <span className="text-[13px] font-medium leading-5 text-white sm:text-[14px]">{announcement.message}</span>
         {countdown && (
           <span
-            className="rounded-md bg-white/[0.08] px-1.5 py-0.5 font-mono text-[12.5px] font-semibold tabular-nums tracking-tight text-white ring-1 ring-inset ring-white/10 sm:text-[13.5px]"
+            className="rounded-md bg-white px-1.5 py-0.5 font-mono text-[12.5px] font-bold tabular-nums tracking-tight text-[#2448e8] sm:text-[13.5px]"
             aria-label={`Ends in ${countdown}`}
           >
             {countdown}
@@ -212,7 +215,7 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
         {href && (
           <CtaLink
             href={href}
-            className="group inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-medium text-white/75 transition-colors hover:text-white sm:text-[14px]"
+            className="group inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold text-white underline decoration-white/40 underline-offset-[3px] transition-colors hover:decoration-white sm:text-[14px]"
           >
             {label}
             <ArrowRight
@@ -235,7 +238,7 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss announcement"
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-3"
+          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:right-3"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
