@@ -137,6 +137,11 @@ function AnnouncementSlot({ announcements }: { announcements: Announcement[] }) 
   );
 }
 
+// Verlab blue, the same face as the brand's 3D buttons (landing/button3d.ts)
+// laid out flat across the full width: deeper at the edges, lighter in the
+// middle, with a darker hairline underneath. Same in light and dark mode.
+const BAR_BACKGROUND = "linear-gradient(90deg, #2f56f5 0%, #4d76ff 50%, #2f56f5 100%)";
+
 /** The bar itself, without any state. Also the admin page's preview. */
 export function AnnouncementBar({ announcement, onDismiss }: { announcement: Announcement; onDismiss?: () => void }) {
   const isPromo = announcement.kind === "promo";
@@ -146,25 +151,18 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
   return (
     <aside
       aria-label={isPromo ? "Offer" : "Product update"}
-      className={cn(
-        "relative border-b px-10 py-2 text-center text-[13px] leading-5 sm:px-12",
-        isPromo ? "border-accent-line bg-accent" : "border-hairline bg-surface"
-      )}
+      className="relative w-full border-b border-[#1a35b8] px-10 py-2.5 text-center text-[13px] leading-5 text-white sm:px-12 sm:text-[14px]"
+      style={{ backgroundColor: "#335cff", backgroundImage: BAR_BACKGROUND }}
     >
-      <p className="text-body">
-        <span
-          className={cn(
-            "mr-2 inline-flex h-[18px] -translate-y-px items-center rounded-full px-1.5 align-middle text-[10.5px] font-semibold uppercase tracking-[0.04em]",
-            isPromo ? "bg-btn-primary text-white" : "bg-primary/10 text-primary"
-          )}
-        >
+      <p>
+        <span className="mr-2 inline-flex h-[18px] -translate-y-px items-center rounded-full bg-white px-1.5 align-middle text-[10.5px] font-bold uppercase tracking-[0.04em] text-[#2f56f5]">
           {isPromo ? "Offer" : "New"}
         </span>
-        <span className="font-medium text-heading">{announcement.message}</span>
+        <span className="font-medium text-white">{announcement.message}</span>
         {href && (
           <CtaLink
             href={href}
-            className="group ml-2 inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-primary transition-colors hover:text-primary-hover"
+            className="group ml-2 inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-white underline decoration-white/40 underline-offset-[3px] transition-colors hover:decoration-white"
           >
             {label}
             <ArrowRight
@@ -179,7 +177,7 @@ export function AnnouncementBar({ announcement, onDismiss }: { announcement: Ann
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss announcement"
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-subtle transition-colors hover:bg-black/[0.05] hover:text-heading focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:hover:bg-white/[0.08] sm:right-3"
+          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:right-3"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

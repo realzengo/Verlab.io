@@ -43,9 +43,6 @@ export function AppShell({
 
   const topBarAndMain = (
     <>
-      {/* In the page flow, above the top bar: it pushes content down rather
-          than covering it, and scrolls away with the page. */}
-      <AnnouncementBanner announcements={announcements} />
       <TopBar onMenuClick={() => setMobileNavOpen(true)} heading={isPaywalled ? "Pricing" : undefined} isPaywalled={isPaywalled} />
       <main className="flex-1 px-4 pb-8 sm:px-6 sm:pb-12 md:px-8">{children}</main>
     </>
@@ -65,7 +62,12 @@ export function AppShell({
       <SidebarCollapsedProvider>
         <NicheSidebarProvider>
           {/* `app-theme` turns on the sidebar's fill tokens (globals.css). */}
-          <div className="app-theme flex min-h-screen w-full bg-(--app-canvas)">
+          <div className="app-theme flex min-h-screen w-full flex-col bg-(--app-canvas)">
+            {/* Full width, above the sidebar and the page: it pushes everything
+                down rather than covering it, and scrolls away with the page
+                (the desktop sidebar is sticky, so it then fills the screen). */}
+            <AnnouncementBanner announcements={announcements} />
+            <div className="flex w-full flex-1">
             <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} isAdmin={isAdmin} />
 
             {showBackdrop && (
@@ -80,6 +82,7 @@ export function AppShell({
             )}
 
             <AuroraBackground className="flex min-w-0 flex-1 flex-col">{topBarAndMain}</AuroraBackground>
+            </div>
           </div>
         </NicheSidebarProvider>
       </SidebarCollapsedProvider>
