@@ -77,28 +77,13 @@ export const RailWizardIcon = railIcon(
   </g>
 );
 
-// Twelve thin rays around a solid centre, for the clapper's spark.
-const SPARK = { cx: 16.25, cy: 17.9, inner: 1.4, outer: 4.9 };
-const SPARK_RAYS = Array.from({ length: 12 }, (_, i) => {
-  const a = (i * Math.PI) / 6;
-  const point = (r: number) =>
-    `${(SPARK.cx + r * Math.cos(a)).toFixed(2)} ${(SPARK.cy + r * Math.sin(a)).toFixed(2)}`;
-  return `M${point(SPARK.inner)}L${point(SPARK.outer)}`;
-}).join("");
-
-// Clapperboard whose body opens at the bottom right for an orange spark --
-// the one coloured mark in the rail, same in both themes.
+// Clapperboard with the clapper raised over a closed body.
 export const RailClipIcon = railIcon(
   "RailClipIcon",
   <>
     <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z" />
     <path d="m6.2 5.3 3.1 3.9" />
     <path d="m12.4 3.4 3.1 4" />
-    <path d="M3 11h18" />
-    <path d="M3 11v8a2 2 0 0 0 2 2h5" />
-    <g stroke="#cc7c5e" strokeWidth={1.1}>
-      <path d={SPARK_RAYS} />
-      <circle cx={SPARK.cx} cy={SPARK.cy} r={1.5} fill="#cc7c5e" stroke="none" />
-    </g>
+    <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
   </>
 );
